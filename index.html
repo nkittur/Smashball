@@ -62,6 +62,22 @@
             text-align: center;
             pointer-events: none;
         }
+
+        #debugInfo {
+            position: absolute;
+            top: 80px;
+            right: 10px;
+            color: #0f0;
+            font-family: 'Courier New', monospace;
+            font-size: 11px;
+            text-align: left;
+            pointer-events: none;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 8px;
+            border-radius: 4px;
+            max-width: 300px;
+            white-space: pre-wrap;
+        }
     </style>
 </head>
 <body>
@@ -71,6 +87,7 @@
         <div id="message">Drag from knight to throw</div>
     </div>
     <div id="instructions">⬇ DRAG BACK TO AIM ⬆</div>
+    <div id="debugInfo"></div>
 
     <script src="https://cdn.babylonjs.com/babylon.js"></script>
     <script src="https://cdn.babylonjs.com/gui/babylon.gui.min.js"></script>
@@ -117,7 +134,8 @@
 
         // Feature flags
         const FEATURE_FLAGS = {
-            showDefenderZones: false  // Show defender zone rings and fills
+            showDefenderZones: false,  // Show defender zone rings and fills
+            showDebugInfo: true        // Show on-screen debug info for coverage/catch factors
         };
 
         // Constants
@@ -1060,6 +1078,9 @@
 
                     // Update zone visuals based on proximity
                     updateZoneProximity();
+
+                    // Update debug display
+                    updateDebugInfo();
                 }
 
                 // Check if ball has landed
@@ -1155,6 +1176,7 @@
 
             // Find closest defender and apply proximity penalty
             let defenderProximityPenalty = 0;
+            let defenderDetails = [];
             gameState.defenders.forEach(defender => {
                 if (defender.knockdownUntil > gameState.gameTime) return;
 
@@ -1167,7 +1189,9 @@
                     const coverageStat = defender.aiType === 'zone' ?
                         defender.stats.zoneCoverage : defender.stats.manCoverage;
                     const proximityFactor = 1 - (dist / CLASH_CONSTANTS.CLASH_RANGE);
-                    defenderProximityPenalty += proximityFactor * coverageStat * 0.2;
+                    const penalty = proximityFactor * coverageStat * 0.2;
+                    defenderProximityPenalty += penalty;
+                    defenderDetails.push({ name: defender.name, dist: dist.toFixed(2), penalty: penalty.toFixed(1) });
                 }
             });
 
@@ -1175,6 +1199,19 @@
             const finalProbability = Math.max(5, Math.min(95,
                 baseCatch + separationMod + focusMod - defenderProximityPenalty
             ));
+
+            // Debug logging for catch calculations
+            console.log(`[CATCH CALC] ${receiver.name}:`);
+            console.log(`  Base catch (stat): ${baseCatch}`);
+            console.log(`  Separation state: ${receiver.separationState} (mod: ${separationMod >= 0 ? '+' : ''}${separationMod})`);
+            console.log(`  Focus mod: ${focusMod >= 0 ? '+' : ''}${focusMod.toFixed(1)}`);
+            console.log(`  Defender proximity penalty: -${defenderProximityPenalty.toFixed(1)}`);
+            if (defenderDetails.length > 0) {
+                defenderDetails.forEach(d => {
+                    console.log(`    - ${d.name}: dist=${d.dist}, penalty=-${d.penalty}`);
+                });
+            }
+            console.log(`  FINAL: ${finalProbability.toFixed(1)}%`);
 
             return finalProbability;
         };
@@ -1282,6 +1319,55 @@
             document.getElementById('message').textContent = msg;
         };
 
+        // Update debug info display
+        const updateDebugInfo = () => {
+            if (!FEATURE_FLAGS.showDebugInfo) {
+                document.getElementById('debugInfo').style.display = 'none';
+                return;
+            }
+            document.getElementById('debugInfo').style.display = 'block';
+
+            let debugText = '=== RECEIVER STATUS ===\n';
+
+            gameState.receivers.forEach((receiver, i) => {
+                // Find closest defender
+                let closestDef = null;
+                let closestDist = Infinity;
+                gameState.defenders.forEach(def => {
+                    const dx = def.position.x - receiver.position.x;
+                    const dz = def.position.z - receiver.position.z;
+                    const dist = Math.sqrt(dx * dx + dz * dz);
+                    if (dist < closestDist) {
+                        closestDist = dist;
+                        closestDef = def;
+                    }
+                });
+
+                const timeSinceClash = (gameState.gameTime - receiver.lastClashTime).toFixed(1);
+                const speedMod = (receiver.speed / receiver.baseSpeed * 100).toFixed(0);
+
+                debugText += `\n${receiver.displayName}:\n`;
+                debugText += `  State: ${receiver.separationState.toUpperCase()}\n`;
+                debugText += `  Speed: ${speedMod}% of base\n`;
+                debugText += `  Last clash: ${timeSinceClash}s ago\n`;
+
+                if (closestDef) {
+                    debugText += `  Nearest def: ${closestDef.displayName}\n`;
+                    debugText += `  Def dist: ${closestDist.toFixed(1)} (range: ${CLASH_CONSTANTS.CLASH_RANGE})\n`;
+                    debugText += `  Coverage: ${(receiver.coverageAmount * 100).toFixed(0)}%\n`;
+
+                    // Explain why state might not match proximity
+                    if (receiver.separationState === 'open' && closestDist < CLASH_CONSTANTS.CLASH_RANGE) {
+                        debugText += `  ⚠ GREEN but def close!\n`;
+                        debugText += `    (state from last clash,\n`;
+                        debugText += `     catch % will be reduced)\n`;
+                    }
+                }
+            });
+
+            document.getElementById('debugInfo').textContent = debugText;
+        };
+
         // Input Handling
         const setupInput = (scene) => {
             const getPointerPosition = (evt) => {
@@ -1301,7 +1387,6 @@
                 gameState.isDragging = true;
                 gameState.dragStart = pos;
                 gameState.dragCurrent = pos;
-                console.log('Drag started at:', pos);
             };
 
             const onPointerMove = (evt) => {
@@ -1323,13 +1408,7 @@
                     gameState.dragCurrent = endPos;
                 }
 
-                console.log('Drag ended. Start:', gameState.dragStart, 'End:', gameState.dragCurrent);
-
                 if (gameState.dragStart && gameState.dragCurrent) {
-                    const dx = gameState.dragStart.x - gameState.dragCurrent.x;
-                    const dy = gameState.dragStart.y - gameState.dragCurrent.y;
-                    const dist = Math.sqrt(dx * dx + dy * dy);
-                    console.log('Drag distance:', dist, 'Throw distance:', dist * DRAG_SENSITIVITY);
                     throwFootball(scene);
                 }
 
@@ -1347,8 +1426,6 @@
             canvas.addEventListener('pointermove', onPointerMove);
             canvas.addEventListener('pointerup', onPointerUp);
             canvas.addEventListener('pointerleave', onPointerUp);
-
-            console.log('Input handlers attached to canvas');
         };
 
         // Idle Animations
@@ -1429,6 +1506,9 @@
 
                     // Update zone visual fills based on proximity
                     updateZoneProximity();
+
+                    // Update debug display
+                    updateDebugInfo();
                 }
             });
         };
