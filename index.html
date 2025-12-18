@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Smashball - Medieval Football</title>
-    <!-- v2 -->
+    <!-- v3 -->
     <style>
         * {
             margin: 0;
@@ -112,8 +112,7 @@
                 new BABYLON.Vector3(0, 0, 4),  // Target further up field
                 scene
             );
-            camera.attachControl(canvas, false);
-            camera.inputs.clear(); // Disable camera controls
+            // Don't attach camera controls - we handle input ourselves
 
             // Lighting
             const light = new BABYLON.HemisphericLight(
@@ -602,21 +601,7 @@
         const setupInput = (scene) => {
             const getPointerPosition = (evt) => {
                 const rect = canvas.getBoundingClientRect();
-                // Handle touch events
-                if (evt.touches && evt.touches.length > 0) {
-                    return {
-                        x: evt.touches[0].clientX - rect.left,
-                        y: evt.touches[0].clientY - rect.top
-                    };
-                }
-                // Handle touchend (uses changedTouches)
-                if (evt.changedTouches && evt.changedTouches.length > 0) {
-                    return {
-                        x: evt.changedTouches[0].clientX - rect.left,
-                        y: evt.changedTouches[0].clientY - rect.top
-                    };
-                }
-                // Handle mouse events
+                // Pointer events have clientX/clientY directly
                 return {
                     x: evt.clientX - rect.left,
                     y: evt.clientY - rect.top
@@ -669,15 +654,13 @@
                 scene.trajectoryLine.setEnabled(false);
             };
 
-            canvas.addEventListener('mousedown', onPointerDown);
-            canvas.addEventListener('mousemove', onPointerMove);
-            canvas.addEventListener('mouseup', onPointerUp);
-            canvas.addEventListener('mouseleave', onPointerUp);
+            // Use pointer events for unified mouse/touch handling
+            canvas.addEventListener('pointerdown', onPointerDown);
+            canvas.addEventListener('pointermove', onPointerMove);
+            canvas.addEventListener('pointerup', onPointerUp);
+            canvas.addEventListener('pointerleave', onPointerUp);
 
-            canvas.addEventListener('touchstart', onPointerDown, { passive: false });
-            canvas.addEventListener('touchmove', onPointerMove, { passive: false });
-            canvas.addEventListener('touchend', onPointerUp, { passive: false });
-            canvas.addEventListener('touchcancel', onPointerUp, { passive: false });
+            console.log('Input handlers attached to canvas');
         };
 
         // Idle Animations
