@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Smashball - Medieval Football</title>
-    <!-- v3 -->
+    <!-- v4 -->
     <style>
         * {
             margin: 0;
@@ -160,14 +160,10 @@
             const football = createFootball(scene, materials);
             football.setEnabled(false);
 
-            // Create Trajectory Line
-            const trajectoryLine = createTrajectoryLine(scene);
-            trajectoryLine.setEnabled(false);
-
             // Store references
             scene.qb = qb;
             scene.football = football;
-            scene.trajectoryLine = trajectoryLine;
+            scene.trajectoryLine = null;  // Created dynamically during drag
             scene.materials = materials;
 
             return scene;
@@ -369,25 +365,6 @@
             return football;
         };
 
-        // Create Trajectory Line
-        const createTrajectoryLine = (scene) => {
-            const points = [];
-            for (let i = 0; i <= 20; i++) {
-                points.push(new BABYLON.Vector3(0, 0, i));
-            }
-
-            const trajectoryLine = BABYLON.MeshBuilder.CreateTube('trajectory', {
-                path: points,
-                radius: 0.05,
-                tessellation: 8,
-                updatable: true
-            }, scene);
-
-            trajectoryLine.material = scene.materials?.trajectoryMaterial;
-
-            return trajectoryLine;
-        };
-
         // Calculate Throw Parameters
         const calculateThrow = (dragStart, dragCurrent) => {
             const dx = dragStart.x - dragCurrent.x;
@@ -398,7 +375,8 @@
             const throwDistance = Math.min(Math.max(dragDistance, MIN_THROW_DISTANCE), MAX_THROW_DISTANCE);
 
             // Direction is opposite of drag
-            const angle = Math.atan2(dx, dy);
+            // Negate dy because screen Y is inverted (down = positive) vs world Z (up = positive)
+            const angle = Math.atan2(dx, -dy);
 
             return {
                 distance: throwDistance,
@@ -434,8 +412,13 @@
 
         // Update Trajectory Visualization
         const updateTrajectory = (scene) => {
+            // Dispose old trajectory
+            if (scene.trajectoryLine) {
+                scene.trajectoryLine.dispose();
+                scene.trajectoryLine = null;
+            }
+
             if (!gameState.isDragging || !gameState.dragStart || !gameState.dragCurrent) {
-                scene.trajectoryLine.setEnabled(false);
                 return;
             }
 
@@ -443,7 +426,6 @@
 
             // Only show if drag is significant
             if (throwParams.distance < MIN_THROW_DISTANCE) {
-                scene.trajectoryLine.setEnabled(false);
                 return;
             }
 
@@ -451,14 +433,13 @@
             startPos.y = 1;
             const path = generatePath(startPos, throwParams);
 
-            // Update trajectory tube
+            // Create new trajectory tube
             scene.trajectoryLine = BABYLON.MeshBuilder.CreateTube('trajectory', {
                 path: path,
-                radius: 0.04,
-                tessellation: 6,
-                instance: scene.trajectoryLine
-            });
-            scene.trajectoryLine.setEnabled(true);
+                radius: 0.06,
+                tessellation: 8
+            }, scene);
+            scene.trajectoryLine.material = scene.materials.trajectoryMaterial;
         };
 
         // Throw Football Animation
@@ -571,7 +552,10 @@
         // Reset Play
         const resetPlay = (scene) => {
             scene.football.setEnabled(false);
-            scene.trajectoryLine.setEnabled(false);
+            if (scene.trajectoryLine) {
+                scene.trajectoryLine.dispose();
+                scene.trajectoryLine = null;
+            }
             gameState.ballInFlight = false;
 
             // Reset receiver positions
@@ -651,7 +635,10 @@
                 gameState.isDragging = false;
                 gameState.dragStart = null;
                 gameState.dragCurrent = null;
-                scene.trajectoryLine.setEnabled(false);
+                if (scene.trajectoryLine) {
+                    scene.trajectoryLine.dispose();
+                    scene.trajectoryLine = null;
+                }
             };
 
             // Use pointer events for unified mouse/touch handling
@@ -700,9 +687,6 @@
         const scene = createScene();
         setupInput(scene);
         setupIdleAnimations(scene);
-
-        // Apply trajectory material after scene creation
-        scene.trajectoryLine.material = scene.materials.trajectoryMaterial;
 
         engine.runRenderLoop(() => {
             scene.render();
