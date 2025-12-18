@@ -87,6 +87,7 @@
         <div id="message">Drag from knight to throw</div>
     </div>
     <div id="instructions">⬇ DRAG BACK TO AIM ⬆</div>
+    <button id="resetCamera" style="position:absolute;bottom:10px;right:10px;padding:8px 12px;background:#333;color:#fff;border:1px solid #666;border-radius:4px;cursor:pointer;font-size:12px;">Reset View</button>
     <div id="debugInfo"></div>
 
     <script src="https://cdn.babylonjs.com/babylon.js"></script>
@@ -163,12 +164,15 @@
                 new BABYLON.Vector3(0, 0, 2),  // Target moved down to show QB better
                 scene
             );
-            // Enable right-click rotation only (left-click is for throwing)
+            // Enable camera rotation: right-click on desktop, two-finger on mobile
             camera.attachControl(canvas, true);
-            camera.inputs.attached.pointers.buttons = [1];  // Only right mouse button
+            camera.inputs.attached.pointers.buttons = [1, 2];  // Right and middle mouse buttons
+            camera.inputs.attached.pointers.multiTouchPanAndZoom = true;  // Enable pinch zoom
             camera.panningSensibility = 0;  // Disable panning
             camera.lowerRadiusLimit = 15;   // Min zoom
             camera.upperRadiusLimit = 50;   // Max zoom
+            camera.lowerBetaLimit = 0.3;    // Don't go below ground
+            camera.upperBetaLimit = Math.PI / 2.2;  // Don't go too flat
 
             // Lighting
             const light = new BABYLON.HemisphericLight(
@@ -1430,17 +1434,22 @@
             };
 
             const onPointerDown = (evt) => {
+                // Only capture left-click (button 0) or single touch for throwing
+                // Let right-click (button 2) and multi-touch pass through to camera
+                if (evt.button !== 0 && evt.pointerType === 'mouse') return;
                 if (!gameState.canThrow || gameState.ballInFlight) return;
 
                 evt.preventDefault();
                 const pos = getPointerPosition(evt);
                 gameState.isDragging = true;
+                gameState.activePointerId = evt.pointerId;  // Track which pointer is dragging
                 gameState.dragStart = pos;
                 gameState.dragCurrent = pos;
             };
 
             const onPointerMove = (evt) => {
-                if (!gameState.isDragging) return;
+                // Only track the pointer that started the drag
+                if (!gameState.isDragging || evt.pointerId !== gameState.activePointerId) return;
 
                 evt.preventDefault();
                 gameState.dragCurrent = getPointerPosition(evt);
@@ -1448,9 +1457,11 @@
             };
 
             const onPointerUp = (evt) => {
-                if (!gameState.isDragging) return;
+                // Only respond to the pointer that started the drag
+                if (!gameState.isDragging || evt.pointerId !== gameState.activePointerId) return;
 
                 evt.preventDefault();
+                gameState.activePointerId = null;
 
                 // Update final position from the end event
                 const endPos = getPointerPosition(evt);
@@ -1831,6 +1842,14 @@
                 return { trigger: false, reason: 'knockdown' };
             }
 
+            // Cooldown - don't clash again too soon after a previous clash
+            const CLASH_COOLDOWN = 2.0;  // seconds between clashes
+            const timeSinceReceiverClash = currentTime - receiver.lastClashTime;
+            const timeSinceDefenderClash = currentTime - defender.lastClashTime;
+            if (timeSinceReceiverClash < CLASH_COOLDOWN || timeSinceDefenderClash < CLASH_COOLDOWN) {
+                return { trigger: false, reason: 'cooldown' };
+            }
+
             // Initial contact - first time zones overlap
             if (!receiver.hasHadInitialClash) {
                 return { trigger: true, reason: 'initial_contact' };
@@ -1965,6 +1984,14 @@
         const scene = createScene();
         setupInput(scene);
         setupIdleAnimations(scene);
+
+        // Camera reset button
+        document.getElementById('resetCamera').addEventListener('click', () => {
+            const camera = scene.activeCamera;
+            camera.alpha = -Math.PI / 2;
+            camera.beta = Math.PI / 3.5;
+            camera.radius = 32;
+        });
 
         engine.runRenderLoop(() => {
             scene.render();
