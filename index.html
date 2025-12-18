@@ -117,7 +117,6 @@
             KNOCKDOWN_RESISTANCE_GAIN: 0.15,  // Cumulative resistance per knockdown
             SEPARATION_SPEED_BOOST: 1.15,     // Speed multiplier when open
             COVERAGE_SPEED_PENALTY: 0.90,     // Speed multiplier when covered
-            TIME_BASED_CLASH_INTERVAL: 2.0    // Seconds between forced clashes
         };
 
         // Stat weights for clash resolution
@@ -1761,12 +1760,6 @@
             // Direction change (jink) - receiver changed route waypoint
             if (receiver.routeIndex !== receiver.lastRouteIndex) {
                 return { trigger: true, reason: 'direction_change' };
-            }
-
-            // Time-based - hasn't clashed in a while
-            const timeSinceLastClash = currentTime - Math.max(receiver.lastClashTime, defender.lastClashTime);
-            if (timeSinceLastClash >= CLASH_CONSTANTS.TIME_BASED_CLASH_INTERVAL) {
-                return { trigger: true, reason: 'time_based' };
             }
 
             return { trigger: false, reason: 'none' };
