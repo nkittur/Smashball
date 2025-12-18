@@ -293,22 +293,42 @@
                 receiver.hasHadInitialClash = false;
                 receiver.lastRouteIndex = 0;  // Track route changes for jink clashes
 
-                // Add catch zone indicator - flat on the ground
-                const catchZone = BABYLON.MeshBuilder.CreateTorus('catchZone_' + i, {
+                // Add catch zone indicator - ring outline + fill disc
+                // Ring (outer indicator)
+                const zoneRing = BABYLON.MeshBuilder.CreateTorus('zoneRing_' + i, {
                     diameter: 2.4,
-                    thickness: 0.08,
-                    tessellation: 24
+                    thickness: 0.1,
+                    tessellation: 32
                 }, scene);
-                const zoneMat = new BABYLON.StandardMaterial('zoneMat_' + i, scene);
-                zoneMat.diffuseColor = new BABYLON.Color3(1.0, 0.8, 0.2);  // Yellow for contested (default)
-                zoneMat.emissiveColor = new BABYLON.Color3(0.3, 0.25, 0.05);
-                zoneMat.alpha = 0.5;
-                catchZone.material = zoneMat;
-                // No rotation needed - torus is already horizontal by default when parented
-                catchZone.position.y = 0.02;
-                catchZone.parent = receiver;
-                receiver.catchZone = catchZone;
-                receiver.zoneMaterial = zoneMat;  // Store reference for color updates
+                const ringMat = new BABYLON.StandardMaterial('ringMat_' + i, scene);
+                ringMat.diffuseColor = new BABYLON.Color3(1.0, 0.8, 0.2);  // Yellow for contested
+                ringMat.emissiveColor = new BABYLON.Color3(0.4, 0.3, 0.1);
+                ringMat.alpha = 0.8;
+                zoneRing.material = ringMat;
+                zoneRing.position.y = 0.03;
+                zoneRing.parent = receiver;
+
+                // Fill disc (shows coverage proximity)
+                const zoneFill = BABYLON.MeshBuilder.CreateDisc('zoneFill_' + i, {
+                    radius: 1.2,
+                    tessellation: 32
+                }, scene);
+                zoneFill.rotation.x = Math.PI / 2;  // Lay flat
+                const fillMat = new BABYLON.StandardMaterial('fillMat_' + i, scene);
+                fillMat.diffuseColor = new BABYLON.Color3(1.0, 0.8, 0.2);
+                fillMat.emissiveColor = new BABYLON.Color3(0.2, 0.15, 0.05);
+                fillMat.alpha = 0;  // Start invisible
+                zoneFill.material = fillMat;
+                zoneFill.position.y = 0.02;
+                zoneFill.parent = receiver;
+                zoneFill.scaling = new BABYLON.Vector3(0, 0, 0);  // Start with no fill
+
+                receiver.zoneRing = zoneRing;
+                receiver.zoneFill = zoneFill;
+                receiver.ringMaterial = ringMat;
+                receiver.fillMaterial = fillMat;
+                receiver.coverageAmount = 0;  // 0-1 how much defender is covering
+                receiver.clashFlashUntil = 0;  // For clash animation
 
                 // Draw route line on field
                 const routePoints = [config.start.clone()];
@@ -369,21 +389,42 @@
                 defender.knockdownUntil = 0;
                 defender.knockdownResistance = 0;
 
-                // Add defender zone indicator
-                const defZone = BABYLON.MeshBuilder.CreateTorus('defZone_' + i, {
+                // Add defender zone indicator - ring outline + fill disc
+                // Ring (outer indicator)
+                const defRing = BABYLON.MeshBuilder.CreateTorus('defRing_' + i, {
                     diameter: 2.8,
                     thickness: 0.1,
-                    tessellation: 24
+                    tessellation: 32
                 }, scene);
-                const defZoneMat = new BABYLON.StandardMaterial('defZoneMat_' + i, scene);
-                defZoneMat.diffuseColor = config.zoneColor;
-                defZoneMat.emissiveColor = config.zoneColor.scale(0.3);
-                defZoneMat.alpha = 0.5;
-                defZone.material = defZoneMat;
-                defZone.position.y = 0.02;
-                defZone.parent = defender;
-                defender.defZone = defZone;
-                defender.zoneMaterial = defZoneMat;
+                const defRingMat = new BABYLON.StandardMaterial('defRingMat_' + i, scene);
+                defRingMat.diffuseColor = config.zoneColor;
+                defRingMat.emissiveColor = config.zoneColor.scale(0.4);
+                defRingMat.alpha = 0.8;
+                defRing.material = defRingMat;
+                defRing.position.y = 0.03;
+                defRing.parent = defender;
+
+                // Fill disc (shows coverage engagement)
+                const defFill = BABYLON.MeshBuilder.CreateDisc('defFill_' + i, {
+                    radius: 1.4,
+                    tessellation: 32
+                }, scene);
+                defFill.rotation.x = Math.PI / 2;  // Lay flat
+                const defFillMat = new BABYLON.StandardMaterial('defFillMat_' + i, scene);
+                defFillMat.diffuseColor = config.zoneColor;
+                defFillMat.emissiveColor = config.zoneColor.scale(0.2);
+                defFillMat.alpha = 0;  // Start invisible
+                defFill.material = defFillMat;
+                defFill.position.y = 0.01;
+                defFill.parent = defender;
+                defFill.scaling = new BABYLON.Vector3(0, 0, 0);  // Start with no fill
+
+                defender.zoneRing = defRing;
+                defender.zoneFill = defFill;
+                defender.ringMaterial = defRingMat;
+                defender.fillMaterial = defFillMat;
+                defender.baseZoneColor = config.zoneColor.clone();
+                defender.clashFlashUntil = 0;  // For clash animation
 
                 gameState.defenders.push(defender);
             });
@@ -918,22 +959,34 @@
                     // Spin animation
                     football.rotation.z += 0.2;
 
+                    // Track game time for clash system
+                    gameState.gameTime = time.value;
+
                     // Keep ALL receivers moving along their routes
                     gameState.receivers.forEach((receiver, i) => {
+                        // Skip if knocked down
+                        if (receiver.knockdownUntil > gameState.gameTime) {
+                            receiver.position.y = 0;
+                            return;
+                        }
+
                         // Calculate distance to ball landing spot
                         const dx = landingPos.x - receiver.position.x;
                         const dz = landingPos.z - receiver.position.z;
                         const distToLanding = Math.sqrt(dx * dx + dz * dz);
 
                         // If ball is coming to them (within catch range), move toward it
+                        // Moving off-route to catch slows the receiver down (allows defenders to close)
                         if (distToLanding < catchRadius * 2.5 && frameIndex > 5) {
                             if (distToLanding > 0.2) {
-                                receiver.position.x += (dx / distToLanding) * receiver.speed;
-                                receiver.position.z += (dz / distToLanding) * receiver.speed;
+                                // Reduced speed when adjusting to catch (70% of normal)
+                                const catchAdjustSpeed = receiver.speed * 0.7;
+                                receiver.position.x += (dx / distToLanding) * catchAdjustSpeed;
+                                receiver.position.z += (dz / distToLanding) * catchAdjustSpeed;
                                 receiver.rotation.y = Math.atan2(dx, dz);
                             }
                         } else {
-                            // Follow their route
+                            // Follow their route at full speed
                             moveReceiverAlongRoute(receiver, receiver.speed);
                         }
 
@@ -941,6 +994,28 @@
                         receiver.position.y = Math.abs(Math.sin(time.value * 8 + i)) * 0.08;
                         receiver.rotation.z = Math.sin(time.value * 8 + i) * 0.05;
                     });
+
+                    // Move defenders during ball flight - they pursue!
+                    gameState.defenders.forEach((defender, i) => {
+                        // Skip if knocked down
+                        if (defender.knockdownUntil > gameState.gameTime) {
+                            defender.position.y = 0;
+                            return;
+                        }
+
+                        // Defenders move at full speed during ball flight
+                        moveDefender(defender, 0.016);
+
+                        // Running animation
+                        defender.position.y = Math.abs(Math.sin(time.value * 8 + i + 0.5)) * 0.08;
+                        defender.rotation.z = Math.sin(time.value * 8 + i + 0.5) * 0.05;
+                    });
+
+                    // Process clashes during ball flight
+                    processClashes();
+
+                    // Update zone visuals based on proximity
+                    updateZoneProximity();
                 }
 
                 // Check if ball has landed
@@ -1299,28 +1374,138 @@
 
                     // Process clashes between receivers and defenders
                     processClashes();
+
+                    // Update zone visual fills based on proximity
+                    updateZoneProximity();
                 }
             });
         };
 
-        // Update receiver zone color based on separation state
-        const updateReceiverZoneColor = (receiver) => {
-            if (!receiver.zoneMaterial) return;
-
-            switch (receiver.separationState) {
+        // Get zone color based on separation state
+        const getZoneColors = (separationState) => {
+            switch (separationState) {
                 case 'open':
-                    receiver.zoneMaterial.diffuseColor = new BABYLON.Color3(0.2, 0.9, 0.3);  // Green
-                    receiver.zoneMaterial.emissiveColor = new BABYLON.Color3(0.05, 0.3, 0.1);
-                    break;
+                    return {
+                        diffuse: new BABYLON.Color3(0.2, 0.9, 0.3),  // Green
+                        emissive: new BABYLON.Color3(0.1, 0.4, 0.15)
+                    };
                 case 'covered':
-                    receiver.zoneMaterial.diffuseColor = new BABYLON.Color3(0.9, 0.2, 0.2);  // Red
-                    receiver.zoneMaterial.emissiveColor = new BABYLON.Color3(0.3, 0.05, 0.05);
-                    break;
+                    return {
+                        diffuse: new BABYLON.Color3(0.9, 0.2, 0.2),  // Red
+                        emissive: new BABYLON.Color3(0.4, 0.1, 0.1)
+                    };
                 case 'contested':
                 default:
-                    receiver.zoneMaterial.diffuseColor = new BABYLON.Color3(1.0, 0.8, 0.2);  // Yellow
-                    receiver.zoneMaterial.emissiveColor = new BABYLON.Color3(0.3, 0.25, 0.05);
-                    break;
+                    return {
+                        diffuse: new BABYLON.Color3(1.0, 0.8, 0.2),  // Yellow
+                        emissive: new BABYLON.Color3(0.4, 0.3, 0.1)
+                    };
+            }
+        };
+
+        // Update receiver zone color based on separation state
+        const updateReceiverZoneColor = (receiver) => {
+            if (!receiver.ringMaterial) return;
+
+            const colors = getZoneColors(receiver.separationState);
+            receiver.ringMaterial.diffuseColor = colors.diffuse;
+            receiver.ringMaterial.emissiveColor = colors.emissive;
+            receiver.fillMaterial.diffuseColor = colors.diffuse;
+            receiver.fillMaterial.emissiveColor = colors.emissive.scale(0.5);
+        };
+
+        // Update zone fills based on proximity between receivers and defenders
+        const updateZoneProximity = () => {
+            const maxCoverageRange = CLASH_CONSTANTS.CLASH_RANGE * 1.5;  // Range where fill starts
+
+            gameState.receivers.forEach(receiver => {
+                let maxCoverage = 0;
+                let coveringDefender = null;
+
+                // Find closest defender and calculate coverage amount
+                gameState.defenders.forEach(defender => {
+                    if (defender.knockdownUntil > gameState.gameTime) return;
+
+                    const dx = defender.position.x - receiver.position.x;
+                    const dz = defender.position.z - receiver.position.z;
+                    const dist = Math.sqrt(dx * dx + dz * dz);
+
+                    if (dist < maxCoverageRange) {
+                        // Coverage increases as distance decreases
+                        const coverage = 1 - (dist / maxCoverageRange);
+                        if (coverage > maxCoverage) {
+                            maxCoverage = coverage;
+                            coveringDefender = defender;
+                        }
+                    }
+                });
+
+                receiver.coverageAmount = maxCoverage;
+
+                // Handle clash flash animation
+                const currentTime = gameState.gameTime;
+                let flashMultiplier = 1;
+                if (receiver.clashFlashUntil > currentTime) {
+                    const flashProgress = (receiver.clashFlashUntil - currentTime) / 0.3;  // 0.3s flash
+                    flashMultiplier = 1 + flashProgress * 0.5;  // Brighten during flash
+                }
+
+                // Update receiver fill based on coverage
+                const fillScale = maxCoverage * 0.9;  // Max 90% fill
+                receiver.zoneFill.scaling = new BABYLON.Vector3(fillScale, fillScale, fillScale);
+                receiver.fillMaterial.alpha = maxCoverage * 0.4 * flashMultiplier;  // More coverage = more visible
+
+                // Update ring brightness based on flash
+                receiver.ringMaterial.alpha = 0.8 * flashMultiplier;
+
+                // Update covering defender's fill too
+                if (coveringDefender) {
+                    const defFillScale = maxCoverage * 0.85;
+                    coveringDefender.zoneFill.scaling = new BABYLON.Vector3(defFillScale, defFillScale, defFillScale);
+
+                    // Defender flash
+                    let defFlashMult = 1;
+                    if (coveringDefender.clashFlashUntil > currentTime) {
+                        const flashProgress = (coveringDefender.clashFlashUntil - currentTime) / 0.3;
+                        defFlashMult = 1 + flashProgress * 0.5;
+                    }
+                    coveringDefender.fillMaterial.alpha = maxCoverage * 0.35 * defFlashMult;
+                    coveringDefender.ringMaterial.alpha = 0.8 * defFlashMult;
+                }
+            });
+
+            // Reset defenders not covering anyone
+            gameState.defenders.forEach(defender => {
+                let isCovering = false;
+                gameState.receivers.forEach(receiver => {
+                    const dx = defender.position.x - receiver.position.x;
+                    const dz = defender.position.z - receiver.position.z;
+                    const dist = Math.sqrt(dx * dx + dz * dz);
+                    if (dist < CLASH_CONSTANTS.CLASH_RANGE * 1.5) {
+                        isCovering = true;
+                    }
+                });
+
+                if (!isCovering) {
+                    defender.zoneFill.scaling = new BABYLON.Vector3(0, 0, 0);
+                    defender.fillMaterial.alpha = 0;
+                }
+            });
+        };
+
+        // Trigger clash visual effect
+        const triggerClashVisual = (receiver, defender, winner) => {
+            const flashDuration = 0.3;  // seconds
+            const currentTime = gameState.gameTime;
+
+            if (winner === 'receiver') {
+                receiver.clashFlashUntil = currentTime + flashDuration;
+            } else if (winner === 'defender') {
+                defender.clashFlashUntil = currentTime + flashDuration;
+            } else {
+                // Contested - both flash briefly
+                receiver.clashFlashUntil = currentTime + flashDuration * 0.5;
+                defender.clashFlashUntil = currentTime + flashDuration * 0.5;
             }
         };
 
@@ -1438,6 +1623,9 @@
             if (Math.random() < physicalChance) {
                 resolvePhysicalClash(receiver, defender, result);
             }
+
+            // Trigger visual effect for clash
+            triggerClashVisual(receiver, defender, result.winner);
 
             return result;
         };

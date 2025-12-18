@@ -172,21 +172,48 @@ Final Catch % = Base (from catching stat)
 
 ## Visual Feedback
 
-### Zone Colors
+### Zone Design
 
-- Receiver zones change color based on separation state
-- Defender zones colored by AI type (purple/orange/red)
+Zones consist of two parts:
+1. **Ring** - Colored outline that shows the zone boundary
+2. **Fill Disc** - Transparent disc that fills from center based on defender proximity
+
+### Zone Colors (Ring)
+
+- **Receiver zones**: Change color based on separation state (green/yellow/red)
+- **Defender zones**: Colored by AI type:
+  - Man Coverage: Purple
+  - Zone Coverage: Orange
+  - Blitzer: Red
+
+### Proximity Fill System
+
+As defenders get closer to receivers:
+- Both the receiver and defender fill discs grow from the center
+- Fill opacity increases with proximity
+- Maximum fill at ~90% when zones fully overlap
+- Visual indication of how "covered" a receiver is
+
+### Clash Effects
+
+When a clash occurs:
+- Winner's zone ring and fill flash brightly (0.3 seconds)
+- Fill momentarily intensifies
+- Color reflects clash outcome (receiver wins = green flash, defender = their color)
+- Contested clashes: both flash briefly
+
+### Ball Flight Mechanics
+
+When the ball is thrown:
+- Receivers adjusting to catch the ball move at 70% speed (slowing to catch)
+- Defenders continue pursuing at full speed
+- This allows defenders to close the gap on off-target throws
+- Zone fills update in real-time showing defender catch-up
 
 ### Player Labels
 
 - Receiver names displayed above characters
 - Helps player identify targets for throws
-
-### Clash Effects
-
-- Brief flash/pulse when clash occurs
-- Zone color transition on outcome
-- Knockdown animation (player falls, recovers)
 
 ---
 
