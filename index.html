@@ -994,8 +994,8 @@
                     // Spin animation
                     football.rotation.z += 0.2;
 
-                    // Track game time for clash system
-                    gameState.gameTime = time.value;
+                    // Track game time for clash system (use consistent time source)
+                    gameState.gameTime = performance.now() * 0.001;
 
                     // Keep ALL receivers moving along their routes
                     gameState.receivers.forEach((receiver, i) => {
