@@ -163,7 +163,12 @@
                 new BABYLON.Vector3(0, 0, 2),  // Target moved down to show QB better
                 scene
             );
-            // Don't attach camera controls - we handle input ourselves
+            // Enable right-click rotation only (left-click is for throwing)
+            camera.attachControl(canvas, true);
+            camera.inputs.attached.pointers.buttons = [1];  // Only right mouse button
+            camera.panningSensibility = 0;  // Disable panning
+            camera.lowerRadiusLimit = 15;   // Min zoom
+            camera.upperRadiusLimit = 50;   // Max zoom
 
             // Lighting
             const light = new BABYLON.HemisphericLight(
@@ -1557,7 +1562,7 @@
                             effectiveSpeed *= 0.2;  // 20% speed during initial clash
                         }
                         if (defender.clashSpeedPenaltyUntil > gameState.gameTime) {
-                            effectiveSpeed *= 0.75;  // 25% slower after losing clash
+                            effectiveSpeed *= 0.5;  // 50% slower after losing clash
                         }
 
                         moveDefender(defender, 0.016, effectiveSpeed);
@@ -1880,8 +1885,8 @@
 
             // Speed penalty duration for clash loser
             const CLASH_SPEED_PENALTY_DURATION = 1.5;  // seconds
-            const CLASH_SPEED_PENALTY = 0.75;  // 25% slower
-            const CLASH_SPEED_BOOST = 1.15;  // 15% faster
+            const CLASH_SPEED_PENALTY = 0.5;  // 50% slower
+            const CLASH_SPEED_BOOST = 1.2;  // 20% faster
 
             if (margin > CLASH_CONSTANTS.SEPARATION_THRESHOLD) {
                 result.winner = 'receiver';
