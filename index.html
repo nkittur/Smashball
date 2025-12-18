@@ -292,6 +292,7 @@
                 receiver.knockdownResistance = 0;
                 receiver.hasHadInitialClash = false;
                 receiver.lastRouteIndex = 0;  // Track route changes for jink clashes
+                receiver.initialClashSlowdownUntil = 0;  // Slowdown during first contact
 
                 // Add catch zone indicator - ring outline + fill disc
                 // Ring (outer indicator)
@@ -388,6 +389,7 @@
                 defender.lastClashTime = 0;
                 defender.knockdownUntil = 0;
                 defender.knockdownResistance = 0;
+                defender.initialClashSlowdownUntil = 0;  // Slowdown during first contact
 
                 // Add defender zone indicator - ring outline + fill disc
                 // Ring (outer indicator)
@@ -785,13 +787,13 @@
         };
 
         // Move defender based on AI type
-        const moveDefender = (defender, deltaTime) => {
+        const moveDefender = (defender, deltaTime, overrideSpeed = null) => {
             // Don't move if knocked down
             if (defender.knockdownUntil > gameState.gameTime) {
                 return;
             }
 
-            const speed = defender.speed;
+            const speed = overrideSpeed !== null ? overrideSpeed : defender.speed;
 
             if (defender.aiType === 'man') {
                 moveDefenderManCoverage(defender, speed);
@@ -899,7 +901,38 @@
             gameState.defenders.forEach(defender => {
                 defender.position.x = defender.startPos.x;
                 defender.position.z = defender.startPos.z;
+                defender.position.y = 0;
                 defender.knockdownUntil = 0;
+                defender.knockdownResistance = 0;
+                defender.clashFlashUntil = 0;
+                defender.initialClashSlowdownUntil = 0;
+                defender.lastClashTime = 0;
+                defender.zoneFill.scaling = new BABYLON.Vector3(0, 0, 0);
+                defender.fillMaterial.alpha = 0;
+            });
+        };
+
+        // Reset receivers to starting positions
+        const resetReceivers = () => {
+            gameState.receivers.forEach(receiver => {
+                receiver.position.x = receiver.startPos.x;
+                receiver.position.z = receiver.startPos.z;
+                receiver.position.y = 0;
+                receiver.rotation.y = 0;
+                receiver.routeIndex = 0;
+                receiver.lastRouteIndex = 0;
+                receiver.hasHadInitialClash = false;
+                receiver.separationState = 'contested';
+                receiver.knockdownUntil = 0;
+                receiver.knockdownResistance = 0;
+                receiver.clashFlashUntil = 0;
+                receiver.lastClashTime = 0;
+                receiver.speed = receiver.baseSpeed;
+                receiver.initialClashSlowdownUntil = 0;
+                receiver.coverageAmount = 0;
+                receiver.zoneFill.scaling = new BABYLON.Vector3(0, 0, 0);
+                receiver.fillMaterial.alpha = 0;
+                updateReceiverZoneColor(receiver);
             });
         };
 
@@ -1218,14 +1251,9 @@
             }
             gameState.ballInFlight = false;
 
-            // Reset receiver positions and routes
-            gameState.receivers.forEach((receiver, i) => {
-                receiver.position.x = receiver.startPos.x;
-                receiver.position.z = receiver.startPos.z;
-                receiver.position.y = 0;
-                receiver.rotation.y = 0;
-                receiver.routeIndex = 0;
-            });
+            // Reset receiver and defender positions
+            resetReceivers();
+            resetDefenders();
 
             // Slight delay before allowing next throw
             setTimeout(() => {
@@ -1328,6 +1356,8 @@
 
                 // Receivers running their routes
                 if (!gameState.ballInFlight && gameState.canThrow) {
+                    let anyRouteComplete = false;
+
                     gameState.receivers.forEach((receiver, i) => {
                         // Skip if knocked down
                         if (receiver.knockdownUntil > gameState.gameTime) {
@@ -1335,27 +1365,31 @@
                             return;
                         }
 
-                        // Follow route, reset if complete
-                        const stillRunning = moveReceiverAlongRoute(receiver, receiver.speed);
-                        if (!stillRunning) {
-                            // Reset to start of route
-                            receiver.position.x = receiver.startPos.x;
-                            receiver.position.z = receiver.startPos.z;
-                            receiver.routeIndex = 0;
-                            receiver.hasHadInitialClash = false;
-                            receiver.separationState = 'contested';
-                            updateReceiverZoneColor(receiver);
-
-                            // Reset defenders too
-                            resetDefenders();
+                        // Calculate effective speed (slowdown during initial clash)
+                        let effectiveSpeed = receiver.speed;
+                        if (receiver.initialClashSlowdownUntil > gameState.gameTime) {
+                            effectiveSpeed *= 0.2;  // 20% speed during initial clash
                         }
 
-                        // Running bob animation
-                        receiver.position.y = Math.abs(Math.sin(time * 8 + i)) * 0.08;
+                        // Follow route, reset if complete
+                        const stillRunning = moveReceiverAlongRoute(receiver, effectiveSpeed);
+                        if (!stillRunning) {
+                            anyRouteComplete = true;
+                        }
+
+                        // Running bob animation (slower bob during slowdown)
+                        const bobSpeed = receiver.initialClashSlowdownUntil > gameState.gameTime ? 4 : 8;
+                        receiver.position.y = Math.abs(Math.sin(time * bobSpeed + i)) * 0.08;
 
                         // Arm swing approximation via slight rotation
-                        receiver.rotation.z = Math.sin(time * 8 + i) * 0.05;
+                        receiver.rotation.z = Math.sin(time * bobSpeed + i) * 0.05;
                     });
+
+                    // Reset all players when any route completes
+                    if (anyRouteComplete) {
+                        resetReceivers();
+                        resetDefenders();
+                    }
 
                     // Move defenders
                     gameState.defenders.forEach((defender, i) => {
@@ -1365,11 +1399,18 @@
                             return;
                         }
 
-                        moveDefender(defender, 0.016);  // Approximate delta time
+                        // Calculate effective speed (slowdown during initial clash)
+                        let effectiveSpeed = defender.speed;
+                        if (defender.initialClashSlowdownUntil > gameState.gameTime) {
+                            effectiveSpeed *= 0.2;  // 20% speed during initial clash
+                        }
 
-                        // Running bob animation
-                        defender.position.y = Math.abs(Math.sin(time * 8 + i + 0.5)) * 0.08;
-                        defender.rotation.z = Math.sin(time * 8 + i + 0.5) * 0.05;
+                        moveDefender(defender, 0.016, effectiveSpeed);
+
+                        // Running bob animation (slower during slowdown)
+                        const bobSpeed = defender.initialClashSlowdownUntil > gameState.gameTime ? 4 : 8;
+                        defender.position.y = Math.abs(Math.sin(time * bobSpeed + i + 0.5)) * 0.08;
+                        defender.rotation.z = Math.sin(time * bobSpeed + i + 0.5) * 0.05;
                     });
 
                     // Process clashes between receivers and defenders
@@ -1445,32 +1486,55 @@
                 // Handle clash flash animation
                 const currentTime = gameState.gameTime;
                 let flashMultiplier = 1;
+                let isFlashing = false;
                 if (receiver.clashFlashUntil > currentTime) {
+                    isFlashing = true;
                     const flashProgress = (receiver.clashFlashUntil - currentTime) / 0.3;  // 0.3s flash
-                    flashMultiplier = 1 + flashProgress * 0.5;  // Brighten during flash
+                    // Pulsing flash effect
+                    flashMultiplier = 1 + flashProgress * Math.sin(flashProgress * Math.PI * 4) * 0.5;
                 }
 
-                // Update receiver fill based on coverage
-                const fillScale = maxCoverage * 0.9;  // Max 90% fill
+                // Update receiver fill based on coverage (more visible)
+                const fillScale = Math.max(0.1, maxCoverage) * 0.95;  // Always show some fill when in range
                 receiver.zoneFill.scaling = new BABYLON.Vector3(fillScale, fillScale, fillScale);
-                receiver.fillMaterial.alpha = maxCoverage * 0.4 * flashMultiplier;  // More coverage = more visible
+
+                // Higher base alpha for better visibility
+                const baseAlpha = maxCoverage * 0.5;
+                receiver.fillMaterial.alpha = Math.min(0.7, baseAlpha * flashMultiplier);
+
+                // Brighter emissive during flash
+                if (isFlashing) {
+                    const colors = getZoneColors(receiver.separationState);
+                    receiver.fillMaterial.emissiveColor = colors.emissive.scale(flashMultiplier);
+                    receiver.ringMaterial.emissiveColor = colors.emissive.scale(flashMultiplier * 1.5);
+                }
 
                 // Update ring brightness based on flash
-                receiver.ringMaterial.alpha = 0.8 * flashMultiplier;
+                receiver.ringMaterial.alpha = Math.min(1.0, 0.8 * flashMultiplier);
 
                 // Update covering defender's fill too
                 if (coveringDefender) {
-                    const defFillScale = maxCoverage * 0.85;
+                    const defFillScale = Math.max(0.1, maxCoverage) * 0.9;
                     coveringDefender.zoneFill.scaling = new BABYLON.Vector3(defFillScale, defFillScale, defFillScale);
 
                     // Defender flash
                     let defFlashMult = 1;
+                    let defIsFlashing = false;
                     if (coveringDefender.clashFlashUntil > currentTime) {
+                        defIsFlashing = true;
                         const flashProgress = (coveringDefender.clashFlashUntil - currentTime) / 0.3;
-                        defFlashMult = 1 + flashProgress * 0.5;
+                        defFlashMult = 1 + flashProgress * Math.sin(flashProgress * Math.PI * 4) * 0.5;
                     }
-                    coveringDefender.fillMaterial.alpha = maxCoverage * 0.35 * defFlashMult;
-                    coveringDefender.ringMaterial.alpha = 0.8 * defFlashMult;
+
+                    const defBaseAlpha = maxCoverage * 0.45;
+                    coveringDefender.fillMaterial.alpha = Math.min(0.6, defBaseAlpha * defFlashMult);
+                    coveringDefender.ringMaterial.alpha = Math.min(1.0, 0.8 * defFlashMult);
+
+                    // Brighter emissive during flash
+                    if (defIsFlashing) {
+                        coveringDefender.fillMaterial.emissiveColor = coveringDefender.baseZoneColor.scale(0.4 * defFlashMult);
+                        coveringDefender.ringMaterial.emissiveColor = coveringDefender.baseZoneColor.scale(0.6 * defFlashMult);
+                    }
                 }
             });
 
@@ -1569,6 +1633,13 @@
         // Resolve a clash between receiver and defender
         const resolveClash = (receiver, defender, reason) => {
             const currentTime = gameState.gameTime;
+
+            // Apply slowdown on initial contact (line of scrimmage clash)
+            if (reason === 'initial_contact') {
+                const slowdownDuration = 0.8;  // seconds of slowdown
+                receiver.initialClashSlowdownUntil = currentTime + slowdownDuration;
+                defender.initialClashSlowdownUntil = currentTime + slowdownDuration;
+            }
 
             // Update clash timing
             receiver.lastClashTime = currentTime;
