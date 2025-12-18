@@ -163,7 +163,7 @@
             // Store references
             scene.qb = qb;
             scene.football = football;
-            scene.trajectoryLine = null;  // Created dynamically during drag
+            scene.trajectoryDots = null;  // Created dynamically during drag
             scene.materials = materials;
 
             return scene;
@@ -410,12 +410,12 @@
             return points;
         };
 
-        // Update Trajectory Visualization
+        // Update Trajectory Visualization - dotted line using spheres
         const updateTrajectory = (scene) => {
-            // Dispose old trajectory
-            if (scene.trajectoryLine) {
-                scene.trajectoryLine.dispose();
-                scene.trajectoryLine = null;
+            // Dispose old trajectory dots
+            if (scene.trajectoryDots) {
+                scene.trajectoryDots.forEach(dot => dot.dispose());
+                scene.trajectoryDots = null;
             }
 
             if (!gameState.isDragging || !gameState.dragStart || !gameState.dragCurrent) {
@@ -431,15 +431,19 @@
 
             const startPos = scene.qb.position.clone();
             startPos.y = 1;
-            const path = generatePath(startPos, throwParams);
+            const path = generatePath(startPos, throwParams, 20);
 
-            // Create new trajectory tube
-            scene.trajectoryLine = BABYLON.MeshBuilder.CreateTube('trajectory', {
-                path: path,
-                radius: 0.06,
-                tessellation: 8
-            }, scene);
-            scene.trajectoryLine.material = scene.materials.trajectoryMaterial;
+            // Create dotted line with small spheres
+            scene.trajectoryDots = [];
+            for (let i = 0; i < path.length; i += 2) {
+                const dot = BABYLON.MeshBuilder.CreateSphere('dot' + i, {
+                    diameter: 0.15,
+                    segments: 4
+                }, scene);
+                dot.position = path[i];
+                dot.material = scene.materials.trajectoryMaterial;
+                scene.trajectoryDots.push(dot);
+            }
         };
 
         // Throw Football Animation
@@ -462,6 +466,23 @@
             const football = scene.football;
             football.setEnabled(true);
             football.position = path[0].clone();
+
+            // Find landing position and closest receiver
+            const landingPos = path[path.length - 1];
+            let closestReceiver = null;
+            let closestDist = Infinity;
+            const catchRadius = 2.5;
+
+            for (const receiver of gameState.receivers) {
+                const dist = BABYLON.Vector3.Distance(
+                    new BABYLON.Vector3(receiver.position.x, 0, receiver.position.z),
+                    new BABYLON.Vector3(landingPos.x, 0, landingPos.z)
+                );
+                if (dist < closestDist && dist < catchRadius * 2) {
+                    closestDist = dist;
+                    closestReceiver = receiver;
+                }
+            }
 
             let frameIndex = 0;
             const animationSpeed = 2;
@@ -491,20 +512,41 @@
 
                     // Spin animation
                     football.rotation.z += 0.3;
+
+                    // Move closest receiver toward ball landing spot
+                    if (closestReceiver && frameIndex > 10) {
+                        const targetX = landingPos.x;
+                        const targetZ = landingPos.z;
+                        const moveSpeed = 0.08;
+
+                        const dx = targetX - closestReceiver.position.x;
+                        const dz = targetZ - closestReceiver.position.z;
+                        const dist = Math.sqrt(dx * dx + dz * dz);
+
+                        if (dist > 0.3) {
+                            closestReceiver.position.x += (dx / dist) * moveSpeed;
+                            closestReceiver.position.z += (dz / dist) * moveSpeed;
+                            // Face movement direction
+                            closestReceiver.rotation.y = Math.atan2(dx, dz);
+                            // Running bob
+                            closestReceiver.position.y = Math.abs(Math.sin(frameIndex * 0.5)) * 0.1;
+                        }
+                    }
                 }
 
                 // Check if ball has landed
                 if (frameIndex >= path.length - 1) {
                     scene.onBeforeRenderObservable.remove(ballAnimation);
-                    checkCatch(scene, football.position);
+                    checkCatch(scene, football.position, closestReceiver);
                 }
             });
         };
 
         // Check for Catch
-        const checkCatch = (scene, ballPosition) => {
-            const catchRadius = 1.5;
+        const checkCatch = (scene, ballPosition, targetReceiver) => {
+            const catchRadius = 1.2;
             let caught = false;
+            let catcher = null;
 
             for (const receiver of gameState.receivers) {
                 const distance = BABYLON.Vector3.Distance(
@@ -514,18 +556,27 @@
 
                 if (distance < catchRadius) {
                     caught = true;
-                    gameState.catches++;
-                    updateScore();
-                    updateMessage('CATCH!');
-
-                    // Celebration animation
-                    celebrateReceiver(receiver);
+                    catcher = receiver;
                     break;
                 }
             }
 
-            if (!caught) {
+            if (caught && catcher) {
+                gameState.catches++;
+                updateScore();
+                updateMessage('CATCH!');
+
+                // Attach ball to receiver and celebrate
+                scene.football.position.y = 0.8;
+                scene.football.parent = catcher;
+                scene.football.position = new BABYLON.Vector3(0.3, 0.5, 0);
+                scene.football.rotation = new BABYLON.Vector3(0, 0, Math.PI / 4);
+
+                celebrateReceiver(catcher, scene);
+            } else {
                 updateMessage('Incomplete...');
+                // Ball hits ground
+                scene.football.position.y = 0.1;
             }
 
             // Reset after delay
@@ -534,15 +585,15 @@
             }, 2000);
         };
 
-        // Celebrate Catch
-        const celebrateReceiver = (receiver) => {
+        // Celebrate Catch - receiver holds ball and celebrates
+        const celebrateReceiver = (receiver, scene) => {
             let jumpFrame = 0;
             const jumpAnimation = setInterval(() => {
                 jumpFrame++;
                 receiver.position.y = Math.abs(Math.sin(jumpFrame * 0.3)) * 0.5;
-                receiver.rotation.y += 0.2;
+                receiver.rotation.y += 0.15;
 
-                if (jumpFrame > 20) {
+                if (jumpFrame > 25) {
                     clearInterval(jumpAnimation);
                     receiver.position.y = 0;
                 }
@@ -551,15 +602,20 @@
 
         // Reset Play
         const resetPlay = (scene) => {
+            // Detach football from any parent
+            scene.football.parent = null;
             scene.football.setEnabled(false);
-            if (scene.trajectoryLine) {
-                scene.trajectoryLine.dispose();
-                scene.trajectoryLine = null;
+
+            // Clear trajectory dots
+            if (scene.trajectoryDots) {
+                scene.trajectoryDots.forEach(dot => dot.dispose());
+                scene.trajectoryDots = null;
             }
             gameState.ballInFlight = false;
 
             // Reset receiver positions
             gameState.receivers.forEach((receiver, i) => {
+                receiver.position.x = [-2.5, 0, 2.5][i];
                 receiver.position.z = gameState.receiversStartZ[i];
                 receiver.position.y = 0;
                 receiver.rotation.y = 0;
@@ -635,9 +691,9 @@
                 gameState.isDragging = false;
                 gameState.dragStart = null;
                 gameState.dragCurrent = null;
-                if (scene.trajectoryLine) {
-                    scene.trajectoryLine.dispose();
-                    scene.trajectoryLine = null;
+                if (scene.trajectoryDots) {
+                    scene.trajectoryDots.forEach(dot => dot.dispose());
+                    scene.trajectoryDots = null;
                 }
             };
 
