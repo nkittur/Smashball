@@ -1161,10 +1161,11 @@
             // Base catch rate from receiver's catching stat
             let baseCatch = receiver.stats.catching;
 
-            // Find closest defender and apply proximity penalty
+            // Find defenders and apply proximity penalty
             let defenderProximityPenalty = 0;
             let defenderDetails = [];
             let hasNearbyDefender = false;
+            const coverageRange = CLASH_CONSTANTS.CLASH_RANGE * 1.5;
 
             gameState.defenders.forEach(defender => {
                 if (defender.knockdownUntil > gameState.gameTime) return;
@@ -1173,25 +1174,43 @@
                 const dz = defender.position.z - receiver.position.z;
                 const dist = Math.sqrt(dx * dx + dz * dz);
 
-                if (dist < CLASH_CONSTANTS.CLASH_RANGE * 1.5) {
+                if (dist < coverageRange) {
                     hasNearbyDefender = true;
-                    // Defender is close - apply coverage penalty based on proximity
+
+                    // Get defender's coverage stat based on their type
                     const coverageStat = defender.aiType === 'zone' ?
                         defender.stats.zoneCoverage : defender.stats.manCoverage;
-                    const proximityFactor = 1 - (dist / (CLASH_CONSTANTS.CLASH_RANGE * 1.5));
-                    const penalty = proximityFactor * coverageStat * 0.3;  // Increased penalty multiplier
+
+                    // Proximity factor: 1.0 at distance 0, 0.0 at max range
+                    const proximityFactor = 1 - (dist / coverageRange);
+
+                    // Base penalty at zero distance is 70% of catch chance, scaled by coverage stat
+                    // A defender with 80 coverage at distance 0 applies: 0.70 * (80/100) * 100 = 56 penalty
+                    const coverageEfficiency = coverageStat / 100;
+                    const basePenalty = 70 * coverageEfficiency;
+                    const penalty = proximityFactor * proximityFactor * basePenalty;  // Squared for steeper falloff
+
                     defenderProximityPenalty += penalty;
-                    defenderDetails.push({ name: defender.name, dist: dist.toFixed(2), penalty: penalty.toFixed(1) });
+                    defenderDetails.push({
+                        name: defender.name,
+                        dist: dist.toFixed(2),
+                        penalty: penalty.toFixed(1),
+                        coverageStat: coverageStat,
+                        aiType: defender.aiType
+                    });
                 }
             });
 
-            // Focus stat helps when defenders are nearby
-            const focusMod = hasNearbyDefender ? (receiver.stats.focus - 70) * 0.2 : 0;
+            // Focus stat helps when defenders are nearby (higher focus = better under pressure)
+            const focusMod = hasNearbyDefender ? (receiver.stats.focus - 70) * 0.3 : 0;
 
             // Calculate final probability (clamped between 5% and 95%)
             const finalProbability = Math.max(5, Math.min(95,
                 baseCatch + focusMod - defenderProximityPenalty
             ));
+
+            // Store for visual display
+            receiver.lastCatchProbability = finalProbability;
 
             // Debug logging for catch calculations
             console.log(`[CATCH CALC] ${receiver.name}:`);
@@ -1200,7 +1219,7 @@
             console.log(`  Defender proximity penalty: -${defenderProximityPenalty.toFixed(1)}`);
             if (defenderDetails.length > 0) {
                 defenderDetails.forEach(d => {
-                    console.log(`    - ${d.name}: dist=${d.dist}, penalty=-${d.penalty}`);
+                    console.log(`    - ${d.name} [${d.aiType}]: dist=${d.dist}, ${d.aiType === 'zone' ? 'zoneCov' : 'manCov'}=${d.coverageStat}, penalty=-${d.penalty}`);
                 });
             }
             console.log(`  FINAL: ${finalProbability.toFixed(1)}%`);
@@ -1340,23 +1359,32 @@
                 const timeSinceClash = (gameState.gameTime - receiver.lastClashTime).toFixed(1);
                 const speedMod = (receiver.speed / receiver.baseSpeed * 100).toFixed(0);
                 const hasSpeedPenalty = receiver.clashSpeedPenaltyUntil > gameState.gameTime;
+                const catchProb = receiver.currentCatchProb || receiver.stats.catching;
 
-                // Determine coverage level for display
+                // Determine coverage level based on catch probability
                 let coverageLevel = 'OPEN';
-                if (receiver.coverageAmount >= 0.6) coverageLevel = 'COVERED';
-                else if (receiver.coverageAmount >= 0.3) coverageLevel = 'CONTESTED';
+                let levelColor = '🟢';
+                if (catchProb < 40) {
+                    coverageLevel = 'COVERED';
+                    levelColor = '🔴';
+                } else if (catchProb < 70) {
+                    coverageLevel = 'CONTESTED';
+                    levelColor = '🟡';
+                }
 
                 debugText += `\n${receiver.displayName}:\n`;
-                debugText += `  Coverage: ${coverageLevel} (${(receiver.coverageAmount * 100).toFixed(0)}%)\n`;
+                debugText += `  ${levelColor} Catch: ${catchProb.toFixed(0)}% (${coverageLevel})\n`;
                 debugText += `  Speed: ${speedMod}%${hasSpeedPenalty ? ' (SLOWED)' : ''}\n`;
-                debugText += `  Last clash: ${timeSinceClash}s ago\n`;
 
                 if (closestDef) {
                     const defSpeedPenalty = closestDef.clashSpeedPenaltyUntil > gameState.gameTime;
+                    const defCovStat = closestDef.aiType === 'zone' ?
+                        closestDef.stats.zoneCoverage : closestDef.stats.manCoverage;
                     debugText += `  Nearest: ${closestDef.displayName}`;
                     if (defSpeedPenalty) debugText += ' (SLOWED)';
                     debugText += `\n`;
-                    debugText += `  Distance: ${closestDist.toFixed(1)} / ${coverageRange.toFixed(1)}\n`;
+                    debugText += `  Dist: ${closestDist.toFixed(1)}/${coverageRange.toFixed(1)}`;
+                    debugText += ` | ${closestDef.aiType === 'zone' ? 'ZoneCov' : 'ManCov'}: ${defCovStat}\n`;
                 }
             });
 
@@ -1511,28 +1539,57 @@
             });
         };
 
-        // Get zone colors based on proximity coverage amount (0-1)
-        // 0 = no coverage (green), 0.5 = contested (yellow), 1 = heavily covered (red)
-        const getZoneColorsByProximity = (coverageAmount) => {
-            if (coverageAmount < 0.3) {
-                // Green - low coverage
+        // Get zone colors based on catch probability (0-100%)
+        // High catch % = green, medium = yellow, low = red
+        const getZoneColorsByCatchProb = (catchProbability) => {
+            if (catchProbability >= 70) {
+                // Green - high catch chance
                 return {
                     diffuse: new BABYLON.Color3(0.2, 0.9, 0.3),
                     emissive: new BABYLON.Color3(0.1, 0.4, 0.15)
                 };
-            } else if (coverageAmount < 0.6) {
-                // Yellow - moderate coverage
+            } else if (catchProbability >= 40) {
+                // Yellow - moderate catch chance
                 return {
                     diffuse: new BABYLON.Color3(1.0, 0.8, 0.2),
                     emissive: new BABYLON.Color3(0.4, 0.3, 0.1)
                 };
             } else {
-                // Red - heavy coverage
+                // Red - low catch chance
                 return {
                     diffuse: new BABYLON.Color3(0.9, 0.2, 0.2),
                     emissive: new BABYLON.Color3(0.4, 0.1, 0.1)
                 };
             }
+        };
+
+        // Calculate real-time catch probability for a receiver (for visual display)
+        const calculateRealtimeCatchProb = (receiver) => {
+            const baseCatch = receiver.stats.catching;
+            const coverageRange = CLASH_CONSTANTS.CLASH_RANGE * 1.5;
+            let defenderPenalty = 0;
+            let hasNearbyDefender = false;
+
+            gameState.defenders.forEach(defender => {
+                if (defender.knockdownUntil > gameState.gameTime) return;
+
+                const dx = defender.position.x - receiver.position.x;
+                const dz = defender.position.z - receiver.position.z;
+                const dist = Math.sqrt(dx * dx + dz * dz);
+
+                if (dist < coverageRange) {
+                    hasNearbyDefender = true;
+                    const coverageStat = defender.aiType === 'zone' ?
+                        defender.stats.zoneCoverage : defender.stats.manCoverage;
+                    const proximityFactor = 1 - (dist / coverageRange);
+                    const coverageEfficiency = coverageStat / 100;
+                    const basePenalty = 70 * coverageEfficiency;
+                    defenderPenalty += proximityFactor * proximityFactor * basePenalty;
+                }
+            });
+
+            const focusMod = hasNearbyDefender ? (receiver.stats.focus - 70) * 0.3 : 0;
+            return Math.max(5, Math.min(95, baseCatch + focusMod - defenderPenalty));
         };
 
         // Update zone fills based on proximity between receivers and defenders
@@ -1563,8 +1620,10 @@
 
                 receiver.coverageAmount = maxCoverage;
 
-                // Get color based on proximity coverage
-                const colors = getZoneColorsByProximity(maxCoverage);
+                // Calculate real-time catch probability and get color based on it
+                const catchProb = calculateRealtimeCatchProb(receiver);
+                receiver.currentCatchProb = catchProb;  // Store for debug display
+                const colors = getZoneColorsByCatchProb(catchProb);
 
                 // Handle clash flash animation
                 const currentTime = gameState.gameTime;
@@ -1581,7 +1640,7 @@
                 const fillScale = Math.max(0.1, maxCoverage) * 0.95;  // Always show some fill when in range
                 receiver.zoneFill.scaling = new BABYLON.Vector3(fillScale, fillScale, fillScale);
 
-                // Update fill color based on proximity
+                // Update fill color based on catch probability
                 receiver.fillMaterial.diffuseColor = colors.diffuse;
                 receiver.fillMaterial.emissiveColor = colors.emissive.scale(isFlashing ? flashMultiplier : 0.5);
 
