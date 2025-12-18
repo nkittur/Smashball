@@ -340,13 +340,13 @@
                 }, scene);
                 zoneFill.rotation.x = Math.PI / 2;  // Lay flat
                 const fillMat = new BABYLON.StandardMaterial('fillMat_' + i, scene);
-                fillMat.diffuseColor = new BABYLON.Color3(1.0, 0.8, 0.2);
-                fillMat.emissiveColor = new BABYLON.Color3(0.2, 0.15, 0.05);
-                fillMat.alpha = 0;  // Start invisible
+                fillMat.diffuseColor = new BABYLON.Color3(0.2, 0.9, 0.3);  // Green (open)
+                fillMat.emissiveColor = new BABYLON.Color3(0.1, 0.4, 0.15);
+                fillMat.alpha = 0.35;  // Base visibility
                 zoneFill.material = fillMat;
                 zoneFill.position.y = 0.02;
                 zoneFill.parent = receiver;
-                zoneFill.scaling = new BABYLON.Vector3(0, 0, 0);  // Start with no fill
+                zoneFill.scaling = new BABYLON.Vector3(0.4, 0.4, 0.4);  // Start with base visible circle
 
                 receiver.zoneRing = zoneRing;
                 receiver.zoneFill = zoneFill;
@@ -966,8 +966,12 @@
                 receiver.initialClashSlowdownUntil = 0;
                 receiver.clashSpeedPenaltyUntil = 0;
                 receiver.coverageAmount = 0;
-                receiver.zoneFill.scaling = new BABYLON.Vector3(0, 0, 0);
-                receiver.fillMaterial.alpha = 0;
+                receiver.currentCatchProb = receiver.stats.catching;
+                receiver.zoneFill.scaling = new BABYLON.Vector3(0.4, 0.4, 0.4);  // Base visible circle
+                receiver.fillMaterial.alpha = 0.35;  // Base visibility
+                // Reset to green (open) color
+                receiver.fillMaterial.diffuseColor = new BABYLON.Color3(0.2, 0.9, 0.3);
+                receiver.fillMaterial.emissiveColor = new BABYLON.Color3(0.1, 0.4, 0.15).scale(0.5);
             });
         };
 
@@ -1634,17 +1638,21 @@
                     flashMultiplier = 1 + flashProgress * Math.sin(flashProgress * Math.PI * 4) * 0.5;
                 }
 
-                // Update receiver fill based on coverage (more visible)
-                const fillScale = Math.max(0.1, maxCoverage) * 0.95;  // Always show some fill when in range
+                // Always show a base circle, grows larger when covered
+                const minScale = 0.4;  // Minimum visible size
+                const maxScale = 0.95;
+                const fillScale = minScale + (maxScale - minScale) * maxCoverage;
                 receiver.zoneFill.scaling = new BABYLON.Vector3(fillScale, fillScale, fillScale);
 
                 // Update fill color based on catch probability
                 receiver.fillMaterial.diffuseColor = colors.diffuse;
                 receiver.fillMaterial.emissiveColor = colors.emissive.scale(isFlashing ? flashMultiplier : 0.5);
 
-                // Higher base alpha for better visibility
-                const baseAlpha = maxCoverage * 0.5;
-                receiver.fillMaterial.alpha = Math.min(0.7, baseAlpha * flashMultiplier);
+                // Always visible, more opaque when covered
+                const minAlpha = 0.35;  // Base visibility
+                const maxAlpha = 0.7;
+                const baseAlpha = minAlpha + (maxAlpha - minAlpha) * maxCoverage;
+                receiver.fillMaterial.alpha = Math.min(maxAlpha, baseAlpha * flashMultiplier);
 
                 // Update covering defender's fill too
                 if (coveringDefender) {
