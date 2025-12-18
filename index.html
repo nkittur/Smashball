@@ -351,21 +351,23 @@
             });
 
             // Create Defenders
+            // Line of scrimmage is at RECEIVER_START_Z - defenders spawn above it
             defenderConfigs.forEach((config, i) => {
-                // Calculate starting position based on assigned receiver and cushion
+                // Calculate starting position - defenders start ABOVE line of scrimmage
                 let startPos;
                 if (config.aiType === 'man' && config.assignedReceiver !== undefined) {
                     const targetReceiver = receiverConfigs[config.assignedReceiver];
                     startPos = new BABYLON.Vector3(
                         targetReceiver.start.x,
                         0,
-                        targetReceiver.start.z - config.cushion
+                        targetReceiver.start.z + config.cushion  // Above receiver (+ cushion)
                     );
                 } else if (config.aiType === 'zone') {
                     startPos = config.zoneCenter.clone();
-                    startPos.z -= config.cushion;
+                    // Zone defenders already positioned by zoneCenter, cushion is depth into field
                 } else {
-                    startPos = new BABYLON.Vector3(0, 0, QB_START_Z + 1);
+                    // Blitzer starts at line of scrimmage
+                    startPos = new BABYLON.Vector3(0, 0, RECEIVER_START_Z + 1);
                 }
 
                 const defender = createKnight(scene, materials.defenderMaterial, startPos);
