@@ -1184,11 +1184,10 @@
                     // Proximity factor: 1.0 at distance 0, 0.0 at max range
                     const proximityFactor = 1 - (dist / coverageRange);
 
-                    // Base penalty at zero distance is 70% of catch chance, scaled by coverage stat
-                    // A defender with 80 coverage at distance 0 applies: 0.70 * (80/100) * 100 = 56 penalty
-                    const coverageEfficiency = coverageStat / 100;
-                    const basePenalty = 70 * coverageEfficiency;
-                    const penalty = proximityFactor * proximityFactor * basePenalty;  // Squared for steeper falloff
+                    // At distance 0, if coverage equals catching, apply 90% penalty
+                    // penalty = proximityFactor^2 * coverageStat * 0.9
+                    // E.g., coverage 90 at distance 0: 1 * 90 * 0.9 = 81 penalty (leaves ~9% catch chance)
+                    const penalty = proximityFactor * proximityFactor * coverageStat * 0.9;
 
                     defenderProximityPenalty += penalty;
                     defenderDetails.push({
@@ -1582,9 +1581,8 @@
                     const coverageStat = defender.aiType === 'zone' ?
                         defender.stats.zoneCoverage : defender.stats.manCoverage;
                     const proximityFactor = 1 - (dist / coverageRange);
-                    const coverageEfficiency = coverageStat / 100;
-                    const basePenalty = 70 * coverageEfficiency;
-                    defenderPenalty += proximityFactor * proximityFactor * basePenalty;
+                    // Match the catch calculation: 90% penalty when coverage equals catching at distance 0
+                    defenderPenalty += proximityFactor * proximityFactor * coverageStat * 0.9;
                 }
             });
 
