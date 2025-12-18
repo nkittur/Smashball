@@ -220,11 +220,11 @@
             const football = createFootball(scene, materials);
             football.setEnabled(false);
 
-            // Store references
+            // Store references (use gameMaterials to avoid conflict with Babylon's scene.materials)
             scene.qb = qb;
             scene.football = football;
             scene.trajectoryDots = null;  // Created dynamically during drag
-            scene.materials = materials;
+            scene.gameMaterials = materials;
 
             return scene;
         };
