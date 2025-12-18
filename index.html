@@ -87,7 +87,7 @@
         };
 
         // Constants
-        const FIELD_WIDTH = 8;
+        const FIELD_WIDTH = 16;  // Doubled width
         const FIELD_LENGTH = 20;
         const QB_START_Z = -3;  // Moved up for easier dragging
         const MAX_THROW_DISTANCE = 12;
@@ -103,12 +103,12 @@
             const scene = new BABYLON.Scene(engine);
             scene.clearColor = new BABYLON.Color4(0.1, 0.1, 0.18, 1);
 
-            // Isometric Camera - adjusted to show QB lower on screen
+            // Isometric Camera - adjusted for wider field
             const camera = new BABYLON.ArcRotateCamera(
                 'camera',
                 -Math.PI / 2,  // Alpha - looking down the field
                 Math.PI / 3.5, // Beta - slightly steeper angle
-                22,            // Radius - closer
+                30,            // Radius - further out for wider field
                 new BABYLON.Vector3(0, 0, 4),  // Target further up field
                 scene
             );
@@ -142,18 +142,46 @@
             const qb = createKnight(scene, materials.qbMaterial, new BABYLON.Vector3(0, 0, QB_START_Z));
             qb.name = 'quarterback';
 
-            // Create Receivers - start ahead of QB
-            const receiverPositions = [
-                new BABYLON.Vector3(-2.5, 0, QB_START_Z + 3),
-                new BABYLON.Vector3(0, 0, QB_START_Z + 4),
-                new BABYLON.Vector3(2.5, 0, QB_START_Z + 3)
+            // Create Receivers with routes - spread for wider field
+            const receiverConfigs = [
+                {
+                    start: new BABYLON.Vector3(-5, 0, QB_START_Z + 3),
+                    route: [
+                        { z: QB_START_Z + 8, x: -5 },      // Run straight
+                        { z: QB_START_Z + 12, x: -2 }     // Jink inward
+                    ]
+                },
+                {
+                    start: new BABYLON.Vector3(0, 0, QB_START_Z + 4),
+                    route: [
+                        { z: QB_START_Z + 14, x: 0 }       // Straight up (no jink)
+                    ]
+                },
+                {
+                    start: new BABYLON.Vector3(5, 0, QB_START_Z + 3),
+                    route: [
+                        { z: QB_START_Z + 7, x: 5 },       // Run straight
+                        { z: QB_START_Z + 13, x: 7 }      // Jink outward
+                    ]
+                }
             ];
 
-            receiverPositions.forEach((pos, i) => {
-                const receiver = createKnight(scene, materials.receiverMaterial, pos);
+            // Route line material
+            const routeMat = new BABYLON.StandardMaterial('routeMat', scene);
+            routeMat.diffuseColor = new BABYLON.Color3(0.3, 0.7, 1);
+            routeMat.emissiveColor = new BABYLON.Color3(0.1, 0.3, 0.5);
+            routeMat.alpha = 0.6;
+
+            receiverConfigs.forEach((config, i) => {
+                const receiver = createKnight(scene, materials.receiverMaterial, config.start.clone());
                 receiver.name = `receiver_${i}`;
 
-                // Add catch zone indicator
+                // Store route data on receiver
+                receiver.route = config.route;
+                receiver.routeIndex = 0;
+                receiver.startPos = config.start.clone();
+
+                // Add catch zone indicator - flat on the ground
                 const catchZone = BABYLON.MeshBuilder.CreateTorus('catchZone_' + i, {
                     diameter: 2.4,
                     thickness: 0.08,
@@ -164,13 +192,28 @@
                 zoneMat.emissiveColor = new BABYLON.Color3(0.1, 0.2, 0.4);
                 zoneMat.alpha = 0.5;
                 catchZone.material = zoneMat;
-                catchZone.rotation.x = Math.PI / 2;
+                // No rotation needed - torus is already horizontal by default when parented
                 catchZone.position.y = 0.02;
                 catchZone.parent = receiver;
                 receiver.catchZone = catchZone;
 
+                // Draw route line on field
+                const routePoints = [config.start.clone()];
+                routePoints[0].y = 0.05;
+                config.route.forEach(point => {
+                    routePoints.push(new BABYLON.Vector3(point.x, 0.05, point.z));
+                });
+
+                const routeLine = BABYLON.MeshBuilder.CreateTube('route_' + i, {
+                    path: routePoints,
+                    radius: 0.08,
+                    tessellation: 8
+                }, scene);
+                routeLine.material = routeMat;
+                receiver.routeLine = routeLine;
+
                 gameState.receivers.push(receiver);
-                gameState.receiversStartZ.push(pos.z);
+                gameState.receiversStartZ.push(config.start.z);
             });
 
             // Create Football (initially hidden)
@@ -467,6 +510,30 @@
             }
         };
 
+        // Move receiver along their route
+        const moveReceiverAlongRoute = (receiver, runSpeed) => {
+            if (!receiver.route || receiver.routeIndex >= receiver.route.length) {
+                return false; // Route complete
+            }
+
+            const target = receiver.route[receiver.routeIndex];
+            const dx = target.x - receiver.position.x;
+            const dz = target.z - receiver.position.z;
+            const dist = Math.sqrt(dx * dx + dz * dz);
+
+            if (dist < 0.3) {
+                // Reached waypoint, move to next
+                receiver.routeIndex++;
+                return receiver.routeIndex < receiver.route.length;
+            }
+
+            // Move toward target
+            receiver.position.x += (dx / dist) * runSpeed;
+            receiver.position.z += (dz / dist) * runSpeed;
+            receiver.rotation.y = Math.atan2(dx, dz);
+            return true;
+        };
+
         // Throw Football Animation
         const throwFootball = (scene) => {
             if (!gameState.canThrow || gameState.ballInFlight) return;
@@ -523,15 +590,16 @@
                     // Spin animation
                     football.rotation.z += 0.2;
 
-                    // Keep ALL receivers moving and reacting
+                    // Keep ALL receivers moving along their routes
                     gameState.receivers.forEach((receiver, i) => {
-                        // Calculate distance to landing spot
+                        const runSpeed = 0.025;
+
+                        // Calculate distance to ball landing spot
                         const dx = landingPos.x - receiver.position.x;
                         const dz = landingPos.z - receiver.position.z;
                         const distToLanding = Math.sqrt(dx * dx + dz * dz);
 
                         // If ball is coming to them (within catch range), move toward it
-                        const runSpeed = 0.025;  // Same as regular running speed
                         if (distToLanding < catchRadius * 2.5 && frameIndex > 5) {
                             if (distToLanding > 0.2) {
                                 receiver.position.x += (dx / distToLanding) * runSpeed;
@@ -539,11 +607,8 @@
                                 receiver.rotation.y = Math.atan2(dx, dz);
                             }
                         } else {
-                            // Otherwise keep running their route (forward)
-                            receiver.position.z += runSpeed;
-                            if (receiver.position.z > 12) {
-                                receiver.position.z = gameState.receiversStartZ[i];
-                            }
+                            // Follow their route
+                            moveReceiverAlongRoute(receiver, runSpeed);
                         }
 
                         // Running animation
@@ -631,12 +696,13 @@
             }
             gameState.ballInFlight = false;
 
-            // Reset receiver positions
+            // Reset receiver positions and routes
             gameState.receivers.forEach((receiver, i) => {
-                receiver.position.x = [-2.5, 0, 2.5][i];
-                receiver.position.z = gameState.receiversStartZ[i];
+                receiver.position.x = receiver.startPos.x;
+                receiver.position.z = receiver.startPos.z;
                 receiver.position.y = 0;
                 receiver.rotation.y = 0;
+                receiver.routeIndex = 0;
             });
 
             // Slight delay before allowing next throw
@@ -735,20 +801,22 @@
                 qb.rotation.y = Math.sin(time * 2) * 0.05;
                 qb.position.y = Math.sin(time * 3) * 0.02;
 
-                // Receivers running and bobbing
+                // Receivers running their routes
                 if (!gameState.ballInFlight && gameState.canThrow) {
                     gameState.receivers.forEach((receiver, i) => {
-                        // Run forward
-                        receiver.position.z += 0.03;
+                        const runSpeed = 0.03;
 
-                        // Reset if too far
-                        if (receiver.position.z > 12) {
-                            receiver.position.z = gameState.receiversStartZ[i];
+                        // Follow route, reset if complete
+                        const stillRunning = moveReceiverAlongRoute(receiver, runSpeed);
+                        if (!stillRunning) {
+                            // Reset to start of route
+                            receiver.position.x = receiver.startPos.x;
+                            receiver.position.z = receiver.startPos.z;
+                            receiver.routeIndex = 0;
                         }
 
                         // Running bob animation
                         receiver.position.y = Math.abs(Math.sin(time * 8 + i)) * 0.08;
-                        receiver.rotation.y = Math.sin(time * 8 + i) * 0.1;
 
                         // Arm swing approximation via slight rotation
                         receiver.rotation.z = Math.sin(time * 8 + i) * 0.05;
