@@ -115,6 +115,11 @@
             }
         };
 
+        // Feature flags
+        const FEATURE_FLAGS = {
+            showDefenderZones: false  // Show defender zone rings and fills
+        };
+
         // Constants
         const FIELD_WIDTH = 16;  // Doubled width
         const FIELD_LENGTH = 20;
@@ -429,6 +434,10 @@
                 defender.fillMaterial = defFillMat;
                 defender.baseZoneColor = config.zoneColor.clone();
                 defender.clashFlashUntil = 0;  // For clash animation
+
+                // Apply feature flag for defender zone visibility
+                defRing.setEnabled(FEATURE_FLAGS.showDefenderZones);
+                defFill.setEnabled(FEATURE_FLAGS.showDefenderZones);
 
                 gameState.defenders.push(defender);
             });
