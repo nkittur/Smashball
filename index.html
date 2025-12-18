@@ -309,7 +309,8 @@
                 receiver.speed = receiver.baseSpeed;
 
                 // Clash system runtime state
-                receiver.separationState = 'contested';  // 'open', 'contested', 'covered'
+                receiver.separationState = 'contested';  // Legacy - kept for compatibility
+                receiver.clashSpeedPenaltyUntil = 0;  // Clash loser speed penalty timer
                 receiver.lastClashTime = 0;
                 receiver.knockdownUntil = 0;
                 receiver.knockdownResistance = 0;
@@ -353,6 +354,9 @@
                 receiver.fillMaterial = fillMat;
                 receiver.coverageAmount = 0;  // 0-1 how much defender is covering
                 receiver.clashFlashUntil = 0;  // For clash animation
+
+                // Hide the outer ring - only show proximity-based fill
+                zoneRing.setEnabled(false);
 
                 // Draw route line on field
                 const routePoints = [config.start.clone()];
@@ -415,6 +419,7 @@
                 defender.knockdownUntil = 0;
                 defender.knockdownResistance = 0;
                 defender.initialClashSlowdownUntil = 0;  // Slowdown during first contact
+                defender.clashSpeedPenaltyUntil = 0;  // Speed penalty from losing clash
 
                 // Add defender zone indicator - ring outline + fill disc
                 // Ring (outer indicator)
@@ -935,6 +940,7 @@
                 defender.knockdownResistance = 0;
                 defender.clashFlashUntil = 0;
                 defender.initialClashSlowdownUntil = 0;
+                defender.clashSpeedPenaltyUntil = 0;
                 defender.lastClashTime = 0;
                 defender.zoneFill.scaling = new BABYLON.Vector3(0, 0, 0);
                 defender.fillMaterial.alpha = 0;
@@ -958,10 +964,10 @@
                 receiver.lastClashTime = 0;
                 receiver.speed = receiver.baseSpeed;
                 receiver.initialClashSlowdownUntil = 0;
+                receiver.clashSpeedPenaltyUntil = 0;
                 receiver.coverageAmount = 0;
                 receiver.zoneFill.scaling = new BABYLON.Vector3(0, 0, 0);
                 receiver.fillMaterial.alpha = 0;
-                updateReceiverZoneColor(receiver);
             });
         };
 
@@ -1150,33 +1156,16 @@
             }
         };
 
-        // Calculate catch probability based on receiver stats and coverage
+        // Calculate catch probability based on receiver stats and proximity to defenders
         const calculateCatchProbability = (receiver, ballPosition) => {
             // Base catch rate from receiver's catching stat
             let baseCatch = receiver.stats.catching;
 
-            // Separation state modifier
-            let separationMod = 0;
-            switch (receiver.separationState) {
-                case 'open':
-                    separationMod = 15;  // Easier catch when open
-                    break;
-                case 'covered':
-                    separationMod = -25;  // Harder when covered
-                    break;
-                case 'contested':
-                default:
-                    separationMod = 0;
-                    break;
-            }
-
-            // Focus stat helps in contested situations
-            const focusMod = receiver.separationState === 'contested' ?
-                (receiver.stats.focus - 70) * 0.3 : 0;
-
             // Find closest defender and apply proximity penalty
             let defenderProximityPenalty = 0;
             let defenderDetails = [];
+            let hasNearbyDefender = false;
+
             gameState.defenders.forEach(defender => {
                 if (defender.knockdownUntil > gameState.gameTime) return;
 
@@ -1184,27 +1173,30 @@
                 const dz = defender.position.z - receiver.position.z;
                 const dist = Math.sqrt(dx * dx + dz * dz);
 
-                if (dist < CLASH_CONSTANTS.CLASH_RANGE) {
-                    // Defender is close - apply coverage penalty
+                if (dist < CLASH_CONSTANTS.CLASH_RANGE * 1.5) {
+                    hasNearbyDefender = true;
+                    // Defender is close - apply coverage penalty based on proximity
                     const coverageStat = defender.aiType === 'zone' ?
                         defender.stats.zoneCoverage : defender.stats.manCoverage;
-                    const proximityFactor = 1 - (dist / CLASH_CONSTANTS.CLASH_RANGE);
-                    const penalty = proximityFactor * coverageStat * 0.2;
+                    const proximityFactor = 1 - (dist / (CLASH_CONSTANTS.CLASH_RANGE * 1.5));
+                    const penalty = proximityFactor * coverageStat * 0.3;  // Increased penalty multiplier
                     defenderProximityPenalty += penalty;
                     defenderDetails.push({ name: defender.name, dist: dist.toFixed(2), penalty: penalty.toFixed(1) });
                 }
             });
 
+            // Focus stat helps when defenders are nearby
+            const focusMod = hasNearbyDefender ? (receiver.stats.focus - 70) * 0.2 : 0;
+
             // Calculate final probability (clamped between 5% and 95%)
             const finalProbability = Math.max(5, Math.min(95,
-                baseCatch + separationMod + focusMod - defenderProximityPenalty
+                baseCatch + focusMod - defenderProximityPenalty
             ));
 
             // Debug logging for catch calculations
             console.log(`[CATCH CALC] ${receiver.name}:`);
             console.log(`  Base catch (stat): ${baseCatch}`);
-            console.log(`  Separation state: ${receiver.separationState} (mod: ${separationMod >= 0 ? '+' : ''}${separationMod})`);
-            console.log(`  Focus mod: ${focusMod >= 0 ? '+' : ''}${focusMod.toFixed(1)}`);
+            console.log(`  Focus mod (nearby defender): ${focusMod >= 0 ? '+' : ''}${focusMod.toFixed(1)}`);
             console.log(`  Defender proximity penalty: -${defenderProximityPenalty.toFixed(1)}`);
             if (defenderDetails.length > 0) {
                 defenderDetails.forEach(d => {
@@ -1328,12 +1320,14 @@
             document.getElementById('debugInfo').style.display = 'block';
 
             let debugText = '=== RECEIVER STATUS ===\n';
+            const coverageRange = CLASH_CONSTANTS.CLASH_RANGE * 1.5;
 
             gameState.receivers.forEach((receiver, i) => {
                 // Find closest defender
                 let closestDef = null;
                 let closestDist = Infinity;
                 gameState.defenders.forEach(def => {
+                    if (def.knockdownUntil > gameState.gameTime) return;
                     const dx = def.position.x - receiver.position.x;
                     const dz = def.position.z - receiver.position.z;
                     const dist = Math.sqrt(dx * dx + dz * dz);
@@ -1345,23 +1339,24 @@
 
                 const timeSinceClash = (gameState.gameTime - receiver.lastClashTime).toFixed(1);
                 const speedMod = (receiver.speed / receiver.baseSpeed * 100).toFixed(0);
+                const hasSpeedPenalty = receiver.clashSpeedPenaltyUntil > gameState.gameTime;
+
+                // Determine coverage level for display
+                let coverageLevel = 'OPEN';
+                if (receiver.coverageAmount >= 0.6) coverageLevel = 'COVERED';
+                else if (receiver.coverageAmount >= 0.3) coverageLevel = 'CONTESTED';
 
                 debugText += `\n${receiver.displayName}:\n`;
-                debugText += `  State: ${receiver.separationState.toUpperCase()}\n`;
-                debugText += `  Speed: ${speedMod}% of base\n`;
+                debugText += `  Coverage: ${coverageLevel} (${(receiver.coverageAmount * 100).toFixed(0)}%)\n`;
+                debugText += `  Speed: ${speedMod}%${hasSpeedPenalty ? ' (SLOWED)' : ''}\n`;
                 debugText += `  Last clash: ${timeSinceClash}s ago\n`;
 
                 if (closestDef) {
-                    debugText += `  Nearest def: ${closestDef.displayName}\n`;
-                    debugText += `  Def dist: ${closestDist.toFixed(1)} (range: ${CLASH_CONSTANTS.CLASH_RANGE})\n`;
-                    debugText += `  Coverage: ${(receiver.coverageAmount * 100).toFixed(0)}%\n`;
-
-                    // Explain why state might not match proximity
-                    if (receiver.separationState === 'open' && closestDist < CLASH_CONSTANTS.CLASH_RANGE) {
-                        debugText += `  ⚠ GREEN but def close!\n`;
-                        debugText += `    (state from last clash,\n`;
-                        debugText += `     catch % will be reduced)\n`;
-                    }
+                    const defSpeedPenalty = closestDef.clashSpeedPenaltyUntil > gameState.gameTime;
+                    debugText += `  Nearest: ${closestDef.displayName}`;
+                    if (defSpeedPenalty) debugText += ' (SLOWED)';
+                    debugText += `\n`;
+                    debugText += `  Distance: ${closestDist.toFixed(1)} / ${coverageRange.toFixed(1)}\n`;
                 }
             });
 
@@ -1487,10 +1482,13 @@
                             return;
                         }
 
-                        // Calculate effective speed (slowdown during initial clash)
+                        // Calculate effective speed (slowdowns from clashes)
                         let effectiveSpeed = defender.speed;
                         if (defender.initialClashSlowdownUntil > gameState.gameTime) {
                             effectiveSpeed *= 0.2;  // 20% speed during initial clash
+                        }
+                        if (defender.clashSpeedPenaltyUntil > gameState.gameTime) {
+                            effectiveSpeed *= 0.75;  // 25% slower after losing clash
                         }
 
                         moveDefender(defender, 0.016, effectiveSpeed);
@@ -1513,37 +1511,28 @@
             });
         };
 
-        // Get zone color based on separation state
-        const getZoneColors = (separationState) => {
-            switch (separationState) {
-                case 'open':
-                    return {
-                        diffuse: new BABYLON.Color3(0.2, 0.9, 0.3),  // Green
-                        emissive: new BABYLON.Color3(0.1, 0.4, 0.15)
-                    };
-                case 'covered':
-                    return {
-                        diffuse: new BABYLON.Color3(0.9, 0.2, 0.2),  // Red
-                        emissive: new BABYLON.Color3(0.4, 0.1, 0.1)
-                    };
-                case 'contested':
-                default:
-                    return {
-                        diffuse: new BABYLON.Color3(1.0, 0.8, 0.2),  // Yellow
-                        emissive: new BABYLON.Color3(0.4, 0.3, 0.1)
-                    };
+        // Get zone colors based on proximity coverage amount (0-1)
+        // 0 = no coverage (green), 0.5 = contested (yellow), 1 = heavily covered (red)
+        const getZoneColorsByProximity = (coverageAmount) => {
+            if (coverageAmount < 0.3) {
+                // Green - low coverage
+                return {
+                    diffuse: new BABYLON.Color3(0.2, 0.9, 0.3),
+                    emissive: new BABYLON.Color3(0.1, 0.4, 0.15)
+                };
+            } else if (coverageAmount < 0.6) {
+                // Yellow - moderate coverage
+                return {
+                    diffuse: new BABYLON.Color3(1.0, 0.8, 0.2),
+                    emissive: new BABYLON.Color3(0.4, 0.3, 0.1)
+                };
+            } else {
+                // Red - heavy coverage
+                return {
+                    diffuse: new BABYLON.Color3(0.9, 0.2, 0.2),
+                    emissive: new BABYLON.Color3(0.4, 0.1, 0.1)
+                };
             }
-        };
-
-        // Update receiver zone color based on separation state
-        const updateReceiverZoneColor = (receiver) => {
-            if (!receiver.ringMaterial) return;
-
-            const colors = getZoneColors(receiver.separationState);
-            receiver.ringMaterial.diffuseColor = colors.diffuse;
-            receiver.ringMaterial.emissiveColor = colors.emissive;
-            receiver.fillMaterial.diffuseColor = colors.diffuse;
-            receiver.fillMaterial.emissiveColor = colors.emissive.scale(0.5);
         };
 
         // Update zone fills based on proximity between receivers and defenders
@@ -1574,6 +1563,9 @@
 
                 receiver.coverageAmount = maxCoverage;
 
+                // Get color based on proximity coverage
+                const colors = getZoneColorsByProximity(maxCoverage);
+
                 // Handle clash flash animation
                 const currentTime = gameState.gameTime;
                 let flashMultiplier = 1;
@@ -1589,19 +1581,13 @@
                 const fillScale = Math.max(0.1, maxCoverage) * 0.95;  // Always show some fill when in range
                 receiver.zoneFill.scaling = new BABYLON.Vector3(fillScale, fillScale, fillScale);
 
+                // Update fill color based on proximity
+                receiver.fillMaterial.diffuseColor = colors.diffuse;
+                receiver.fillMaterial.emissiveColor = colors.emissive.scale(isFlashing ? flashMultiplier : 0.5);
+
                 // Higher base alpha for better visibility
                 const baseAlpha = maxCoverage * 0.5;
                 receiver.fillMaterial.alpha = Math.min(0.7, baseAlpha * flashMultiplier);
-
-                // Brighter emissive during flash
-                if (isFlashing) {
-                    const colors = getZoneColors(receiver.separationState);
-                    receiver.fillMaterial.emissiveColor = colors.emissive.scale(flashMultiplier);
-                    receiver.ringMaterial.emissiveColor = colors.emissive.scale(flashMultiplier * 1.5);
-                }
-
-                // Update ring brightness based on flash
-                receiver.ringMaterial.alpha = Math.min(1.0, 0.8 * flashMultiplier);
 
                 // Update covering defender's fill too
                 if (coveringDefender) {
@@ -1760,25 +1746,29 @@
                 defenderRoll
             };
 
+            // Speed penalty duration for clash loser
+            const CLASH_SPEED_PENALTY_DURATION = 1.5;  // seconds
+            const CLASH_SPEED_PENALTY = 0.75;  // 25% slower
+            const CLASH_SPEED_BOOST = 1.15;  // 15% faster
+
             if (margin > CLASH_CONSTANTS.SEPARATION_THRESHOLD) {
                 result.winner = 'receiver';
                 result.type = 'separation';
-                receiver.separationState = 'open';
-                receiver.speed = receiver.baseSpeed * CLASH_CONSTANTS.SEPARATION_SPEED_BOOST;
+                // Receiver wins - defender gets slowed, receiver gets boost
+                defender.clashSpeedPenaltyUntil = currentTime + CLASH_SPEED_PENALTY_DURATION;
+                receiver.speed = receiver.baseSpeed * CLASH_SPEED_BOOST;
             } else if (margin < -CLASH_CONSTANTS.COVERAGE_THRESHOLD) {
                 result.winner = 'defender';
                 result.type = 'coverage';
-                receiver.separationState = 'covered';
-                receiver.speed = receiver.baseSpeed * CLASH_CONSTANTS.COVERAGE_SPEED_PENALTY;
+                // Defender wins - receiver gets slowed
+                receiver.clashSpeedPenaltyUntil = currentTime + CLASH_SPEED_PENALTY_DURATION;
+                receiver.speed = receiver.baseSpeed * CLASH_SPEED_PENALTY;
             } else {
                 result.winner = 'none';
                 result.type = 'contested';
-                receiver.separationState = 'contested';
+                // Tie - both return to normal speed
                 receiver.speed = receiver.baseSpeed;
             }
-
-            // Update zone color
-            updateReceiverZoneColor(receiver);
 
             // Physical battle check (based on aggression)
             const physicalChance = (receiver.stats.aggression + defender.stats.aggression) / 200;
@@ -1814,10 +1804,9 @@
                 loser.knockdownUntil = currentTime + CLASH_CONSTANTS.KNOCKDOWN_DURATION;
                 loser.knockdownResistance += CLASH_CONSTANTS.KNOCKDOWN_RESISTANCE_GAIN;
 
-                // If receiver knocked down, they're definitely covered
+                // If receiver knocked down, apply heavy speed penalty
                 if (loser === receiver) {
-                    receiver.separationState = 'covered';
-                    updateReceiverZoneColor(receiver);
+                    receiver.clashSpeedPenaltyUntil = currentTime + CLASH_CONSTANTS.KNOCKDOWN_DURATION;
                 }
             }
         };
