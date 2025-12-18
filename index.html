@@ -448,17 +448,21 @@
 
             const startPos = scene.qb.position.clone();
             startPos.y = 1;
-            const path = generatePath(startPos, throwParams, 20);
+            const path = generatePath(startPos, throwParams, 30);
 
-            // Create dotted line with small spheres
+            // Create dotted line with small white spheres
             scene.trajectoryDots = [];
-            for (let i = 0; i < path.length; i += 2) {
+            const whiteMat = new BABYLON.StandardMaterial('whiteDot', scene);
+            whiteMat.diffuseColor = new BABYLON.Color3(1, 1, 1);
+            whiteMat.emissiveColor = new BABYLON.Color3(0.5, 0.5, 0.5);
+
+            for (let i = 0; i < path.length; i++) {
                 const dot = BABYLON.MeshBuilder.CreateSphere('dot' + i, {
-                    diameter: 0.15,
+                    diameter: 0.12,
                     segments: 4
                 }, scene);
                 dot.position = path[i];
-                dot.material = scene.materials.trajectoryMaterial;
+                dot.material = whiteMat;
                 scene.trajectoryDots.push(dot);
             }
         };
@@ -527,16 +531,16 @@
                         const distToLanding = Math.sqrt(dx * dx + dz * dz);
 
                         // If ball is coming to them (within catch range), move toward it
+                        const runSpeed = 0.025;  // Same as regular running speed
                         if (distToLanding < catchRadius * 2.5 && frameIndex > 5) {
-                            const moveSpeed = 0.06;
                             if (distToLanding > 0.2) {
-                                receiver.position.x += (dx / distToLanding) * moveSpeed;
-                                receiver.position.z += (dz / distToLanding) * moveSpeed;
+                                receiver.position.x += (dx / distToLanding) * runSpeed;
+                                receiver.position.z += (dz / distToLanding) * runSpeed;
                                 receiver.rotation.y = Math.atan2(dx, dz);
                             }
                         } else {
                             // Otherwise keep running their route (forward)
-                            receiver.position.z += 0.025;
+                            receiver.position.z += runSpeed;
                             if (receiver.position.z > 12) {
                                 receiver.position.z = gameState.receiversStartZ[i];
                             }
