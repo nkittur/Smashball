@@ -293,8 +293,12 @@
             routeMat.alpha = 0.6;
 
             receiverConfigs.forEach((config, i) => {
-                const receiver = createKnight(scene, materials.receiverMaterial, config.start.clone());
+                // Clone material so each receiver can flash independently
+                const receiverMat = materials.receiverMaterial.clone(`receiverMat_${i}`);
+                const receiver = createKnight(scene, receiverMat, config.start.clone());
                 receiver.name = `receiver_${i}`;
+                receiver.bodyMaterial = receiverMat;
+                receiver.originalColor = receiverMat.diffuseColor.clone();
 
                 // Store config data on receiver
                 receiver.displayName = config.name;
@@ -353,6 +357,9 @@
                 receiver.fillMaterial = fillMat;
                 receiver.coverageAmount = 0;  // 0-1 how much defender is covering
                 receiver.clashFlashUntil = 0;  // For clash animation
+                receiver.clashTiltUntil = 0;  // For grappling tilt
+                receiver.clashTiltAngle = 0;
+                receiver.loserFlashUntil = 0;  // White flash when losing clash
 
                 // Hide the outer ring - only show proximity-based fill
                 zoneRing.setEnabled(false);
@@ -396,8 +403,12 @@
                     startPos = new BABYLON.Vector3(0, 0, RECEIVER_START_Z + 1);
                 }
 
-                const defender = createKnight(scene, materials.defenderMaterial, startPos);
+                // Clone material so each defender can flash independently
+                const defenderMat = materials.defenderMaterial.clone(`defenderMat_${i}`);
+                const defender = createKnight(scene, defenderMat, startPos);
                 defender.name = `defender_${i}`;
+                defender.bodyMaterial = defenderMat;
+                defender.originalColor = defenderMat.diffuseColor.clone();
 
                 // Store config data on defender
                 defender.displayName = config.name;
@@ -456,6 +467,9 @@
                 defender.fillMaterial = defFillMat;
                 defender.baseZoneColor = config.zoneColor.clone();
                 defender.clashFlashUntil = 0;  // For clash animation
+                defender.clashTiltUntil = 0;  // For grappling tilt
+                defender.clashTiltAngle = 0;
+                defender.loserFlashUntil = 0;  // White flash when losing clash
 
                 // Apply feature flag for defender zone visibility
                 defRing.setEnabled(FEATURE_FLAGS.showDefenderZones);
@@ -938,9 +952,12 @@
                 defender.knockdownUntil = 0;
                 defender.knockdownResistance = 0;
                 defender.clashFlashUntil = 0;
+                defender.clashTiltUntil = 0;
+                defender.loserFlashUntil = 0;
                 defender.initialClashSlowdownUntil = 0;
                 defender.clashSpeedPenaltyUntil = 0;
                 defender.lastClashTime = 0;
+                defender.rotation.x = 0;  // Reset tilt
                 defender.zoneFill.scaling = new BABYLON.Vector3(0, 0, 0);
                 defender.fillMaterial.alpha = 0;
             });
@@ -960,10 +977,13 @@
                 receiver.knockdownUntil = 0;
                 receiver.knockdownResistance = 0;
                 receiver.clashFlashUntil = 0;
+                receiver.clashTiltUntil = 0;
+                receiver.loserFlashUntil = 0;
                 receiver.lastClashTime = 0;
                 receiver.speed = receiver.baseSpeed;
                 receiver.initialClashSlowdownUntil = 0;
                 receiver.clashSpeedPenaltyUntil = 0;
+                receiver.rotation.x = 0;  // Reset tilt
                 receiver.coverageAmount = 0;
                 receiver.currentCatchProb = receiver.stats.catching;
                 receiver.zoneFill.scaling = new BABYLON.Vector3(0.4, 0.4, 0.4);  // Base visible circle
@@ -1496,6 +1516,25 @@
 
                         // Arm swing approximation via slight rotation
                         receiver.rotation.z = Math.sin(time * bobSpeed + i) * 0.05;
+
+                        // Clash tilt effect (lean towards opponent)
+                        if (receiver.clashTiltUntil > gameState.gameTime) {
+                            const tiltProgress = (receiver.clashTiltUntil - gameState.gameTime) / 0.5;
+                            receiver.rotation.x = Math.sin(tiltProgress * Math.PI) * 0.3;  // Lean forward
+                        } else {
+                            receiver.rotation.x = 0;
+                        }
+
+                        // Loser flash effect (pulse white while slowed)
+                        if (receiver.loserFlashUntil > gameState.gameTime) {
+                            const flashRate = Math.sin(time * 15) * 0.5 + 0.5;  // Pulse 0-1
+                            const white = new BABYLON.Color3(1, 1, 1);
+                            receiver.bodyMaterial.diffuseColor = BABYLON.Color3.Lerp(receiver.originalColor, white, flashRate * 0.7);
+                            receiver.bodyMaterial.emissiveColor = white.scale(flashRate * 0.3);
+                        } else {
+                            receiver.bodyMaterial.diffuseColor = receiver.originalColor;
+                            receiver.bodyMaterial.emissiveColor = BABYLON.Color3.Black();
+                        }
                     });
 
                     // Reset all players when any route completes
@@ -1527,6 +1566,25 @@
                         const bobSpeed = defender.initialClashSlowdownUntil > gameState.gameTime ? 4 : 8;
                         defender.position.y = Math.abs(Math.sin(time * bobSpeed + i + 0.5)) * 0.08;
                         defender.rotation.z = Math.sin(time * bobSpeed + i + 0.5) * 0.05;
+
+                        // Clash tilt effect (lean towards opponent)
+                        if (defender.clashTiltUntil > gameState.gameTime) {
+                            const tiltProgress = (defender.clashTiltUntil - gameState.gameTime) / 0.5;
+                            defender.rotation.x = Math.sin(tiltProgress * Math.PI) * 0.3;  // Lean forward
+                        } else {
+                            defender.rotation.x = 0;
+                        }
+
+                        // Loser flash effect (pulse white while slowed)
+                        if (defender.loserFlashUntil > gameState.gameTime) {
+                            const flashRate = Math.sin(time * 15) * 0.5 + 0.5;  // Pulse 0-1
+                            const white = new BABYLON.Color3(1, 1, 1);
+                            defender.bodyMaterial.diffuseColor = BABYLON.Color3.Lerp(defender.originalColor, white, flashRate * 0.7);
+                            defender.bodyMaterial.emissiveColor = white.scale(flashRate * 0.3);
+                        } else {
+                            defender.bodyMaterial.diffuseColor = defender.originalColor;
+                            defender.bodyMaterial.emissiveColor = BABYLON.Color3.Black();
+                        }
                     });
 
                     // Process clashes between receivers and defenders
@@ -1701,14 +1759,30 @@
         // Trigger clash visual effect
         const triggerClashVisual = (receiver, defender, winner) => {
             const flashDuration = 0.3;  // seconds
+            const tiltDuration = 0.5;   // seconds for grappling tilt
             const currentTime = gameState.gameTime;
+
+            // Calculate tilt direction (towards each other)
+            const dx = defender.position.x - receiver.position.x;
+            const dz = defender.position.z - receiver.position.z;
+            const angle = Math.atan2(dx, dz);
+
+            // Both tilt towards each other during clash
+            receiver.clashTiltUntil = currentTime + tiltDuration;
+            receiver.clashTiltAngle = angle;  // Tilt towards defender
+            defender.clashTiltUntil = currentTime + tiltDuration;
+            defender.clashTiltAngle = angle + Math.PI;  // Tilt towards receiver (opposite)
 
             if (winner === 'receiver') {
                 receiver.clashFlashUntil = currentTime + flashDuration;
+                // Defender lost - flash white while slowed
+                defender.loserFlashUntil = defender.clashSpeedPenaltyUntil || currentTime;
             } else if (winner === 'defender') {
                 defender.clashFlashUntil = currentTime + flashDuration;
+                // Receiver lost - flash white while slowed
+                receiver.loserFlashUntil = receiver.clashSpeedPenaltyUntil || currentTime;
             } else {
-                // Contested - both flash briefly
+                // Contested - both flash briefly, no loser flash
                 receiver.clashFlashUntil = currentTime + flashDuration * 0.5;
                 defender.clashFlashUntil = currentTime + flashDuration * 0.5;
             }
