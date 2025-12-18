@@ -152,6 +152,23 @@
             receiverPositions.forEach((pos, i) => {
                 const receiver = createKnight(scene, materials.receiverMaterial, pos);
                 receiver.name = `receiver_${i}`;
+
+                // Add catch zone indicator
+                const catchZone = BABYLON.MeshBuilder.CreateTorus('catchZone_' + i, {
+                    diameter: 2.4,
+                    thickness: 0.08,
+                    tessellation: 24
+                }, scene);
+                const zoneMat = new BABYLON.StandardMaterial('zoneMat_' + i, scene);
+                zoneMat.diffuseColor = new BABYLON.Color3(0.3, 0.6, 1);
+                zoneMat.emissiveColor = new BABYLON.Color3(0.1, 0.2, 0.4);
+                zoneMat.alpha = 0.5;
+                catchZone.material = zoneMat;
+                catchZone.rotation.x = Math.PI / 2;
+                catchZone.position.y = 0.02;
+                catchZone.parent = receiver;
+                receiver.catchZone = catchZone;
+
                 gameState.receivers.push(receiver);
                 gameState.receiversStartZ.push(pos.z);
             });
@@ -467,29 +484,18 @@
             football.setEnabled(true);
             football.position = path[0].clone();
 
-            // Find landing position and closest receiver
             const landingPos = path[path.length - 1];
-            let closestReceiver = null;
-            let closestDist = Infinity;
-            const catchRadius = 2.5;
-
-            for (const receiver of gameState.receivers) {
-                const dist = BABYLON.Vector3.Distance(
-                    new BABYLON.Vector3(receiver.position.x, 0, receiver.position.z),
-                    new BABYLON.Vector3(landingPos.x, 0, landingPos.z)
-                );
-                if (dist < closestDist && dist < catchRadius * 2) {
-                    closestDist = dist;
-                    closestReceiver = receiver;
-                }
-            }
+            const catchRadius = 1.2;
 
             let frameIndex = 0;
-            const animationSpeed = 2;
+            const animationSpeed = 1;  // Slowed down by half
             let accumulator = 0;
+            const time = { value: 0 };
 
             const ballAnimation = scene.onBeforeRenderObservable.add(() => {
-                accumulator += scene.getEngine().getDeltaTime() * 0.001 * 60 * animationSpeed;
+                const dt = scene.getEngine().getDeltaTime() * 0.001;
+                time.value += dt;
+                accumulator += dt * 60 * animationSpeed;
 
                 while (accumulator >= 1 && frameIndex < path.length - 1) {
                     frameIndex++;
@@ -511,33 +517,41 @@
                     }
 
                     // Spin animation
-                    football.rotation.z += 0.3;
+                    football.rotation.z += 0.2;
 
-                    // Move closest receiver toward ball landing spot
-                    if (closestReceiver && frameIndex > 10) {
-                        const targetX = landingPos.x;
-                        const targetZ = landingPos.z;
-                        const moveSpeed = 0.08;
+                    // Keep ALL receivers moving and reacting
+                    gameState.receivers.forEach((receiver, i) => {
+                        // Calculate distance to landing spot
+                        const dx = landingPos.x - receiver.position.x;
+                        const dz = landingPos.z - receiver.position.z;
+                        const distToLanding = Math.sqrt(dx * dx + dz * dz);
 
-                        const dx = targetX - closestReceiver.position.x;
-                        const dz = targetZ - closestReceiver.position.z;
-                        const dist = Math.sqrt(dx * dx + dz * dz);
-
-                        if (dist > 0.3) {
-                            closestReceiver.position.x += (dx / dist) * moveSpeed;
-                            closestReceiver.position.z += (dz / dist) * moveSpeed;
-                            // Face movement direction
-                            closestReceiver.rotation.y = Math.atan2(dx, dz);
-                            // Running bob
-                            closestReceiver.position.y = Math.abs(Math.sin(frameIndex * 0.5)) * 0.1;
+                        // If ball is coming to them (within catch range), move toward it
+                        if (distToLanding < catchRadius * 2.5 && frameIndex > 5) {
+                            const moveSpeed = 0.06;
+                            if (distToLanding > 0.2) {
+                                receiver.position.x += (dx / distToLanding) * moveSpeed;
+                                receiver.position.z += (dz / distToLanding) * moveSpeed;
+                                receiver.rotation.y = Math.atan2(dx, dz);
+                            }
+                        } else {
+                            // Otherwise keep running their route (forward)
+                            receiver.position.z += 0.025;
+                            if (receiver.position.z > 12) {
+                                receiver.position.z = gameState.receiversStartZ[i];
+                            }
                         }
-                    }
+
+                        // Running animation
+                        receiver.position.y = Math.abs(Math.sin(time.value * 8 + i)) * 0.08;
+                        receiver.rotation.z = Math.sin(time.value * 8 + i) * 0.05;
+                    });
                 }
 
                 // Check if ball has landed
                 if (frameIndex >= path.length - 1) {
                     scene.onBeforeRenderObservable.remove(ballAnimation);
-                    checkCatch(scene, football.position, closestReceiver);
+                    checkCatch(scene, football.position, null);
                 }
             });
         };
