@@ -89,10 +89,10 @@
         // Constants
         const FIELD_WIDTH = 16;  // Doubled width
         const FIELD_LENGTH = 20;
-        const QB_START_Z = -3;  // Moved up for easier dragging
-        const MAX_THROW_DISTANCE = 12;
+        const QB_START_Z = -6;  // Moved back (closer to bottom of screen)
+        const MAX_THROW_DISTANCE = 18;  // Can overthrow into endzone
         const MIN_THROW_DISTANCE = 2;
-        const DRAG_SENSITIVITY = 0.08;  // Much more sensitive
+        const DRAG_SENSITIVITY = 0.12;  // More responsive - bottom of screen = max throw
 
         // Initialize Babylon.js
         const canvas = document.getElementById('renderCanvas');
@@ -103,13 +103,13 @@
             const scene = new BABYLON.Scene(engine);
             scene.clearColor = new BABYLON.Color4(0.1, 0.1, 0.18, 1);
 
-            // Isometric Camera - adjusted for wider field
+            // Isometric Camera - adjusted for wider field, target lower
             const camera = new BABYLON.ArcRotateCamera(
                 'camera',
                 -Math.PI / 2,  // Alpha - looking down the field
                 Math.PI / 3.5, // Beta - slightly steeper angle
-                30,            // Radius - further out for wider field
-                new BABYLON.Vector3(0, 0, 4),  // Target further up field
+                32,            // Radius - further out for wider field
+                new BABYLON.Vector3(0, 0, 2),  // Target moved down to show QB better
                 scene
             );
             // Don't attach camera controls - we handle input ourselves
@@ -142,26 +142,27 @@
             const qb = createKnight(scene, materials.qbMaterial, new BABYLON.Vector3(0, 0, QB_START_Z));
             qb.name = 'quarterback';
 
-            // Create Receivers with routes - spread for wider field
+            // Create Receivers with routes - all start at same yardline, close to QB
+            const RECEIVER_START_Z = QB_START_Z + 2;  // Close to QB, same line
             const receiverConfigs = [
                 {
-                    start: new BABYLON.Vector3(-5, 0, QB_START_Z + 3),
+                    start: new BABYLON.Vector3(-5, 0, RECEIVER_START_Z),
                     route: [
-                        { z: QB_START_Z + 8, x: -5 },      // Run straight
-                        { z: QB_START_Z + 12, x: -2 }     // Jink inward
+                        { z: RECEIVER_START_Z + 6, x: -5 },    // Run straight
+                        { z: RECEIVER_START_Z + 12, x: -2 }   // Jink inward
                     ]
                 },
                 {
-                    start: new BABYLON.Vector3(0, 0, QB_START_Z + 4),
+                    start: new BABYLON.Vector3(0, 0, RECEIVER_START_Z),
                     route: [
-                        { z: QB_START_Z + 14, x: 0 }       // Straight up (no jink)
+                        { z: RECEIVER_START_Z + 14, x: 0 }     // Straight up (no jink)
                     ]
                 },
                 {
-                    start: new BABYLON.Vector3(5, 0, QB_START_Z + 3),
+                    start: new BABYLON.Vector3(5, 0, RECEIVER_START_Z),
                     route: [
-                        { z: QB_START_Z + 7, x: 5 },       // Run straight
-                        { z: QB_START_Z + 13, x: 7 }      // Jink outward
+                        { z: RECEIVER_START_Z + 5, x: 5 },     // Run straight
+                        { z: RECEIVER_START_Z + 11, x: 7 }    // Jink outward
                     ]
                 }
             ];
@@ -656,16 +657,71 @@
                 scene.football.rotation = new BABYLON.Vector3(0, 0, Math.PI / 4);
 
                 celebrateReceiver(catcher, scene);
+
+                // Reset after delay
+                setTimeout(() => {
+                    resetPlay(scene);
+                }, 2000);
             } else {
                 updateMessage('Incomplete...');
-                // Ball hits ground
-                scene.football.position.y = 0.1;
+                // Ball bounces and rolls
+                bounceBall(scene, ballPosition);
             }
+        };
 
-            // Reset after delay
-            setTimeout(() => {
-                resetPlay(scene);
-            }, 2000);
+        // Ball bounce and roll animation for incomplete passes
+        const bounceBall = (scene, startPos) => {
+            const football = scene.football;
+            let velocity = {
+                x: (Math.random() - 0.5) * 0.1,
+                y: 0.15,  // Initial bounce up
+                z: (Math.random() - 0.5) * 0.1
+            };
+            let bounceCount = 0;
+            const maxBounces = 3;
+            const gravity = 0.008;
+            const friction = 0.95;
+            const bounceDamping = 0.5;
+
+            const bounceAnimation = scene.onBeforeRenderObservable.add(() => {
+                // Apply gravity
+                velocity.y -= gravity;
+
+                // Update position
+                football.position.x += velocity.x;
+                football.position.y += velocity.y;
+                football.position.z += velocity.z;
+
+                // Tumble rotation
+                football.rotation.x += velocity.z * 2;
+                football.rotation.z += velocity.x * 2;
+
+                // Ground collision
+                if (football.position.y <= 0.1) {
+                    football.position.y = 0.1;
+                    bounceCount++;
+
+                    if (bounceCount < maxBounces) {
+                        // Bounce up with damping
+                        velocity.y = Math.abs(velocity.y) * bounceDamping;
+                        velocity.x *= friction;
+                        velocity.z *= friction;
+                    } else {
+                        // Rolling on ground
+                        velocity.y = 0;
+                        velocity.x *= 0.92;
+                        velocity.z *= 0.92;
+
+                        // Stop when slow enough
+                        if (Math.abs(velocity.x) < 0.001 && Math.abs(velocity.z) < 0.001) {
+                            scene.onBeforeRenderObservable.remove(bounceAnimation);
+                            setTimeout(() => {
+                                resetPlay(scene);
+                            }, 800);
+                        }
+                    }
+                }
+            });
         };
 
         // Celebrate Catch - receiver holds ball and celebrates
