@@ -88,10 +88,10 @@
         // Constants
         const FIELD_WIDTH = 8;
         const FIELD_LENGTH = 20;
-        const QB_START_Z = -7;
-        const MAX_THROW_DISTANCE = 15;
-        const MIN_THROW_DISTANCE = 3;
-        const DRAG_SENSITIVITY = 0.015;
+        const QB_START_Z = -3;  // Moved up for easier dragging
+        const MAX_THROW_DISTANCE = 12;
+        const MIN_THROW_DISTANCE = 2;
+        const DRAG_SENSITIVITY = 0.08;  // Much more sensitive
 
         // Initialize Babylon.js
         const canvas = document.getElementById('renderCanvas');
@@ -102,13 +102,13 @@
             const scene = new BABYLON.Scene(engine);
             scene.clearColor = new BABYLON.Color4(0.1, 0.1, 0.18, 1);
 
-            // Isometric Camera
+            // Isometric Camera - adjusted to show QB lower on screen
             const camera = new BABYLON.ArcRotateCamera(
                 'camera',
                 -Math.PI / 2,  // Alpha - looking down the field
-                Math.PI / 4,   // Beta - 45 degree angle for isometric
-                25,            // Radius
-                new BABYLON.Vector3(0, 0, 2),
+                Math.PI / 3.5, // Beta - slightly steeper angle
+                22,            // Radius - closer
+                new BABYLON.Vector3(0, 0, 4),  // Target further up field
                 scene
             );
             camera.attachControl(canvas, false);
@@ -142,11 +142,11 @@
             const qb = createKnight(scene, materials.qbMaterial, new BABYLON.Vector3(0, 0, QB_START_Z));
             qb.name = 'quarterback';
 
-            // Create Receivers
+            // Create Receivers - start ahead of QB
             const receiverPositions = [
-                new BABYLON.Vector3(-2.5, 0, QB_START_Z + 2),
-                new BABYLON.Vector3(0, 0, QB_START_Z + 3),
-                new BABYLON.Vector3(2.5, 0, QB_START_Z + 2)
+                new BABYLON.Vector3(-2.5, 0, QB_START_Z + 3),
+                new BABYLON.Vector3(0, 0, QB_START_Z + 4),
+                new BABYLON.Vector3(2.5, 0, QB_START_Z + 3)
             ];
 
             receiverPositions.forEach((pos, i) => {
@@ -601,12 +601,21 @@
         const setupInput = (scene) => {
             const getPointerPosition = (evt) => {
                 const rect = canvas.getBoundingClientRect();
-                if (evt.touches) {
+                // Handle touch events
+                if (evt.touches && evt.touches.length > 0) {
                     return {
                         x: evt.touches[0].clientX - rect.left,
                         y: evt.touches[0].clientY - rect.top
                     };
                 }
+                // Handle touchend (uses changedTouches)
+                if (evt.changedTouches && evt.changedTouches.length > 0) {
+                    return {
+                        x: evt.changedTouches[0].clientX - rect.left,
+                        y: evt.changedTouches[0].clientY - rect.top
+                    };
+                }
+                // Handle mouse events
                 return {
                     x: evt.clientX - rect.left,
                     y: evt.clientY - rect.top
@@ -621,6 +630,7 @@
                 gameState.isDragging = true;
                 gameState.dragStart = pos;
                 gameState.dragCurrent = pos;
+                console.log('Drag started at:', pos);
             };
 
             const onPointerMove = (evt) => {
@@ -636,7 +646,19 @@
 
                 evt.preventDefault();
 
+                // Update final position from the end event
+                const endPos = getPointerPosition(evt);
+                if (endPos.x && endPos.y) {
+                    gameState.dragCurrent = endPos;
+                }
+
+                console.log('Drag ended. Start:', gameState.dragStart, 'End:', gameState.dragCurrent);
+
                 if (gameState.dragStart && gameState.dragCurrent) {
+                    const dx = gameState.dragStart.x - gameState.dragCurrent.x;
+                    const dy = gameState.dragStart.y - gameState.dragCurrent.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    console.log('Drag distance:', dist, 'Throw distance:', dist * DRAG_SENSITIVITY);
                     throwFootball(scene);
                 }
 
