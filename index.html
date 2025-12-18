@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Smashball - Medieval Football</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: #1a1a2e;
+            touch-action: none;
+        }
+
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        #ui {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #ffd700;
+            font-family: 'Courier New', monospace;
+            font-size: 24px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+            text-align: center;
+            pointer-events: none;
+            z-index: 100;
+        }
+
+        #score {
+            font-size: 32px;
+            margin-bottom: 5px;
+        }
+
+        #message {
+            font-size: 18px;
+            color: #aaa;
+            min-height: 25px;
+        }
+
+        #instructions {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #888;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            text-align: center;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="renderCanvas"></canvas>
+    <div id="ui">
+        <div id="score">CATCHES: 0</div>
+        <div id="message">Drag from knight to throw</div>
+    </div>
+    <div id="instructions">⬇ DRAG BACK TO AIM ⬆</div>
+
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+    <script>
+        // Game State
+        const gameState = {
+            catches: 0,
+            isDragging: false,
+            canThrow: true,
+            dragStart: null,
+            dragCurrent: null,
+            ballInFlight: false,
+            receivers: [],
+            receiversStartZ: []
+        };
+
+        // Constants
+        const FIELD_WIDTH = 8;
+        const FIELD_LENGTH = 20;
+        const QB_START_Z = -7;
+        const MAX_THROW_DISTANCE = 15;
+        const MIN_THROW_DISTANCE = 3;
+        const DRAG_SENSITIVITY = 0.015;
+
+        // Initialize Babylon.js
+        const canvas = document.getElementById('renderCanvas');
+        const engine = new BABYLON.Engine(canvas, true);
+
+        // Create Scene
+        const createScene = () => {
+            const scene = new BABYLON.Scene(engine);
+            scene.clearColor = new BABYLON.Color4(0.1, 0.1, 0.18, 1);
+
+            // Isometric Camera
+            const camera = new BABYLON.ArcRotateCamera(
+                'camera',
+                -Math.PI / 2,  // Alpha - looking down the field
+                Math.PI / 4,   // Beta - 45 degree angle for isometric
+                25,            // Radius
+                new BABYLON.Vector3(0, 0, 2),
+                scene
+            );
+            camera.attachControl(canvas, false);
+            camera.inputs.clear(); // Disable camera controls
+
+            // Lighting
+            const light = new BABYLON.HemisphericLight(
+                'light',
+                new BABYLON.Vector3(0.5, 1, 0.3),
+                scene
+            );
+            light.intensity = 0.9;
+            light.diffuse = new BABYLON.Color3(1, 0.95, 0.8);
+            light.groundColor = new BABYLON.Color3(0.2, 0.2, 0.3);
+
+            // Secondary directional light for shadows
+            const dirLight = new BABYLON.DirectionalLight(
+                'dirLight',
+                new BABYLON.Vector3(-0.5, -1, 0.5),
+                scene
+            );
+            dirLight.intensity = 0.4;
+
+            // Create Materials
+            const materials = createMaterials(scene);
+
+            // Create Field
+            createField(scene, materials);
+
+            // Create Quarterback
+            const qb = createKnight(scene, materials.qbMaterial, new BABYLON.Vector3(0, 0, QB_START_Z));
+            qb.name = 'quarterback';
+
+            // Create Receivers
+            const receiverPositions = [
+                new BABYLON.Vector3(-2.5, 0, QB_START_Z + 2),
+                new BABYLON.Vector3(0, 0, QB_START_Z + 3),
+                new BABYLON.Vector3(2.5, 0, QB_START_Z + 2)
+            ];
+
+            receiverPositions.forEach((pos, i) => {
+                const receiver = createKnight(scene, materials.receiverMaterial, pos);
+                receiver.name = `receiver_${i}`;
+                gameState.receivers.push(receiver);
+                gameState.receiversStartZ.push(pos.z);
+            });
+
+            // Create Football (initially hidden)
+            const football = createFootball(scene, materials);
+            football.setEnabled(false);
+
+            // Create Trajectory Line
+            const trajectoryLine = createTrajectoryLine(scene);
+            trajectoryLine.setEnabled(false);
+
+            // Store references
+            scene.qb = qb;
+            scene.football = football;
+            scene.trajectoryLine = trajectoryLine;
+            scene.materials = materials;
+
+            return scene;
+        };
+
+        // Create Materials
+        const createMaterials = (scene) => {
+            // Field material - dark green medieval grass
+            const fieldMaterial = new BABYLON.StandardMaterial('fieldMat', scene);
+            fieldMaterial.diffuseColor = new BABYLON.Color3(0.15, 0.35, 0.15);
+            fieldMaterial.specularColor = new BABYLON.Color3(0.05, 0.1, 0.05);
+
+            // QB material - gold/yellow knight
+            const qbMaterial = new BABYLON.StandardMaterial('qbMat', scene);
+            qbMaterial.diffuseColor = new BABYLON.Color3(0.9, 0.7, 0.2);
+            qbMaterial.specularColor = new BABYLON.Color3(1, 0.9, 0.5);
+            qbMaterial.specularPower = 32;
+
+            // Receiver material - blue knights
+            const receiverMaterial = new BABYLON.StandardMaterial('receiverMat', scene);
+            receiverMaterial.diffuseColor = new BABYLON.Color3(0.2, 0.4, 0.8);
+            receiverMaterial.specularColor = new BABYLON.Color3(0.4, 0.6, 1);
+            receiverMaterial.specularPower = 32;
+
+            // Football material - brown leather
+            const ballMaterial = new BABYLON.StandardMaterial('ballMat', scene);
+            ballMaterial.diffuseColor = new BABYLON.Color3(0.55, 0.35, 0.2);
+            ballMaterial.specularColor = new BABYLON.Color3(0.3, 0.2, 0.1);
+
+            // Line material - yard lines
+            const lineMaterial = new BABYLON.StandardMaterial('lineMat', scene);
+            lineMaterial.diffuseColor = new BABYLON.Color3(0.8, 0.8, 0.7);
+            lineMaterial.emissiveColor = new BABYLON.Color3(0.2, 0.2, 0.15);
+
+            // Trajectory material
+            const trajectoryMaterial = new BABYLON.StandardMaterial('trajMat', scene);
+            trajectoryMaterial.diffuseColor = new BABYLON.Color3(1, 0.3, 0.3);
+            trajectoryMaterial.emissiveColor = new BABYLON.Color3(0.5, 0.1, 0.1);
+            trajectoryMaterial.alpha = 0.7;
+
+            return { fieldMaterial, qbMaterial, receiverMaterial, ballMaterial, lineMaterial, trajectoryMaterial };
+        };
+
+        // Create Field
+        const createField = (scene, materials) => {
+            // Main field
+            const field = BABYLON.MeshBuilder.CreateGround('field', {
+                width: FIELD_WIDTH + 2,
+                height: FIELD_LENGTH + 4
+            }, scene);
+            field.material = materials.fieldMaterial;
+            field.position.z = 2;
+
+            // Yard lines
+            for (let i = -8; i <= 12; i += 4) {
+                const line = BABYLON.MeshBuilder.CreateBox('yardLine', {
+                    width: FIELD_WIDTH,
+                    height: 0.02,
+                    depth: 0.1
+                }, scene);
+                line.material = materials.lineMaterial;
+                line.position.set(0, 0.01, i);
+            }
+
+            // End zone
+            const endZone = BABYLON.MeshBuilder.CreateGround('endzone', {
+                width: FIELD_WIDTH + 2,
+                height: 3
+            }, scene);
+            const endZoneMat = new BABYLON.StandardMaterial('endzoneMat', scene);
+            endZoneMat.diffuseColor = new BABYLON.Color3(0.4, 0.15, 0.15);
+            endZone.material = endZoneMat;
+            endZone.position.set(0, 0.001, 12.5);
+
+            // Border walls (castle-like)
+            const wallHeight = 0.8;
+            const wallPositions = [
+                { x: -FIELD_WIDTH/2 - 0.5, z: 2, width: 1, depth: FIELD_LENGTH + 4 },
+                { x: FIELD_WIDTH/2 + 0.5, z: 2, width: 1, depth: FIELD_LENGTH + 4 }
+            ];
+
+            wallPositions.forEach((wp, i) => {
+                const wall = BABYLON.MeshBuilder.CreateBox(`wall_${i}`, {
+                    width: wp.width,
+                    height: wallHeight,
+                    depth: wp.depth
+                }, scene);
+                const wallMat = new BABYLON.StandardMaterial(`wallMat_${i}`, scene);
+                wallMat.diffuseColor = new BABYLON.Color3(0.35, 0.3, 0.25);
+                wall.material = wallMat;
+                wall.position.set(wp.x, wallHeight/2, wp.z);
+
+                // Battlements
+                for (let j = 0; j < 10; j++) {
+                    const merlon = BABYLON.MeshBuilder.CreateBox(`merlon_${i}_${j}`, {
+                        width: 0.4,
+                        height: 0.3,
+                        depth: 0.4
+                    }, scene);
+                    merlon.material = wallMat;
+                    merlon.position.set(wp.x, wallHeight + 0.15, -7 + j * 2.2);
+                }
+            });
+        };
+
+        // Create Knight Figure
+        const createKnight = (scene, material, position) => {
+            const knight = new BABYLON.TransformNode('knight', scene);
+
+            // Body (shield shape)
+            const body = BABYLON.MeshBuilder.CreateCylinder('body', {
+                height: 0.8,
+                diameterTop: 0.4,
+                diameterBottom: 0.6,
+                tessellation: 6
+            }, scene);
+            body.material = material;
+            body.position.y = 0.4;
+            body.parent = knight;
+
+            // Head (helmet)
+            const head = BABYLON.MeshBuilder.CreateSphere('head', {
+                diameter: 0.35,
+                segments: 8
+            }, scene);
+            head.material = material;
+            head.position.y = 0.95;
+            head.parent = knight;
+
+            // Helmet plume
+            const plume = BABYLON.MeshBuilder.CreateCylinder('plume', {
+                height: 0.25,
+                diameterTop: 0.05,
+                diameterBottom: 0.12,
+                tessellation: 6
+            }, scene);
+            const plumeMat = new BABYLON.StandardMaterial('plumeMat', scene);
+            plumeMat.diffuseColor = new BABYLON.Color3(0.8, 0.2, 0.2);
+            plume.material = plumeMat;
+            plume.position.y = 1.2;
+            plume.parent = knight;
+
+            // Shield
+            const shield = BABYLON.MeshBuilder.CreateBox('shield', {
+                width: 0.35,
+                height: 0.45,
+                depth: 0.08
+            }, scene);
+            const shieldMat = new BABYLON.StandardMaterial('shieldMat', scene);
+            shieldMat.diffuseColor = new BABYLON.Color3(0.5, 0.5, 0.5);
+            shield.material = shieldMat;
+            shield.position.set(-0.3, 0.5, 0.1);
+            shield.parent = knight;
+
+            // Base shadow
+            const shadow = BABYLON.MeshBuilder.CreateDisc('shadow', {
+                radius: 0.4,
+                tessellation: 12
+            }, scene);
+            const shadowMat = new BABYLON.StandardMaterial('shadowMat', scene);
+            shadowMat.diffuseColor = new BABYLON.Color3(0, 0, 0);
+            shadowMat.alpha = 0.3;
+            shadow.material = shadowMat;
+            shadow.rotation.x = Math.PI / 2;
+            shadow.position.y = 0.01;
+            shadow.parent = knight;
+
+            knight.position = position;
+            knight.idleTime = Math.random() * Math.PI * 2;
+
+            return knight;
+        };
+
+        // Create Football
+        const createFootball = (scene, materials) => {
+            const football = new BABYLON.TransformNode('football', scene);
+
+            // Elongated sphere for football
+            const ball = BABYLON.MeshBuilder.CreateSphere('ball', {
+                diameter: 0.3,
+                segments: 8
+            }, scene);
+            ball.scaling = new BABYLON.Vector3(0.6, 0.6, 1);
+            ball.material = materials.ballMaterial;
+            ball.parent = football;
+
+            // Laces
+            const laces = BABYLON.MeshBuilder.CreateBox('laces', {
+                width: 0.05,
+                height: 0.02,
+                depth: 0.15
+            }, scene);
+            const laceMat = new BABYLON.StandardMaterial('laceMat', scene);
+            laceMat.diffuseColor = new BABYLON.Color3(0.9, 0.9, 0.9);
+            laces.material = laceMat;
+            laces.position.y = 0.08;
+            laces.parent = football;
+
+            return football;
+        };
+
+        // Create Trajectory Line
+        const createTrajectoryLine = (scene) => {
+            const points = [];
+            for (let i = 0; i <= 20; i++) {
+                points.push(new BABYLON.Vector3(0, 0, i));
+            }
+
+            const trajectoryLine = BABYLON.MeshBuilder.CreateTube('trajectory', {
+                path: points,
+                radius: 0.05,
+                tessellation: 8,
+                updatable: true
+            }, scene);
+
+            trajectoryLine.material = scene.materials?.trajectoryMaterial;
+
+            return trajectoryLine;
+        };
+
+        // Calculate Throw Parameters
+        const calculateThrow = (dragStart, dragCurrent) => {
+            const dx = dragStart.x - dragCurrent.x;
+            const dy = dragStart.y - dragCurrent.y;
+
+            // Distance dragged determines throw power
+            const dragDistance = Math.sqrt(dx * dx + dy * dy) * DRAG_SENSITIVITY;
+            const throwDistance = Math.min(Math.max(dragDistance, MIN_THROW_DISTANCE), MAX_THROW_DISTANCE);
+
+            // Direction is opposite of drag
+            const angle = Math.atan2(dx, dy);
+
+            return {
+                distance: throwDistance,
+                angle: angle,
+                power: throwDistance / MAX_THROW_DISTANCE
+            };
+        };
+
+        // Generate Parabolic Path
+        const generatePath = (startPos, throwParams, numPoints = 30) => {
+            const points = [];
+            const { distance, angle, power } = throwParams;
+
+            // Maximum height based on throw power
+            const maxHeight = 2 + power * 4;
+
+            for (let i = 0; i <= numPoints; i++) {
+                const t = i / numPoints;
+
+                // Horizontal position along throw direction
+                const horizontalDist = distance * t;
+                const x = startPos.x + Math.sin(angle) * horizontalDist;
+                const z = startPos.z + Math.cos(angle) * horizontalDist;
+
+                // Parabolic height: h = 4 * maxH * t * (1 - t)
+                const y = startPos.y + 4 * maxHeight * t * (1 - t);
+
+                points.push(new BABYLON.Vector3(x, y, z));
+            }
+
+            return points;
+        };
+
+        // Update Trajectory Visualization
+        const updateTrajectory = (scene) => {
+            if (!gameState.isDragging || !gameState.dragStart || !gameState.dragCurrent) {
+                scene.trajectoryLine.setEnabled(false);
+                return;
+            }
+
+            const throwParams = calculateThrow(gameState.dragStart, gameState.dragCurrent);
+
+            // Only show if drag is significant
+            if (throwParams.distance < MIN_THROW_DISTANCE) {
+                scene.trajectoryLine.setEnabled(false);
+                return;
+            }
+
+            const startPos = scene.qb.position.clone();
+            startPos.y = 1;
+            const path = generatePath(startPos, throwParams);
+
+            // Update trajectory tube
+            scene.trajectoryLine = BABYLON.MeshBuilder.CreateTube('trajectory', {
+                path: path,
+                radius: 0.04,
+                tessellation: 6,
+                instance: scene.trajectoryLine
+            });
+            scene.trajectoryLine.setEnabled(true);
+        };
+
+        // Throw Football Animation
+        const throwFootball = (scene) => {
+            if (!gameState.canThrow || gameState.ballInFlight) return;
+            if (!gameState.dragStart || !gameState.dragCurrent) return;
+
+            const throwParams = calculateThrow(gameState.dragStart, gameState.dragCurrent);
+
+            if (throwParams.distance < MIN_THROW_DISTANCE) return;
+
+            gameState.ballInFlight = true;
+            gameState.canThrow = false;
+            updateMessage('');
+
+            const startPos = scene.qb.position.clone();
+            startPos.y = 1;
+            const path = generatePath(startPos, throwParams, 60);
+
+            const football = scene.football;
+            football.setEnabled(true);
+            football.position = path[0].clone();
+
+            let frameIndex = 0;
+            const animationSpeed = 2;
+            let accumulator = 0;
+
+            const ballAnimation = scene.onBeforeRenderObservable.add(() => {
+                accumulator += scene.getEngine().getDeltaTime() * 0.001 * 60 * animationSpeed;
+
+                while (accumulator >= 1 && frameIndex < path.length - 1) {
+                    frameIndex++;
+                    accumulator--;
+                }
+
+                if (frameIndex < path.length) {
+                    football.position = path[frameIndex].clone();
+
+                    // Rotate ball along flight path
+                    if (frameIndex < path.length - 1) {
+                        const direction = path[frameIndex + 1].subtract(path[frameIndex]);
+                        const angle = Math.atan2(direction.x, direction.z);
+                        football.rotation.y = angle;
+
+                        // Pitch based on vertical velocity
+                        const pitch = Math.atan2(direction.y, Math.sqrt(direction.x * direction.x + direction.z * direction.z));
+                        football.rotation.x = -pitch;
+                    }
+
+                    // Spin animation
+                    football.rotation.z += 0.3;
+                }
+
+                // Check if ball has landed
+                if (frameIndex >= path.length - 1) {
+                    scene.onBeforeRenderObservable.remove(ballAnimation);
+                    checkCatch(scene, football.position);
+                }
+            });
+        };
+
+        // Check for Catch
+        const checkCatch = (scene, ballPosition) => {
+            const catchRadius = 1.5;
+            let caught = false;
+
+            for (const receiver of gameState.receivers) {
+                const distance = BABYLON.Vector3.Distance(
+                    new BABYLON.Vector3(receiver.position.x, 0, receiver.position.z),
+                    new BABYLON.Vector3(ballPosition.x, 0, ballPosition.z)
+                );
+
+                if (distance < catchRadius) {
+                    caught = true;
+                    gameState.catches++;
+                    updateScore();
+                    updateMessage('CATCH!');
+
+                    // Celebration animation
+                    celebrateReceiver(receiver);
+                    break;
+                }
+            }
+
+            if (!caught) {
+                updateMessage('Incomplete...');
+            }
+
+            // Reset after delay
+            setTimeout(() => {
+                resetPlay(scene);
+            }, 2000);
+        };
+
+        // Celebrate Catch
+        const celebrateReceiver = (receiver) => {
+            let jumpFrame = 0;
+            const jumpAnimation = setInterval(() => {
+                jumpFrame++;
+                receiver.position.y = Math.abs(Math.sin(jumpFrame * 0.3)) * 0.5;
+                receiver.rotation.y += 0.2;
+
+                if (jumpFrame > 20) {
+                    clearInterval(jumpAnimation);
+                    receiver.position.y = 0;
+                }
+            }, 30);
+        };
+
+        // Reset Play
+        const resetPlay = (scene) => {
+            scene.football.setEnabled(false);
+            scene.trajectoryLine.setEnabled(false);
+            gameState.ballInFlight = false;
+
+            // Reset receiver positions
+            gameState.receivers.forEach((receiver, i) => {
+                receiver.position.z = gameState.receiversStartZ[i];
+                receiver.position.y = 0;
+                receiver.rotation.y = 0;
+            });
+
+            // Slight delay before allowing next throw
+            setTimeout(() => {
+                gameState.canThrow = true;
+                updateMessage('Drag from knight to throw');
+            }, 500);
+        };
+
+        // Update UI
+        const updateScore = () => {
+            document.getElementById('score').textContent = `CATCHES: ${gameState.catches}`;
+        };
+
+        const updateMessage = (msg) => {
+            document.getElementById('message').textContent = msg;
+        };
+
+        // Input Handling
+        const setupInput = (scene) => {
+            const getPointerPosition = (evt) => {
+                const rect = canvas.getBoundingClientRect();
+                if (evt.touches) {
+                    return {
+                        x: evt.touches[0].clientX - rect.left,
+                        y: evt.touches[0].clientY - rect.top
+                    };
+                }
+                return {
+                    x: evt.clientX - rect.left,
+                    y: evt.clientY - rect.top
+                };
+            };
+
+            const onPointerDown = (evt) => {
+                if (!gameState.canThrow || gameState.ballInFlight) return;
+
+                evt.preventDefault();
+                const pos = getPointerPosition(evt);
+                gameState.isDragging = true;
+                gameState.dragStart = pos;
+                gameState.dragCurrent = pos;
+            };
+
+            const onPointerMove = (evt) => {
+                if (!gameState.isDragging) return;
+
+                evt.preventDefault();
+                gameState.dragCurrent = getPointerPosition(evt);
+                updateTrajectory(scene);
+            };
+
+            const onPointerUp = (evt) => {
+                if (!gameState.isDragging) return;
+
+                evt.preventDefault();
+
+                if (gameState.dragStart && gameState.dragCurrent) {
+                    throwFootball(scene);
+                }
+
+                gameState.isDragging = false;
+                gameState.dragStart = null;
+                gameState.dragCurrent = null;
+                scene.trajectoryLine.setEnabled(false);
+            };
+
+            canvas.addEventListener('mousedown', onPointerDown);
+            canvas.addEventListener('mousemove', onPointerMove);
+            canvas.addEventListener('mouseup', onPointerUp);
+            canvas.addEventListener('mouseleave', onPointerUp);
+
+            canvas.addEventListener('touchstart', onPointerDown, { passive: false });
+            canvas.addEventListener('touchmove', onPointerMove, { passive: false });
+            canvas.addEventListener('touchend', onPointerUp, { passive: false });
+            canvas.addEventListener('touchcancel', onPointerUp, { passive: false });
+        };
+
+        // Idle Animations
+        const setupIdleAnimations = (scene) => {
+            // QB idle sway
+            scene.onBeforeRenderObservable.add(() => {
+                const time = performance.now() * 0.001;
+
+                // QB breathing/ready animation
+                const qb = scene.qb;
+                qb.rotation.y = Math.sin(time * 2) * 0.05;
+                qb.position.y = Math.sin(time * 3) * 0.02;
+
+                // Receivers running and bobbing
+                if (!gameState.ballInFlight && gameState.canThrow) {
+                    gameState.receivers.forEach((receiver, i) => {
+                        // Run forward
+                        receiver.position.z += 0.03;
+
+                        // Reset if too far
+                        if (receiver.position.z > 12) {
+                            receiver.position.z = gameState.receiversStartZ[i];
+                        }
+
+                        // Running bob animation
+                        receiver.position.y = Math.abs(Math.sin(time * 8 + i)) * 0.08;
+                        receiver.rotation.y = Math.sin(time * 8 + i) * 0.1;
+
+                        // Arm swing approximation via slight rotation
+                        receiver.rotation.z = Math.sin(time * 8 + i) * 0.05;
+                    });
+                }
+            });
+        };
+
+        // Main
+        const scene = createScene();
+        setupInput(scene);
+        setupIdleAnimations(scene);
+
+        // Apply trajectory material after scene creation
+        scene.trajectoryLine.material = scene.materials.trajectoryMaterial;
+
+        engine.runRenderLoop(() => {
+            scene.render();
+        });
+
+        window.addEventListener('resize', () => {
+            engine.resize();
+        });
+    </script>
+</body>
+</html>
