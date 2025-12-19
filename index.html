@@ -97,7 +97,7 @@
         #catchDisplay {
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 8px;
             font-family: 'Courier New', monospace;
             font-size: 12px;
             color: #fff;
@@ -111,13 +111,12 @@
         #catchDisplay .catch-header {
             font-size: 11px;
             font-weight: bold;
-            min-width: 55px;
         }
         #catchDisplay .catch-header.success { color: #4f4; }
         #catchDisplay .catch-header.fail { color: #f66; }
         #catchDisplay .catch-bar {
             position: relative;
-            width: 120px;
+            width: 100px;
             height: 14px;
             background: #222;
             border-radius: 2px;
@@ -149,19 +148,9 @@
         }
         #catchDisplay .catch-bar-roll.success { color: #4f4; }
         #catchDisplay .catch-bar-roll.fail { color: #f44; }
-        #catchDisplay .catch-stats {
-            font-size: 10px;
-            color: #aaa;
-            min-width: 35px;
-        }
-        #catchDisplay .catch-stats .base { color: #8cf; }
         #catchDisplay .defender-info {
-            font-size: 9px;
+            font-size: 10px;
             color: #f99;
-            max-width: 100px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
         }
     </style>
 </head>
@@ -179,7 +168,6 @@
                 <div class="catch-bar-penalty"></div>
                 <div class="catch-bar-roll">✓</div>
             </div>
-            <div class="catch-stats"></div>
             <div class="defender-info"></div>
         </div>
     </div>
@@ -2565,7 +2553,6 @@
             const barBase = display.querySelector('.catch-bar-base');
             const barPenalty = display.querySelector('.catch-bar-penalty');
             const barRoll = display.querySelector('.catch-bar-roll');
-            const stats = display.querySelector('.catch-stats');
             const defenderInfo = display.querySelector('.defender-info');
 
             // Set header
@@ -2593,22 +2580,15 @@
             barRoll.className = 'catch-bar-roll ' + (success ? 'success' : 'fail');
             barRoll.style.left = `${roll}%`;
 
-            // Build stats text
-            let statsHtml = `<span class="base">${catchInfo.probability.toFixed(0)}%</span>`;
-            if (catchInfo.focusMod > 0) {
-                statsHtml += ` <span class="focus">(+${catchInfo.focusMod.toFixed(0)} focus)</span>`;
-            }
-            stats.innerHTML = statsHtml;
-
-            // Defender info with distances
+            // Show defender distances only
             if (catchInfo.defenderDetails && catchInfo.defenderDetails.length > 0) {
-                const defInfo = catchInfo.defenderDetails
-                    .filter(d => parseFloat(d.penalty) > 1)
-                    .map(d => `${d.dist}yd: -${Math.round(parseFloat(d.penalty))}`)
+                const distances = catchInfo.defenderDetails
+                    .filter(d => parseFloat(d.penalty) > 0.5)
+                    .map(d => d.dist)
                     .join(', ');
-                defenderInfo.innerHTML = defInfo ? `Defenders: ${defInfo}` : '';
+                defenderInfo.textContent = distances ? distances + 'yd' : '';
             } else {
-                defenderInfo.innerHTML = '';
+                defenderInfo.textContent = '';
             }
 
             // Show display
