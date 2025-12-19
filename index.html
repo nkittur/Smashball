@@ -1981,51 +1981,82 @@
         const generateRandomRoute = (receiver) => {
             const startX = receiver.startPos.x;
             const startZ = receiver.startPos.z;
-            const routes = ['go', 'slant', 'out', 'in', 'corner', 'post', 'curl'];
+            const END_ZONE_Z = 13;  // Target end zone depth
+
+            // Route types with up to 2 direction changes, all ending in end zone
+            const routes = ['go', 'slant', 'out', 'in', 'corner', 'post', 'double_move', 'comeback_go'];
             const routeType = routes[Math.floor(Math.random() * routes.length)];
 
             const route = [];
-            const depth1 = 5 + Math.random() * 4;   // 5-9 yards first segment
-            const depth2 = 10 + Math.random() * 5;  // 10-15 yards total
+
+            // First break point (5-8 yards from start)
+            const break1Depth = startZ + 5 + Math.random() * 3;
+            // Second break point (if needed, 3-5 yards before end zone)
+            const break2Depth = END_ZONE_Z - 3 - Math.random() * 2;
+
+            // Determine lateral movement based on field position
+            const isLeftSide = startX < -2;
+            const isRightSide = startX > 2;
+            const towardMiddle = startX > 0 ? -1 : 1;
+            const towardSideline = startX > 0 ? 1 : -1;
 
             switch(routeType) {
                 case 'go':
-                    // Straight deep
-                    route.push({ z: startZ + depth2, x: startX });
+                    // Straight to end zone (simple, 0 breaks)
+                    route.push({ z: END_ZONE_Z, x: startX + (Math.random() - 0.5) * 2 });
                     break;
+
                 case 'slant':
-                    // Quick diagonal towards middle
-                    const slantDir = startX > 0 ? -1 : 1;
-                    route.push({ z: startZ + depth1, x: startX + slantDir * 4 });
+                    // Diagonal to middle, then straight to end zone (1 break)
+                    const slantX = startX + towardMiddle * (3 + Math.random() * 2);
+                    route.push({ z: break1Depth, x: slantX });
+                    route.push({ z: END_ZONE_Z, x: slantX + (Math.random() - 0.5) * 2 });
                     break;
+
                 case 'out':
-                    // Straight then out towards sideline
-                    const outDir = startX > 0 ? 1 : -1;
-                    route.push({ z: startZ + depth1, x: startX });
-                    route.push({ z: startZ + depth1 + 2, x: startX + outDir * 5 });
+                    // Straight, then out toward sideline, then up to end zone (2 breaks)
+                    const outX = Math.max(-7, Math.min(7, startX + towardSideline * (4 + Math.random() * 2)));
+                    route.push({ z: break1Depth, x: startX });
+                    route.push({ z: break2Depth, x: outX });
+                    route.push({ z: END_ZONE_Z, x: outX });
                     break;
+
                 case 'in':
-                    // Straight then in towards middle
-                    const inDir = startX > 0 ? -1 : 1;
-                    route.push({ z: startZ + depth1, x: startX });
-                    route.push({ z: startZ + depth1 + 2, x: startX + inDir * 5 });
+                    // Straight, then cut inside, then to end zone (2 breaks)
+                    const inX = startX + towardMiddle * (4 + Math.random() * 3);
+                    route.push({ z: break1Depth, x: startX });
+                    route.push({ z: break2Depth, x: inX });
+                    route.push({ z: END_ZONE_Z, x: inX + towardMiddle * 2 });
                     break;
+
                 case 'corner':
-                    // Straight then diagonal to corner
-                    const cornerDir = startX > 0 ? 1 : -1;
-                    route.push({ z: startZ + depth1, x: startX });
-                    route.push({ z: startZ + depth2, x: startX + cornerDir * 5 });
+                    // Straight, then break to corner of end zone (1 break)
+                    const cornerX = Math.max(-7, Math.min(7, startX + towardSideline * (5 + Math.random() * 2)));
+                    route.push({ z: break1Depth, x: startX });
+                    route.push({ z: END_ZONE_Z, x: cornerX });
                     break;
+
                 case 'post':
-                    // Straight then diagonal to middle deep
-                    const postDir = startX > 0 ? -1 : 1;
-                    route.push({ z: startZ + depth1, x: startX });
-                    route.push({ z: startZ + depth2, x: startX + postDir * 4 });
+                    // Straight, then break to middle of end zone (1 break)
+                    const postX = towardMiddle * (1 + Math.random() * 2);
+                    route.push({ z: break1Depth, x: startX });
+                    route.push({ z: END_ZONE_Z, x: postX });
                     break;
-                case 'curl':
-                    // Go deep then stop
-                    route.push({ z: startZ + depth1 + 2, x: startX });
-                    route.push({ z: startZ + depth1, x: startX });  // Curl back
+
+                case 'double_move':
+                    // Fake out, then go deep (2 breaks)
+                    const fakeDir = Math.random() > 0.5 ? towardSideline : towardMiddle;
+                    const fakeX = startX + fakeDir * 2;
+                    route.push({ z: break1Depth, x: fakeX });
+                    route.push({ z: break1Depth + 2, x: startX });  // Cut back
+                    route.push({ z: END_ZONE_Z, x: startX + (Math.random() - 0.5) * 3 });
+                    break;
+
+                case 'comeback_go':
+                    // Go deep, slight comeback, then sprint to end zone (2 breaks)
+                    route.push({ z: break1Depth + 3, x: startX });
+                    route.push({ z: break1Depth + 1, x: startX + towardMiddle * 1 });  // Comeback
+                    route.push({ z: END_ZONE_Z, x: startX + towardMiddle * 3 });
                     break;
             }
 
