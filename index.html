@@ -105,7 +105,8 @@
             receiversStartZ: [],
             defenders: [],
             gameTime: 0,  // Track game time for clash timing
-            clashCooldown: 2.0  // Seconds between time-based clashes
+            clashCooldown: 2.0,  // Seconds between time-based clashes
+            playStartTime: 0  // When current play started (for label fading)
         };
 
         // Clash system constants
@@ -1049,7 +1050,15 @@
 
                 // Generate new random route
                 generateRandomRoute(receiver);
+
+                // Show name label again
+                if (receiver.nameLabel) {
+                    receiver.nameLabel.alpha = 1;
+                }
             });
+
+            // Reset play start time for label fading
+            gameState.playStartTime = performance.now() * 0.001;
         };
 
         // Generate a random route for a receiver
@@ -1737,6 +1746,25 @@
 
                     // Update debug display
                     updateDebugInfo();
+
+                    // Fade out name labels after 1 second
+                    const timeSinceStart = time - gameState.playStartTime;
+                    if (timeSinceStart > 1.0 && timeSinceStart < 2.0) {
+                        // Fade over 1 second (from t=1 to t=2)
+                        const fadeProgress = timeSinceStart - 1.0;
+                        gameState.receivers.forEach(receiver => {
+                            if (receiver.nameLabel) {
+                                receiver.nameLabel.alpha = 1 - fadeProgress;
+                            }
+                        });
+                    } else if (timeSinceStart >= 2.0) {
+                        // Fully hidden
+                        gameState.receivers.forEach(receiver => {
+                            if (receiver.nameLabel) {
+                                receiver.nameLabel.alpha = 0;
+                            }
+                        });
+                    }
                 }
             });
         };
