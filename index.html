@@ -2040,11 +2040,18 @@
                 defender.clashSpeedPenaltyUntil = currentTime + CLASH_SPEED_PENALTY_DURATION;
                 receiver.speed = receiver.baseSpeed * CLASH_SPEED_BOOST;
             } else if (margin < -CLASH_CONSTANTS.COVERAGE_THRESHOLD) {
-                result.winner = 'defender';
-                result.type = 'coverage';
-                // Defender wins - receiver gets slowed
-                receiver.clashSpeedPenaltyUntil = currentTime + CLASH_SPEED_PENALTY_DURATION;
-                receiver.speed = receiver.baseSpeed * CLASH_SPEED_PENALTY;
+                // Direction changes (jukes) only benefit receivers - ignore defender wins
+                if (reason === 'direction_change') {
+                    result.winner = 'none';
+                    result.type = 'contested';
+                    // Juke failed but no penalty - just maintain current speed
+                } else {
+                    result.winner = 'defender';
+                    result.type = 'coverage';
+                    // Defender wins - receiver gets slowed
+                    receiver.clashSpeedPenaltyUntil = currentTime + CLASH_SPEED_PENALTY_DURATION;
+                    receiver.speed = receiver.baseSpeed * CLASH_SPEED_PENALTY;
+                }
             } else {
                 result.winner = 'none';
                 result.type = 'contested';
