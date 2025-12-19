@@ -2354,10 +2354,10 @@
                     // Proximity factor: 1.0 at distance 0, 0.0 at max range
                     const proximityFactor = 1 - (dist / coverageRange);
 
-                    // At distance 0, if coverage equals catching, apply 90% penalty
-                    // penalty = proximityFactor^3 * coverageStat * 0.9
+                    // At distance 0, if coverage equals catching, apply 80% penalty
+                    // penalty = proximityFactor^3 * coverageStat * 0.8
                     // Cubed for steeper dropoff - separation is rewarded more
-                    const penalty = proximityFactor * proximityFactor * proximityFactor * coverageStat * 0.9;
+                    const penalty = proximityFactor * proximityFactor * proximityFactor * coverageStat * 0.8;
 
                     defenderProximityPenalty += penalty;
                     defenderDetails.push({
@@ -2896,7 +2896,7 @@
                         defender.stats.zoneCoverage : defender.stats.manCoverage;
                     const proximityFactor = 1 - (dist / coverageRange);
                     // Match the catch calculation: cubed for steeper dropoff
-                    defenderPenalty += proximityFactor * proximityFactor * proximityFactor * coverageStat * 0.9;
+                    defenderPenalty += proximityFactor * proximityFactor * proximityFactor * coverageStat * 0.8;
                 }
             });
 
