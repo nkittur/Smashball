@@ -301,6 +301,10 @@
             routeMat.emissiveColor = new BABYLON.Color3(0.1, 0.3, 0.5);
             routeMat.alpha = 0.6;
 
+            // Store references for route regeneration
+            gameState.scene = scene;
+            gameState.routeMaterial = routeMat;
+
             receiverConfigs.forEach((config, i) => {
                 // Clone material so each receiver can flash independently
                 const receiverMat = materials.receiverMaterial.clone(`receiverMat_${i}`);
@@ -954,7 +958,31 @@
 
         // Reset defenders to starting positions
         const resetDefenders = () => {
-            gameState.defenders.forEach(defender => {
+            const RECEIVER_START_Z = QB_START_Z + 2;
+
+            gameState.defenders.forEach((defender, i) => {
+                // Randomize defender assignment and position
+                if (defender.aiType === 'man') {
+                    // Assign to a random receiver
+                    const receiverIndex = Math.floor(Math.random() * gameState.receivers.length);
+                    defender.assignedReceiver = receiverIndex;
+                    const targetReceiver = gameState.receivers[receiverIndex];
+
+                    // Position with random cushion
+                    defender.cushion = 2 + Math.random() * 3;  // 2-5 yards cushion
+                    defender.startPos.x = targetReceiver.startPos.x + (Math.random() - 0.5) * 2;
+                    defender.startPos.z = targetReceiver.startPos.z + defender.cushion;
+                } else if (defender.aiType === 'zone') {
+                    // Random zone position
+                    const zoneX = (Math.random() - 0.5) * 10;  // -5 to 5
+                    const zoneZ = RECEIVER_START_Z + 5 + Math.random() * 6;  // 5-11 yards deep
+                    defender.zoneCenter = new BABYLON.Vector3(zoneX, 0, zoneZ);
+                    defender.zoneRadius = 4 + Math.random() * 3;  // 4-7 yard radius
+
+                    defender.startPos.x = zoneX;
+                    defender.startPos.z = zoneZ - 2;  // Start slightly behind zone
+                }
+
                 defender.position.x = defender.startPos.x;
                 defender.position.z = defender.startPos.z;
                 defender.position.y = 0;
@@ -975,6 +1003,11 @@
         // Reset receivers to starting positions
         const resetReceivers = () => {
             gameState.receivers.forEach(receiver => {
+                // Randomize starting X position
+                const side = Math.random() < 0.5 ? -1 : 1;
+                const spreadX = 3 + Math.random() * 4;  // 3-7 units from center
+                receiver.startPos.x = side * spreadX;
+
                 receiver.position.x = receiver.startPos.x;
                 receiver.position.z = receiver.startPos.z;
                 receiver.position.y = 0;
@@ -1000,7 +1033,87 @@
                 // Reset to green (open) color
                 receiver.fillMaterial.diffuseColor = new BABYLON.Color3(0.2, 0.9, 0.3);
                 receiver.fillMaterial.emissiveColor = new BABYLON.Color3(0.1, 0.4, 0.15).scale(0.5);
+
+                // Generate new random route
+                generateRandomRoute(receiver);
             });
+        };
+
+        // Generate a random route for a receiver
+        const generateRandomRoute = (receiver) => {
+            const startX = receiver.startPos.x;
+            const startZ = receiver.startPos.z;
+            const routes = ['go', 'slant', 'out', 'in', 'corner', 'post', 'curl'];
+            const routeType = routes[Math.floor(Math.random() * routes.length)];
+
+            const route = [];
+            const depth1 = 5 + Math.random() * 4;   // 5-9 yards first segment
+            const depth2 = 10 + Math.random() * 5;  // 10-15 yards total
+
+            switch(routeType) {
+                case 'go':
+                    // Straight deep
+                    route.push({ z: startZ + depth2, x: startX });
+                    break;
+                case 'slant':
+                    // Quick diagonal towards middle
+                    const slantDir = startX > 0 ? -1 : 1;
+                    route.push({ z: startZ + depth1, x: startX + slantDir * 4 });
+                    break;
+                case 'out':
+                    // Straight then out towards sideline
+                    const outDir = startX > 0 ? 1 : -1;
+                    route.push({ z: startZ + depth1, x: startX });
+                    route.push({ z: startZ + depth1 + 2, x: startX + outDir * 5 });
+                    break;
+                case 'in':
+                    // Straight then in towards middle
+                    const inDir = startX > 0 ? -1 : 1;
+                    route.push({ z: startZ + depth1, x: startX });
+                    route.push({ z: startZ + depth1 + 2, x: startX + inDir * 5 });
+                    break;
+                case 'corner':
+                    // Straight then diagonal to corner
+                    const cornerDir = startX > 0 ? 1 : -1;
+                    route.push({ z: startZ + depth1, x: startX });
+                    route.push({ z: startZ + depth2, x: startX + cornerDir * 5 });
+                    break;
+                case 'post':
+                    // Straight then diagonal to middle deep
+                    const postDir = startX > 0 ? -1 : 1;
+                    route.push({ z: startZ + depth1, x: startX });
+                    route.push({ z: startZ + depth2, x: startX + postDir * 4 });
+                    break;
+                case 'curl':
+                    // Go deep then stop
+                    route.push({ z: startZ + depth1 + 2, x: startX });
+                    route.push({ z: startZ + depth1, x: startX });  // Curl back
+                    break;
+            }
+
+            receiver.route = route;
+
+            // Update route line visual
+            if (receiver.routeLine) {
+                receiver.routeLine.dispose();
+            }
+
+            const routePoints = [receiver.startPos.clone()];
+            routePoints[0].y = 0.05;
+            route.forEach(point => {
+                routePoints.push(new BABYLON.Vector3(point.x, 0.05, point.z));
+            });
+
+            // Need to access scene - store reference on gameState
+            if (gameState.scene && gameState.routeMaterial) {
+                const routeLine = BABYLON.MeshBuilder.CreateTube('route_' + receiver.name, {
+                    path: routePoints,
+                    radius: 0.08,
+                    tessellation: 8
+                }, gameState.scene);
+                routeLine.material = gameState.routeMaterial;
+                receiver.routeLine = routeLine;
+            }
         };
 
         // Throw Football Animation
