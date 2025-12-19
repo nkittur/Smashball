@@ -78,6 +78,70 @@
             max-width: 300px;
             white-space: pre-wrap;
         }
+        #catchDisplay {
+            position: absolute;
+            top: 80px;
+            right: 15px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            color: #fff;
+            background: rgba(0, 0, 0, 0.85);
+            padding: 10px 14px;
+            border-radius: 6px;
+            border: 1px solid #444;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            pointer-events: none;
+            min-width: 140px;
+        }
+        #catchDisplay.visible {
+            opacity: 1;
+        }
+        #catchDisplay .catch-header {
+            font-size: 14px;
+            font-weight: bold;
+            margin-bottom: 8px;
+            padding-bottom: 4px;
+            border-bottom: 1px solid #555;
+        }
+        #catchDisplay .catch-header.success { color: #4f4; }
+        #catchDisplay .catch-header.fail { color: #f66; }
+        #catchDisplay .catch-bar {
+            position: relative;
+            height: 16px;
+            background: #333;
+            border-radius: 3px;
+            margin: 6px 0;
+            overflow: hidden;
+        }
+        #catchDisplay .catch-bar-fill {
+            position: absolute;
+            left: 0;
+            top: 0;
+            height: 100%;
+            background: linear-gradient(90deg, #3a3, #5c5);
+            border-radius: 3px;
+        }
+        #catchDisplay .catch-bar-roll {
+            position: absolute;
+            top: 0;
+            width: 2px;
+            height: 100%;
+            background: #fff;
+            box-shadow: 0 0 4px #fff;
+        }
+        #catchDisplay .catch-stats {
+            font-size: 11px;
+            color: #aaa;
+        }
+        #catchDisplay .catch-stats .base { color: #8cf; }
+        #catchDisplay .catch-stats .penalty { color: #f88; }
+        #catchDisplay .catch-stats .focus { color: #cf8; }
+        #catchDisplay .roll-result {
+            font-size: 12px;
+            margin-top: 6px;
+            color: #ccc;
+        }
     </style>
 </head>
 <body>
@@ -85,6 +149,15 @@
     <div id="ui">
         <div id="score">CATCHES: 0</div>
         <div id="message">Drag from knight to throw</div>
+    </div>
+    <div id="catchDisplay">
+        <div class="catch-header">CATCH</div>
+        <div class="catch-bar">
+            <div class="catch-bar-fill"></div>
+            <div class="catch-bar-roll"></div>
+        </div>
+        <div class="catch-stats"></div>
+        <div class="roll-result"></div>
     </div>
     <div id="instructions">⬇ DRAG BACK TO AIM ⬆</div>
     <button id="resetCamera" style="position:absolute;bottom:10px;right:10px;padding:8px 12px;background:#333;color:#fff;border:1px solid #666;border-radius:4px;cursor:pointer;font-size:12px;">Reset View</button>
@@ -2281,11 +2354,15 @@
             }
 
             if (potentialCatcher) {
-                // Calculate catch probability
-                const catchProbability = calculateCatchProbability(potentialCatcher, ballPosition);
+                // Calculate catch probability (returns detailed info)
+                const catchInfo = calculateCatchProbability(potentialCatcher, ballPosition);
                 const catchRoll = Math.random() * 100;
+                const success = catchRoll < catchInfo.probability;
 
-                if (catchRoll < catchProbability) {
+                // Show the catch probability display
+                showCatchDisplay(catchInfo, catchRoll, success);
+
+                if (success) {
                     // Successful catch! Set up ball carrier
                     updateMessage(`CATCH by ${potentialCatcher.displayName}! RUN!`);
 
@@ -2425,19 +2502,53 @@
             // Store for visual display
             receiver.lastCatchProbability = finalProbability;
 
-            // Debug logging for catch calculations
-            console.log(`[CATCH CALC] ${receiver.name}:`);
-            console.log(`  Base catch (stat): ${baseCatch}`);
-            console.log(`  Focus mod (nearby defender): ${focusMod >= 0 ? '+' : ''}${focusMod.toFixed(1)}`);
-            console.log(`  Defender proximity penalty: -${defenderProximityPenalty.toFixed(1)}`);
-            if (defenderDetails.length > 0) {
-                defenderDetails.forEach(d => {
-                    console.log(`    - ${d.name} [${d.aiType}]: dist=${d.dist}, ${d.aiType === 'zone' ? 'zoneCov' : 'manCov'}=${d.coverageStat}, penalty=-${d.penalty}`);
-                });
-            }
-            console.log(`  FINAL: ${finalProbability.toFixed(1)}%`);
+            // Return detailed info for UI display
+            return {
+                probability: finalProbability,
+                baseCatch: baseCatch,
+                focusMod: focusMod,
+                defenderPenalty: defenderProximityPenalty,
+                defenderDetails: defenderDetails
+            };
+        };
 
-            return finalProbability;
+        // Show catch probability display
+        const showCatchDisplay = (catchInfo, roll, success) => {
+            const display = document.getElementById('catchDisplay');
+            const header = display.querySelector('.catch-header');
+            const barFill = display.querySelector('.catch-bar-fill');
+            const barRoll = display.querySelector('.catch-bar-roll');
+            const stats = display.querySelector('.catch-stats');
+            const rollResult = display.querySelector('.roll-result');
+
+            // Set header
+            header.textContent = success ? 'CATCH!' : 'DROPPED';
+            header.className = 'catch-header ' + (success ? 'success' : 'fail');
+
+            // Set bar fill (catch probability) and roll marker
+            barFill.style.width = `${catchInfo.probability}%`;
+            barRoll.style.left = `${roll}%`;
+
+            // Build stats text
+            let statsHtml = `<span class="base">Base: ${catchInfo.baseCatch}</span>`;
+            if (catchInfo.defenderPenalty > 0) {
+                statsHtml += ` <span class="penalty">-${catchInfo.defenderPenalty.toFixed(0)} def</span>`;
+            }
+            if (catchInfo.focusMod !== 0) {
+                statsHtml += ` <span class="focus">${catchInfo.focusMod >= 0 ? '+' : ''}${catchInfo.focusMod.toFixed(0)} foc</span>`;
+            }
+            stats.innerHTML = statsHtml;
+
+            // Roll result
+            rollResult.innerHTML = `Roll: <strong>${roll.toFixed(0)}</strong> / ${catchInfo.probability.toFixed(0)}%`;
+
+            // Show display
+            display.classList.add('visible');
+
+            // Hide after 2.5 seconds
+            setTimeout(() => {
+                display.classList.remove('visible');
+            }, 2500);
         };
 
         // Ball bounce and roll animation for incomplete passes
