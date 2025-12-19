@@ -62,6 +62,22 @@
             text-align: center;
             pointer-events: none;
         }
+
+        #debugInfo {
+            position: absolute;
+            top: 80px;
+            right: 10px;
+            color: #0f0;
+            font-family: 'Courier New', monospace;
+            font-size: 11px;
+            text-align: left;
+            pointer-events: none;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 8px;
+            border-radius: 4px;
+            max-width: 300px;
+            white-space: pre-wrap;
+        }
     </style>
 </head>
 <body>
@@ -71,8 +87,11 @@
         <div id="message">Drag from knight to throw</div>
     </div>
     <div id="instructions">⬇ DRAG BACK TO AIM ⬆</div>
+    <button id="resetCamera" style="position:absolute;bottom:10px;right:10px;padding:8px 12px;background:#333;color:#fff;border:1px solid #666;border-radius:4px;cursor:pointer;font-size:12px;">Reset View</button>
+    <div id="debugInfo"></div>
 
     <script src="https://cdn.babylonjs.com/babylon.js"></script>
+    <script src="https://cdn.babylonjs.com/gui/babylon.gui.min.js"></script>
     <script>
         // Game State
         const gameState = {
@@ -83,7 +102,41 @@
             dragCurrent: null,
             ballInFlight: false,
             receivers: [],
-            receiversStartZ: []
+            receiversStartZ: [],
+            defenders: [],
+            gameTime: 0,  // Track game time for clash timing
+            clashCooldown: 2.0,  // Seconds between time-based clashes
+            playStartTime: 0  // When current play started (for label fading)
+        };
+
+        // Clash system constants
+        const CLASH_CONSTANTS = {
+            CLASH_RANGE: 2.5,           // Distance for clash detection
+            SEPARATION_THRESHOLD: 3,     // Margin needed to win separation
+            COVERAGE_THRESHOLD: 3,       // Margin needed to win coverage
+            KNOCKDOWN_BASE_CHANCE: 0.15, // Base chance for knockdown on physical win
+            KNOCKDOWN_DURATION: 1.0,     // Seconds knocked down
+            KNOCKDOWN_RESISTANCE_GAIN: 0.15,  // Cumulative resistance per knockdown
+            SEPARATION_SPEED_BOOST: 1.15,     // Speed multiplier when open
+            COVERAGE_SPEED_PENALTY: 0.90,     // Speed multiplier when covered
+        };
+
+        // Stat weights for clash resolution
+        const CLASH_WEIGHTS = {
+            separation: {
+                receiver: { speed: 0.25, agility: 0.25, routeRunning: 0.20, acceleration: 0.15, release: 0.15 },
+                defender: { speed: 0.20, agility: 0.20, manCoverage: 0.25, pursuit: 0.20, awareness: 0.15 }
+            },
+            physical: {
+                attacker: { strength: 0.35, aggression: 0.25, hitPower: 0.25, balance: 0.15 },
+                defender: { strength: 0.35, aggression: 0.25, tackling: 0.25, balance: 0.15 }
+            }
+        };
+
+        // Feature flags
+        const FEATURE_FLAGS = {
+            showDefenderZones: false,  // Show defender zone rings and fills
+            showDebugInfo: false       // Show on-screen debug info for coverage/catch factors
         };
 
         // Constants
@@ -112,7 +165,15 @@
                 new BABYLON.Vector3(0, 0, 2),  // Target moved down to show QB better
                 scene
             );
-            // Don't attach camera controls - we handle input ourselves
+            // Enable camera rotation: right-click on desktop, two-finger on mobile
+            camera.attachControl(canvas, true);
+            camera.inputs.attached.pointers.buttons = [1, 2];  // Right and middle mouse buttons
+            camera.inputs.attached.pointers.multiTouchPanAndZoom = true;  // Enable pinch zoom
+            camera.panningSensibility = 0;  // Disable panning
+            camera.lowerRadiusLimit = 15;   // Min zoom
+            camera.upperRadiusLimit = 50;   // Max zoom
+            camera.lowerBetaLimit = 0.3;    // Don't go below ground
+            camera.upperBetaLimit = Math.PI / 2.2;  // Don't go too flat
 
             // Lighting
             const light = new BABYLON.HemisphericLight(
@@ -146,24 +207,106 @@
             const RECEIVER_START_Z = QB_START_Z + 2;  // Close to QB, same line
             const receiverConfigs = [
                 {
+                    name: "Sir Aldric",
                     start: new BABYLON.Vector3(-5, 0, RECEIVER_START_Z),
                     route: [
                         { z: RECEIVER_START_Z + 6, x: -5 },    // Run straight
-                        { z: RECEIVER_START_Z + 12, x: -2 }   // Jink inward
-                    ]
+                        { z: RECEIVER_START_Z + 12, x: -2 }    // Jink inward
+                    ],
+                    stats: {
+                        speed: 80, acceleration: 72, agility: 85,
+                        routeRunning: 88, release: 75, catching: 80,
+                        jumping: 70, strength: 60, balance: 72,
+                        aggression: 45, stamina: 80, focus: 88
+                    }
                 },
                 {
+                    name: "Swift Roderick",
                     start: new BABYLON.Vector3(0, 0, RECEIVER_START_Z),
                     route: [
-                        { z: RECEIVER_START_Z + 14, x: 0 }     // Straight up (no jink)
-                    ]
+                        { z: RECEIVER_START_Z + 14, x: 0 }     // Straight up (burner)
+                    ],
+                    stats: {
+                        speed: 80, acceleration: 92, agility: 78,
+                        routeRunning: 65, release: 70, catching: 80,
+                        jumping: 75, strength: 50, balance: 60,
+                        aggression: 40, stamina: 85, focus: 68
+                    }
                 },
                 {
+                    name: "Baron Wyatt",
                     start: new BABYLON.Vector3(5, 0, RECEIVER_START_Z),
                     route: [
                         { z: RECEIVER_START_Z + 5, x: 5 },     // Run straight
-                        { z: RECEIVER_START_Z + 11, x: 7 }    // Jink outward
-                    ]
+                        { z: RECEIVER_START_Z + 11, x: 7 }     // Jink outward
+                    ],
+                    stats: {
+                        speed: 80, acceleration: 78, agility: 80,
+                        routeRunning: 82, release: 78, catching: 80,
+                        jumping: 82, strength: 72, balance: 78,
+                        aggression: 55, stamina: 82, focus: 80
+                    }
+                }
+            ];
+
+            // Defender configurations
+            const defenderConfigs = [
+                {
+                    name: "The Black Knight",
+                    aiType: 'man',
+                    assignedReceiver: 0,  // Covers Sir Aldric
+                    cushion: 2,
+                    zoneColor: new BABYLON.Color3(0.6, 0.2, 0.8),  // Purple for man
+                    stats: {
+                        speed: 80, acceleration: 70, agility: 75,
+                        manCoverage: 80, zoneCoverage: 80, press: 78,
+                        tackling: 80, hitPower: 85, pursuit: 75,
+                        awareness: 72, strength: 82, balance: 78,
+                        aggression: 75, stamina: 78
+                    }
+                },
+                {
+                    name: "Shadow Sentinel",
+                    aiType: 'man',
+                    assignedReceiver: 1,  // Covers Swift Roderick
+                    cushion: 4,           // Plays off the speedy receiver
+                    zoneColor: new BABYLON.Color3(0.6, 0.2, 0.8),  // Purple for man
+                    stats: {
+                        speed: 80, acceleration: 85, agility: 82,
+                        manCoverage: 80, zoneCoverage: 80, press: 60,
+                        tackling: 70, hitPower: 65, pursuit: 90,
+                        awareness: 75, strength: 65, balance: 72,
+                        aggression: 55, stamina: 88
+                    }
+                },
+                {
+                    name: "Iron Warden",
+                    aiType: 'man',
+                    assignedReceiver: 2,  // Covers Baron Wyatt
+                    cushion: 3,
+                    zoneColor: new BABYLON.Color3(0.6, 0.2, 0.8),  // Purple for man
+                    stats: {
+                        speed: 80, acceleration: 68, agility: 70,
+                        manCoverage: 80, zoneCoverage: 80, press: 72,
+                        tackling: 85, hitPower: 90, pursuit: 72,
+                        awareness: 85, strength: 88, balance: 82,
+                        aggression: 70, stamina: 75
+                    }
+                },
+                {
+                    name: "The Sentinel",
+                    aiType: 'zone',
+                    zoneCenter: new BABYLON.Vector3(0, 0, RECEIVER_START_Z + 8),
+                    zoneRadius: 6,
+                    cushion: 4,
+                    zoneColor: new BABYLON.Color3(1.0, 0.5, 0.1),  // Orange for zone
+                    stats: {
+                        speed: 80, acceleration: 72, agility: 78,
+                        manCoverage: 80, zoneCoverage: 80, press: 65,
+                        tackling: 78, hitPower: 75, pursuit: 80,
+                        awareness: 88, strength: 75, balance: 80,
+                        aggression: 60, stamina: 82
+                    }
                 }
             ];
 
@@ -173,30 +316,83 @@
             routeMat.emissiveColor = new BABYLON.Color3(0.1, 0.3, 0.5);
             routeMat.alpha = 0.6;
 
-            receiverConfigs.forEach((config, i) => {
-                const receiver = createKnight(scene, materials.receiverMaterial, config.start.clone());
-                receiver.name = `receiver_${i}`;
+            // Store references for route regeneration
+            gameState.scene = scene;
+            gameState.routeMaterial = routeMat;
 
-                // Store route data on receiver
+            receiverConfigs.forEach((config, i) => {
+                // Clone material so each receiver can flash independently
+                const receiverMat = materials.receiverMaterial.clone(`receiverMat_${i}`);
+                const receiver = createKnight(scene, receiverMat, config.start.clone());
+                receiver.name = `receiver_${i}`;
+                receiver.bodyMaterial = receiverMat;
+                receiver.originalColor = receiverMat.diffuseColor.clone();
+
+                // Store config data on receiver
+                receiver.displayName = config.name;
                 receiver.route = config.route;
                 receiver.routeIndex = 0;
                 receiver.startPos = config.start.clone();
+                receiver.stats = config.stats;
 
-                // Add catch zone indicator - flat on the ground
-                const catchZone = BABYLON.MeshBuilder.CreateTorus('catchZone_' + i, {
+                // Derive base speed from stats (normalized to game units)
+                receiver.baseSpeed = config.stats.speed * 0.0005;  // Scale stat to movement speed
+                receiver.speed = receiver.baseSpeed;
+
+                // Clash system runtime state
+                receiver.separationState = 'contested';  // Legacy - kept for compatibility
+                receiver.clashSpeedPenaltyUntil = 0;  // Clash loser speed penalty timer
+                receiver.lastClashTime = 0;
+                receiver.knockdownUntil = 0;
+                receiver.knockdownResistance = 0;
+                receiver.hasHadInitialClash = false;
+                receiver.lastRouteIndex = 0;  // Track route changes for jink clashes
+                receiver.initialClashSlowdownUntil = 0;  // Slowdown during first contact
+
+                // Add catch zone indicator - ring outline + fill disc
+                // Ring (outer indicator)
+                const zoneRing = BABYLON.MeshBuilder.CreateTorus('zoneRing_' + i, {
                     diameter: 2.4,
-                    thickness: 0.08,
-                    tessellation: 24
+                    thickness: 0.1,
+                    tessellation: 32
                 }, scene);
-                const zoneMat = new BABYLON.StandardMaterial('zoneMat_' + i, scene);
-                zoneMat.diffuseColor = new BABYLON.Color3(0.3, 0.6, 1);
-                zoneMat.emissiveColor = new BABYLON.Color3(0.1, 0.2, 0.4);
-                zoneMat.alpha = 0.5;
-                catchZone.material = zoneMat;
-                // No rotation needed - torus is already horizontal by default when parented
-                catchZone.position.y = 0.02;
-                catchZone.parent = receiver;
-                receiver.catchZone = catchZone;
+                const ringMat = new BABYLON.StandardMaterial('ringMat_' + i, scene);
+                ringMat.diffuseColor = new BABYLON.Color3(1.0, 0.8, 0.2);  // Yellow for contested
+                ringMat.emissiveColor = new BABYLON.Color3(0.4, 0.3, 0.1);
+                ringMat.alpha = 0.8;
+                zoneRing.material = ringMat;
+                zoneRing.position.y = 0.03;
+                zoneRing.parent = receiver;
+
+                // Fill disc (shows coverage proximity)
+                const zoneFill = BABYLON.MeshBuilder.CreateDisc('zoneFill_' + i, {
+                    radius: 1.2,
+                    tessellation: 32
+                }, scene);
+                zoneFill.rotation.x = Math.PI / 2;  // Lay flat
+                const fillMat = new BABYLON.StandardMaterial('fillMat_' + i, scene);
+                fillMat.diffuseColor = new BABYLON.Color3(1.0, 1.0, 1.0);  // White
+                fillMat.emissiveColor = new BABYLON.Color3(0.5, 0.5, 0.5);
+                fillMat.alpha = 0.5;  // Base visibility
+                zoneFill.material = fillMat;
+                zoneFill.position.y = 0.02;
+                zoneFill.parent = receiver;
+                zoneFill.scaling = new BABYLON.Vector3(0.4, 0.4, 0.4);  // Start with base visible circle
+
+                receiver.zoneRing = zoneRing;
+                receiver.zoneFill = zoneFill;
+                receiver.ringMaterial = ringMat;
+                receiver.fillMaterial = fillMat;
+                receiver.coverageAmount = 0;  // 0-1 how much defender is covering
+                receiver.clashFlashUntil = 0;  // For clash animation
+                receiver.clashTiltUntil = 0;  // For grappling tilt
+                receiver.clashTiltAngle = 0;
+                receiver.loserFlashUntil = 0;   // Red flash when losing clash
+                receiver.winnerFlashUntil = 0;  // Green flash when winning clash
+                receiver.clashSpeedBoostUntil = 0;  // Speed boost timer
+
+                // Hide the outer ring - only show proximity-based fill
+                zoneRing.setEnabled(false);
 
                 // Draw route line on field
                 const routePoints = [config.start.clone()];
@@ -216,6 +412,134 @@
                 gameState.receivers.push(receiver);
                 gameState.receiversStartZ.push(config.start.z);
             });
+
+            // Create Defenders
+            // Line of scrimmage is at RECEIVER_START_Z - defenders spawn above it
+            defenderConfigs.forEach((config, i) => {
+                // Calculate starting position - defenders start ABOVE line of scrimmage
+                let startPos;
+                if (config.aiType === 'man' && config.assignedReceiver !== undefined) {
+                    const targetReceiver = receiverConfigs[config.assignedReceiver];
+                    startPos = new BABYLON.Vector3(
+                        targetReceiver.start.x,
+                        0,
+                        targetReceiver.start.z + config.cushion  // Above receiver (+ cushion)
+                    );
+                } else if (config.aiType === 'zone') {
+                    startPos = config.zoneCenter.clone();
+                    // Zone defenders already positioned by zoneCenter, cushion is depth into field
+                } else {
+                    // Blitzer starts at line of scrimmage
+                    startPos = new BABYLON.Vector3(0, 0, RECEIVER_START_Z + 1);
+                }
+
+                // Clone material so each defender can flash independently
+                const defenderMat = materials.defenderMaterial.clone(`defenderMat_${i}`);
+                const defender = createKnight(scene, defenderMat, startPos);
+                defender.name = `defender_${i}`;
+                defender.bodyMaterial = defenderMat;
+                defender.originalColor = defenderMat.diffuseColor.clone();
+
+                // Store config data on defender
+                defender.displayName = config.name;
+                defender.aiType = config.aiType;
+                defender.assignedReceiver = config.assignedReceiver;
+                defender.cushion = config.cushion;
+                defender.zoneCenter = config.zoneCenter;
+                defender.zoneRadius = config.zoneRadius || 5;
+                defender.stats = config.stats;
+                defender.startPos = startPos.clone();
+
+                // Derive base speed from stats
+                defender.baseSpeed = config.stats.speed * 0.0005;
+                defender.speed = defender.baseSpeed;
+
+                // Clash system runtime state
+                defender.lastClashTime = 0;
+                defender.knockdownUntil = 0;
+                defender.knockdownResistance = 0;
+                defender.initialClashSlowdownUntil = 0;  // Slowdown during first contact
+                defender.clashSpeedPenaltyUntil = 0;  // Speed penalty from losing clash
+
+                // Add defender zone indicator - ring outline + fill disc
+                // Ring (outer indicator)
+                const defRing = BABYLON.MeshBuilder.CreateTorus('defRing_' + i, {
+                    diameter: 2.8,
+                    thickness: 0.1,
+                    tessellation: 32
+                }, scene);
+                const defRingMat = new BABYLON.StandardMaterial('defRingMat_' + i, scene);
+                defRingMat.diffuseColor = config.zoneColor;
+                defRingMat.emissiveColor = config.zoneColor.scale(0.4);
+                defRingMat.alpha = 0.8;
+                defRing.material = defRingMat;
+                defRing.position.y = 0.03;
+                defRing.parent = defender;
+
+                // Fill disc (shows coverage engagement)
+                const defFill = BABYLON.MeshBuilder.CreateDisc('defFill_' + i, {
+                    radius: 1.4,
+                    tessellation: 32
+                }, scene);
+                defFill.rotation.x = Math.PI / 2;  // Lay flat
+                const defFillMat = new BABYLON.StandardMaterial('defFillMat_' + i, scene);
+                defFillMat.diffuseColor = config.zoneColor;
+                defFillMat.emissiveColor = config.zoneColor.scale(0.2);
+                defFillMat.alpha = 0;  // Start invisible
+                defFill.material = defFillMat;
+                defFill.position.y = 0.01;
+                defFill.parent = defender;
+                defFill.scaling = new BABYLON.Vector3(0, 0, 0);  // Start with no fill
+
+                defender.zoneRing = defRing;
+                defender.zoneFill = defFill;
+                defender.ringMaterial = defRingMat;
+                defender.fillMaterial = defFillMat;
+                defender.baseZoneColor = config.zoneColor.clone();
+                defender.clashFlashUntil = 0;  // For clash animation
+                defender.clashTiltUntil = 0;  // For grappling tilt
+                defender.clashTiltAngle = 0;
+                defender.loserFlashUntil = 0;   // Red flash when losing clash
+                defender.winnerFlashUntil = 0;  // Green flash when winning clash
+
+                // Apply feature flag for defender zone visibility
+                defRing.setEnabled(FEATURE_FLAGS.showDefenderZones);
+                defFill.setEnabled(FEATURE_FLAGS.showDefenderZones);
+
+                gameState.defenders.push(defender);
+            });
+
+            // Create GUI for player name labels
+            const advancedTexture = BABYLON.GUI.AdvancedDynamicTexture.CreateFullscreenUI('UI', true, scene);
+
+            // Add name labels to receivers
+            gameState.receivers.forEach((receiver, i) => {
+                const nameLabel = new BABYLON.GUI.TextBlock();
+                nameLabel.text = receiver.displayName;
+                nameLabel.color = '#88bbff';
+                nameLabel.fontSize = 14;
+                nameLabel.fontFamily = 'Courier New';
+                nameLabel.outlineWidth = 2;
+                nameLabel.outlineColor = '#000000';
+
+                const labelRect = new BABYLON.GUI.Rectangle();
+                labelRect.width = '120px';
+                labelRect.height = '24px';
+                labelRect.cornerRadius = 4;
+                labelRect.thickness = 0;
+                labelRect.background = 'rgba(0, 0, 0, 0.5)';
+                labelRect.addControl(nameLabel);
+
+                advancedTexture.addControl(labelRect);
+                labelRect.linkWithMesh(receiver);
+                labelRect.linkOffsetY = -50;
+                labelRect.alpha = 0;  // Names hidden for now
+
+                receiver.nameLabel = labelRect;
+            });
+
+            // Store GUI reference
+            scene.gui = advancedTexture;
 
             // Create Football (initially hidden)
             const football = createFootball(scene, materials);
@@ -249,6 +573,12 @@
             receiverMaterial.specularColor = new BABYLON.Color3(0.4, 0.6, 1);
             receiverMaterial.specularPower = 32;
 
+            // Defender material - dark gray enemies
+            const defenderMaterial = new BABYLON.StandardMaterial('defenderMat', scene);
+            defenderMaterial.diffuseColor = new BABYLON.Color3(0.25, 0.25, 0.28);
+            defenderMaterial.specularColor = new BABYLON.Color3(0.4, 0.4, 0.45);
+            defenderMaterial.specularPower = 32;
+
             // Football material - brown leather
             const ballMaterial = new BABYLON.StandardMaterial('ballMat', scene);
             ballMaterial.diffuseColor = new BABYLON.Color3(0.55, 0.35, 0.2);
@@ -265,7 +595,7 @@
             trajectoryMaterial.emissiveColor = new BABYLON.Color3(0.5, 0.1, 0.1);
             trajectoryMaterial.alpha = 0.7;
 
-            return { fieldMaterial, qbMaterial, receiverMaterial, ballMaterial, lineMaterial, trajectoryMaterial };
+            return { fieldMaterial, qbMaterial, receiverMaterial, defenderMaterial, ballMaterial, lineMaterial, trajectoryMaterial };
         };
 
         // Create Field
@@ -517,22 +847,324 @@
                 return false; // Route complete
             }
 
-            const target = receiver.route[receiver.routeIndex];
-            const dx = target.x - receiver.position.x;
-            const dz = target.z - receiver.position.z;
-            const dist = Math.sqrt(dx * dx + dz * dz);
+            let target = receiver.route[receiver.routeIndex];
+            let dx = target.x - receiver.position.x;
+            let dz = target.z - receiver.position.z;
+            let dist = Math.sqrt(dx * dx + dz * dz);
 
+            // Check if reached current waypoint
             if (dist < 0.3) {
                 // Reached waypoint, move to next
                 receiver.routeIndex++;
-                return receiver.routeIndex < receiver.route.length;
+                if (receiver.routeIndex >= receiver.route.length) {
+                    return false; // Route complete
+                }
+                // Continue toward new waypoint this frame (don't skip a frame)
+                target = receiver.route[receiver.routeIndex];
+                dx = target.x - receiver.position.x;
+                dz = target.z - receiver.position.z;
+                dist = Math.sqrt(dx * dx + dz * dz);
             }
 
-            // Move toward target
-            receiver.position.x += (dx / dist) * runSpeed;
-            receiver.position.z += (dz / dist) * runSpeed;
-            receiver.rotation.y = Math.atan2(dx, dz);
+            if (dist > 0.1) {
+                // Move toward target
+                receiver.position.x += (dx / dist) * runSpeed;
+                receiver.position.z += (dz / dist) * runSpeed;
+                receiver.rotation.y = Math.atan2(dx, dz);
+            }
             return true;
+        };
+
+        // Move defender based on AI type
+        const moveDefender = (defender, deltaTime, overrideSpeed = null) => {
+            // Don't move if knocked down
+            if (defender.knockdownUntil > gameState.gameTime) {
+                return;
+            }
+
+            const speed = overrideSpeed !== null ? overrideSpeed : defender.speed;
+
+            if (defender.aiType === 'man') {
+                moveDefenderManCoverage(defender, speed);
+            } else if (defender.aiType === 'zone') {
+                moveDefenderZoneCoverage(defender, speed);
+            } else if (defender.aiType === 'blitzer') {
+                moveDefenderBlitz(defender, speed);
+            }
+        };
+
+        // Man coverage AI - follow assigned receiver
+        const moveDefenderManCoverage = (defender, speed) => {
+            const targetReceiver = gameState.receivers[defender.assignedReceiver];
+            if (!targetReceiver) return;
+
+            // Stay between receiver and where ball would come from (QB position)
+            const receiverPos = targetReceiver.position;
+            const qbPos = new BABYLON.Vector3(0, 0, QB_START_Z);
+
+            // Calculate ideal position - slightly behind and between receiver and QB
+            const cushionOffset = 0.5;  // Stay slightly behind
+            const targetX = receiverPos.x;
+            const targetZ = receiverPos.z - cushionOffset;
+
+            const dx = targetX - defender.position.x;
+            const dz = targetZ - defender.position.z;
+            const dist = Math.sqrt(dx * dx + dz * dz);
+
+            if (dist > 0.2) {
+                // Move toward target position
+                defender.position.x += (dx / dist) * speed;
+                defender.position.z += (dz / dist) * speed;
+                defender.rotation.y = Math.atan2(dx, dz);
+            }
+        };
+
+        // Zone coverage AI - patrol assigned area, react to nearby receivers
+        const moveDefenderZoneCoverage = (defender, speed) => {
+            // Find nearest receiver in zone
+            let nearestReceiver = null;
+            let nearestDist = defender.zoneRadius;
+
+            gameState.receivers.forEach(receiver => {
+                const dx = receiver.position.x - defender.zoneCenter.x;
+                const dz = receiver.position.z - defender.zoneCenter.z;
+                const dist = Math.sqrt(dx * dx + dz * dz);
+
+                if (dist < nearestDist) {
+                    nearestDist = dist;
+                    nearestReceiver = receiver;
+                }
+            });
+
+            let targetX, targetZ;
+
+            if (nearestReceiver) {
+                // Move toward receiver in zone
+                targetX = nearestReceiver.position.x;
+                targetZ = nearestReceiver.position.z - 0.5;  // Stay slightly behind
+            } else {
+                // Patrol zone center
+                targetX = defender.zoneCenter.x;
+                targetZ = defender.zoneCenter.z;
+            }
+
+            const dx = targetX - defender.position.x;
+            const dz = targetZ - defender.position.z;
+            const dist = Math.sqrt(dx * dx + dz * dz);
+
+            if (dist > 0.3) {
+                defender.position.x += (dx / dist) * speed;
+                defender.position.z += (dz / dist) * speed;
+                defender.rotation.y = Math.atan2(dx, dz);
+            }
+        };
+
+        // Blitzer AI - rush toward QB or ball
+        const moveDefenderBlitz = (defender, speed) => {
+            let targetX, targetZ;
+
+            if (gameState.ballInFlight) {
+                // Chase the ball
+                const football = scene.football;
+                targetX = football.position.x;
+                targetZ = football.position.z;
+            } else {
+                // Rush the QB
+                targetX = 0;
+                targetZ = QB_START_Z;
+            }
+
+            const dx = targetX - defender.position.x;
+            const dz = targetZ - defender.position.z;
+            const dist = Math.sqrt(dx * dx + dz * dz);
+
+            if (dist > 0.5) {
+                defender.position.x += (dx / dist) * speed * 1.2;  // Blitzers are aggressive
+                defender.position.z += (dz / dist) * speed * 1.2;
+                defender.rotation.y = Math.atan2(dx, dz);
+            }
+        };
+
+        // Reset defenders to starting positions
+        const resetDefenders = () => {
+            const RECEIVER_START_Z = QB_START_Z + 2;
+            let manDefenderIndex = 0;
+
+            gameState.defenders.forEach((defender, i) => {
+                if (defender.aiType === 'man') {
+                    // Man defenders cover receivers 1-to-1
+                    const receiverIndex = manDefenderIndex % gameState.receivers.length;
+                    defender.assignedReceiver = receiverIndex;
+                    const targetReceiver = gameState.receivers[receiverIndex];
+
+                    // Position directly above receiver with varying depth
+                    defender.cushion = 2 + Math.random() * 4;  // 2-6 yards cushion
+                    defender.startPos.x = targetReceiver.startPos.x;
+                    defender.startPos.z = targetReceiver.startPos.z + defender.cushion;
+                    manDefenderIndex++;
+                } else if (defender.aiType === 'zone') {
+                    // Zone defender in middle of field with random depth
+                    const zoneDepth = 6 + Math.random() * 4;  // 6-10 yards deep
+                    defender.zoneCenter = new BABYLON.Vector3(0, 0, RECEIVER_START_Z + zoneDepth);
+                    defender.zoneRadius = 5 + Math.random() * 2;  // 5-7 yard radius
+                    defender.startPos.x = 0;
+                    defender.startPos.z = RECEIVER_START_Z + zoneDepth - 2;
+                }
+
+                defender.position.x = defender.startPos.x;
+                defender.position.z = defender.startPos.z;
+                defender.position.y = 0;
+                defender.knockdownUntil = 0;
+                defender.knockdownResistance = 0;
+                defender.clashFlashUntil = 0;
+                defender.clashTiltUntil = 0;
+                defender.loserFlashUntil = 0;
+                defender.winnerFlashUntil = 0;
+                defender.initialClashSlowdownUntil = 0;
+                defender.clashSpeedPenaltyUntil = 0;
+                defender.lastClashTime = 0;
+                defender.rotation.x = 0;  // Reset tilt
+                defender.zoneFill.scaling = new BABYLON.Vector3(0, 0, 0);
+                defender.fillMaterial.alpha = 0;
+            });
+        };
+
+        // Reset receivers to starting positions
+        const resetReceivers = () => {
+            // Assign spread positions: left slot, right slot, flex position
+            const positions = [
+                -(5 + Math.random() * 2),   // Left side: -5 to -7 (near sideline)
+                (5 + Math.random() * 2),    // Right side: 5 to 7 (near sideline)
+                (Math.random() - 0.5) * 4   // Middle/flex: -2 to 2
+            ];
+            // Shuffle positions for variety
+            for (let i = positions.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [positions[i], positions[j]] = [positions[j], positions[i]];
+            }
+
+            gameState.receivers.forEach((receiver, i) => {
+                // Assign spread position
+                receiver.startPos.x = positions[i] || (Math.random() - 0.5) * 6;
+
+                receiver.position.x = receiver.startPos.x;
+                receiver.position.z = receiver.startPos.z;
+                receiver.position.y = 0;
+                receiver.rotation.y = 0;
+                receiver.routeIndex = 0;
+                receiver.lastRouteIndex = 0;
+                receiver.hasHadInitialClash = false;
+                receiver.separationState = 'contested';
+                receiver.knockdownUntil = 0;
+                receiver.knockdownResistance = 0;
+                receiver.clashFlashUntil = 0;
+                receiver.clashTiltUntil = 0;
+                receiver.loserFlashUntil = 0;
+                receiver.winnerFlashUntil = 0;
+                receiver.lastClashTime = 0;
+                receiver.speed = receiver.baseSpeed;
+                receiver.initialClashSlowdownUntil = 0;
+                receiver.clashSpeedPenaltyUntil = 0;
+                receiver.clashSpeedBoostUntil = 0;
+                receiver.rotation.x = 0;  // Reset tilt
+                receiver.coverageAmount = 0;
+                receiver.currentCatchProb = receiver.stats.catching;
+                // Size based on base catching stat (80% = 0.3 + 0.9*0.8 = 1.02 scale)
+                const baseScale = 0.3 + 0.9 * (receiver.stats.catching / 100);
+                receiver.zoneFill.scaling = new BABYLON.Vector3(baseScale, baseScale, baseScale);
+                receiver.fillMaterial.alpha = 0.5;
+                // Always white
+                receiver.fillMaterial.diffuseColor = new BABYLON.Color3(1.0, 1.0, 1.0);
+                receiver.fillMaterial.emissiveColor = new BABYLON.Color3(0.5, 0.5, 0.5);
+
+                // Generate new random route
+                generateRandomRoute(receiver);
+
+                // Show name label again
+                if (receiver.nameLabel) {
+                    receiver.nameLabel.alpha = 1;
+                }
+            });
+
+            // Reset play start time for label fading
+            gameState.playStartTime = performance.now() * 0.001;
+        };
+
+        // Generate a random route for a receiver
+        const generateRandomRoute = (receiver) => {
+            const startX = receiver.startPos.x;
+            const startZ = receiver.startPos.z;
+            const routes = ['go', 'slant', 'out', 'in', 'corner', 'post', 'curl'];
+            const routeType = routes[Math.floor(Math.random() * routes.length)];
+
+            const route = [];
+            const depth1 = 5 + Math.random() * 4;   // 5-9 yards first segment
+            const depth2 = 10 + Math.random() * 5;  // 10-15 yards total
+
+            switch(routeType) {
+                case 'go':
+                    // Straight deep
+                    route.push({ z: startZ + depth2, x: startX });
+                    break;
+                case 'slant':
+                    // Quick diagonal towards middle
+                    const slantDir = startX > 0 ? -1 : 1;
+                    route.push({ z: startZ + depth1, x: startX + slantDir * 4 });
+                    break;
+                case 'out':
+                    // Straight then out towards sideline
+                    const outDir = startX > 0 ? 1 : -1;
+                    route.push({ z: startZ + depth1, x: startX });
+                    route.push({ z: startZ + depth1 + 2, x: startX + outDir * 5 });
+                    break;
+                case 'in':
+                    // Straight then in towards middle
+                    const inDir = startX > 0 ? -1 : 1;
+                    route.push({ z: startZ + depth1, x: startX });
+                    route.push({ z: startZ + depth1 + 2, x: startX + inDir * 5 });
+                    break;
+                case 'corner':
+                    // Straight then diagonal to corner
+                    const cornerDir = startX > 0 ? 1 : -1;
+                    route.push({ z: startZ + depth1, x: startX });
+                    route.push({ z: startZ + depth2, x: startX + cornerDir * 5 });
+                    break;
+                case 'post':
+                    // Straight then diagonal to middle deep
+                    const postDir = startX > 0 ? -1 : 1;
+                    route.push({ z: startZ + depth1, x: startX });
+                    route.push({ z: startZ + depth2, x: startX + postDir * 4 });
+                    break;
+                case 'curl':
+                    // Go deep then stop
+                    route.push({ z: startZ + depth1 + 2, x: startX });
+                    route.push({ z: startZ + depth1, x: startX });  // Curl back
+                    break;
+            }
+
+            receiver.route = route;
+
+            // Update route line visual
+            if (receiver.routeLine) {
+                receiver.routeLine.dispose();
+            }
+
+            const routePoints = [receiver.startPos.clone()];
+            routePoints[0].y = 0.05;
+            route.forEach(point => {
+                routePoints.push(new BABYLON.Vector3(point.x, 0.05, point.z));
+            });
+
+            // Need to access scene - store reference on gameState
+            if (gameState.scene && gameState.routeMaterial) {
+                const routeLine = BABYLON.MeshBuilder.CreateTube('route_' + receiver.name, {
+                    path: routePoints,
+                    radius: 0.08,
+                    tessellation: 8
+                }, gameState.scene);
+                routeLine.material = gameState.routeMaterial;
+                receiver.routeLine = routeLine;
+            }
         };
 
         // Throw Football Animation
@@ -591,31 +1223,88 @@
                     // Spin animation
                     football.rotation.z += 0.2;
 
+                    // Track game time for clash system (use consistent time source)
+                    gameState.gameTime = performance.now() * 0.001;
+
                     // Keep ALL receivers moving along their routes
                     gameState.receivers.forEach((receiver, i) => {
-                        const runSpeed = 0.025;
+                        // Skip if knocked down
+                        if (receiver.knockdownUntil > gameState.gameTime) {
+                            receiver.position.y = 0;
+                            return;
+                        }
+
+                        // Reset speed to base when boost/penalty expires (also during ball flight)
+                        if (receiver.clashSpeedBoostUntil > 0 && receiver.clashSpeedBoostUntil <= gameState.gameTime) {
+                            receiver.speed = receiver.baseSpeed;
+                            receiver.clashSpeedBoostUntil = 0;
+                        }
+                        if (receiver.clashSpeedPenaltyUntil > 0 && receiver.clashSpeedPenaltyUntil <= gameState.gameTime) {
+                            receiver.speed = receiver.baseSpeed;
+                            receiver.clashSpeedPenaltyUntil = 0;
+                        }
 
                         // Calculate distance to ball landing spot
                         const dx = landingPos.x - receiver.position.x;
                         const dz = landingPos.z - receiver.position.z;
                         const distToLanding = Math.sqrt(dx * dx + dz * dz);
 
+                        // Calculate effective speed (apply initial clash slowdown if no outcome yet)
+                        let effectiveSpeed = receiver.speed;
+                        if (!effectiveSpeed || effectiveSpeed <= 0) {
+                            console.error(`[SPEED ERROR] ${receiver.displayName} speed=${receiver.speed}, baseSpeed=${receiver.baseSpeed}, boostUntil=${receiver.clashSpeedBoostUntil}, penaltyUntil=${receiver.clashSpeedPenaltyUntil}`);
+                            effectiveSpeed = receiver.baseSpeed;
+                        }
+                        const hasClashOutcome = receiver.clashSpeedBoostUntil > gameState.gameTime ||
+                                               receiver.clashSpeedPenaltyUntil > gameState.gameTime;
+                        if (receiver.initialClashSlowdownUntil > gameState.gameTime && !hasClashOutcome) {
+                            effectiveSpeed *= 0.2;
+                        }
+
                         // If ball is coming to them (within catch range), move toward it
+                        // Moving off-route to catch slows the receiver down (allows defenders to close)
                         if (distToLanding < catchRadius * 2.5 && frameIndex > 5) {
                             if (distToLanding > 0.2) {
-                                receiver.position.x += (dx / distToLanding) * runSpeed;
-                                receiver.position.z += (dz / distToLanding) * runSpeed;
+                                // Reduced speed when adjusting to catch (70% of normal)
+                                const catchAdjustSpeed = effectiveSpeed * 0.7;
+                                receiver.position.x += (dx / distToLanding) * catchAdjustSpeed;
+                                receiver.position.z += (dz / distToLanding) * catchAdjustSpeed;
                                 receiver.rotation.y = Math.atan2(dx, dz);
                             }
                         } else {
                             // Follow their route
-                            moveReceiverAlongRoute(receiver, runSpeed);
+                            moveReceiverAlongRoute(receiver, effectiveSpeed);
                         }
 
                         // Running animation
                         receiver.position.y = Math.abs(Math.sin(time.value * 8 + i)) * 0.08;
                         receiver.rotation.z = Math.sin(time.value * 8 + i) * 0.05;
                     });
+
+                    // Move defenders during ball flight - they pursue!
+                    gameState.defenders.forEach((defender, i) => {
+                        // Skip if knocked down
+                        if (defender.knockdownUntil > gameState.gameTime) {
+                            defender.position.y = 0;
+                            return;
+                        }
+
+                        // Defenders move at full speed during ball flight
+                        moveDefender(defender, 0.016);
+
+                        // Running animation
+                        defender.position.y = Math.abs(Math.sin(time.value * 8 + i + 0.5)) * 0.08;
+                        defender.rotation.z = Math.sin(time.value * 8 + i + 0.5) * 0.05;
+                    });
+
+                    // Process clashes during ball flight
+                    processClashes();
+
+                    // Update zone visuals based on proximity
+                    updateZoneProximity();
+
+                    // Update debug display
+                    updateDebugInfo();
                 }
 
                 // Check if ball has landed
@@ -629,44 +1318,130 @@
         // Check for Catch
         const checkCatch = (scene, ballPosition, targetReceiver) => {
             const catchRadius = 1.2;
-            let caught = false;
-            let catcher = null;
+            let potentialCatcher = null;
+            let closestDistance = catchRadius;
 
             for (const receiver of gameState.receivers) {
+                // Can't catch if knocked down
+                if (receiver.knockdownUntil > gameState.gameTime) {
+                    continue;
+                }
+
                 const distance = BABYLON.Vector3.Distance(
                     new BABYLON.Vector3(receiver.position.x, 0, receiver.position.z),
                     new BABYLON.Vector3(ballPosition.x, 0, ballPosition.z)
                 );
 
-                if (distance < catchRadius) {
-                    caught = true;
-                    catcher = receiver;
-                    break;
+                if (distance < closestDistance) {
+                    closestDistance = distance;
+                    potentialCatcher = receiver;
                 }
             }
 
-            if (caught && catcher) {
-                gameState.catches++;
-                updateScore();
-                updateMessage('CATCH!');
+            if (potentialCatcher) {
+                // Calculate catch probability
+                const catchProbability = calculateCatchProbability(potentialCatcher, ballPosition);
+                const catchRoll = Math.random() * 100;
 
-                // Attach ball to receiver and celebrate
-                scene.football.position.y = 0.8;
-                scene.football.parent = catcher;
-                scene.football.position = new BABYLON.Vector3(0.3, 0.5, 0);
-                scene.football.rotation = new BABYLON.Vector3(0, 0, Math.PI / 4);
+                if (catchRoll < catchProbability) {
+                    // Successful catch!
+                    gameState.catches++;
+                    updateScore();
+                    updateMessage(`CATCH by ${potentialCatcher.displayName}!`);
 
-                celebrateReceiver(catcher, scene);
+                    // Attach ball to receiver and celebrate
+                    scene.football.position.y = 0.8;
+                    scene.football.parent = potentialCatcher;
+                    scene.football.position = new BABYLON.Vector3(0.3, 0.5, 0);
+                    scene.football.rotation = new BABYLON.Vector3(0, 0, Math.PI / 4);
 
-                // Reset after delay
-                setTimeout(() => {
-                    resetPlay(scene);
-                }, 2000);
+                    celebrateReceiver(potentialCatcher, scene);
+
+                    // Reset after delay
+                    setTimeout(() => {
+                        resetPlay(scene);
+                    }, 2000);
+                } else {
+                    // Dropped or defended
+                    const wasDefended = potentialCatcher.separationState === 'covered';
+                    updateMessage(wasDefended ? 'DEFENDED!' : 'Dropped...');
+                    bounceBall(scene, ballPosition);
+                }
             } else {
                 updateMessage('Incomplete...');
                 // Ball bounces and rolls
                 bounceBall(scene, ballPosition);
             }
+        };
+
+        // Calculate catch probability based on receiver stats and proximity to defenders
+        const calculateCatchProbability = (receiver, ballPosition) => {
+            // Base catch rate from receiver's catching stat
+            let baseCatch = receiver.stats.catching;
+
+            // Find defenders and apply proximity penalty
+            let defenderProximityPenalty = 0;
+            let defenderDetails = [];
+            let hasNearbyDefender = false;
+            const coverageRange = CLASH_CONSTANTS.CLASH_RANGE * 1.5;
+
+            gameState.defenders.forEach(defender => {
+                if (defender.knockdownUntil > gameState.gameTime) return;
+
+                const dx = defender.position.x - receiver.position.x;
+                const dz = defender.position.z - receiver.position.z;
+                const dist = Math.sqrt(dx * dx + dz * dz);
+
+                if (dist < coverageRange) {
+                    hasNearbyDefender = true;
+
+                    // Get defender's coverage stat based on their type
+                    const coverageStat = defender.aiType === 'zone' ?
+                        defender.stats.zoneCoverage : defender.stats.manCoverage;
+
+                    // Proximity factor: 1.0 at distance 0, 0.0 at max range
+                    const proximityFactor = 1 - (dist / coverageRange);
+
+                    // At distance 0, if coverage equals catching, apply 90% penalty
+                    // penalty = proximityFactor^3 * coverageStat * 0.9
+                    // Cubed for steeper dropoff - separation is rewarded more
+                    const penalty = proximityFactor * proximityFactor * proximityFactor * coverageStat * 0.9;
+
+                    defenderProximityPenalty += penalty;
+                    defenderDetails.push({
+                        name: defender.name,
+                        dist: dist.toFixed(2),
+                        penalty: penalty.toFixed(1),
+                        coverageStat: coverageStat,
+                        aiType: defender.aiType
+                    });
+                }
+            });
+
+            // Focus stat helps when defenders are nearby (higher focus = better under pressure)
+            const focusMod = hasNearbyDefender ? (receiver.stats.focus - 70) * 0.3 : 0;
+
+            // Calculate final probability (clamped between 5% and 95%)
+            const finalProbability = Math.max(5, Math.min(95,
+                baseCatch + focusMod - defenderProximityPenalty
+            ));
+
+            // Store for visual display
+            receiver.lastCatchProbability = finalProbability;
+
+            // Debug logging for catch calculations
+            console.log(`[CATCH CALC] ${receiver.name}:`);
+            console.log(`  Base catch (stat): ${baseCatch}`);
+            console.log(`  Focus mod (nearby defender): ${focusMod >= 0 ? '+' : ''}${focusMod.toFixed(1)}`);
+            console.log(`  Defender proximity penalty: -${defenderProximityPenalty.toFixed(1)}`);
+            if (defenderDetails.length > 0) {
+                defenderDetails.forEach(d => {
+                    console.log(`    - ${d.name} [${d.aiType}]: dist=${d.dist}, ${d.aiType === 'zone' ? 'zoneCov' : 'manCov'}=${d.coverageStat}, penalty=-${d.penalty}`);
+                });
+            }
+            console.log(`  FINAL: ${finalProbability.toFixed(1)}%`);
+
+            return finalProbability;
         };
 
         // Ball bounce and roll animation for incomplete passes
@@ -752,14 +1527,9 @@
             }
             gameState.ballInFlight = false;
 
-            // Reset receiver positions and routes
-            gameState.receivers.forEach((receiver, i) => {
-                receiver.position.x = receiver.startPos.x;
-                receiver.position.z = receiver.startPos.z;
-                receiver.position.y = 0;
-                receiver.rotation.y = 0;
-                receiver.routeIndex = 0;
-            });
+            // Reset receiver and defender positions
+            resetReceivers();
+            resetDefenders();
 
             // Slight delay before allowing next throw
             setTimeout(() => {
@@ -777,6 +1547,67 @@
             document.getElementById('message').textContent = msg;
         };
 
+        // Update debug info display
+        const updateDebugInfo = () => {
+            if (!FEATURE_FLAGS.showDebugInfo) {
+                document.getElementById('debugInfo').style.display = 'none';
+                return;
+            }
+            document.getElementById('debugInfo').style.display = 'block';
+
+            let debugText = '=== RECEIVER STATUS ===\n';
+            const coverageRange = CLASH_CONSTANTS.CLASH_RANGE * 1.5;
+
+            gameState.receivers.forEach((receiver, i) => {
+                // Find closest defender
+                let closestDef = null;
+                let closestDist = Infinity;
+                gameState.defenders.forEach(def => {
+                    if (def.knockdownUntil > gameState.gameTime) return;
+                    const dx = def.position.x - receiver.position.x;
+                    const dz = def.position.z - receiver.position.z;
+                    const dist = Math.sqrt(dx * dx + dz * dz);
+                    if (dist < closestDist) {
+                        closestDist = dist;
+                        closestDef = def;
+                    }
+                });
+
+                const timeSinceClash = (gameState.gameTime - receiver.lastClashTime).toFixed(1);
+                const speedMod = (receiver.speed / receiver.baseSpeed * 100).toFixed(0);
+                const hasSpeedPenalty = receiver.clashSpeedPenaltyUntil > gameState.gameTime;
+                const catchProb = receiver.currentCatchProb || receiver.stats.catching;
+
+                // Determine coverage level based on catch probability
+                let coverageLevel = 'OPEN';
+                let levelColor = '🟢';
+                if (catchProb < 40) {
+                    coverageLevel = 'COVERED';
+                    levelColor = '🔴';
+                } else if (catchProb < 70) {
+                    coverageLevel = 'CONTESTED';
+                    levelColor = '🟡';
+                }
+
+                debugText += `\n${receiver.displayName}:\n`;
+                debugText += `  ${levelColor} Catch: ${catchProb.toFixed(0)}% (${coverageLevel})\n`;
+                debugText += `  Speed: ${speedMod}%${hasSpeedPenalty ? ' (SLOWED)' : ''}\n`;
+
+                if (closestDef) {
+                    const defSpeedPenalty = closestDef.clashSpeedPenaltyUntil > gameState.gameTime;
+                    const defCovStat = closestDef.aiType === 'zone' ?
+                        closestDef.stats.zoneCoverage : closestDef.stats.manCoverage;
+                    debugText += `  Nearest: ${closestDef.displayName}`;
+                    if (defSpeedPenalty) debugText += ' (SLOWED)';
+                    debugText += `\n`;
+                    debugText += `  Dist: ${closestDist.toFixed(1)}/${coverageRange.toFixed(1)}`;
+                    debugText += ` | ${closestDef.aiType === 'zone' ? 'ZoneCov' : 'ManCov'}: ${defCovStat}\n`;
+                }
+            });
+
+            document.getElementById('debugInfo').textContent = debugText;
+        };
+
         // Input Handling
         const setupInput = (scene) => {
             const getPointerPosition = (evt) => {
@@ -789,18 +1620,22 @@
             };
 
             const onPointerDown = (evt) => {
+                // Only capture left-click (button 0) or single touch for throwing
+                // Let right-click (button 2) and multi-touch pass through to camera
+                if (evt.button !== 0 && evt.pointerType === 'mouse') return;
                 if (!gameState.canThrow || gameState.ballInFlight) return;
 
                 evt.preventDefault();
                 const pos = getPointerPosition(evt);
                 gameState.isDragging = true;
+                gameState.activePointerId = evt.pointerId;  // Track which pointer is dragging
                 gameState.dragStart = pos;
                 gameState.dragCurrent = pos;
-                console.log('Drag started at:', pos);
             };
 
             const onPointerMove = (evt) => {
-                if (!gameState.isDragging) return;
+                // Only track the pointer that started the drag
+                if (!gameState.isDragging || evt.pointerId !== gameState.activePointerId) return;
 
                 evt.preventDefault();
                 gameState.dragCurrent = getPointerPosition(evt);
@@ -808,9 +1643,11 @@
             };
 
             const onPointerUp = (evt) => {
-                if (!gameState.isDragging) return;
+                // Only respond to the pointer that started the drag
+                if (!gameState.isDragging || evt.pointerId !== gameState.activePointerId) return;
 
                 evt.preventDefault();
+                gameState.activePointerId = null;
 
                 // Update final position from the end event
                 const endPos = getPointerPosition(evt);
@@ -818,13 +1655,7 @@
                     gameState.dragCurrent = endPos;
                 }
 
-                console.log('Drag ended. Start:', gameState.dragStart, 'End:', gameState.dragCurrent);
-
                 if (gameState.dragStart && gameState.dragCurrent) {
-                    const dx = gameState.dragStart.x - gameState.dragCurrent.x;
-                    const dy = gameState.dragStart.y - gameState.dragCurrent.y;
-                    const dist = Math.sqrt(dx * dx + dy * dy);
-                    console.log('Drag distance:', dist, 'Throw distance:', dist * DRAG_SENSITIVITY);
                     throwFootball(scene);
                 }
 
@@ -842,8 +1673,6 @@
             canvas.addEventListener('pointermove', onPointerMove);
             canvas.addEventListener('pointerup', onPointerUp);
             canvas.addEventListener('pointerleave', onPointerUp);
-
-            console.log('Input handlers attached to canvas');
         };
 
         // Idle Animations
@@ -857,27 +1686,475 @@
                 qb.rotation.y = Math.sin(time * 2) * 0.05;
                 qb.position.y = Math.sin(time * 3) * 0.02;
 
+                // Track game time for clash system
+                gameState.gameTime = time;
+
                 // Receivers running their routes
                 if (!gameState.ballInFlight && gameState.canThrow) {
-                    gameState.receivers.forEach((receiver, i) => {
-                        const runSpeed = 0.03;
+                    let anyRouteComplete = false;
 
-                        // Follow route, reset if complete
-                        const stillRunning = moveReceiverAlongRoute(receiver, runSpeed);
-                        if (!stillRunning) {
-                            // Reset to start of route
-                            receiver.position.x = receiver.startPos.x;
-                            receiver.position.z = receiver.startPos.z;
-                            receiver.routeIndex = 0;
+                    gameState.receivers.forEach((receiver, i) => {
+                        // Skip if knocked down
+                        if (receiver.knockdownUntil > gameState.gameTime) {
+                            receiver.position.y = 0;  // On ground
+                            return;
                         }
 
-                        // Running bob animation
-                        receiver.position.y = Math.abs(Math.sin(time * 8 + i)) * 0.08;
+                        // Reset speed to base when boost/penalty expires
+                        if (receiver.clashSpeedBoostUntil > 0 && receiver.clashSpeedBoostUntil <= gameState.gameTime) {
+                            receiver.speed = receiver.baseSpeed;
+                            receiver.clashSpeedBoostUntil = 0;
+                        }
+                        if (receiver.clashSpeedPenaltyUntil > 0 && receiver.clashSpeedPenaltyUntil <= gameState.gameTime) {
+                            receiver.speed = receiver.baseSpeed;
+                            receiver.clashSpeedPenaltyUntil = 0;
+                        }
+
+                        // Calculate effective speed (slowdown during initial clash, unless clash outcome already applied)
+                        let effectiveSpeed = receiver.speed;
+                        if (!effectiveSpeed || effectiveSpeed <= 0) {
+                            console.error(`[SPEED ERROR] ${receiver.displayName} speed=${receiver.speed}, baseSpeed=${receiver.baseSpeed}, boostUntil=${receiver.clashSpeedBoostUntil}, penaltyUntil=${receiver.clashSpeedPenaltyUntil}`);
+                            effectiveSpeed = receiver.baseSpeed;
+                        }
+                        const hasClashOutcome = receiver.clashSpeedBoostUntil > gameState.gameTime ||
+                                               receiver.clashSpeedPenaltyUntil > gameState.gameTime;
+                        if (receiver.initialClashSlowdownUntil > gameState.gameTime && !hasClashOutcome) {
+                            effectiveSpeed *= 0.2;  // 20% speed during initial clash (only if no outcome yet)
+                        }
+
+                        // Follow route, reset if complete
+                        const stillRunning = moveReceiverAlongRoute(receiver, effectiveSpeed);
+                        if (!stillRunning) {
+                            anyRouteComplete = true;
+                        }
+
+                        // Running bob animation (slower bob during slowdown)
+                        const bobSpeed = receiver.initialClashSlowdownUntil > gameState.gameTime ? 4 : 8;
+                        receiver.position.y = Math.abs(Math.sin(time * bobSpeed + i)) * 0.08;
 
                         // Arm swing approximation via slight rotation
-                        receiver.rotation.z = Math.sin(time * 8 + i) * 0.05;
+                        receiver.rotation.z = Math.sin(time * bobSpeed + i) * 0.05;
+
+                        // Clash tilt effect (lean towards opponent)
+                        if (receiver.clashTiltUntil > gameState.gameTime) {
+                            const tiltProgress = (receiver.clashTiltUntil - gameState.gameTime) / 0.5;
+                            receiver.rotation.x = Math.sin(tiltProgress * Math.PI) * 0.3;  // Lean forward
+                        } else {
+                            receiver.rotation.x = 0;
+                        }
+
+                        // Show green while speed boosted, red while speed penalized
+                        if (receiver.clashSpeedBoostUntil > gameState.gameTime) {
+                            const flashRate = Math.sin(time * 10) * 0.3 + 0.7;  // Gentle pulse 0.4-1.0
+                            const green = new BABYLON.Color3(0.2, 1.0, 0.3);
+                            receiver.bodyMaterial.diffuseColor = BABYLON.Color3.Lerp(receiver.originalColor, green, flashRate * 0.7);
+                            receiver.bodyMaterial.emissiveColor = green.scale(flashRate * 0.3);
+                        } else if (receiver.clashSpeedPenaltyUntil > gameState.gameTime) {
+                            const flashRate = Math.sin(time * 10) * 0.3 + 0.7;  // Gentle pulse 0.4-1.0
+                            const red = new BABYLON.Color3(1.0, 0.2, 0.2);
+                            receiver.bodyMaterial.diffuseColor = BABYLON.Color3.Lerp(receiver.originalColor, red, flashRate * 0.7);
+                            receiver.bodyMaterial.emissiveColor = red.scale(flashRate * 0.3);
+                        } else {
+                            receiver.bodyMaterial.diffuseColor = receiver.originalColor;
+                            receiver.bodyMaterial.emissiveColor = BABYLON.Color3.Black();
+                        }
                     });
+
+                    // Reset all players when any route completes
+                    if (anyRouteComplete) {
+                        resetReceivers();
+                        resetDefenders();
+                    }
+
+                    // Move defenders
+                    gameState.defenders.forEach((defender, i) => {
+                        // Skip if knocked down
+                        if (defender.knockdownUntil > gameState.gameTime) {
+                            defender.position.y = 0;  // On ground
+                            return;
+                        }
+
+                        // Calculate effective speed (slowdowns from clashes)
+                        let effectiveSpeed = defender.speed;
+                        if (defender.initialClashSlowdownUntil > gameState.gameTime) {
+                            effectiveSpeed *= 0.2;  // 20% speed during initial clash
+                        }
+                        if (defender.clashSpeedPenaltyUntil > gameState.gameTime) {
+                            effectiveSpeed *= 0.5;  // 50% slower after losing clash
+                        }
+
+                        moveDefender(defender, 0.016, effectiveSpeed);
+
+                        // Running bob animation (slower during slowdown)
+                        const bobSpeed = defender.initialClashSlowdownUntil > gameState.gameTime ? 4 : 8;
+                        defender.position.y = Math.abs(Math.sin(time * bobSpeed + i + 0.5)) * 0.08;
+                        defender.rotation.z = Math.sin(time * bobSpeed + i + 0.5) * 0.05;
+
+                        // Clash tilt effect (lean towards opponent)
+                        if (defender.clashTiltUntil > gameState.gameTime) {
+                            const tiltProgress = (defender.clashTiltUntil - gameState.gameTime) / 0.5;
+                            defender.rotation.x = Math.sin(tiltProgress * Math.PI) * 0.3;  // Lean forward
+                        } else {
+                            defender.rotation.x = 0;
+                        }
+
+                    });
+
+                    // Process clashes between receivers and defenders
+                    processClashes();
+
+                    // Update zone visual fills based on proximity
+                    updateZoneProximity();
+
+                    // Update debug display
+                    updateDebugInfo();
+
+                    // Fade out name labels after 1 second
+                    const timeSinceStart = time - gameState.playStartTime;
+                    if (timeSinceStart > 1.0 && timeSinceStart < 2.0) {
+                        // Fade over 1 second (from t=1 to t=2)
+                        const fadeProgress = timeSinceStart - 1.0;
+                        gameState.receivers.forEach(receiver => {
+                            if (receiver.nameLabel) {
+                                receiver.nameLabel.alpha = 1 - fadeProgress;
+                            }
+                        });
+                    } else if (timeSinceStart >= 2.0) {
+                        // Fully hidden
+                        gameState.receivers.forEach(receiver => {
+                            if (receiver.nameLabel) {
+                                receiver.nameLabel.alpha = 0;
+                            }
+                        });
+                    }
                 }
+            });
+        };
+
+        // Get zone colors based on catch probability (0-100%)
+        // High catch % = green, medium = yellow, low = red
+        const getZoneColorsByCatchProb = (catchProbability) => {
+            if (catchProbability >= 70) {
+                // Green - high catch chance
+                return {
+                    diffuse: new BABYLON.Color3(0.2, 0.9, 0.3),
+                    emissive: new BABYLON.Color3(0.1, 0.4, 0.15)
+                };
+            } else if (catchProbability >= 40) {
+                // Yellow - moderate catch chance
+                return {
+                    diffuse: new BABYLON.Color3(1.0, 0.8, 0.2),
+                    emissive: new BABYLON.Color3(0.4, 0.3, 0.1)
+                };
+            } else {
+                // Red - low catch chance
+                return {
+                    diffuse: new BABYLON.Color3(0.9, 0.2, 0.2),
+                    emissive: new BABYLON.Color3(0.4, 0.1, 0.1)
+                };
+            }
+        };
+
+        // Calculate real-time catch probability for a receiver (for visual display)
+        const calculateRealtimeCatchProb = (receiver) => {
+            const baseCatch = receiver.stats.catching;
+            const coverageRange = CLASH_CONSTANTS.CLASH_RANGE * 1.5;
+            let defenderPenalty = 0;
+            let hasNearbyDefender = false;
+
+            gameState.defenders.forEach(defender => {
+                if (defender.knockdownUntil > gameState.gameTime) return;
+
+                const dx = defender.position.x - receiver.position.x;
+                const dz = defender.position.z - receiver.position.z;
+                const dist = Math.sqrt(dx * dx + dz * dz);
+
+                if (dist < coverageRange) {
+                    hasNearbyDefender = true;
+                    const coverageStat = defender.aiType === 'zone' ?
+                        defender.stats.zoneCoverage : defender.stats.manCoverage;
+                    const proximityFactor = 1 - (dist / coverageRange);
+                    // Match the catch calculation: cubed for steeper dropoff
+                    defenderPenalty += proximityFactor * proximityFactor * proximityFactor * coverageStat * 0.9;
+                }
+            });
+
+            const focusMod = hasNearbyDefender ? (receiver.stats.focus - 70) * 0.3 : 0;
+            return Math.max(5, Math.min(95, baseCatch + focusMod - defenderPenalty));
+        };
+
+        // Update zone fills based on proximity between receivers and defenders
+        const updateZoneProximity = () => {
+            const maxCoverageRange = CLASH_CONSTANTS.CLASH_RANGE * 1.5;  // Range where fill starts
+
+            gameState.receivers.forEach(receiver => {
+                let maxCoverage = 0;
+                let coveringDefender = null;
+
+                // Find closest defender and calculate coverage amount
+                gameState.defenders.forEach(defender => {
+                    if (defender.knockdownUntil > gameState.gameTime) return;
+
+                    const dx = defender.position.x - receiver.position.x;
+                    const dz = defender.position.z - receiver.position.z;
+                    const dist = Math.sqrt(dx * dx + dz * dz);
+
+                    if (dist < maxCoverageRange) {
+                        // Coverage increases as distance decreases
+                        const coverage = 1 - (dist / maxCoverageRange);
+                        if (coverage > maxCoverage) {
+                            maxCoverage = coverage;
+                            coveringDefender = defender;
+                        }
+                    }
+                });
+
+                receiver.coverageAmount = maxCoverage;
+
+                // Calculate real-time catch probability
+                const catchProb = calculateRealtimeCatchProb(receiver);
+                receiver.currentCatchProb = catchProb;  // Store for debug display
+
+                // Size based on catch probability (larger = higher catch %)
+                const minScale = 0.3;  // Minimum size at 0% catch
+                const maxScale = 1.2;  // Maximum size at 100% catch
+                const catchFactor = catchProb / 100;  // 0-1
+                const fillScale = minScale + (maxScale - minScale) * catchFactor;
+                receiver.zoneFill.scaling = new BABYLON.Vector3(fillScale, fillScale, fillScale);
+
+                // Keep white color, adjust alpha based on coverage for visibility
+                receiver.fillMaterial.diffuseColor = new BABYLON.Color3(1.0, 1.0, 1.0);
+                receiver.fillMaterial.emissiveColor = new BABYLON.Color3(0.5, 0.5, 0.5);
+                receiver.fillMaterial.alpha = 0.5;
+
+                // Update covering defender's fill too
+                if (coveringDefender) {
+                    const defFillScale = Math.max(0.1, maxCoverage) * 0.9;
+                    coveringDefender.zoneFill.scaling = new BABYLON.Vector3(defFillScale, defFillScale, defFillScale);
+                    coveringDefender.fillMaterial.alpha = maxCoverage * 0.45;
+                    coveringDefender.ringMaterial.alpha = 0.8;
+                }
+            });
+
+            // Reset defenders not covering anyone
+            gameState.defenders.forEach(defender => {
+                let isCovering = false;
+                gameState.receivers.forEach(receiver => {
+                    const dx = defender.position.x - receiver.position.x;
+                    const dz = defender.position.z - receiver.position.z;
+                    const dist = Math.sqrt(dx * dx + dz * dz);
+                    if (dist < CLASH_CONSTANTS.CLASH_RANGE * 1.5) {
+                        isCovering = true;
+                    }
+                });
+
+                if (!isCovering) {
+                    defender.zoneFill.scaling = new BABYLON.Vector3(0, 0, 0);
+                    defender.fillMaterial.alpha = 0;
+                }
+            });
+        };
+
+        // Trigger clash visual effect
+        const triggerClashVisual = (receiver, defender, winner) => {
+            const flashDuration = 0.3;  // seconds
+            const tiltDuration = 0.5;   // seconds for grappling tilt
+            const currentTime = gameState.gameTime;
+
+            // Calculate tilt direction (towards each other)
+            const dx = defender.position.x - receiver.position.x;
+            const dz = defender.position.z - receiver.position.z;
+            const angle = Math.atan2(dx, dz);
+
+            // Both tilt towards each other during clash
+            receiver.clashTiltUntil = currentTime + tiltDuration;
+            receiver.clashTiltAngle = angle;  // Tilt towards defender
+            defender.clashTiltUntil = currentTime + tiltDuration;
+            defender.clashTiltAngle = angle + Math.PI;  // Tilt towards receiver (opposite)
+
+            // Color is now controlled by speed effect timers (clashSpeedBoostUntil / clashSpeedPenaltyUntil)
+            // No separate flash timer needed
+        };
+
+        // ============================================
+        // CLASH SYSTEM
+        // ============================================
+
+        // Weighted dice roll based on stats
+        const weightedRoll = (stats, weights) => {
+            let weightedTotal = 0;
+            for (const stat in weights) {
+                const statValue = stats[stat] || 50;  // Default to 50 if stat missing
+                weightedTotal += statValue * weights[stat];
+            }
+
+            // Add randomness (±20% variance)
+            const variance = 0.2;
+            const roll = weightedTotal * (1 + (Math.random() - 0.5) * 2 * variance);
+
+            return roll;
+        };
+
+        // Check if clash should trigger
+        const shouldTriggerClash = (receiver, defender) => {
+            const currentTime = gameState.gameTime;
+
+            // Calculate distance between receiver and defender
+            const dx = receiver.position.x - defender.position.x;
+            const dz = receiver.position.z - defender.position.z;
+            const distance = Math.sqrt(dx * dx + dz * dz);
+
+            // Not close enough for clash
+            if (distance > CLASH_CONSTANTS.CLASH_RANGE) {
+                return { trigger: false, reason: 'distance' };
+            }
+
+            // Either is knocked down
+            if (receiver.knockdownUntil > currentTime || defender.knockdownUntil > currentTime) {
+                return { trigger: false, reason: 'knockdown' };
+            }
+
+            // Cooldown - don't clash again too soon after a previous clash
+            const CLASH_COOLDOWN = 2.0;  // seconds between clashes
+            const timeSinceReceiverClash = currentTime - receiver.lastClashTime;
+            const timeSinceDefenderClash = currentTime - defender.lastClashTime;
+            if (timeSinceReceiverClash < CLASH_COOLDOWN || timeSinceDefenderClash < CLASH_COOLDOWN) {
+                return { trigger: false, reason: 'cooldown' };
+            }
+
+            // Initial contact - first time zones overlap
+            if (!receiver.hasHadInitialClash) {
+                return { trigger: true, reason: 'initial_contact' };
+            }
+
+            // Direction change (jink) - receiver changed route waypoint
+            if (receiver.routeIndex !== receiver.lastRouteIndex) {
+                return { trigger: true, reason: 'direction_change' };
+            }
+
+            return { trigger: false, reason: 'none' };
+        };
+
+        // Resolve a clash between receiver and defender
+        const resolveClash = (receiver, defender, reason) => {
+            const currentTime = gameState.gameTime;
+
+            // Apply slowdown on initial contact (line of scrimmage clash)
+            if (reason === 'initial_contact') {
+                const slowdownDuration = 0.8;  // seconds of slowdown
+                receiver.initialClashSlowdownUntil = currentTime + slowdownDuration;
+                defender.initialClashSlowdownUntil = currentTime + slowdownDuration;
+            }
+
+            // Update clash timing
+            receiver.lastClashTime = currentTime;
+            defender.lastClashTime = currentTime;
+            receiver.hasHadInitialClash = true;
+            receiver.lastRouteIndex = receiver.routeIndex;
+
+            // Get appropriate defender coverage stat
+            const defenderWeights = { ...CLASH_WEIGHTS.separation.defender };
+            if (defender.aiType === 'zone') {
+                defenderWeights.zoneCoverage = defenderWeights.manCoverage;
+                delete defenderWeights.manCoverage;
+            }
+
+            // Roll for separation battle
+            const receiverRoll = weightedRoll(receiver.stats, CLASH_WEIGHTS.separation.receiver);
+            const defenderRoll = weightedRoll(defender.stats, defenderWeights);
+
+            const margin = receiverRoll - defenderRoll;
+
+            // Determine outcome
+            let result = {
+                winner: 'none',
+                type: 'contested',
+                margin: Math.abs(margin),
+                receiverRoll,
+                defenderRoll
+            };
+
+            // Speed effect duration for receivers only
+            const CLASH_SPEED_EFFECT_DURATION = 2.0;  // seconds
+            const CLASH_SPEED_PENALTY = 0.5;  // 50% slower
+            const CLASH_SPEED_BOOST = 1.5;  // 50% faster
+
+            if (margin > CLASH_CONSTANTS.SEPARATION_THRESHOLD) {
+                result.winner = 'receiver';
+                result.type = 'separation';
+                // Receiver wins - gets speed boost
+                receiver.clashSpeedBoostUntil = currentTime + CLASH_SPEED_EFFECT_DURATION;
+                receiver.speed = receiver.baseSpeed * CLASH_SPEED_BOOST;
+            } else if (margin < -CLASH_CONSTANTS.COVERAGE_THRESHOLD) {
+                // Direction changes (jukes) only benefit receivers - ignore defender wins
+                if (reason === 'direction_change') {
+                    result.winner = 'none';
+                    result.type = 'contested';
+                    // Juke failed but no penalty - just maintain current speed
+                } else {
+                    result.winner = 'defender';
+                    result.type = 'coverage';
+                    // Receiver loses - gets slowed
+                    receiver.clashSpeedPenaltyUntil = currentTime + CLASH_SPEED_EFFECT_DURATION;
+                    receiver.speed = receiver.baseSpeed * CLASH_SPEED_PENALTY;
+                }
+            } else {
+                result.winner = 'none';
+                result.type = 'contested';
+                // Tie - receiver maintains current speed
+            }
+
+            // Physical battle check (based on aggression)
+            const physicalChance = (receiver.stats.aggression + defender.stats.aggression) / 200;
+            if (Math.random() < physicalChance) {
+                resolvePhysicalClash(receiver, defender, result);
+            }
+
+            // Trigger visual effect for clash
+            triggerClashVisual(receiver, defender, result.winner);
+
+            return result;
+        };
+
+        // Resolve physical aspect of clash (knockdowns)
+        const resolvePhysicalClash = (receiver, defender, separationResult) => {
+            const currentTime = gameState.gameTime;
+
+            // Roll physical battle
+            const receiverPhysical = weightedRoll(receiver.stats, CLASH_WEIGHTS.physical.attacker);
+            const defenderPhysical = weightedRoll(defender.stats, CLASH_WEIGHTS.physical.defender);
+
+            const margin = receiverPhysical - defenderPhysical;
+            const loser = margin > 0 ? defender : receiver;
+            const winner = margin > 0 ? receiver : defender;
+
+            // Check for knockdown
+            const knockdownChance = CLASH_CONSTANTS.KNOCKDOWN_BASE_CHANCE +
+                (Math.abs(margin) / 100) * 0.1 -
+                loser.knockdownResistance;
+
+            if (Math.random() < Math.max(0, knockdownChance)) {
+                // Knockdown!
+                loser.knockdownUntil = currentTime + CLASH_CONSTANTS.KNOCKDOWN_DURATION;
+                loser.knockdownResistance += CLASH_CONSTANTS.KNOCKDOWN_RESISTANCE_GAIN;
+
+                // If receiver knocked down, apply heavy speed penalty
+                if (loser === receiver) {
+                    receiver.clashSpeedPenaltyUntil = currentTime + CLASH_CONSTANTS.KNOCKDOWN_DURATION;
+                }
+            }
+        };
+
+        // Process all clashes in the game
+        const processClashes = () => {
+            gameState.receivers.forEach((receiver, rIndex) => {
+                gameState.defenders.forEach((defender, dIndex) => {
+                    const clashCheck = shouldTriggerClash(receiver, defender);
+
+                    if (clashCheck.trigger) {
+                        resolveClash(receiver, defender, clashCheck.reason);
+                    }
+                });
             });
         };
 
@@ -885,6 +2162,14 @@
         const scene = createScene();
         setupInput(scene);
         setupIdleAnimations(scene);
+
+        // Camera reset button
+        document.getElementById('resetCamera').addEventListener('click', () => {
+            const camera = scene.activeCamera;
+            camera.alpha = -Math.PI / 2;
+            camera.beta = Math.PI / 3.5;
+            camera.radius = 32;
+        });
 
         engine.runRenderLoop(() => {
             scene.render();
