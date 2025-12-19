@@ -387,7 +387,8 @@
                 receiver.clashFlashUntil = 0;  // For clash animation
                 receiver.clashTiltUntil = 0;  // For grappling tilt
                 receiver.clashTiltAngle = 0;
-                receiver.loserFlashUntil = 0;  // White flash when losing clash
+                receiver.loserFlashUntil = 0;   // Red flash when losing clash
+                receiver.winnerFlashUntil = 0;  // Green flash when winning clash
 
                 // Hide the outer ring - only show proximity-based fill
                 zoneRing.setEnabled(false);
@@ -497,7 +498,8 @@
                 defender.clashFlashUntil = 0;  // For clash animation
                 defender.clashTiltUntil = 0;  // For grappling tilt
                 defender.clashTiltAngle = 0;
-                defender.loserFlashUntil = 0;  // White flash when losing clash
+                defender.loserFlashUntil = 0;   // Red flash when losing clash
+                defender.winnerFlashUntil = 0;  // Green flash when winning clash
 
                 // Apply feature flag for defender zone visibility
                 defRing.setEnabled(FEATURE_FLAGS.showDefenderZones);
@@ -569,10 +571,10 @@
             receiverMaterial.specularColor = new BABYLON.Color3(0.4, 0.6, 1);
             receiverMaterial.specularPower = 32;
 
-            // Defender material - dark red/maroon knights
+            // Defender material - dark gray enemies
             const defenderMaterial = new BABYLON.StandardMaterial('defenderMat', scene);
-            defenderMaterial.diffuseColor = new BABYLON.Color3(0.5, 0.15, 0.15);
-            defenderMaterial.specularColor = new BABYLON.Color3(0.7, 0.3, 0.3);
+            defenderMaterial.diffuseColor = new BABYLON.Color3(0.25, 0.25, 0.28);
+            defenderMaterial.specularColor = new BABYLON.Color3(0.4, 0.4, 0.45);
             defenderMaterial.specularPower = 32;
 
             // Football material - brown leather
@@ -1005,6 +1007,7 @@
                 defender.clashFlashUntil = 0;
                 defender.clashTiltUntil = 0;
                 defender.loserFlashUntil = 0;
+                defender.winnerFlashUntil = 0;
                 defender.initialClashSlowdownUntil = 0;
                 defender.clashSpeedPenaltyUntil = 0;
                 defender.lastClashTime = 0;
@@ -1045,6 +1048,7 @@
                 receiver.clashFlashUntil = 0;
                 receiver.clashTiltUntil = 0;
                 receiver.loserFlashUntil = 0;
+                receiver.winnerFlashUntil = 0;
                 receiver.lastClashTime = 0;
                 receiver.speed = receiver.baseSpeed;
                 receiver.initialClashSlowdownUntil = 0;
@@ -1686,12 +1690,17 @@
                             receiver.rotation.x = 0;
                         }
 
-                        // Loser flash effect (pulse white while slowed)
-                        if (receiver.loserFlashUntil > gameState.gameTime) {
-                            const flashRate = Math.sin(time * 15) * 0.5 + 0.5;  // Pulse 0-1
-                            const white = new BABYLON.Color3(1, 1, 1);
-                            receiver.bodyMaterial.diffuseColor = BABYLON.Color3.Lerp(receiver.originalColor, white, flashRate * 0.7);
-                            receiver.bodyMaterial.emissiveColor = white.scale(flashRate * 0.3);
+                        // Clash flash effects: green for winner, red for loser
+                        if (receiver.winnerFlashUntil > gameState.gameTime) {
+                            const flashRate = Math.sin(time * 12) * 0.5 + 0.5;  // Pulse 0-1
+                            const green = new BABYLON.Color3(0.2, 1.0, 0.3);
+                            receiver.bodyMaterial.diffuseColor = BABYLON.Color3.Lerp(receiver.originalColor, green, flashRate * 0.8);
+                            receiver.bodyMaterial.emissiveColor = green.scale(flashRate * 0.4);
+                        } else if (receiver.loserFlashUntil > gameState.gameTime) {
+                            const flashRate = Math.sin(time * 12) * 0.5 + 0.5;  // Pulse 0-1
+                            const red = new BABYLON.Color3(1.0, 0.2, 0.2);
+                            receiver.bodyMaterial.diffuseColor = BABYLON.Color3.Lerp(receiver.originalColor, red, flashRate * 0.8);
+                            receiver.bodyMaterial.emissiveColor = red.scale(flashRate * 0.4);
                         } else {
                             receiver.bodyMaterial.diffuseColor = receiver.originalColor;
                             receiver.bodyMaterial.emissiveColor = BABYLON.Color3.Black();
@@ -1736,12 +1745,17 @@
                             defender.rotation.x = 0;
                         }
 
-                        // Loser flash effect (pulse white while slowed)
-                        if (defender.loserFlashUntil > gameState.gameTime) {
-                            const flashRate = Math.sin(time * 15) * 0.5 + 0.5;  // Pulse 0-1
-                            const white = new BABYLON.Color3(1, 1, 1);
-                            defender.bodyMaterial.diffuseColor = BABYLON.Color3.Lerp(defender.originalColor, white, flashRate * 0.7);
-                            defender.bodyMaterial.emissiveColor = white.scale(flashRate * 0.3);
+                        // Clash flash effects: green for winner, red for loser
+                        if (defender.winnerFlashUntil > gameState.gameTime) {
+                            const flashRate = Math.sin(time * 12) * 0.5 + 0.5;  // Pulse 0-1
+                            const green = new BABYLON.Color3(0.2, 1.0, 0.3);
+                            defender.bodyMaterial.diffuseColor = BABYLON.Color3.Lerp(defender.originalColor, green, flashRate * 0.8);
+                            defender.bodyMaterial.emissiveColor = green.scale(flashRate * 0.4);
+                        } else if (defender.loserFlashUntil > gameState.gameTime) {
+                            const flashRate = Math.sin(time * 12) * 0.5 + 0.5;  // Pulse 0-1
+                            const red = new BABYLON.Color3(1.0, 0.2, 0.2);
+                            defender.bodyMaterial.diffuseColor = BABYLON.Color3.Lerp(defender.originalColor, red, flashRate * 0.8);
+                            defender.bodyMaterial.emissiveColor = red.scale(flashRate * 0.4);
                         } else {
                             defender.bodyMaterial.diffuseColor = defender.originalColor;
                             defender.bodyMaterial.emissiveColor = BABYLON.Color3.Black();
@@ -1953,19 +1967,18 @@
             defender.clashTiltUntil = currentTime + tiltDuration;
             defender.clashTiltAngle = angle + Math.PI;  // Tilt towards receiver (opposite)
 
+            const flashEndTime = currentTime + 1.0;  // Flash for 1 second
+
             if (winner === 'receiver') {
-                receiver.clashFlashUntil = currentTime + flashDuration;
-                // Defender lost - flash white while slowed
-                defender.loserFlashUntil = defender.clashSpeedPenaltyUntil || currentTime;
+                // Receiver wins - flash green, defender flashes red
+                receiver.winnerFlashUntil = flashEndTime;
+                defender.loserFlashUntil = flashEndTime;
             } else if (winner === 'defender') {
-                defender.clashFlashUntil = currentTime + flashDuration;
-                // Receiver lost - flash white while slowed
-                receiver.loserFlashUntil = receiver.clashSpeedPenaltyUntil || currentTime;
-            } else {
-                // Contested - both flash briefly, no loser flash
-                receiver.clashFlashUntil = currentTime + flashDuration * 0.5;
-                defender.clashFlashUntil = currentTime + flashDuration * 0.5;
+                // Defender wins - flash green, receiver flashes red
+                defender.winnerFlashUntil = flashEndTime;
+                receiver.loserFlashUntil = flashEndTime;
             }
+            // Contested - no flash
         };
 
         // ============================================
