@@ -1250,14 +1250,16 @@
                         const distToLanding = Math.sqrt(dx * dx + dz * dz);
 
                         // Calculate effective speed (apply initial clash slowdown if no outcome yet)
-                        let effectiveSpeed = receiver.speed || receiver.baseSpeed;
+                        let effectiveSpeed = receiver.speed;
+                        if (!effectiveSpeed || effectiveSpeed <= 0) {
+                            console.error(`[SPEED ERROR] ${receiver.displayName} speed=${receiver.speed}, baseSpeed=${receiver.baseSpeed}, boostUntil=${receiver.clashSpeedBoostUntil}, penaltyUntil=${receiver.clashSpeedPenaltyUntil}`);
+                            effectiveSpeed = receiver.baseSpeed;
+                        }
                         const hasClashOutcome = receiver.clashSpeedBoostUntil > gameState.gameTime ||
                                                receiver.clashSpeedPenaltyUntil > gameState.gameTime;
                         if (receiver.initialClashSlowdownUntil > gameState.gameTime && !hasClashOutcome) {
                             effectiveSpeed *= 0.2;
                         }
-                        // Ensure speed is never 0
-                        effectiveSpeed = Math.max(effectiveSpeed, receiver.baseSpeed * 0.1);
 
                         // If ball is coming to them (within catch range), move toward it
                         // Moving off-route to catch slows the receiver down (allows defenders to close)
@@ -1709,14 +1711,16 @@
                         }
 
                         // Calculate effective speed (slowdown during initial clash, unless clash outcome already applied)
-                        let effectiveSpeed = receiver.speed || receiver.baseSpeed;
+                        let effectiveSpeed = receiver.speed;
+                        if (!effectiveSpeed || effectiveSpeed <= 0) {
+                            console.error(`[SPEED ERROR] ${receiver.displayName} speed=${receiver.speed}, baseSpeed=${receiver.baseSpeed}, boostUntil=${receiver.clashSpeedBoostUntil}, penaltyUntil=${receiver.clashSpeedPenaltyUntil}`);
+                            effectiveSpeed = receiver.baseSpeed;
+                        }
                         const hasClashOutcome = receiver.clashSpeedBoostUntil > gameState.gameTime ||
                                                receiver.clashSpeedPenaltyUntil > gameState.gameTime;
                         if (receiver.initialClashSlowdownUntil > gameState.gameTime && !hasClashOutcome) {
                             effectiveSpeed *= 0.2;  // 20% speed during initial clash (only if no outcome yet)
                         }
-                        // Ensure speed is never 0
-                        effectiveSpeed = Math.max(effectiveSpeed, receiver.baseSpeed * 0.1);
 
                         // Follow route, reset if complete
                         const stillRunning = moveReceiverAlongRoute(receiver, effectiveSpeed);
