@@ -1745,21 +1745,6 @@
                             defender.rotation.x = 0;
                         }
 
-                        // Clash flash effects: green for winner, red for loser
-                        if (defender.winnerFlashUntil > gameState.gameTime) {
-                            const flashRate = Math.sin(time * 12) * 0.5 + 0.5;  // Pulse 0-1
-                            const green = new BABYLON.Color3(0.2, 1.0, 0.3);
-                            defender.bodyMaterial.diffuseColor = BABYLON.Color3.Lerp(defender.originalColor, green, flashRate * 0.8);
-                            defender.bodyMaterial.emissiveColor = green.scale(flashRate * 0.4);
-                        } else if (defender.loserFlashUntil > gameState.gameTime) {
-                            const flashRate = Math.sin(time * 12) * 0.5 + 0.5;  // Pulse 0-1
-                            const red = new BABYLON.Color3(1.0, 0.2, 0.2);
-                            defender.bodyMaterial.diffuseColor = BABYLON.Color3.Lerp(defender.originalColor, red, flashRate * 0.8);
-                            defender.bodyMaterial.emissiveColor = red.scale(flashRate * 0.4);
-                        } else {
-                            defender.bodyMaterial.diffuseColor = defender.originalColor;
-                            defender.bodyMaterial.emissiveColor = BABYLON.Color3.Black();
-                        }
                     });
 
                     // Process clashes between receivers and defenders
@@ -1969,13 +1954,10 @@
 
             const flashEndTime = currentTime + 1.0;  // Flash for 1 second
 
+            // Only player's receivers flash - green for win, red for loss
             if (winner === 'receiver') {
-                // Receiver wins - flash green, defender flashes red
                 receiver.winnerFlashUntil = flashEndTime;
-                defender.loserFlashUntil = flashEndTime;
             } else if (winner === 'defender') {
-                // Defender wins - flash green, receiver flashes red
-                defender.winnerFlashUntil = flashEndTime;
                 receiver.loserFlashUntil = flashEndTime;
             }
             // Contested - no flash
