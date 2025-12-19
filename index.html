@@ -1844,7 +1844,7 @@
         };
 
         // Move defenders to pursue ball carrier
-        const moveDefenderPursuit = (defender) => {
+        const moveDefenderPursuit = (defender, pursuitBoost = 1.0) => {
             const receiver = gameState.ballCarrier;
             if (!receiver || defender.knockdownUntil > gameState.gameTime) return;
 
@@ -1853,7 +1853,8 @@
                 return;
             }
 
-            const speed = defender.baseSpeed * 1.1;  // Slightly faster in pursuit
+            // Base pursuit speed with time-based boost
+            const speed = defender.baseSpeed * 1.1 * pursuitBoost;
 
             const dx = receiver.position.x - defender.position.x;
             const dz = receiver.position.z - defender.position.z;
@@ -2315,11 +2316,11 @@
 
         // Start the run-after-catch phase with animation loop
         const startRunAfterCatch = (scene) => {
-            const time = { value: 0 };
+            const timeSinceCatch = { value: 0 };
 
             const runAnimation = scene.onBeforeRenderObservable.add(() => {
                 const dt = scene.getEngine().getDeltaTime() * 0.001;
-                time.value += dt;
+                timeSinceCatch.value += dt;
                 gameState.gameTime = performance.now() * 0.001;
 
                 // Check if play has ended
@@ -2338,17 +2339,29 @@
                 moveBallCarrier(ballCarrier);
 
                 // Running animation for ball carrier
-                ballCarrier.position.y = Math.abs(Math.sin(time.value * 10)) * 0.1;
-                ballCarrier.rotation.z = Math.sin(time.value * 10) * 0.06;
+                ballCarrier.position.y = Math.abs(Math.sin(timeSinceCatch.value * 10)) * 0.1;
+                ballCarrier.rotation.z = Math.sin(timeSinceCatch.value * 10) * 0.06;
 
-                // Move all defenders in pursuit
+                // Calculate pursuit boost based on time since catch
+                // After 1 second: 10% boost, after 2 seconds: 20% boost
+                let pursuitBoost = 1.0;
+                if (timeSinceCatch.value >= 2.0) {
+                    pursuitBoost = 1.2;  // 20% boost after 2 seconds
+                } else if (timeSinceCatch.value >= 1.0) {
+                    // Interpolate from 10% to 20% between 1 and 2 seconds
+                    const t = timeSinceCatch.value - 1.0;  // 0 to 1
+                    pursuitBoost = 1.1 + (t * 0.1);  // 1.1 to 1.2
+                }
+
+                // Move all defenders in pursuit with speed boost
                 gameState.defenders.forEach((defender, i) => {
                     if (defender.knockdownUntil <= gameState.gameTime) {
-                        moveDefenderPursuit(defender);
+                        moveDefenderPursuit(defender, pursuitBoost);
 
-                        // Running animation
-                        defender.position.y = Math.abs(Math.sin(time.value * 10 + i)) * 0.08;
-                        defender.rotation.z = Math.sin(time.value * 10 + i) * 0.05;
+                        // Running animation (faster when boosted)
+                        const animSpeed = 10 + (pursuitBoost - 1.0) * 20;
+                        defender.position.y = Math.abs(Math.sin(timeSinceCatch.value * animSpeed + i)) * 0.08;
+                        defender.rotation.z = Math.sin(timeSinceCatch.value * animSpeed + i) * 0.05;
                     }
                 });
 
