@@ -371,9 +371,9 @@
                 }, scene);
                 zoneFill.rotation.x = Math.PI / 2;  // Lay flat
                 const fillMat = new BABYLON.StandardMaterial('fillMat_' + i, scene);
-                fillMat.diffuseColor = new BABYLON.Color3(0.2, 0.9, 0.3);  // Green (open)
-                fillMat.emissiveColor = new BABYLON.Color3(0.1, 0.4, 0.15);
-                fillMat.alpha = 0.35;  // Base visibility
+                fillMat.diffuseColor = new BABYLON.Color3(1.0, 1.0, 1.0);  // White
+                fillMat.emissiveColor = new BABYLON.Color3(0.5, 0.5, 0.5);
+                fillMat.alpha = 0.5;  // Base visibility
                 zoneFill.material = fillMat;
                 zoneFill.position.y = 0.02;
                 zoneFill.parent = receiver;
@@ -1059,11 +1059,13 @@
                 receiver.rotation.x = 0;  // Reset tilt
                 receiver.coverageAmount = 0;
                 receiver.currentCatchProb = receiver.stats.catching;
-                receiver.zoneFill.scaling = new BABYLON.Vector3(0.4, 0.4, 0.4);  // Base visible circle
-                receiver.fillMaterial.alpha = 0.35;  // Base visibility
-                // Reset to green (open) color
-                receiver.fillMaterial.diffuseColor = new BABYLON.Color3(0.2, 0.9, 0.3);
-                receiver.fillMaterial.emissiveColor = new BABYLON.Color3(0.1, 0.4, 0.15).scale(0.5);
+                // Size based on base catching stat (80% = 0.3 + 0.9*0.8 = 1.02 scale)
+                const baseScale = 0.3 + 0.9 * (receiver.stats.catching / 100);
+                receiver.zoneFill.scaling = new BABYLON.Vector3(baseScale, baseScale, baseScale);
+                receiver.fillMaterial.alpha = 0.5;
+                // Always white
+                receiver.fillMaterial.diffuseColor = new BABYLON.Color3(1.0, 1.0, 1.0);
+                receiver.fillMaterial.emissiveColor = new BABYLON.Color3(0.5, 0.5, 0.5);
 
                 // Generate new random route
                 generateRandomRoute(receiver);
@@ -1873,37 +1875,21 @@
 
                 receiver.coverageAmount = maxCoverage;
 
-                // Calculate real-time catch probability and get color based on it
+                // Calculate real-time catch probability
                 const catchProb = calculateRealtimeCatchProb(receiver);
                 receiver.currentCatchProb = catchProb;  // Store for debug display
-                const colors = getZoneColorsByCatchProb(catchProb);
 
-                // Handle clash flash animation
-                const currentTime = gameState.gameTime;
-                let flashMultiplier = 1;
-                let isFlashing = false;
-                if (receiver.clashFlashUntil > currentTime) {
-                    isFlashing = true;
-                    const flashProgress = (receiver.clashFlashUntil - currentTime) / 0.3;  // 0.3s flash
-                    // Pulsing flash effect
-                    flashMultiplier = 1 + flashProgress * Math.sin(flashProgress * Math.PI * 4) * 0.5;
-                }
-
-                // Always show a base circle, grows larger when covered
-                const minScale = 0.4;  // Minimum visible size
-                const maxScale = 0.95;
-                const fillScale = minScale + (maxScale - minScale) * maxCoverage;
+                // Size based on catch probability (larger = higher catch %)
+                const minScale = 0.3;  // Minimum size at 0% catch
+                const maxScale = 1.2;  // Maximum size at 100% catch
+                const catchFactor = catchProb / 100;  // 0-1
+                const fillScale = minScale + (maxScale - minScale) * catchFactor;
                 receiver.zoneFill.scaling = new BABYLON.Vector3(fillScale, fillScale, fillScale);
 
-                // Update fill color based on catch probability
-                receiver.fillMaterial.diffuseColor = colors.diffuse;
-                receiver.fillMaterial.emissiveColor = colors.emissive.scale(isFlashing ? flashMultiplier : 0.5);
-
-                // Always visible, more opaque when covered
-                const minAlpha = 0.35;  // Base visibility
-                const maxAlpha = 0.7;
-                const baseAlpha = minAlpha + (maxAlpha - minAlpha) * maxCoverage;
-                receiver.fillMaterial.alpha = Math.min(maxAlpha, baseAlpha * flashMultiplier);
+                // Keep white color, adjust alpha based on coverage for visibility
+                receiver.fillMaterial.diffuseColor = new BABYLON.Color3(1.0, 1.0, 1.0);
+                receiver.fillMaterial.emissiveColor = new BABYLON.Color3(0.5, 0.5, 0.5);
+                receiver.fillMaterial.alpha = 0.5;
 
                 // Update covering defender's fill too
                 if (coveringDefender) {
