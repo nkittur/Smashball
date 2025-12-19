@@ -2511,7 +2511,20 @@
                     // At distance 0, if coverage equals catching, apply 80% penalty
                     // penalty = proximityFactor^3 * coverageStat * 0.8
                     // Cubed for steeper dropoff - separation is rewarded more
-                    const penalty = proximityFactor * proximityFactor * proximityFactor * coverageStat * 0.8;
+                    let penalty = proximityFactor * proximityFactor * proximityFactor * coverageStat * 0.8;
+
+                    // Check if ball is on opposite side from defender
+                    // Only applies if defender isn't right on top of receiver (dist > 0.8)
+                    const MIN_DIST_FOR_SIDE_BONUS = 0.8;
+                    if (dist > MIN_DIST_FOR_SIDE_BONUS) {
+                        const defenderSide = Math.sign(defender.position.x - receiver.position.x);
+                        const ballSide = Math.sign(ballPosition.x - receiver.position.x);
+
+                        // If ball and defender are on opposite sides, halve the penalty
+                        if (defenderSide !== 0 && ballSide !== 0 && defenderSide !== ballSide) {
+                            penalty *= 0.5;
+                        }
+                    }
 
                     defenderProximityPenalty += penalty;
                     defenderDetails.push({
