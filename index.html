@@ -847,21 +847,31 @@
                 return false; // Route complete
             }
 
-            const target = receiver.route[receiver.routeIndex];
-            const dx = target.x - receiver.position.x;
-            const dz = target.z - receiver.position.z;
-            const dist = Math.sqrt(dx * dx + dz * dz);
+            let target = receiver.route[receiver.routeIndex];
+            let dx = target.x - receiver.position.x;
+            let dz = target.z - receiver.position.z;
+            let dist = Math.sqrt(dx * dx + dz * dz);
 
+            // Check if reached current waypoint
             if (dist < 0.3) {
                 // Reached waypoint, move to next
                 receiver.routeIndex++;
-                return receiver.routeIndex < receiver.route.length;
+                if (receiver.routeIndex >= receiver.route.length) {
+                    return false; // Route complete
+                }
+                // Continue toward new waypoint this frame (don't skip a frame)
+                target = receiver.route[receiver.routeIndex];
+                dx = target.x - receiver.position.x;
+                dz = target.z - receiver.position.z;
+                dist = Math.sqrt(dx * dx + dz * dz);
             }
 
-            // Move toward target
-            receiver.position.x += (dx / dist) * runSpeed;
-            receiver.position.z += (dz / dist) * runSpeed;
-            receiver.rotation.y = Math.atan2(dx, dz);
+            if (dist > 0.1) {
+                // Move toward target
+                receiver.position.x += (dx / dist) * runSpeed;
+                receiver.position.z += (dz / dist) * runSpeed;
+                receiver.rotation.y = Math.atan2(dx, dz);
+            }
             return true;
         };
 
@@ -1240,12 +1250,14 @@
                         const distToLanding = Math.sqrt(dx * dx + dz * dz);
 
                         // Calculate effective speed (apply initial clash slowdown if no outcome yet)
-                        let effectiveSpeed = receiver.speed;
+                        let effectiveSpeed = receiver.speed || receiver.baseSpeed;
                         const hasClashOutcome = receiver.clashSpeedBoostUntil > gameState.gameTime ||
                                                receiver.clashSpeedPenaltyUntil > gameState.gameTime;
                         if (receiver.initialClashSlowdownUntil > gameState.gameTime && !hasClashOutcome) {
                             effectiveSpeed *= 0.2;
                         }
+                        // Ensure speed is never 0
+                        effectiveSpeed = Math.max(effectiveSpeed, receiver.baseSpeed * 0.1);
 
                         // If ball is coming to them (within catch range), move toward it
                         // Moving off-route to catch slows the receiver down (allows defenders to close)
@@ -1697,12 +1709,14 @@
                         }
 
                         // Calculate effective speed (slowdown during initial clash, unless clash outcome already applied)
-                        let effectiveSpeed = receiver.speed;
+                        let effectiveSpeed = receiver.speed || receiver.baseSpeed;
                         const hasClashOutcome = receiver.clashSpeedBoostUntil > gameState.gameTime ||
                                                receiver.clashSpeedPenaltyUntil > gameState.gameTime;
                         if (receiver.initialClashSlowdownUntil > gameState.gameTime && !hasClashOutcome) {
                             effectiveSpeed *= 0.2;  // 20% speed during initial clash (only if no outcome yet)
                         }
+                        // Ensure speed is never 0
+                        effectiveSpeed = Math.max(effectiveSpeed, receiver.baseSpeed * 0.1);
 
                         // Follow route, reset if complete
                         const stillRunning = moveReceiverAlongRoute(receiver, effectiveSpeed);
