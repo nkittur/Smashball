@@ -1016,11 +1016,21 @@
 
         // Reset receivers to starting positions
         const resetReceivers = () => {
-            gameState.receivers.forEach(receiver => {
-                // Randomize starting X position
-                const side = Math.random() < 0.5 ? -1 : 1;
-                const spreadX = 3 + Math.random() * 4;  // 3-7 units from center
-                receiver.startPos.x = side * spreadX;
+            // Assign spread positions: left slot, right slot, flex position
+            const positions = [
+                -(5 + Math.random() * 2),   // Left side: -5 to -7 (near sideline)
+                (5 + Math.random() * 2),    // Right side: 5 to 7 (near sideline)
+                (Math.random() - 0.5) * 4   // Middle/flex: -2 to 2
+            ];
+            // Shuffle positions for variety
+            for (let i = positions.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [positions[i], positions[j]] = [positions[j], positions[i]];
+            }
+
+            gameState.receivers.forEach((receiver, i) => {
+                // Assign spread position
+                receiver.startPos.x = positions[i] || (Math.random() - 0.5) * 6;
 
                 receiver.position.x = receiver.startPos.x;
                 receiver.position.z = receiver.startPos.z;
