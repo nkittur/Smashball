@@ -958,30 +958,16 @@
 
         // Reset defenders to starting positions
         const resetDefenders = () => {
-            const RECEIVER_START_Z = QB_START_Z + 2;
-
             gameState.defenders.forEach((defender, i) => {
-                // Randomize defender assignment and position
-                if (defender.aiType === 'man') {
-                    // Assign to a random receiver
-                    const receiverIndex = Math.floor(Math.random() * gameState.receivers.length);
-                    defender.assignedReceiver = receiverIndex;
-                    const targetReceiver = gameState.receivers[receiverIndex];
+                // Each defender covers the receiver with the same index
+                const receiverIndex = i % gameState.receivers.length;
+                defender.assignedReceiver = receiverIndex;
+                const targetReceiver = gameState.receivers[receiverIndex];
 
-                    // Position with random cushion
-                    defender.cushion = 2 + Math.random() * 3;  // 2-5 yards cushion
-                    defender.startPos.x = targetReceiver.startPos.x + (Math.random() - 0.5) * 2;
-                    defender.startPos.z = targetReceiver.startPos.z + defender.cushion;
-                } else if (defender.aiType === 'zone') {
-                    // Random zone position
-                    const zoneX = (Math.random() - 0.5) * 10;  // -5 to 5
-                    const zoneZ = RECEIVER_START_Z + 5 + Math.random() * 6;  // 5-11 yards deep
-                    defender.zoneCenter = new BABYLON.Vector3(zoneX, 0, zoneZ);
-                    defender.zoneRadius = 4 + Math.random() * 3;  // 4-7 yard radius
-
-                    defender.startPos.x = zoneX;
-                    defender.startPos.z = zoneZ - 2;  // Start slightly behind zone
-                }
+                // Position directly above receiver with varying depth
+                defender.cushion = 2 + Math.random() * 4;  // 2-6 yards cushion
+                defender.startPos.x = targetReceiver.startPos.x;
+                defender.startPos.z = targetReceiver.startPos.z + defender.cushion;
 
                 defender.position.x = defender.startPos.x;
                 defender.position.z = defender.startPos.z;
