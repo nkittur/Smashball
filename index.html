@@ -280,17 +280,31 @@
                 },
                 {
                     name: "Iron Warden",
-                    aiType: 'zone',
-                    zoneCenter: new BABYLON.Vector3(4, 0, RECEIVER_START_Z + 8),
-                    zoneRadius: 5,
+                    aiType: 'man',
+                    assignedReceiver: 2,  // Covers Baron Wyatt
                     cushion: 3,
-                    zoneColor: new BABYLON.Color3(1.0, 0.5, 0.1),  // Orange for zone
+                    zoneColor: new BABYLON.Color3(0.6, 0.2, 0.8),  // Purple for man
                     stats: {
                         speed: 70, acceleration: 68, agility: 70,
-                        manCoverage: 65, zoneCoverage: 88, press: 72,
+                        manCoverage: 75, zoneCoverage: 88, press: 72,
                         tackling: 85, hitPower: 90, pursuit: 72,
                         awareness: 85, strength: 88, balance: 82,
                         aggression: 70, stamina: 75
+                    }
+                },
+                {
+                    name: "The Sentinel",
+                    aiType: 'zone',
+                    zoneCenter: new BABYLON.Vector3(0, 0, RECEIVER_START_Z + 8),
+                    zoneRadius: 6,
+                    cushion: 4,
+                    zoneColor: new BABYLON.Color3(1.0, 0.5, 0.1),  // Orange for zone
+                    stats: {
+                        speed: 75, acceleration: 72, agility: 78,
+                        manCoverage: 60, zoneCoverage: 85, press: 65,
+                        tackling: 78, hitPower: 75, pursuit: 80,
+                        awareness: 88, strength: 75, balance: 80,
+                        aggression: 60, stamina: 82
                     }
                 }
             ];
@@ -958,16 +972,29 @@
 
         // Reset defenders to starting positions
         const resetDefenders = () => {
-            gameState.defenders.forEach((defender, i) => {
-                // Each defender covers the receiver with the same index
-                const receiverIndex = i % gameState.receivers.length;
-                defender.assignedReceiver = receiverIndex;
-                const targetReceiver = gameState.receivers[receiverIndex];
+            const RECEIVER_START_Z = QB_START_Z + 2;
+            let manDefenderIndex = 0;
 
-                // Position directly above receiver with varying depth
-                defender.cushion = 2 + Math.random() * 4;  // 2-6 yards cushion
-                defender.startPos.x = targetReceiver.startPos.x;
-                defender.startPos.z = targetReceiver.startPos.z + defender.cushion;
+            gameState.defenders.forEach((defender, i) => {
+                if (defender.aiType === 'man') {
+                    // Man defenders cover receivers 1-to-1
+                    const receiverIndex = manDefenderIndex % gameState.receivers.length;
+                    defender.assignedReceiver = receiverIndex;
+                    const targetReceiver = gameState.receivers[receiverIndex];
+
+                    // Position directly above receiver with varying depth
+                    defender.cushion = 2 + Math.random() * 4;  // 2-6 yards cushion
+                    defender.startPos.x = targetReceiver.startPos.x;
+                    defender.startPos.z = targetReceiver.startPos.z + defender.cushion;
+                    manDefenderIndex++;
+                } else if (defender.aiType === 'zone') {
+                    // Zone defender in middle of field with random depth
+                    const zoneDepth = 6 + Math.random() * 4;  // 6-10 yards deep
+                    defender.zoneCenter = new BABYLON.Vector3(0, 0, RECEIVER_START_Z + zoneDepth);
+                    defender.zoneRadius = 5 + Math.random() * 2;  // 5-7 yard radius
+                    defender.startPos.x = 0;
+                    defender.startPos.z = RECEIVER_START_Z + zoneDepth - 2;
+                }
 
                 defender.position.x = defender.startPos.x;
                 defender.position.z = defender.startPos.z;
