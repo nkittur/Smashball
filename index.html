@@ -389,6 +389,7 @@
                 receiver.clashTiltAngle = 0;
                 receiver.loserFlashUntil = 0;   // Red flash when losing clash
                 receiver.winnerFlashUntil = 0;  // Green flash when winning clash
+                receiver.clashSpeedBoostUntil = 0;  // Speed boost timer
 
                 // Hide the outer ring - only show proximity-based fill
                 zoneRing.setEnabled(false);
@@ -1053,6 +1054,7 @@
                 receiver.speed = receiver.baseSpeed;
                 receiver.initialClashSlowdownUntil = 0;
                 receiver.clashSpeedPenaltyUntil = 0;
+                receiver.clashSpeedBoostUntil = 0;
                 receiver.rotation.x = 0;  // Reset tilt
                 receiver.coverageAmount = 0;
                 receiver.currentCatchProb = receiver.stats.catching;
@@ -1663,6 +1665,16 @@
                             return;
                         }
 
+                        // Reset speed to base when boost/penalty expires
+                        if (receiver.clashSpeedBoostUntil > 0 && receiver.clashSpeedBoostUntil <= gameState.gameTime) {
+                            receiver.speed = receiver.baseSpeed;
+                            receiver.clashSpeedBoostUntil = 0;
+                        }
+                        if (receiver.clashSpeedPenaltyUntil > 0 && receiver.clashSpeedPenaltyUntil <= gameState.gameTime) {
+                            receiver.speed = receiver.baseSpeed;
+                            receiver.clashSpeedPenaltyUntil = 0;
+                        }
+
                         // Calculate effective speed (slowdown during initial clash)
                         let effectiveSpeed = receiver.speed;
                         if (receiver.initialClashSlowdownUntil > gameState.gameTime) {
@@ -1690,17 +1702,17 @@
                             receiver.rotation.x = 0;
                         }
 
-                        // Clash flash effects: green for winner, red for loser
-                        if (receiver.winnerFlashUntil > gameState.gameTime) {
-                            const flashRate = Math.sin(time * 12) * 0.5 + 0.5;  // Pulse 0-1
+                        // Show green while speed boosted, red while speed penalized
+                        if (receiver.clashSpeedBoostUntil > gameState.gameTime) {
+                            const flashRate = Math.sin(time * 10) * 0.3 + 0.7;  // Gentle pulse 0.4-1.0
                             const green = new BABYLON.Color3(0.2, 1.0, 0.3);
-                            receiver.bodyMaterial.diffuseColor = BABYLON.Color3.Lerp(receiver.originalColor, green, flashRate * 0.8);
-                            receiver.bodyMaterial.emissiveColor = green.scale(flashRate * 0.4);
-                        } else if (receiver.loserFlashUntil > gameState.gameTime) {
-                            const flashRate = Math.sin(time * 12) * 0.5 + 0.5;  // Pulse 0-1
+                            receiver.bodyMaterial.diffuseColor = BABYLON.Color3.Lerp(receiver.originalColor, green, flashRate * 0.7);
+                            receiver.bodyMaterial.emissiveColor = green.scale(flashRate * 0.3);
+                        } else if (receiver.clashSpeedPenaltyUntil > gameState.gameTime) {
+                            const flashRate = Math.sin(time * 10) * 0.3 + 0.7;  // Gentle pulse 0.4-1.0
                             const red = new BABYLON.Color3(1.0, 0.2, 0.2);
-                            receiver.bodyMaterial.diffuseColor = BABYLON.Color3.Lerp(receiver.originalColor, red, flashRate * 0.8);
-                            receiver.bodyMaterial.emissiveColor = red.scale(flashRate * 0.4);
+                            receiver.bodyMaterial.diffuseColor = BABYLON.Color3.Lerp(receiver.originalColor, red, flashRate * 0.7);
+                            receiver.bodyMaterial.emissiveColor = red.scale(flashRate * 0.3);
                         } else {
                             receiver.bodyMaterial.diffuseColor = receiver.originalColor;
                             receiver.bodyMaterial.emissiveColor = BABYLON.Color3.Black();
@@ -1952,15 +1964,8 @@
             defender.clashTiltUntil = currentTime + tiltDuration;
             defender.clashTiltAngle = angle + Math.PI;  // Tilt towards receiver (opposite)
 
-            const flashEndTime = currentTime + 1.0;  // Flash for 1 second
-
-            // Only player's receivers flash - green for win, red for loss
-            if (winner === 'receiver') {
-                receiver.winnerFlashUntil = flashEndTime;
-            } else if (winner === 'defender') {
-                receiver.loserFlashUntil = flashEndTime;
-            }
-            // Contested - no flash
+            // Color is now controlled by speed effect timers (clashSpeedBoostUntil / clashSpeedPenaltyUntil)
+            // No separate flash timer needed
         };
 
         // ============================================
@@ -2061,16 +2066,16 @@
                 defenderRoll
             };
 
-            // Speed penalty duration for clash loser
-            const CLASH_SPEED_PENALTY_DURATION = 1.5;  // seconds
+            // Speed effect duration for receivers only
+            const CLASH_SPEED_EFFECT_DURATION = 1.5;  // seconds
             const CLASH_SPEED_PENALTY = 0.5;  // 50% slower
-            const CLASH_SPEED_BOOST = 1.2;  // 20% faster
+            const CLASH_SPEED_BOOST = 1.3;  // 30% faster
 
             if (margin > CLASH_CONSTANTS.SEPARATION_THRESHOLD) {
                 result.winner = 'receiver';
                 result.type = 'separation';
-                // Receiver wins - defender gets slowed, receiver gets boost
-                defender.clashSpeedPenaltyUntil = currentTime + CLASH_SPEED_PENALTY_DURATION;
+                // Receiver wins - gets speed boost
+                receiver.clashSpeedBoostUntil = currentTime + CLASH_SPEED_EFFECT_DURATION;
                 receiver.speed = receiver.baseSpeed * CLASH_SPEED_BOOST;
             } else if (margin < -CLASH_CONSTANTS.COVERAGE_THRESHOLD) {
                 // Direction changes (jukes) only benefit receivers - ignore defender wins
@@ -2081,15 +2086,14 @@
                 } else {
                     result.winner = 'defender';
                     result.type = 'coverage';
-                    // Defender wins - receiver gets slowed
-                    receiver.clashSpeedPenaltyUntil = currentTime + CLASH_SPEED_PENALTY_DURATION;
+                    // Receiver loses - gets slowed
+                    receiver.clashSpeedPenaltyUntil = currentTime + CLASH_SPEED_EFFECT_DURATION;
                     receiver.speed = receiver.baseSpeed * CLASH_SPEED_PENALTY;
                 }
             } else {
                 result.winner = 'none';
                 result.type = 'contested';
-                // Tie - both return to normal speed
-                receiver.speed = receiver.baseSpeed;
+                // Tie - receiver maintains current speed
             }
 
             // Physical battle check (based on aggression)
