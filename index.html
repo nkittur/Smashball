@@ -2501,6 +2501,12 @@
                     // Cubed for steeper dropoff - separation is rewarded more
                     let penalty = proximityFactor * proximityFactor * proximityFactor * coverageStat * 0.8;
 
+                    // Very close defenders (0.6 or closer) have 50% more influence
+                    const CLOSE_DEFENDER_THRESHOLD = 0.6;
+                    if (dist <= CLOSE_DEFENDER_THRESHOLD) {
+                        penalty *= 1.5;
+                    }
+
                     // Check if ball is on opposite side from defender
                     // Only applies if defender isn't right on top of receiver (dist > 0.8)
                     const MIN_DIST_FOR_SIDE_BONUS = 0.8;
