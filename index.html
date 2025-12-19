@@ -108,39 +108,51 @@
         #catchDisplay .catch-header.fail { color: #f66; }
         #catchDisplay .catch-bar {
             position: relative;
-            height: 16px;
+            height: 18px;
             background: #333;
             border-radius: 3px;
             margin: 6px 0;
             overflow: hidden;
         }
-        #catchDisplay .catch-bar-fill {
+        #catchDisplay .catch-bar-base {
             position: absolute;
             left: 0;
             top: 0;
             height: 100%;
-            background: linear-gradient(90deg, #3a3, #5c5);
+            background: linear-gradient(90deg, #3a3, #4b4);
             border-radius: 3px;
+        }
+        #catchDisplay .catch-bar-penalty {
+            position: absolute;
+            top: 0;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            border-left: 1px solid #f55;
         }
         #catchDisplay .catch-bar-roll {
             position: absolute;
-            top: 0;
-            width: 2px;
-            height: 100%;
-            background: #fff;
-            box-shadow: 0 0 4px #fff;
+            top: -2px;
+            width: 12px;
+            height: 22px;
+            font-size: 14px;
+            font-weight: bold;
+            text-shadow: 0 0 3px #000;
+            transform: translateX(-50%);
         }
+        #catchDisplay .catch-bar-roll.success { color: #4f4; }
+        #catchDisplay .catch-bar-roll.fail { color: #f44; }
         #catchDisplay .catch-stats {
             font-size: 11px;
             color: #aaa;
+            margin-top: 2px;
         }
         #catchDisplay .catch-stats .base { color: #8cf; }
         #catchDisplay .catch-stats .penalty { color: #f88; }
         #catchDisplay .catch-stats .focus { color: #cf8; }
-        #catchDisplay .roll-result {
-            font-size: 12px;
-            margin-top: 6px;
-            color: #ccc;
+        #catchDisplay .defender-info {
+            font-size: 10px;
+            color: #f99;
+            margin-top: 4px;
         }
     </style>
 </head>
@@ -153,11 +165,12 @@
     <div id="catchDisplay">
         <div class="catch-header">CATCH</div>
         <div class="catch-bar">
-            <div class="catch-bar-fill"></div>
-            <div class="catch-bar-roll"></div>
+            <div class="catch-bar-base"></div>
+            <div class="catch-bar-penalty"></div>
+            <div class="catch-bar-roll">✓</div>
         </div>
         <div class="catch-stats"></div>
-        <div class="roll-result"></div>
+        <div class="defender-info"></div>
     </div>
     <div id="instructions">⬇ DRAG BACK TO AIM ⬆</div>
     <button id="resetCamera" style="position:absolute;bottom:10px;right:10px;padding:8px 12px;background:#333;color:#fff;border:1px solid #666;border-radius:4px;cursor:pointer;font-size:12px;">Reset View</button>
@@ -2516,31 +2529,54 @@
         const showCatchDisplay = (catchInfo, roll, success) => {
             const display = document.getElementById('catchDisplay');
             const header = display.querySelector('.catch-header');
-            const barFill = display.querySelector('.catch-bar-fill');
+            const barBase = display.querySelector('.catch-bar-base');
+            const barPenalty = display.querySelector('.catch-bar-penalty');
             const barRoll = display.querySelector('.catch-bar-roll');
             const stats = display.querySelector('.catch-stats');
-            const rollResult = display.querySelector('.roll-result');
+            const defenderInfo = display.querySelector('.defender-info');
 
             // Set header
             header.textContent = success ? 'CATCH!' : 'DROPPED';
             header.className = 'catch-header ' + (success ? 'success' : 'fail');
 
-            // Set bar fill (catch probability) and roll marker
-            barFill.style.width = `${catchInfo.probability}%`;
+            // Calculate raw catch % (base + focus, before defender penalty)
+            const rawCatch = Math.min(95, catchInfo.baseCatch + catchInfo.focusMod);
+            const penaltyWidth = Math.min(catchInfo.defenderPenalty, rawCatch);
+
+            // Set bar: green shows raw potential, dark overlay shows defender penalty
+            barBase.style.width = `${rawCatch}%`;
+
+            // Penalty overlay starts where final probability ends
+            if (penaltyWidth > 0) {
+                barPenalty.style.display = 'block';
+                barPenalty.style.left = `${catchInfo.probability}%`;
+                barPenalty.style.width = `${penaltyWidth}%`;
+            } else {
+                barPenalty.style.display = 'none';
+            }
+
+            // Roll marker with tick/cross
+            barRoll.textContent = success ? '✓' : '✗';
+            barRoll.className = 'catch-bar-roll ' + (success ? 'success' : 'fail');
             barRoll.style.left = `${roll}%`;
 
             // Build stats text
-            let statsHtml = `<span class="base">Base: ${catchInfo.baseCatch}</span>`;
-            if (catchInfo.defenderPenalty > 0) {
-                statsHtml += ` <span class="penalty">-${catchInfo.defenderPenalty.toFixed(0)} def</span>`;
-            }
-            if (catchInfo.focusMod !== 0) {
-                statsHtml += ` <span class="focus">${catchInfo.focusMod >= 0 ? '+' : ''}${catchInfo.focusMod.toFixed(0)} foc</span>`;
+            let statsHtml = `<span class="base">${catchInfo.probability.toFixed(0)}%</span>`;
+            if (catchInfo.focusMod > 0) {
+                statsHtml += ` <span class="focus">(+${catchInfo.focusMod.toFixed(0)} focus)</span>`;
             }
             stats.innerHTML = statsHtml;
 
-            // Roll result
-            rollResult.innerHTML = `Roll: <strong>${roll.toFixed(0)}</strong> / ${catchInfo.probability.toFixed(0)}%`;
+            // Defender info with distances
+            if (catchInfo.defenderDetails && catchInfo.defenderDetails.length > 0) {
+                const defInfo = catchInfo.defenderDetails
+                    .filter(d => parseFloat(d.penalty) > 1)
+                    .map(d => `${d.dist}yd: -${Math.round(parseFloat(d.penalty))}`)
+                    .join(', ');
+                defenderInfo.innerHTML = defInfo ? `Defenders: ${defInfo}` : '';
+            } else {
+                defenderInfo.innerHTML = '';
+            }
 
             // Show display
             display.classList.add('visible');
