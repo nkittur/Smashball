@@ -26,28 +26,44 @@
             display: block;
         }
 
-        #ui {
+        #topBar {
             position: absolute;
-            top: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            color: #ffd700;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 36px;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 15px;
             font-family: 'Courier New', monospace;
-            font-size: 24px;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
-            text-align: center;
-            pointer-events: none;
             z-index: 100;
+            border-bottom: 1px solid #333;
         }
 
         #score {
-            font-size: 32px;
-            margin-bottom: 5px;
+            color: #ffd700;
+            font-size: 14px;
+            display: flex;
+            gap: 20px;
         }
 
+        #score .catches { color: #8cf; }
+        #score .touchdowns { color: #4f4; }
+        #score .label { color: #888; }
+
         #message {
+            position: absolute;
+            top: 50px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-family: 'Courier New', monospace;
             font-size: 18px;
             color: #aaa;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+            text-align: center;
+            pointer-events: none;
             min-height: 25px;
         }
 
@@ -79,40 +95,33 @@
             white-space: pre-wrap;
         }
         #catchDisplay {
-            position: absolute;
-            top: 80px;
-            right: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
             font-family: 'Courier New', monospace;
-            font-size: 13px;
+            font-size: 12px;
             color: #fff;
-            background: rgba(0, 0, 0, 0.85);
-            padding: 10px 14px;
-            border-radius: 6px;
-            border: 1px solid #444;
             opacity: 0;
             transition: opacity 0.3s ease;
             pointer-events: none;
-            min-width: 140px;
         }
         #catchDisplay.visible {
             opacity: 1;
         }
         #catchDisplay .catch-header {
-            font-size: 14px;
+            font-size: 11px;
             font-weight: bold;
-            margin-bottom: 8px;
-            padding-bottom: 4px;
-            border-bottom: 1px solid #555;
+            min-width: 55px;
         }
         #catchDisplay .catch-header.success { color: #4f4; }
         #catchDisplay .catch-header.fail { color: #f66; }
         #catchDisplay .catch-bar {
             position: relative;
-            height: 18px;
-            background: #333;
-            border-radius: 3px;
-            margin: 6px 0;
-            overflow: hidden;
+            width: 120px;
+            height: 14px;
+            background: #222;
+            border-radius: 2px;
+            overflow: visible;
         }
         #catchDisplay .catch-bar-base {
             position: absolute;
@@ -120,58 +129,61 @@
             top: 0;
             height: 100%;
             background: linear-gradient(90deg, #3a3, #4b4);
-            border-radius: 3px;
+            border-radius: 2px;
         }
         #catchDisplay .catch-bar-penalty {
             position: absolute;
             top: 0;
             height: 100%;
-            background: rgba(0, 0, 0, 0.5);
+            background: rgba(0, 0, 0, 0.55);
             border-left: 1px solid #f55;
         }
         #catchDisplay .catch-bar-roll {
             position: absolute;
-            top: -2px;
-            width: 12px;
-            height: 22px;
-            font-size: 14px;
+            top: -1px;
+            font-size: 12px;
             font-weight: bold;
-            text-shadow: 0 0 3px #000;
+            text-shadow: 0 0 2px #000;
             transform: translateX(-50%);
+            line-height: 14px;
         }
         #catchDisplay .catch-bar-roll.success { color: #4f4; }
         #catchDisplay .catch-bar-roll.fail { color: #f44; }
         #catchDisplay .catch-stats {
-            font-size: 11px;
+            font-size: 10px;
             color: #aaa;
-            margin-top: 2px;
+            min-width: 35px;
         }
         #catchDisplay .catch-stats .base { color: #8cf; }
-        #catchDisplay .catch-stats .penalty { color: #f88; }
-        #catchDisplay .catch-stats .focus { color: #cf8; }
         #catchDisplay .defender-info {
-            font-size: 10px;
+            font-size: 9px;
             color: #f99;
-            margin-top: 4px;
+            max-width: 100px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
     </style>
 </head>
 <body>
     <canvas id="renderCanvas"></canvas>
-    <div id="ui">
-        <div id="score">CATCHES: 0</div>
-        <div id="message">Drag from knight to throw</div>
-    </div>
-    <div id="catchDisplay">
-        <div class="catch-header">CATCH</div>
-        <div class="catch-bar">
-            <div class="catch-bar-base"></div>
-            <div class="catch-bar-penalty"></div>
-            <div class="catch-bar-roll">✓</div>
+    <div id="topBar">
+        <div id="score">
+            <span><span class="label">Catches</span> <span class="catches">0/0</span></span>
+            <span><span class="label">TD</span> <span class="touchdowns">0</span></span>
         </div>
-        <div class="catch-stats"></div>
-        <div class="defender-info"></div>
+        <div id="catchDisplay">
+            <div class="catch-header">CATCH</div>
+            <div class="catch-bar">
+                <div class="catch-bar-base"></div>
+                <div class="catch-bar-penalty"></div>
+                <div class="catch-bar-roll">✓</div>
+            </div>
+            <div class="catch-stats"></div>
+            <div class="defender-info"></div>
+        </div>
     </div>
+    <div id="message">Drag from knight to throw</div>
     <div id="instructions">⬇ DRAG BACK TO AIM ⬆</div>
     <button id="resetCamera" style="position:absolute;bottom:10px;right:10px;padding:8px 12px;background:#333;color:#fff;border:1px solid #666;border-radius:4px;cursor:pointer;font-size:12px;">Reset View</button>
     <div id="debugInfo"></div>
@@ -182,6 +194,8 @@
         // Game State
         const gameState = {
             catches: 0,
+            attempts: 0,            // Total catch attempts
+            touchdowns: 0,          // Touchdowns scored
             isDragging: false,
             canThrow: true,
             dragStart: null,
@@ -1895,7 +1909,7 @@
             if (gameState.playEnded) return;
 
             gameState.playEnded = true;
-            gameState.catches++;  // Count as a successful play
+            gameState.touchdowns++;
             updateScore();
 
             updateMessage(`TOUCHDOWN by ${receiver.displayName}!`);
@@ -2372,11 +2386,16 @@
                 const catchRoll = Math.random() * 100;
                 const success = catchRoll < catchInfo.probability;
 
+                // Track attempt
+                gameState.attempts++;
+
                 // Show the catch probability display
                 showCatchDisplay(catchInfo, catchRoll, success);
 
                 if (success) {
                     // Successful catch! Set up ball carrier
+                    gameState.catches++;
+                    updateScore();
                     updateMessage(`CATCH by ${potentialCatcher.displayName}! RUN!`);
 
                     // Attach ball to receiver
@@ -2393,6 +2412,7 @@
                     startRunAfterCatch(scene);
                 } else {
                     // Dropped or defended
+                    updateScore();
                     const wasDefended = potentialCatcher.separationState === 'covered';
                     updateMessage(wasDefended ? 'DEFENDED!' : 'Dropped...');
                     bounceBall(scene, ballPosition);
@@ -2701,7 +2721,9 @@
 
         // Update UI
         const updateScore = () => {
-            document.getElementById('score').textContent = `CATCHES: ${gameState.catches}`;
+            const scoreEl = document.getElementById('score');
+            scoreEl.querySelector('.catches').textContent = `${gameState.catches}/${gameState.attempts}`;
+            scoreEl.querySelector('.touchdowns').textContent = gameState.touchdowns;
         };
 
         const updateMessage = (msg) => {
