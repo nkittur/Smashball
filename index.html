@@ -1224,24 +1224,42 @@
                             return;
                         }
 
+                        // Reset speed to base when boost/penalty expires (also during ball flight)
+                        if (receiver.clashSpeedBoostUntil > 0 && receiver.clashSpeedBoostUntil <= gameState.gameTime) {
+                            receiver.speed = receiver.baseSpeed;
+                            receiver.clashSpeedBoostUntil = 0;
+                        }
+                        if (receiver.clashSpeedPenaltyUntil > 0 && receiver.clashSpeedPenaltyUntil <= gameState.gameTime) {
+                            receiver.speed = receiver.baseSpeed;
+                            receiver.clashSpeedPenaltyUntil = 0;
+                        }
+
                         // Calculate distance to ball landing spot
                         const dx = landingPos.x - receiver.position.x;
                         const dz = landingPos.z - receiver.position.z;
                         const distToLanding = Math.sqrt(dx * dx + dz * dz);
+
+                        // Calculate effective speed (apply initial clash slowdown if no outcome yet)
+                        let effectiveSpeed = receiver.speed;
+                        const hasClashOutcome = receiver.clashSpeedBoostUntil > gameState.gameTime ||
+                                               receiver.clashSpeedPenaltyUntil > gameState.gameTime;
+                        if (receiver.initialClashSlowdownUntil > gameState.gameTime && !hasClashOutcome) {
+                            effectiveSpeed *= 0.2;
+                        }
 
                         // If ball is coming to them (within catch range), move toward it
                         // Moving off-route to catch slows the receiver down (allows defenders to close)
                         if (distToLanding < catchRadius * 2.5 && frameIndex > 5) {
                             if (distToLanding > 0.2) {
                                 // Reduced speed when adjusting to catch (70% of normal)
-                                const catchAdjustSpeed = receiver.speed * 0.7;
+                                const catchAdjustSpeed = effectiveSpeed * 0.7;
                                 receiver.position.x += (dx / distToLanding) * catchAdjustSpeed;
                                 receiver.position.z += (dz / distToLanding) * catchAdjustSpeed;
                                 receiver.rotation.y = Math.atan2(dx, dz);
                             }
                         } else {
-                            // Follow their route at full speed
-                            moveReceiverAlongRoute(receiver, receiver.speed);
+                            // Follow their route
+                            moveReceiverAlongRoute(receiver, effectiveSpeed);
                         }
 
                         // Running animation
@@ -1371,9 +1389,9 @@
                     const proximityFactor = 1 - (dist / coverageRange);
 
                     // At distance 0, if coverage equals catching, apply 90% penalty
-                    // penalty = proximityFactor^2 * coverageStat * 0.9
-                    // E.g., coverage 90 at distance 0: 1 * 90 * 0.9 = 81 penalty (leaves ~9% catch chance)
-                    const penalty = proximityFactor * proximityFactor * coverageStat * 0.9;
+                    // penalty = proximityFactor^3 * coverageStat * 0.9
+                    // Cubed for steeper dropoff - separation is rewarded more
+                    const penalty = proximityFactor * proximityFactor * proximityFactor * coverageStat * 0.9;
 
                     defenderProximityPenalty += penalty;
                     defenderDetails.push({
@@ -1838,8 +1856,8 @@
                     const coverageStat = defender.aiType === 'zone' ?
                         defender.stats.zoneCoverage : defender.stats.manCoverage;
                     const proximityFactor = 1 - (dist / coverageRange);
-                    // Match the catch calculation: 90% penalty when coverage equals catching at distance 0
-                    defenderPenalty += proximityFactor * proximityFactor * coverageStat * 0.9;
+                    // Match the catch calculation: cubed for steeper dropoff
+                    defenderPenalty += proximityFactor * proximityFactor * proximityFactor * coverageStat * 0.9;
                 }
             });
 
