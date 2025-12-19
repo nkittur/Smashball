@@ -533,6 +533,7 @@
                 advancedTexture.addControl(labelRect);
                 labelRect.linkWithMesh(receiver);
                 labelRect.linkOffsetY = -50;
+                labelRect.alpha = 0;  // Names hidden for now
 
                 receiver.nameLabel = labelRect;
             });
@@ -1675,10 +1676,12 @@
                             receiver.clashSpeedPenaltyUntil = 0;
                         }
 
-                        // Calculate effective speed (slowdown during initial clash)
+                        // Calculate effective speed (slowdown during initial clash, unless clash outcome already applied)
                         let effectiveSpeed = receiver.speed;
-                        if (receiver.initialClashSlowdownUntil > gameState.gameTime) {
-                            effectiveSpeed *= 0.2;  // 20% speed during initial clash
+                        const hasClashOutcome = receiver.clashSpeedBoostUntil > gameState.gameTime ||
+                                               receiver.clashSpeedPenaltyUntil > gameState.gameTime;
+                        if (receiver.initialClashSlowdownUntil > gameState.gameTime && !hasClashOutcome) {
+                            effectiveSpeed *= 0.2;  // 20% speed during initial clash (only if no outcome yet)
                         }
 
                         // Follow route, reset if complete
