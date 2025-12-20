@@ -1141,33 +1141,27 @@
             return football;
         };
 
-        // Get QB's current screen position for stable aiming
-        const getQBScreenPosition = (scene) => {
-            const qbWorldPos = scene.qb.position;
-            const engine = scene.getEngine();
-            const screenPos = BABYLON.Vector3.Project(
-                qbWorldPos,
-                BABYLON.Matrix.Identity(),
-                scene.getTransformMatrix(),
-                scene.activeCamera.viewport.toGlobal(engine.getRenderWidth(), engine.getRenderHeight())
-            );
-            return { x: screenPos.x, y: screenPos.y };
-        };
-
-        // Calculate Throw Parameters
-        const calculateThrow = (qbScreenPos, dragCurrent) => {
-            // Calculate direction from QB's current screen position to drag position
-            // This keeps the aim stable even when QB moves
-            const dx = qbScreenPos.x - dragCurrent.x;
-            const dy = qbScreenPos.y - dragCurrent.y;
+        // Calculate Throw Parameters with smoothing to prevent jerky aiming
+        let lastValidAngle = 0;  // Store last valid angle for smoothing
+        const calculateThrow = (dragStart, dragCurrent) => {
+            const dx = dragStart.x - dragCurrent.x;
+            const dy = dragStart.y - dragCurrent.y;
 
             // Distance dragged determines throw power
-            const dragDistance = Math.sqrt(dx * dx + dy * dy) * DRAG_SENSITIVITY;
+            const rawDragDistance = Math.sqrt(dx * dx + dy * dy);
+            const dragDistance = rawDragDistance * DRAG_SENSITIVITY;
             const throwDistance = Math.min(Math.max(dragDistance, MIN_THROW_DISTANCE), MAX_THROW_DISTANCE);
 
-            // Direction is opposite of drag (from QB to opposite of pointer)
+            // Direction is opposite of drag
             // Negate dy because screen Y is inverted (down = positive) vs world Z (up = positive)
-            const angle = Math.atan2(dx, -dy);
+            // Only update angle if drag distance is significant enough to be stable
+            let angle;
+            if (rawDragDistance > 5) {  // At least 5 pixels of drag for stable angle
+                angle = Math.atan2(dx, -dy);
+                lastValidAngle = angle;
+            } else {
+                angle = lastValidAngle;  // Use last valid angle for very small drags
+            }
 
             return {
                 distance: throwDistance,
@@ -1214,9 +1208,7 @@
                 return;
             }
 
-            // Use QB's current screen position for stable aiming even when QB moves
-            const qbScreenPos = getQBScreenPosition(scene);
-            const throwParams = calculateThrow(qbScreenPos, gameState.dragCurrent);
+            const throwParams = calculateThrow(gameState.dragStart, gameState.dragCurrent);
 
             // Only show if drag is significant
             if (throwParams.distance < MIN_THROW_DISTANCE) {
@@ -2325,9 +2317,7 @@
             if (!gameState.canThrow || gameState.ballInFlight) return;
             if (!gameState.dragStart || !gameState.dragCurrent) return;
 
-            // Use QB's current screen position for consistent throw direction
-            const qbScreenPos = getQBScreenPosition(scene);
-            const throwParams = calculateThrow(qbScreenPos, gameState.dragCurrent);
+            const throwParams = calculateThrow(gameState.dragStart, gameState.dragCurrent);
 
             if (throwParams.distance < MIN_THROW_DISTANCE) return;
 
