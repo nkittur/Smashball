@@ -66,16 +66,21 @@
         #downDistance .distance { color: #aef; }
 
         #viewButtons {
+            position: absolute;
+            bottom: 15px;
+            left: 50%;
+            transform: translateX(-50%);
             display: flex;
             gap: 4px;
+            z-index: 100;
         }
         #viewButtons button {
             background: rgba(60, 60, 60, 0.9);
             border: 1px solid #555;
             color: #aaa;
-            padding: 4px 10px;
+            padding: 6px 14px;
             font-family: 'Courier New', monospace;
-            font-size: 11px;
+            font-size: 12px;
             cursor: pointer;
             border-radius: 3px;
             transition: all 0.2s;
@@ -175,11 +180,6 @@
             <span><span class="label">Catches</span> <span class="catches">0/0</span></span>
             <span><span class="label">TD</span> <span class="touchdowns">0</span></span>
         </div>
-        <div id="viewButtons">
-            <button id="viewIso" class="active">Iso</button>
-            <button id="viewOverhead">Top</button>
-            <button id="viewShoulder">Behind</button>
-        </div>
         <div id="catchDisplay">
             <div class="catch-header">CATCH</div>
             <div class="catch-bar">
@@ -189,6 +189,11 @@
             </div>
             <div class="defender-info"></div>
         </div>
+    </div>
+    <div id="viewButtons">
+        <button id="viewIso" class="active">Iso</button>
+        <button id="viewOverhead">Top</button>
+        <button id="viewShoulder">Behind</button>
     </div>
     <div id="debugInfo"></div>
 
@@ -2823,8 +2828,8 @@
             // Move camera to follow the line of scrimmage
             if (scene.activeCamera) {
                 // Target centered on the line of scrimmage
-                // Clamp to reasonable field bounds (-4 to 8)
-                const cameraTargetZ = Math.max(-4, Math.min(8, gameState.lineOfScrimmage));
+                // Allow camera to follow all the way to end zone (Z = 12)
+                const cameraTargetZ = Math.max(-4, Math.min(12, gameState.lineOfScrimmage + 2));
                 scene.activeCamera.target = new BABYLON.Vector3(0, 0, cameraTargetZ);
             }
 
