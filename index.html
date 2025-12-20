@@ -1141,16 +1141,31 @@
             return football;
         };
 
+        // Get QB's current screen position for stable aiming
+        const getQBScreenPosition = (scene) => {
+            const qbWorldPos = scene.qb.position;
+            const engine = scene.getEngine();
+            const screenPos = BABYLON.Vector3.Project(
+                qbWorldPos,
+                BABYLON.Matrix.Identity(),
+                scene.getTransformMatrix(),
+                scene.activeCamera.viewport.toGlobal(engine.getRenderWidth(), engine.getRenderHeight())
+            );
+            return { x: screenPos.x, y: screenPos.y };
+        };
+
         // Calculate Throw Parameters
-        const calculateThrow = (dragStart, dragCurrent) => {
-            const dx = dragStart.x - dragCurrent.x;
-            const dy = dragStart.y - dragCurrent.y;
+        const calculateThrow = (qbScreenPos, dragCurrent) => {
+            // Calculate direction from QB's current screen position to drag position
+            // This keeps the aim stable even when QB moves
+            const dx = qbScreenPos.x - dragCurrent.x;
+            const dy = qbScreenPos.y - dragCurrent.y;
 
             // Distance dragged determines throw power
             const dragDistance = Math.sqrt(dx * dx + dy * dy) * DRAG_SENSITIVITY;
             const throwDistance = Math.min(Math.max(dragDistance, MIN_THROW_DISTANCE), MAX_THROW_DISTANCE);
 
-            // Direction is opposite of drag
+            // Direction is opposite of drag (from QB to opposite of pointer)
             // Negate dy because screen Y is inverted (down = positive) vs world Z (up = positive)
             const angle = Math.atan2(dx, -dy);
 
@@ -1199,7 +1214,9 @@
                 return;
             }
 
-            const throwParams = calculateThrow(gameState.dragStart, gameState.dragCurrent);
+            // Use QB's current screen position for stable aiming even when QB moves
+            const qbScreenPos = getQBScreenPosition(scene);
+            const throwParams = calculateThrow(qbScreenPos, gameState.dragCurrent);
 
             // Only show if drag is significant
             if (throwParams.distance < MIN_THROW_DISTANCE) {
@@ -2308,7 +2325,9 @@
             if (!gameState.canThrow || gameState.ballInFlight) return;
             if (!gameState.dragStart || !gameState.dragCurrent) return;
 
-            const throwParams = calculateThrow(gameState.dragStart, gameState.dragCurrent);
+            // Use QB's current screen position for consistent throw direction
+            const qbScreenPos = getQBScreenPosition(scene);
+            const throwParams = calculateThrow(qbScreenPos, gameState.dragCurrent);
 
             if (throwParams.distance < MIN_THROW_DISTANCE) return;
 
@@ -2398,9 +2417,12 @@
                             effectiveSpeed *= 0.2;
                         }
 
-                        // If ball is coming to them (within catch range), move toward it
+                        // Check if route is complete
+                        const routeComplete = !receiver.route || receiver.routeIndex >= receiver.route.length;
+
+                        // If ball is coming to them (within catch range) OR route is done, move toward ball
                         // Moving off-route to catch slows the receiver down (allows defenders to close)
-                        if (distToLanding < catchRadius * 2.5 && frameIndex > 5) {
+                        if ((distToLanding < catchRadius * 2.5 && frameIndex > 5) || routeComplete) {
                             if (distToLanding > 0.2) {
                                 // Reduced speed when adjusting to catch (70% of normal)
                                 const catchAdjustSpeed = effectiveSpeed * 0.7;
@@ -2883,6 +2905,9 @@
                     const progress = Math.min(1, (los - 4) / (END_ZONE_START - 4)); // 0 to 1
                     const minRadius = baseRadius * 0.5; // Reduce to 50% at end zone
                     camera.radius = baseRadius - (baseRadius - minRadius) * progress;
+                } else {
+                    // Reset to base radius when back at start of field (e.g., after touchdown)
+                    camera.radius = baseRadius;
                 }
             }
 
