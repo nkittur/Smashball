@@ -888,13 +888,13 @@
 
         // Create Field
         const createField = (scene, materials) => {
-            // Main field
+            // Main field (extended for deeper end zone)
             const field = BABYLON.MeshBuilder.CreateGround('field', {
                 width: FIELD_WIDTH + 2,
-                height: FIELD_LENGTH + 4
+                height: FIELD_LENGTH + 6
             }, scene);
             field.material = materials.fieldMaterial;
-            field.position.z = 2;
+            field.position.z = 2.5;
 
             // Yard lines
             for (let i = -8; i <= 12; i += 4) {
@@ -907,21 +907,21 @@
                 line.position.set(0, 0.01, i);
             }
 
-            // End zone
+            // End zone (30% deeper)
             const endZone = BABYLON.MeshBuilder.CreateGround('endzone', {
                 width: FIELD_WIDTH + 2,
-                height: 3
+                height: 4
             }, scene);
             const endZoneMat = new BABYLON.StandardMaterial('endzoneMat', scene);
             endZoneMat.diffuseColor = new BABYLON.Color3(0.4, 0.15, 0.15);
             endZone.material = endZoneMat;
-            endZone.position.set(0, 0.001, 12.5);
+            endZone.position.set(0, 0.001, 13);
 
             // Border walls (castle-like)
             const wallHeight = 0.8;
             const wallPositions = [
-                { x: -FIELD_WIDTH/2 - 0.5, z: 2, width: 1, depth: FIELD_LENGTH + 4 },
-                { x: FIELD_WIDTH/2 + 0.5, z: 2, width: 1, depth: FIELD_LENGTH + 4 }
+                { x: -FIELD_WIDTH/2 - 0.5, z: 2.5, width: 1, depth: FIELD_LENGTH + 6 },
+                { x: FIELD_WIDTH/2 + 0.5, z: 2.5, width: 1, depth: FIELD_LENGTH + 6 }
             ];
 
             wallPositions.forEach((wp, i) => {
@@ -1774,8 +1774,8 @@
                 speed *= TACKLE_CONSTANTS.BREAK_TACKLE_BOOST;
             }
 
-            // Run toward end zone (positive Z direction)
-            const targetZ = 14;  // End zone
+            // Run toward back of end zone (positive Z direction)
+            const targetZ = 15;  // Back of end zone
             const targetX = receiver.position.x;  // Maintain lane for now
 
             const dz = targetZ - receiver.position.z;
@@ -2173,7 +2173,7 @@
             const startX = receiver.startPos.x;
             const startZ = receiver.startPos.z;
             const END_ZONE_Z = 12;  // End zone starts here
-            const END_ZONE_BACK = 14;  // Back of end zone
+            const END_ZONE_BACK = 15;  // Back of end zone (30% deeper)
 
             // Route types - all routes go into end zone then cut sideways
             const routes = ['go_fade', 'slant_across', 'out_corner', 'in_post', 'corner_fade', 'post_corner', 'double_move', 'comeback_fade'];
@@ -2272,6 +2272,11 @@
                     route.push({ z: END_ZONE_BACK, x: crossEndX + towardMiddle * 2 });
                     break;
             }
+
+            // Clamp all route points to not exceed end zone back
+            route.forEach(point => {
+                point.z = Math.min(point.z, END_ZONE_BACK);
+            });
 
             receiver.route = route;
 
@@ -2851,8 +2856,8 @@
             // Move camera to follow the line of scrimmage
             if (scene.activeCamera) {
                 // Target centered on the line of scrimmage
-                // Allow camera to follow all the way to end zone (Z = 12)
-                const cameraTargetZ = Math.max(-4, Math.min(12, gameState.lineOfScrimmage + 2));
+                // Allow camera to follow all the way into end zone (Z = 14)
+                const cameraTargetZ = Math.max(-4, Math.min(14, gameState.lineOfScrimmage + 2));
                 scene.activeCamera.target = new BABYLON.Vector3(0, 0, cameraTargetZ);
             }
 
