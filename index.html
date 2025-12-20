@@ -1130,8 +1130,9 @@
             const points = [];
             const { distance, angle, power } = throwParams;
 
-            // Maximum height based on throw power
-            const maxHeight = 2 + power * 4;
+            // Maximum height based on throw distance
+            // Short throws (power ~0.2) = low arc (1.5), long throws (power ~1.0) = high arc (6)
+            const maxHeight = 1 + power * power * 5;
 
             for (let i = 0; i <= numPoints; i++) {
                 const t = i / numPoints;
@@ -2263,7 +2264,8 @@
             const catchRadius = 1.2;
 
             let frameIndex = 0;
-            const animationSpeed = 1;  // Slowed down by half
+            // Shorter throws are faster: speed ranges from 2.0 (short) to 0.8 (long)
+            const animationSpeed = 2.0 - (throwParams.power * 1.2);
             let accumulator = 0;
             const time = { value: 0 };
 
@@ -2789,22 +2791,10 @@
 
             // Move camera to follow the line of scrimmage
             if (scene.activeCamera) {
-                // Target between the QB and a few yards ahead of the LOS
-                // Clamp to reasonable field bounds (-6 to 10)
-                const cameraTargetZ = Math.max(-6, Math.min(10, gameState.lineOfScrimmage + 2));
+                // Target centered on the line of scrimmage
+                // Clamp to reasonable field bounds (-4 to 8)
+                const cameraTargetZ = Math.max(-4, Math.min(8, gameState.lineOfScrimmage));
                 scene.activeCamera.target = new BABYLON.Vector3(0, 0, cameraTargetZ);
-
-                // Zoom in when close to end zone (LOS > 4)
-                const END_ZONE_Z = 12;
-                const distanceToEndZone = END_ZONE_Z - gameState.lineOfScrimmage;
-                if (distanceToEndZone < 8) {
-                    // Closer to end zone = more zoomed in (smaller radius)
-                    // Range from 32 (far) to 22 (close)
-                    const zoomFactor = distanceToEndZone / 8;  // 1.0 far, 0 close
-                    scene.activeCamera.radius = 22 + (zoomFactor * 10);
-                } else {
-                    scene.activeCamera.radius = 32;  // Default zoom
-                }
             }
 
             // Update down and distance display
