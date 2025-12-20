@@ -2106,6 +2106,16 @@
                 [positions[i], positions[j]] = [positions[j], positions[i]];
             }
 
+            // Randomly pick 1-2 receivers to run crossing routes
+            const numCrossing = 1 + Math.floor(Math.random() * 2);  // 1 or 2
+            const crossingIndices = [];
+            while (crossingIndices.length < numCrossing && crossingIndices.length < gameState.receivers.length) {
+                const idx = Math.floor(Math.random() * gameState.receivers.length);
+                if (!crossingIndices.includes(idx)) {
+                    crossingIndices.push(idx);
+                }
+            }
+
             gameState.receivers.forEach((receiver, i) => {
                 // Assign spread position
                 receiver.startPos.x = positions[i] || (Math.random() - 0.5) * 6;
@@ -2144,8 +2154,9 @@
                 // Tackling state
                 receiver.breakTackleBoostUntil = 0;
 
-                // Generate new random route
-                generateRandomRoute(receiver);
+                // Generate new random route (force crossing for selected receivers)
+                const isCrossing = crossingIndices.includes(i);
+                generateRandomRoute(receiver, isCrossing);
 
                 // Keep name labels hidden
                 if (receiver.nameLabel) {
@@ -2158,7 +2169,7 @@
         };
 
         // Generate a random route for a receiver
-        const generateRandomRoute = (receiver) => {
+        const generateRandomRoute = (receiver, forceCrossing = false) => {
             const startX = receiver.startPos.x;
             const startZ = receiver.startPos.z;
             const END_ZONE_Z = 12;  // End zone starts here
@@ -2166,7 +2177,7 @@
 
             // Route types - all routes go into end zone then cut sideways
             const routes = ['go_fade', 'slant_across', 'out_corner', 'in_post', 'corner_fade', 'post_corner', 'double_move', 'comeback_fade'];
-            const routeType = routes[Math.floor(Math.random() * routes.length)];
+            const routeType = forceCrossing ? 'crossing' : routes[Math.floor(Math.random() * routes.length)];
 
             const route = [];
 
@@ -2247,6 +2258,18 @@
                     route.push({ z: break1Depth - 1, x: startX + towardMiddle * 1 });
                     route.push({ z: endZoneEntry, x: startX + towardMiddle * 2 });
                     route.push({ z: END_ZONE_BACK, x: startX + towardMiddle * 2 + towardSideline * fadeDistance });
+                    break;
+
+                case 'crossing':
+                    // Crossing route - run across the field at shallow/medium depth
+                    const crossDepth = startZ + 4 + Math.random() * 4;  // 4-8 yards deep
+                    const crossDistance = 10 + Math.random() * 4;  // Cross 10-14 yards
+                    const crossEndX = Math.max(-7, Math.min(7, startX + towardMiddle * crossDistance));
+                    route.push({ z: crossDepth, x: startX });  // Run straight first
+                    route.push({ z: crossDepth + 1, x: crossEndX });  // Cross the field
+                    // Then angle toward end zone
+                    route.push({ z: endZoneEntry, x: crossEndX });
+                    route.push({ z: END_ZONE_BACK, x: crossEndX + towardMiddle * 2 });
                     break;
             }
 
