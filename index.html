@@ -53,6 +53,18 @@
         #score .touchdowns { color: #4f4; }
         #score .label { color: #888; }
 
+        #downDistance {
+            color: #fff;
+            font-size: 14px;
+            font-weight: bold;
+            background: rgba(40, 40, 40, 0.9);
+            padding: 4px 12px;
+            border-radius: 4px;
+            border: 1px solid #555;
+        }
+        #downDistance .down { color: #ffa; }
+        #downDistance .distance { color: #aef; }
+
         #debugInfo {
             position: absolute;
             top: 80px;
@@ -131,6 +143,9 @@
 <body>
     <canvas id="renderCanvas"></canvas>
     <div id="topBar">
+        <div id="downDistance">
+            <span class="down">1st</span> & <span class="distance">10</span>
+        </div>
         <div id="score">
             <span><span class="label">Catches</span> <span class="catches">0/0</span></span>
             <span><span class="label">TD</span> <span class="touchdowns">0</span></span>
@@ -171,7 +186,13 @@
             ballCarrier: null,      // Receiver carrying the ball after catch
             playEnded: false,       // Track if play has ended (tackle/sack/TD)
             qbSacked: false,        // Track if QB was sacked
-            qbStartZ: -6            // QB's randomized starting position (set each play)
+            qbStartZ: -6,           // QB's randomized starting position (set each play)
+            // Down and distance tracking
+            down: 1,                // Current down (1-4)
+            yardsToGo: 10,          // Yards needed for first down
+            lineOfScrimmage: -4,    // Current field position (Z coordinate)
+            firstDownMarker: 6,     // Z position where first down is achieved
+            startingLineOfScrimmage: -4  // Where drive started (for reset on turnover)
         };
 
         // Clash system constants
@@ -888,6 +909,34 @@
                     merlon.position.set(wp.x, wallHeight + 0.15, -7 + j * 2.2);
                 }
             });
+
+            // Line of scrimmage marker (blue)
+            const losLine = BABYLON.MeshBuilder.CreateBox('losLine', {
+                width: FIELD_WIDTH,
+                height: 0.03,
+                depth: 0.15
+            }, scene);
+            const losMat = new BABYLON.StandardMaterial('losMat', scene);
+            losMat.diffuseColor = new BABYLON.Color3(0.2, 0.4, 0.9);
+            losMat.emissiveColor = new BABYLON.Color3(0.1, 0.2, 0.4);
+            losMat.alpha = 0.8;
+            losLine.material = losMat;
+            losLine.position.set(0, 0.02, gameState.lineOfScrimmage);
+            scene.losLine = losLine;
+
+            // First down marker (yellow)
+            const firstDownLine = BABYLON.MeshBuilder.CreateBox('firstDownLine', {
+                width: FIELD_WIDTH,
+                height: 0.03,
+                depth: 0.15
+            }, scene);
+            const fdMat = new BABYLON.StandardMaterial('fdMat', scene);
+            fdMat.diffuseColor = new BABYLON.Color3(1.0, 0.9, 0.2);
+            fdMat.emissiveColor = new BABYLON.Color3(0.4, 0.35, 0.1);
+            fdMat.alpha = 0.8;
+            firstDownLine.material = fdMat;
+            firstDownLine.position.set(0, 0.02, gameState.firstDownMarker);
+            scene.firstDownLine = firstDownLine;
         };
 
         // Create Knight Figure
@@ -1524,11 +1573,11 @@
 
         // Reset offensive line to starting positions
         const resetOffensiveLine = () => {
-            const RECEIVER_START_Z = QB_START_Z + 2;
+            const lineZ = gameState.lineOfScrimmage;
 
             gameState.offensiveLine.forEach((oLineman, i) => {
                 oLineman.position.x = oLineman.startPos.x;
-                oLineman.position.z = RECEIVER_START_Z - 0.5;
+                oLineman.position.z = lineZ - 0.5;
                 oLineman.position.y = 0;
                 oLineman.rotation.y = 0;
                 oLineman.rotation.x = 0;
@@ -1542,11 +1591,11 @@
 
         // Reset defensive line to starting positions
         const resetDefensiveLine = () => {
-            const RECEIVER_START_Z = QB_START_Z + 2;
+            const lineZ = gameState.lineOfScrimmage;
 
             gameState.defensiveLine.forEach((dLineman, i) => {
                 dLineman.position.x = dLineman.startPos.x;
-                dLineman.position.z = RECEIVER_START_Z + 0.5;
+                dLineman.position.z = lineZ + 0.5;
                 dLineman.position.y = 0;
                 dLineman.rotation.y = Math.PI;  // Face the offense
                 dLineman.rotation.x = 0;
@@ -1592,8 +1641,13 @@
                 return;
             }
 
+            // Calculate pocket position relative to line of scrimmage
+            const losZ = gameState.lineOfScrimmage;
+            const pocketCenterZ = losZ - 3;  // 3 yards behind LOS
+            const maxDepthZ = losZ - 6;       // 6 yards behind LOS max
+
             let targetX = qb.position.x;
-            let targetZ = POCKET_CONSTANTS.POCKET_CENTER_Z;
+            let targetZ = pocketCenterZ;
             let speed = POCKET_CONSTANTS.SETTLE_SPEED;
 
             // If threat is close, evade
@@ -1614,10 +1668,10 @@
 
             // Apply constraints
             // Don't cross line of scrimmage
-            targetZ = Math.min(targetZ, POCKET_CONSTANTS.LINE_OF_SCRIMMAGE);
+            targetZ = Math.min(targetZ, losZ);
 
             // Don't go too deep
-            targetZ = Math.max(targetZ, POCKET_CONSTANTS.POCKET_MAX_DEPTH);
+            targetZ = Math.max(targetZ, maxDepthZ);
 
             // Stay within pocket width (with some flexibility when evading)
             const maxX = closestThreatDist < POCKET_CONSTANTS.THREAT_RADIUS ?
@@ -1651,6 +1705,9 @@
             gameState.playEnded = true;
             gameState.qbSacked = true;
             gameState.canThrow = false;
+
+            // Move line of scrimmage back to sack location
+            handleSackFieldPosition(scene.qb.position.z);
 
             updateMessage(`SACK by ${tackler.displayName}!`);
 
@@ -1758,6 +1815,9 @@
 
             gameState.playEnded = true;
 
+            // Advance ball to tackle location
+            advanceBall(receiver.position.z);
+
             updateMessage(`TACKLED by ${defender.displayName}!`);
 
             // Receiver falls down
@@ -1807,6 +1867,73 @@
             }, TACKLE_CONSTANTS.STUMBLE_DURATION * 1000);
         };
 
+        // Reset the drive to starting position (after TD or turnover on downs)
+        const resetDrive = () => {
+            gameState.down = 1;
+            gameState.lineOfScrimmage = gameState.startingLineOfScrimmage;
+            gameState.firstDownMarker = gameState.lineOfScrimmage + 10;
+            gameState.yardsToGo = 10;
+        };
+
+        // Advance the ball to a new position and handle down logic
+        const advanceBall = (newPositionZ) => {
+            const END_ZONE_Z = 12;  // Touchdown threshold
+            const oldLOS = gameState.lineOfScrimmage;
+            const yardsGained = newPositionZ - oldLOS;
+
+            // Update line of scrimmage
+            gameState.lineOfScrimmage = newPositionZ;
+
+            // Check for first down
+            if (newPositionZ >= gameState.firstDownMarker) {
+                // First down achieved!
+                gameState.down = 1;
+                gameState.firstDownMarker = newPositionZ + 10;
+                gameState.yardsToGo = 10;
+
+                // Cap first down marker at end zone
+                if (gameState.firstDownMarker > END_ZONE_Z) {
+                    gameState.yardsToGo = END_ZONE_Z - newPositionZ;
+                    gameState.firstDownMarker = END_ZONE_Z;
+                }
+
+                updateMessage('FIRST DOWN!');
+            } else {
+                // No first down, advance to next down
+                gameState.down++;
+                gameState.yardsToGo = gameState.firstDownMarker - newPositionZ;
+
+                if (gameState.down > 4) {
+                    // Turnover on downs!
+                    updateMessage('TURNOVER ON DOWNS!');
+                    resetDrive();
+                }
+            }
+        };
+
+        // Handle incomplete pass (same line of scrimmage, next down)
+        const handleIncomplete = () => {
+            gameState.down++;
+            if (gameState.down > 4) {
+                updateMessage('TURNOVER ON DOWNS!');
+                resetDrive();
+            }
+        };
+
+        // Handle sack (move line back)
+        const handleSackFieldPosition = (sackPositionZ) => {
+            // Sack moves the line of scrimmage back
+            const newLOS = Math.max(-8, sackPositionZ);  // Don't go too far back
+            gameState.lineOfScrimmage = newLOS;
+            gameState.yardsToGo = gameState.firstDownMarker - newLOS;
+            gameState.down++;
+
+            if (gameState.down > 4) {
+                updateMessage('TURNOVER ON DOWNS!');
+                resetDrive();
+            }
+        };
+
         // Handle touchdown
         const handleTouchdown = (receiver) => {
             if (gameState.playEnded) return;
@@ -1820,6 +1947,9 @@
             // Celebration
             celebrateReceiver(receiver, gameState.scene);
 
+            // Reset drive after touchdown
+            resetDrive();
+
             // Reset after delay
             setTimeout(() => {
                 resetPlay(gameState.scene);
@@ -1831,6 +1961,9 @@
             if (gameState.playEnded) return;
 
             gameState.playEnded = true;
+
+            // Advance ball to where receiver went out
+            advanceBall(receiver.position.z);
 
             updateMessage(`OUT OF BOUNDS`);
 
@@ -1872,7 +2005,7 @@
 
         // Reset defenders to starting positions
         const resetDefenders = () => {
-            const RECEIVER_START_Z = QB_START_Z + 2;
+            const lineZ = gameState.lineOfScrimmage;
             let manDefenderIndex = 0;
 
             gameState.defenders.forEach((defender, i) => {
@@ -1890,10 +2023,10 @@
                 } else if (defender.aiType === 'zone') {
                     // Zone defender in middle of field with random depth
                     const zoneDepth = 6 + Math.random() * 4;  // 6-10 yards deep
-                    defender.zoneCenter = new BABYLON.Vector3(0, 0, RECEIVER_START_Z + zoneDepth);
+                    defender.zoneCenter = new BABYLON.Vector3(0, 0, lineZ + zoneDepth);
                     defender.zoneRadius = 5 + Math.random() * 2;  // 5-7 yard radius
                     defender.startPos.x = 0;
-                    defender.startPos.z = RECEIVER_START_Z + zoneDepth - 2;
+                    defender.startPos.z = lineZ + zoneDepth - 2;
                 }
 
                 defender.position.x = defender.startPos.x;
@@ -1919,6 +2052,9 @@
 
         // Reset receivers to starting positions
         const resetReceivers = () => {
+            // Receivers line up at the line of scrimmage
+            const receiverLineZ = gameState.lineOfScrimmage;
+
             // Assign spread positions: left slot, right slot, flex position
             const positions = [
                 -(5 + Math.random() * 2),   // Left side: -5 to -7 (near sideline)
@@ -1934,9 +2070,10 @@
             gameState.receivers.forEach((receiver, i) => {
                 // Assign spread position
                 receiver.startPos.x = positions[i] || (Math.random() - 0.5) * 6;
+                receiver.startPos.z = receiverLineZ;
 
                 receiver.position.x = receiver.startPos.x;
-                receiver.position.z = receiver.startPos.z;
+                receiver.position.z = receiverLineZ;
                 receiver.position.y = 0;
                 receiver.rotation.y = 0;
                 receiver.routeIndex = 0;
@@ -2314,13 +2451,16 @@
                     // Start the run-after-catch phase
                     startRunAfterCatch(scene);
                 } else {
-                    // Dropped or defended
+                    // Dropped or defended - incomplete pass
+                    handleIncomplete();
                     updateScore();
                     const wasDefended = potentialCatcher.separationState === 'covered';
                     updateMessage(wasDefended ? 'DEFENDED!' : 'Dropped...');
                     bounceBall(scene, ballPosition);
                 }
             } else {
+                // No receiver nearby - incomplete pass
+                handleIncomplete();
                 updateMessage('Incomplete...');
                 // Ball bounces and rolls
                 bounceBall(scene, ballPosition);
@@ -2617,14 +2757,26 @@
             resetOffensiveLine();
             resetDefensiveLine();
 
-            // Reset QB position (randomized depth)
-            const qbRandomDepth = -6 - Math.random() * 2;  // -6 to -8
-            gameState.qbStartZ = qbRandomDepth;
+            // Reset QB position (relative to line of scrimmage, randomized depth behind it)
+            const qbDepthBehindLine = 2 + Math.random() * 2;  // 2-4 yards behind LOS
+            const qbZ = gameState.lineOfScrimmage - qbDepthBehindLine;
+            gameState.qbStartZ = qbZ;
             scene.qb.position.x = 0;
-            scene.qb.position.z = qbRandomDepth;
+            scene.qb.position.z = qbZ;
             scene.qb.position.y = 0;
             scene.qb.rotation.x = 0;
             scene.qb.rotation.y = 0;
+
+            // Update field position markers
+            if (scene.losLine) {
+                scene.losLine.position.z = gameState.lineOfScrimmage;
+            }
+            if (scene.firstDownLine) {
+                scene.firstDownLine.position.z = gameState.firstDownMarker;
+            }
+
+            // Update down and distance display
+            updateDownDistance();
 
             // Slight delay before allowing next throw
             setTimeout(() => {
@@ -2638,6 +2790,19 @@
             const scoreEl = document.getElementById('score');
             scoreEl.querySelector('.catches').textContent = `${gameState.catches}/${gameState.attempts}`;
             scoreEl.querySelector('.touchdowns').textContent = gameState.touchdowns;
+        };
+
+        const updateDownDistance = () => {
+            const ddEl = document.getElementById('downDistance');
+            const downNames = ['1st', '2nd', '3rd', '4th'];
+            const downText = downNames[gameState.down - 1] || '4th';
+
+            // Calculate yards to go (convert Z units to approximate yards - roughly 1 unit = 1 yard)
+            const yardsToGo = Math.max(1, Math.round(gameState.yardsToGo));
+            const distanceText = yardsToGo >= 10 ? '10+' : yardsToGo.toString();
+
+            ddEl.querySelector('.down').textContent = downText;
+            ddEl.querySelector('.distance').textContent = distanceText;
         };
 
         const updateMessage = (msg) => {
