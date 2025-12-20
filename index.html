@@ -302,6 +302,7 @@
             camera.upperRadiusLimit = 50;   // Max zoom
             camera.lowerBetaLimit = 0.3;    // Don't go below ground
             camera.upperBetaLimit = Math.PI / 2.2;  // Don't go too flat
+            scene.activeCamera = camera;  // Store reference for later updates
 
             // Lighting
             const light = new BABYLON.HemisphericLight(
@@ -1007,58 +1008,59 @@
             return knight;
         };
 
-        // Create Lineman Figure (same as knight/receiver)
+        // Create Lineman Figure (larger than receivers)
         const createLineman = (scene, material, position, isOffense) => {
             const lineman = new BABYLON.TransformNode('lineman', scene);
+            const scale = 1.25;  // Linemen are 25% bigger than receivers
 
-            // Body (same as knight)
+            // Body (larger than knight)
             const body = BABYLON.MeshBuilder.CreateCylinder('body', {
-                height: 0.8,
-                diameterTop: 0.4,
-                diameterBottom: 0.6,
+                height: 0.8 * scale,
+                diameterTop: 0.4 * scale,
+                diameterBottom: 0.6 * scale,
                 tessellation: 6
             }, scene);
             body.material = material;
-            body.position.y = 0.4;
+            body.position.y = 0.4 * scale;
             body.parent = lineman;
 
             // Head (helmet)
             const head = BABYLON.MeshBuilder.CreateSphere('head', {
-                diameter: 0.35,
+                diameter: 0.35 * scale,
                 segments: 8
             }, scene);
             head.material = material;
-            head.position.y = 0.95;
+            head.position.y = 0.95 * scale;
             head.parent = lineman;
 
             // Helmet plume
             const plume = BABYLON.MeshBuilder.CreateCylinder('plume', {
-                height: 0.25,
-                diameterTop: 0.05,
-                diameterBottom: 0.12,
+                height: 0.25 * scale,
+                diameterTop: 0.05 * scale,
+                diameterBottom: 0.12 * scale,
                 tessellation: 6
             }, scene);
             const plumeMat = new BABYLON.StandardMaterial('plumeMat', scene);
             plumeMat.diffuseColor = new BABYLON.Color3(0.8, 0.2, 0.2);
             plume.material = plumeMat;
-            plume.position.y = 1.2;
+            plume.position.y = 1.2 * scale;
             plume.parent = lineman;
 
             // Shield
             const shield = BABYLON.MeshBuilder.CreateBox('shield', {
-                width: 0.35,
-                height: 0.45,
-                depth: 0.08
+                width: 0.35 * scale,
+                height: 0.45 * scale,
+                depth: 0.08 * scale
             }, scene);
             const shieldMat = new BABYLON.StandardMaterial('shieldMat', scene);
             shieldMat.diffuseColor = new BABYLON.Color3(0.5, 0.5, 0.5);
             shield.material = shieldMat;
-            shield.position.set(-0.3, 0.5, 0.1);
+            shield.position.set(-0.3 * scale, 0.5 * scale, 0.1 * scale);
             shield.parent = lineman;
 
             // Base shadow
             const shadow = BABYLON.MeshBuilder.CreateDisc('shadow', {
-                radius: 0.4,
+                radius: 0.4 * scale,
                 tessellation: 12
             }, scene);
             const shadowMat = new BABYLON.StandardMaterial('shadowMat', scene);
@@ -2122,82 +2124,92 @@
         const generateRandomRoute = (receiver) => {
             const startX = receiver.startPos.x;
             const startZ = receiver.startPos.z;
-            const END_ZONE_Z = 13;  // Target end zone depth
+            const END_ZONE_Z = 12;  // End zone starts here
+            const END_ZONE_BACK = 14;  // Back of end zone
 
-            // Route types with up to 2 direction changes, all ending in end zone
-            const routes = ['go', 'slant', 'out', 'in', 'corner', 'post', 'double_move', 'comeback_go'];
+            // Route types - all routes go into end zone then cut sideways
+            const routes = ['go_fade', 'slant_across', 'out_corner', 'in_post', 'corner_fade', 'post_corner', 'double_move', 'comeback_fade'];
             const routeType = routes[Math.floor(Math.random() * routes.length)];
 
             const route = [];
 
-            // First break point (5-8 yards from start)
-            const break1Depth = startZ + 5 + Math.random() * 3;
-            // Second break point (if needed, 3-5 yards before end zone)
-            const break2Depth = END_ZONE_Z - 3 - Math.random() * 2;
+            // First break point (5-8 yards from start, but not past end zone)
+            const break1Depth = Math.min(startZ + 5 + Math.random() * 3, END_ZONE_Z - 2);
+            // Entry point into end zone
+            const endZoneEntry = END_ZONE_Z + 0.5;
 
             // Determine lateral movement based on field position
-            const isLeftSide = startX < -2;
-            const isRightSide = startX > 2;
             const towardMiddle = startX > 0 ? -1 : 1;
             const towardSideline = startX > 0 ? 1 : -1;
 
+            // Sideways fade distance in end zone (3-5 yards)
+            const fadeDistance = 3 + Math.random() * 2;
+
             switch(routeType) {
-                case 'go':
-                    // Straight to end zone (simple, 0 breaks)
-                    route.push({ z: END_ZONE_Z, x: startX + (Math.random() - 0.5) * 2 });
+                case 'go_fade':
+                    // Straight into end zone, then fade sideways
+                    route.push({ z: endZoneEntry, x: startX });
+                    route.push({ z: END_ZONE_BACK, x: Math.max(-7, Math.min(7, startX + towardSideline * fadeDistance)) });
                     break;
 
-                case 'slant':
-                    // Diagonal to middle, then straight to end zone (1 break)
+                case 'slant_across':
+                    // Slant toward middle, enter end zone, cut across
                     const slantX = startX + towardMiddle * (3 + Math.random() * 2);
                     route.push({ z: break1Depth, x: slantX });
-                    route.push({ z: END_ZONE_Z, x: slantX + (Math.random() - 0.5) * 2 });
+                    route.push({ z: endZoneEntry, x: slantX });
+                    route.push({ z: END_ZONE_BACK, x: slantX + towardMiddle * fadeDistance });
                     break;
 
-                case 'out':
-                    // Straight, then out toward sideline, then up to end zone (2 breaks)
+                case 'out_corner':
+                    // Out route, then up into end zone corner, fade along back line
                     const outX = Math.max(-7, Math.min(7, startX + towardSideline * (4 + Math.random() * 2)));
                     route.push({ z: break1Depth, x: startX });
-                    route.push({ z: break2Depth, x: outX });
-                    route.push({ z: END_ZONE_Z, x: outX });
+                    route.push({ z: break1Depth, x: outX });
+                    route.push({ z: endZoneEntry, x: outX });
+                    route.push({ z: END_ZONE_BACK, x: outX + towardSideline * 2 });
                     break;
 
-                case 'in':
-                    // Straight, then cut inside, then to end zone (2 breaks)
-                    const inX = startX + towardMiddle * (4 + Math.random() * 3);
+                case 'in_post':
+                    // In route, then post into end zone, fade across
+                    const inX = startX + towardMiddle * (4 + Math.random() * 2);
                     route.push({ z: break1Depth, x: startX });
-                    route.push({ z: break2Depth, x: inX });
-                    route.push({ z: END_ZONE_Z, x: inX + towardMiddle * 2 });
+                    route.push({ z: break1Depth, x: inX });
+                    route.push({ z: endZoneEntry, x: inX });
+                    route.push({ z: END_ZONE_BACK, x: inX + towardMiddle * fadeDistance });
                     break;
 
-                case 'corner':
-                    // Straight, then break to corner of end zone (1 break)
-                    const cornerX = Math.max(-7, Math.min(7, startX + towardSideline * (5 + Math.random() * 2)));
+                case 'corner_fade':
+                    // Straight, break to corner, enter end zone, fade along back
+                    const cornerX = Math.max(-7, Math.min(7, startX + towardSideline * (4 + Math.random() * 2)));
                     route.push({ z: break1Depth, x: startX });
-                    route.push({ z: END_ZONE_Z, x: cornerX });
+                    route.push({ z: endZoneEntry, x: cornerX });
+                    route.push({ z: END_ZONE_BACK, x: cornerX + towardSideline * 2 });
                     break;
 
-                case 'post':
-                    // Straight, then break to middle of end zone (1 break)
-                    const postX = towardMiddle * (1 + Math.random() * 2);
+                case 'post_corner':
+                    // Post toward middle, enter end zone, cut back toward corner
+                    const postX = towardMiddle * (2 + Math.random() * 2);
                     route.push({ z: break1Depth, x: startX });
-                    route.push({ z: END_ZONE_Z, x: postX });
+                    route.push({ z: endZoneEntry, x: postX });
+                    route.push({ z: END_ZONE_BACK, x: postX + towardSideline * fadeDistance });
                     break;
 
                 case 'double_move':
-                    // Fake out, then go deep (2 breaks)
+                    // Fake one way, cut back, into end zone, fade
                     const fakeDir = Math.random() > 0.5 ? towardSideline : towardMiddle;
                     const fakeX = startX + fakeDir * 2;
-                    route.push({ z: break1Depth, x: fakeX });
-                    route.push({ z: break1Depth + 2, x: startX });  // Cut back
-                    route.push({ z: END_ZONE_Z, x: startX + (Math.random() - 0.5) * 3 });
+                    route.push({ z: break1Depth - 2, x: fakeX });
+                    route.push({ z: break1Depth, x: startX });
+                    route.push({ z: endZoneEntry, x: startX });
+                    route.push({ z: END_ZONE_BACK, x: startX + towardSideline * fadeDistance });
                     break;
 
-                case 'comeback_go':
-                    // Go deep, slight comeback, then sprint to end zone (2 breaks)
-                    route.push({ z: break1Depth + 3, x: startX });
-                    route.push({ z: break1Depth + 1, x: startX + towardMiddle * 1 });  // Comeback
-                    route.push({ z: END_ZONE_Z, x: startX + towardMiddle * 3 });
+                case 'comeback_fade':
+                    // Go deep, slight comeback, sprint into end zone, fade
+                    route.push({ z: break1Depth, x: startX });
+                    route.push({ z: break1Depth - 1, x: startX + towardMiddle * 1 });
+                    route.push({ z: endZoneEntry, x: startX + towardMiddle * 2 });
+                    route.push({ z: END_ZONE_BACK, x: startX + towardMiddle * 2 + towardSideline * fadeDistance });
                     break;
             }
 
@@ -2773,6 +2785,13 @@
             }
             if (scene.firstDownLine) {
                 scene.firstDownLine.position.z = gameState.firstDownMarker;
+            }
+
+            // Move camera to follow the line of scrimmage
+            if (scene.activeCamera) {
+                // Target a few yards ahead of the LOS to show the play developing
+                const cameraTargetZ = gameState.lineOfScrimmage + 4;
+                scene.activeCamera.target = new BABYLON.Vector3(0, 0, cameraTargetZ);
             }
 
             // Update down and distance display
