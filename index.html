@@ -813,16 +813,16 @@
             trajectoryMaterial.emissiveColor = new BABYLON.Color3(0.5, 0.1, 0.1);
             trajectoryMaterial.alpha = 0.7;
 
-            // Offensive line material - gold/bronze colored
+            // Offensive line material - similar to receivers (blue)
             const oLineMaterial = new BABYLON.StandardMaterial('oLineMat', scene);
-            oLineMaterial.diffuseColor = new BABYLON.Color3(0.7, 0.55, 0.25);
-            oLineMaterial.specularColor = new BABYLON.Color3(0.9, 0.7, 0.4);
+            oLineMaterial.diffuseColor = new BABYLON.Color3(0.2, 0.4, 0.8);
+            oLineMaterial.specularColor = new BABYLON.Color3(0.4, 0.6, 1);
             oLineMaterial.specularPower = 32;
 
-            // Defensive line material - dark crimson/maroon
+            // Defensive line material - similar to defenders (dark gray)
             const dLineMaterial = new BABYLON.StandardMaterial('dLineMat', scene);
-            dLineMaterial.diffuseColor = new BABYLON.Color3(0.4, 0.1, 0.15);
-            dLineMaterial.specularColor = new BABYLON.Color3(0.6, 0.2, 0.25);
+            dLineMaterial.diffuseColor = new BABYLON.Color3(0.25, 0.25, 0.28);
+            dLineMaterial.specularColor = new BABYLON.Color3(0.4, 0.4, 0.45);
             dLineMaterial.specularPower = 32;
 
             return { fieldMaterial, qbMaterial, receiverMaterial, defenderMaterial, ballMaterial, lineMaterial, trajectoryMaterial, oLineMaterial, dLineMaterial };
@@ -958,96 +958,63 @@
             return knight;
         };
 
-        // Create Hulking Lineman Figure (bigger, more muscular appearance)
+        // Create Lineman Figure (same as knight/receiver)
         const createLineman = (scene, material, position, isOffense) => {
             const lineman = new BABYLON.TransformNode('lineman', scene);
 
-            // Larger, wider body for linemen
+            // Body (same as knight)
             const body = BABYLON.MeshBuilder.CreateCylinder('body', {
-                height: 0.9,
-                diameterTop: 0.6,
-                diameterBottom: 0.85,
-                tessellation: 8
+                height: 0.8,
+                diameterTop: 0.4,
+                diameterBottom: 0.6,
+                tessellation: 6
             }, scene);
             body.material = material;
-            body.position.y = 0.45;
+            body.position.y = 0.4;
             body.parent = lineman;
 
-            // Shoulder pads (extra bulk)
-            const shoulders = BABYLON.MeshBuilder.CreateBox('shoulders', {
-                width: 1.0,
-                height: 0.25,
-                depth: 0.5
-            }, scene);
-            shoulders.material = material;
-            shoulders.position.y = 0.75;
-            shoulders.parent = lineman;
-
-            // Head (helmet) - slightly smaller relative to body
+            // Head (helmet)
             const head = BABYLON.MeshBuilder.CreateSphere('head', {
-                diameter: 0.38,
+                diameter: 0.35,
                 segments: 8
             }, scene);
             head.material = material;
-            head.position.y = 1.05;
+            head.position.y = 0.95;
             head.parent = lineman;
 
-            // Face guard (gives aggressive look)
-            const faceGuard = BABYLON.MeshBuilder.CreateBox('faceGuard', {
-                width: 0.3,
-                height: 0.15,
-                depth: 0.1
-            }, scene);
-            const guardMat = new BABYLON.StandardMaterial('guardMat', scene);
-            guardMat.diffuseColor = new BABYLON.Color3(0.3, 0.3, 0.3);
-            faceGuard.material = guardMat;
-            faceGuard.position.set(0, 1.0, 0.18);
-            faceGuard.parent = lineman;
-
-            // Helmet stripe (team identity)
-            const stripe = BABYLON.MeshBuilder.CreateBox('stripe', {
-                width: 0.08,
-                height: 0.02,
-                depth: 0.4
-            }, scene);
-            const stripeMat = new BABYLON.StandardMaterial('stripeMat', scene);
-            stripeMat.diffuseColor = isOffense ?
-                new BABYLON.Color3(0.9, 0.8, 0.2) : // Gold for offense
-                new BABYLON.Color3(0.6, 0.1, 0.1);  // Dark red for defense
-            stripeMat.emissiveColor = stripeMat.diffuseColor.scale(0.3);
-            stripe.material = stripeMat;
-            stripe.position.set(0, 1.22, 0);
-            stripe.parent = lineman;
-
-            // Arms (shows bulk)
-            const leftArm = BABYLON.MeshBuilder.CreateCylinder('leftArm', {
-                height: 0.5,
-                diameter: 0.22,
+            // Helmet plume
+            const plume = BABYLON.MeshBuilder.CreateCylinder('plume', {
+                height: 0.25,
+                diameterTop: 0.05,
+                diameterBottom: 0.12,
                 tessellation: 6
             }, scene);
-            leftArm.material = material;
-            leftArm.rotation.z = Math.PI / 4;
-            leftArm.position.set(-0.45, 0.55, 0.1);
-            leftArm.parent = lineman;
+            const plumeMat = new BABYLON.StandardMaterial('plumeMat', scene);
+            plumeMat.diffuseColor = new BABYLON.Color3(0.8, 0.2, 0.2);
+            plume.material = plumeMat;
+            plume.position.y = 1.2;
+            plume.parent = lineman;
 
-            const rightArm = BABYLON.MeshBuilder.CreateCylinder('rightArm', {
-                height: 0.5,
-                diameter: 0.22,
-                tessellation: 6
+            // Shield
+            const shield = BABYLON.MeshBuilder.CreateBox('shield', {
+                width: 0.35,
+                height: 0.45,
+                depth: 0.08
             }, scene);
-            rightArm.material = material;
-            rightArm.rotation.z = -Math.PI / 4;
-            rightArm.position.set(0.45, 0.55, 0.1);
-            rightArm.parent = lineman;
+            const shieldMat = new BABYLON.StandardMaterial('shieldMat', scene);
+            shieldMat.diffuseColor = new BABYLON.Color3(0.5, 0.5, 0.5);
+            shield.material = shieldMat;
+            shield.position.set(-0.3, 0.5, 0.1);
+            shield.parent = lineman;
 
-            // Base shadow (larger)
+            // Base shadow
             const shadow = BABYLON.MeshBuilder.CreateDisc('shadow', {
-                radius: 0.55,
+                radius: 0.4,
                 tessellation: 12
             }, scene);
             const shadowMat = new BABYLON.StandardMaterial('shadowMat', scene);
             shadowMat.diffuseColor = new BABYLON.Color3(0, 0, 0);
-            shadowMat.alpha = 0.35;
+            shadowMat.alpha = 0.3;
             shadow.material = shadowMat;
             shadow.rotation.x = Math.PI / 2;
             shadow.position.y = 0.01;
@@ -1527,10 +1494,6 @@
                 // O-lineman is free to help another
                 oLineman.engagedWith = null;
 
-                // Flash effect
-                flashLineman(dLineman, new BABYLON.Color3(1, 0.2, 0.2), 0.5);
-                flashLineman(oLineman, new BABYLON.Color3(0.2, 1, 0.2), 0.3);
-
             } else if (margin < -LINE_CLASH_CONSTANTS.DEFENSE_WIN_THRESHOLD) {
                 // D-line wins decisively - knock O-lineman aside, speed burst
                 oLineman.knockdownUntil = currentTime + LINE_CLASH_CONSTANTS.KNOCKDOWN_DURATION;
@@ -1545,10 +1508,6 @@
                 const sideDir = Math.random() > 0.5 ? 1 : -1;
                 oLineman.position.x += sideDir * 1.5;
 
-                // Flash effect
-                flashLineman(oLineman, new BABYLON.Color3(1, 0.2, 0.2), 0.5);
-                flashLineman(dLineman, new BABYLON.Color3(0.2, 1, 0.2), 0.3);
-
             } else if (margin > LINE_CLASH_CONSTANTS.OFFENSE_WIN_THRESHOLD / 2) {
                 // O-line winning but not decisive - D-lineman very slow
                 dLineman.currentSpeedMultiplier = LINE_CLASH_CONSTANTS.NEUTRAL_SPEED;
@@ -1561,18 +1520,6 @@
                 // Neutral - D-lineman nearly stopped
                 dLineman.currentSpeedMultiplier = LINE_CLASH_CONSTANTS.NEUTRAL_SPEED;
             }
-        };
-
-        // Flash a lineman's color temporarily
-        const flashLineman = (lineman, color, duration) => {
-            const originalColor = lineman.originalColor.clone();
-            lineman.bodyMaterial.diffuseColor = color;
-            lineman.bodyMaterial.emissiveColor = color.scale(0.3);
-
-            setTimeout(() => {
-                lineman.bodyMaterial.diffuseColor = originalColor;
-                lineman.bodyMaterial.emissiveColor = BABYLON.Color3.Black();
-            }, duration * 1000);
         };
 
         // Reset offensive line to starting positions
@@ -1710,9 +1657,6 @@
             // QB falls down animation
             const qb = scene.qb;
             qb.rotation.x = Math.PI / 3;  // Fall forward
-
-            // Flash tackler
-            flashLineman(tackler, new BABYLON.Color3(1, 0.8, 0.2), 0.8);
 
             // Reset after delay
             setTimeout(() => {
