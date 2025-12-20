@@ -2873,32 +2873,6 @@
                 // Allow camera to follow all the way into end zone (Z = 14)
                 const cameraTargetZ = Math.max(-4, Math.min(14, gameState.lineOfScrimmage + 2));
                 camera.target = new BABYLON.Vector3(0, 0, cameraTargetZ);
-
-                // Dynamically reduce camera radius when approaching end zone
-                // The ArcRotateCamera positions itself ~0.78*radius behind the target (for iso view)
-                // With radius=32, camera is 25 units behind target - too far at end zone
-                // Gradually reduce radius as we get closer to end zone
-                const END_ZONE_START = 12;
-                const los = gameState.lineOfScrimmage;
-
-                // Get base radius for current view
-                let baseRadius;
-                switch(gameState.currentView) {
-                    case 'iso': baseRadius = 32; break;
-                    case 'overhead': baseRadius = 28; break;
-                    case 'shoulder': baseRadius = 18; break;
-                    default: baseRadius = 32;
-                }
-
-                // When past Z=4, start reducing radius. At end zone (Z=12+), use minimum radius
-                if (los > 4) {
-                    const progress = Math.min(1, (los - 4) / (END_ZONE_START - 4)); // 0 to 1
-                    const minRadius = baseRadius * 0.5; // Reduce to 50% at end zone
-                    camera.radius = baseRadius - (baseRadius - minRadius) * progress;
-                } else {
-                    // Reset to base radius when back at start of field (e.g., after touchdown)
-                    camera.radius = baseRadius;
-                }
             }
 
             // Update down and distance display
