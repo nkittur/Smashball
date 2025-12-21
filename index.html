@@ -241,6 +241,23 @@
         <div id="scheduleScreen" class="mgmt-screen" style="display:none;">
             <button id="btnScheduleBack" class="mgmt-btn back-btn">← BACK</button>
             <h2>SCHEDULE</h2>
+            <div id="teamStrength" class="team-strength">
+                <h3>YOUR TEAM</h3>
+                <div class="strength-ratings">
+                    <div class="strength-item">
+                        <div class="label">OVERALL</div>
+                        <div class="value" id="strengthOverall">--</div>
+                    </div>
+                    <div class="strength-item">
+                        <div class="label">OFFENSE</div>
+                        <div class="value" id="strengthOffense">--</div>
+                    </div>
+                    <div class="strength-item">
+                        <div class="label">DEFENSE</div>
+                        <div class="value" id="strengthDefense">--</div>
+                    </div>
+                </div>
+            </div>
             <div id="scheduleList" class="schedule-list"></div>
         </div>
 
@@ -269,6 +286,19 @@
             <p id="matchScore" class="match-score">21 - 14</p>
             <p id="matchRevenue" class="match-revenue"></p>
             <button id="btnMatchContinue" class="mgmt-btn primary">CONTINUE</button>
+        </div>
+
+        <!-- Player Detail Modal -->
+        <div id="playerDetailModal" class="mgmt-modal" style="display:none;">
+            <div class="modal-content">
+                <button id="btnCloseDetail" class="mgmt-btn back-btn">← BACK</button>
+                <h2 id="playerName">Player Name</h2>
+                <div id="playerInfo" class="player-info"></div>
+                <div id="playerStats" class="player-stats"></div>
+                <div class="modal-actions">
+                    <button id="btnCutPlayer" class="mgmt-btn danger">CUT PLAYER</button>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -388,6 +418,106 @@
         .match-revenue { color: #4f4; font-size: 18px; }
         #matchResult.win { color: #4f4; }
         #matchResult.loss { color: #f44; }
+
+        /* Player Detail Modal */
+        .mgmt-modal {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.9);
+            z-index: 1001;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow-y: auto;
+        }
+        .modal-content {
+            background: #0a0a14;
+            padding: 20px;
+            width: 100%;
+            max-width: 400px;
+            max-height: 90vh;
+            overflow-y: auto;
+            position: relative;
+            color: #fff;
+            font-family: 'Courier New', monospace;
+        }
+        .modal-content h2 {
+            color: #ffd700;
+            margin: 40px 0 10px 0;
+            text-align: center;
+        }
+        .player-info {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #aaa;
+        }
+        .player-info .ovr-big {
+            font-size: 48px;
+            color: #4f4;
+            font-weight: bold;
+        }
+        .player-info .season-change {
+            font-size: 18px;
+            margin-left: 10px;
+        }
+        .player-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+        .stat-row {
+            background: #1a1a2a;
+            padding: 8px 12px;
+            border-radius: 4px;
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+        }
+        .stat-row .stat-name { color: #888; }
+        .stat-row .stat-value { color: #fff; }
+        .stat-row .stat-change { margin-left: 6px; font-size: 11px; }
+        .stat-change.positive { color: #4f4; }
+        .stat-change.negative { color: #f44; }
+        .modal-actions {
+            margin-top: 20px;
+            text-align: center;
+        }
+        .mgmt-btn.danger {
+            background: #4a2020;
+            border-color: #f44;
+            color: #f44;
+        }
+        .roster-item { cursor: pointer; }
+        .roster-item:active { background: #2a2a3a; }
+        .roster-item .season-gain {
+            font-size: 12px;
+            margin-left: 8px;
+        }
+        .season-gain.positive { color: #4f4; }
+        .season-gain.negative { color: #f44; }
+
+        /* Team Strength Display */
+        .team-strength {
+            background: #1a1a2a;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            text-align: center;
+        }
+        .team-strength h3 {
+            color: #ffd700;
+            margin: 0 0 10px 0;
+            font-size: 14px;
+        }
+        .strength-ratings {
+            display: flex;
+            justify-content: space-around;
+        }
+        .strength-item {
+            text-align: center;
+        }
+        .strength-item .label { color: #888; font-size: 11px; }
+        .strength-item .value { color: #4f4; font-size: 20px; font-weight: bold; }
     </style>
 
     <script src="https://cdn.babylonjs.com/babylon.js"></script>
@@ -588,7 +718,7 @@
         // Economy constants
         const ECONOMY = {
             STARTING_CREDITS: 10000,
-            SALARY_CAP: 50000,
+            SALARY_CAP: 120000,  // Slightly higher than typical team salary (~115k)
             SALARY_MULTIPLIER: 100,  // salary = sum(stats) * 100
 
             // Revenue
@@ -6198,6 +6328,16 @@
             }
         }
 
+        // Calculate season stat change for a player
+        function calculateSeasonStatChange(player) {
+            if (!player.seasonStartStats) return 0;
+            const currentStats = Object.values(player.stats);
+            const startStats = Object.values(player.seasonStartStats);
+            const currentAvg = currentStats.reduce((a, b) => a + b, 0) / currentStats.length;
+            const startAvg = startStats.reduce((a, b) => a + b, 0) / startStats.length;
+            return Math.round(currentAvg - startAvg);
+        }
+
         // Refresh roster screen
         function refreshRosterScreen() {
             const list = document.getElementById('rosterList');
@@ -6216,6 +6356,11 @@
 
                 players.sort((a, b) => b.overall - a.overall);
                 players.forEach(player => {
+                    const seasonChange = calculateSeasonStatChange(player);
+                    const changeClass = seasonChange > 0 ? 'positive' : seasonChange < 0 ? 'negative' : '';
+                    const changeText = seasonChange !== 0 ?
+                        `<span class="season-gain ${changeClass}">${seasonChange > 0 ? '+' : ''}${seasonChange}</span>` : '';
+
                     const item = document.createElement('div');
                     item.className = 'roster-item';
                     item.innerHTML = `
@@ -6223,11 +6368,94 @@
                             <div class="name">${player.firstName} ${player.lastName}</div>
                             <div class="stats">Age ${player.age} | $${player.salaryCost.toLocaleString()}</div>
                         </div>
-                        <div class="ovr">${player.overall}</div>
+                        <div style="text-align:right;">
+                            <span class="ovr">${player.overall}</span>${changeText}
+                        </div>
                     `;
+                    item.addEventListener('click', () => showPlayerDetail(player.id));
                     list.appendChild(item);
                 });
             });
+        }
+
+        // Show player detail modal
+        function showPlayerDetail(playerId) {
+            const player = managementState.team.roster.find(p => p.id === playerId);
+            if (!player) return;
+
+            managementState.selectedPlayerId = playerId;
+
+            // Set player name
+            document.getElementById('playerName').textContent = `${player.firstName} ${player.lastName}`;
+
+            // Calculate overall change
+            const currentOverall = player.overall;
+            let startOverall = currentOverall;
+            if (player.seasonStartStats) {
+                const positionData = POSITIONS[player.position];
+                const primaryStats = positionData.primaryStats;
+                const startTotal = primaryStats.reduce((sum, stat) => sum + (player.seasonStartStats[stat] || 0), 0);
+                startOverall = Math.round(startTotal / primaryStats.length);
+            }
+            const overallChange = currentOverall - startOverall;
+            const overallChangeClass = overallChange > 0 ? 'positive' : overallChange < 0 ? 'negative' : '';
+            const overallChangeText = overallChange !== 0 ?
+                `<span class="season-change ${overallChangeClass}">${overallChange > 0 ? '+' : ''}${overallChange}</span>` : '';
+
+            // Player info
+            const infoHtml = `
+                <div><span class="ovr-big">${player.overall}</span>${overallChangeText}</div>
+                <div style="margin-top:10px;">
+                    ${POSITIONS[player.position].name} | Age ${player.age} | Peak ${player.peakAge}<br>
+                    Salary: $${player.salaryCost.toLocaleString()} | Potential: ${'★'.repeat(player.potentialGrade + 1)}
+                </div>
+            `;
+            document.getElementById('playerInfo').innerHTML = infoHtml;
+
+            // All stats with changes
+            const allStats = [
+                'speed', 'acceleration', 'agility', 'strength', 'stamina', 'balance',
+                'catching', 'throwing', 'routeRunning', 'release', 'jumping', 'focus',
+                'manCoverage', 'zoneCoverage', 'press', 'tackling', 'hitPower', 'pursuit', 'awareness',
+                'passBlock', 'passRush', 'aggression'
+            ];
+
+            const statsHtml = allStats.map(stat => {
+                const current = player.stats[stat] || 0;
+                const start = player.seasonStartStats ? (player.seasonStartStats[stat] || 0) : current;
+                const change = current - start;
+                const changeClass = change > 0 ? 'positive' : change < 0 ? 'negative' : '';
+                const changeText = change !== 0 ?
+                    `<span class="stat-change ${changeClass}">${change > 0 ? '+' : ''}${change}</span>` : '';
+
+                // Format stat name
+                const statName = stat.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase());
+
+                return `<div class="stat-row">
+                    <span class="stat-name">${statName}</span>
+                    <span><span class="stat-value">${current}</span>${changeText}</span>
+                </div>`;
+            }).join('');
+            document.getElementById('playerStats').innerHTML = statsHtml;
+
+            // Show modal
+            document.getElementById('playerDetailModal').style.display = 'flex';
+        }
+
+        // Close player detail modal
+        function closePlayerDetail() {
+            document.getElementById('playerDetailModal').style.display = 'none';
+            managementState.selectedPlayerId = null;
+        }
+
+        // Cut player from detail view
+        function cutPlayerFromDetail() {
+            if (!managementState.selectedPlayerId) return;
+            const result = cutPlayer(managementState.selectedPlayerId);
+            if (result.success) {
+                closePlayerDetail();
+                refreshRosterScreen();
+            }
         }
 
         // Refresh free agency screen
@@ -6275,11 +6503,29 @@
             }
         }
 
+        // Calculate team overall rating
+        function calculateTeamOverallRating() {
+            if (!managementState.team) return 0;
+            const roster = managementState.team.roster;
+            if (roster.length === 0) return 0;
+            const total = roster.reduce((sum, p) => sum + p.overall, 0);
+            return Math.round(total / roster.length);
+        }
+
         // Refresh schedule screen
         function refreshScheduleScreen() {
             const list = document.getElementById('scheduleList');
             list.innerHTML = '';
             if (!managementState.season) return;
+
+            // Update team strength display
+            const teamOverall = calculateTeamOverallRating();
+            const teamOffense = Math.round(calculateTeamOffenseRating());
+            const teamDefense = Math.round(calculateTeamDefenseRating());
+
+            document.getElementById('strengthOverall').textContent = teamOverall;
+            document.getElementById('strengthOffense').textContent = teamOffense;
+            document.getElementById('strengthDefense').textContent = teamDefense;
 
             managementState.season.schedule.forEach((game, index) => {
                 const weekNum = index + 1;
@@ -6299,8 +6545,14 @@
                     resultClass = '';
                 }
 
+                // Show opponent strength
+                const oppOverall = Math.round((game.opponent.offenseRating + game.opponent.defenseRating) / 2);
+
                 item.innerHTML = `
-                    <div>Wk ${weekNum}: ${game.isHome ? 'vs' : '@'} ${game.opponent.name}</div>
+                    <div>
+                        <div>Wk ${weekNum}: ${game.isHome ? 'vs' : '@'} ${game.opponent.name}</div>
+                        <div style="font-size:11px;color:#888;">OVR ${oppOverall} | OFF ${game.opponent.offenseRating} | DEF ${game.opponent.defenseRating}</div>
+                    </div>
                     <div class="result ${resultClass}">${resultText}</div>
                 `;
                 list.appendChild(item);
@@ -6397,6 +6649,10 @@
             upgradeFacility('trainingCenter');
             refreshFacilitiesScreen();
         });
+
+        // Player detail modal handlers
+        document.getElementById('btnCloseDetail').addEventListener('click', closePlayerDetail);
+        document.getElementById('btnCutPlayer').addEventListener('click', cutPlayerFromDetail);
 
         // Show initial screen
         showScreen(managementState.currentScreen);
