@@ -5930,6 +5930,10 @@
             // Handle HTML elements visibility
             const topBar = document.getElementById('topBar');
             const viewButtons = document.getElementById('viewButtons');
+            const canvas = document.getElementById('renderCanvas');
+
+            // Get camera from scene
+            const camera = gameState.scene?.activeCamera;
 
             if (screenName === 'game') {
                 // Game mode - hide management UI, show game UI
@@ -5938,11 +5942,19 @@
                 managementUI.containers.matchHUD.isVisible = true;
                 managementUI.containers.matchHUD._refresh();
                 gameSceneActive = true;
+                // Re-attach camera controls for gameplay
+                if (camera && canvas) {
+                    camera.attachControl(canvas, true);
+                }
             } else {
                 // Management mode - show management UI, hide game UI
                 topBar.style.display = 'none';
                 viewButtons.style.display = 'none';
                 gameSceneActive = false;
+                // Detach camera controls so GUI can receive touch events
+                if (camera) {
+                    camera.detachControl();
+                }
 
                 switch (screenName) {
                     case 'main_menu':
@@ -6034,6 +6046,11 @@
         // Initialize management UI and system
         createManagementUI();
         initializeManagement();
+
+        // Detach camera for management screens on startup
+        if (managementState.currentScreen !== 'game') {
+            scene.activeCamera.detachControl();
+        }
 
         // Show initial screen (main menu or hub)
         showScreen(managementState.currentScreen);
