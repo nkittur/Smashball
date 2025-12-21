@@ -231,6 +231,9 @@
             startingLineOfScrimmage: -4  // Where drive started (for reset on turnover)
         };
 
+        // Management mode flag - when false, game input is disabled
+        let gameSceneActive = false;
+
         // Clash system constants
         const CLASH_CONSTANTS = {
             CLASH_RANGE: 2.5,           // Distance for clash detection
@@ -4242,6 +4245,8 @@
             };
 
             const onPointerDown = (evt) => {
+                // Skip game input when in management mode
+                if (!gameSceneActive) return;
                 // Only capture left-click (button 0) or single touch for throwing
                 // Let right-click (button 2) and multi-touch pass through to camera
                 if (evt.button !== 0 && evt.pointerType === 'mouse') return;
@@ -4256,6 +4261,8 @@
             };
 
             const onPointerMove = (evt) => {
+                // Skip game input when in management mode
+                if (!gameSceneActive) return;
                 // Only track the pointer that started the drag
                 if (!gameState.isDragging || evt.pointerId !== gameState.activePointerId) return;
 
@@ -4265,6 +4272,8 @@
             };
 
             const onPointerUp = (evt) => {
+                // Skip game input when in management mode
+                if (!gameSceneActive) return;
                 // Only respond to the pointer that started the drag
                 if (!gameState.isDragging || evt.pointerId !== gameState.activePointerId) return;
 
@@ -4837,7 +4846,6 @@
 
         // UI state
         let managementUI = null;
-        let gameSceneActive = false;
 
         // Create Management UI
         function createManagementUI() {
