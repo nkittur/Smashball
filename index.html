@@ -2625,8 +2625,8 @@
             field.material = materials.fieldMaterial;
             field.position.z = 2.5;
 
-            // Yard lines
-            for (let i = -8; i <= 12; i += 4) {
+            // Yard lines - only 10-yard markers (every 5 units)
+            for (let i = 0; i <= 10; i += 5) {
                 const line = BABYLON.MeshBuilder.CreateBox('yardLine', {
                     width: FIELD_WIDTH,
                     height: 0.02,
@@ -3668,7 +3668,7 @@
 
         // Advance the ball to a new position and handle down logic
         const advanceBall = (newPositionZ) => {
-            const END_ZONE_Z = 12;  // Touchdown threshold
+            const END_ZONE_Z = 11;  // Touchdown threshold (matches visual end zone start)
             const oldLOS = gameState.lineOfScrimmage;
             const yardsGained = newPositionZ - oldLOS;
 
@@ -3874,11 +3874,11 @@
             // Receivers line up at the line of scrimmage
             const receiverLineZ = gameState.lineOfScrimmage;
 
-            // Assign spread positions: left slot, right slot, flex position
+            // Assign spread positions: wide left, wide right, slot - use full field width
             const positions = [
-                -(5 + Math.random() * 2),   // Left side: -5 to -7 (near sideline)
-                (5 + Math.random() * 2),    // Right side: 5 to 7 (near sideline)
-                (Math.random() - 0.5) * 4   // Middle/flex: -2 to 2
+                -(6 + Math.random() * 1.5),   // Wide left: -6 to -7.5 (near sideline)
+                (6 + Math.random() * 1.5),    // Wide right: 6 to 7.5 (near sideline)
+                (Math.random() - 0.5) * 3     // Slot: -1.5 to 1.5 (middle)
             ];
             // Shuffle positions for variety
             for (let i = positions.length - 1; i > 0; i--) {
@@ -3886,8 +3886,8 @@
                 [positions[i], positions[j]] = [positions[j], positions[i]];
             }
 
-            // Randomly pick 1-2 receivers to run crossing routes
-            const numCrossing = 1 + Math.floor(Math.random() * 2);  // 1 or 2
+            // Rarely pick 0-1 receivers to run crossing routes (less overlap)
+            const numCrossing = Math.random() < 0.3 ? 1 : 0;  // 30% chance of 1 crossing route
             const crossingIndices = [];
             while (crossingIndices.length < numCrossing && crossingIndices.length < gameState.receivers.length) {
                 const idx = Math.floor(Math.random() * gameState.receivers.length);
@@ -3952,11 +3952,15 @@
         const generateRandomRoute = (receiver, forceCrossing = false) => {
             const startX = receiver.startPos.x;
             const startZ = receiver.startPos.z;
-            const END_ZONE_Z = 12;  // End zone starts here
+            const END_ZONE_Z = 11;  // End zone starts here (matches visual)
             const END_ZONE_BACK = 15;  // Back of end zone (30% deeper)
 
-            // Route types - all routes go into end zone then cut sideways
-            const routes = ['go_fade', 'slant_across', 'out_corner', 'in_post', 'corner_fade', 'post_corner', 'double_move', 'comeback_fade'];
+            // Route types - favor routes that stay on receiver's side of field
+            // Weight toward sideline routes (go_fade, out_corner, corner_fade) to reduce crossing
+            const sidelineRoutes = ['go_fade', 'out_corner', 'corner_fade', 'double_move'];
+            const middleRoutes = ['slant_across', 'in_post', 'post_corner', 'comeback_fade'];
+            // 70% sideline routes, 30% middle routes
+            const routes = Math.random() < 0.7 ? sidelineRoutes : middleRoutes;
             const routeType = forceCrossing ? 'crossing' : routes[Math.floor(Math.random() * routes.length)];
 
             const route = [];
