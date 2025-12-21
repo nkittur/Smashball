@@ -4838,13 +4838,10 @@
         function createManagementUI() {
             const advancedTexture = BABYLON.GUI.AdvancedDynamicTexture.CreateFullscreenUI("ManagementUI");
 
-            // Use responsive scaling - scale based on screen size
-            // Lower ideal width means larger UI elements on small screens
-            const isMobile = window.innerWidth < 768;
-            advancedTexture.idealWidth = isMobile ? 800 : 1400;
-            advancedTexture.idealHeight = isMobile ? 600 : 900;
-            advancedTexture.useSmallestIdeal = true;  // Scale based on smallest dimension
-            advancedTexture.renderAtIdealSize = false;
+            // Render at ideal size for sharp text, then scale
+            advancedTexture.renderAtIdealSize = true;
+            advancedTexture.idealWidth = 600;
+            advancedTexture.idealHeight = 800;
 
             const ui = {
                 advancedTexture,
@@ -4871,13 +4868,13 @@
         }
 
         // Helper: Create styled button
-        function createStyledButton(text, width = "200px", height = "55px") {
+        function createStyledButton(text, width = "200px", height = "50px") {
             const button = BABYLON.GUI.Button.CreateSimpleButton("btn_" + text, text);
             button.width = width;
             button.height = height;
             button.color = "#ffd700";
-            button.background = "rgba(40, 40, 60, 0.95)";
-            button.cornerRadius = 10;
+            button.background = "#2a2a40";
+            button.cornerRadius = 8;
             button.thickness = 2;
             button.fontFamily = "Courier New";
             button.fontSize = 18;
@@ -4935,37 +4932,49 @@
             const container = new BABYLON.GUI.Rectangle();
             container.width = "100%";
             container.height = "100%";
-            container.background = "rgba(10, 10, 20, 0.98)";
+            container.background = "#0a0a14";
             container.thickness = 0;
             advancedTexture.addControl(container);
 
-            // Title - larger for mobile visibility
-            const title = createText("SMASHBALL", 72, "#ffd700");
-            title.top = "-25%";
+            // Title
+            const title = createText("SMASHBALL", 48, "#ffd700");
+            title.top = "-180px";
             title.fontWeight = "bold";
-            title.textWrapping = true;
             container.addControl(title);
 
-            const subtitle = createText("Medieval Football Management", 28, "#888");
-            subtitle.top = "-15%";
+            const subtitle = createText("Medieval Football", 20, "#888");
+            subtitle.top = "-130px";
             container.addControl(subtitle);
 
-            // Buttons - larger and percentage positioned
-            const newGameBtn = createStyledButton("NEW GAME", "60%", "70px");
-            newGameBtn.maxWidth = "350px";
-            newGameBtn.top = "5%";
-            newGameBtn.fontSize = 20;
-            newGameBtn.onPointerClickObservable.add(() => {
+            // New Game Button
+            const newGameBtn = BABYLON.GUI.Button.CreateSimpleButton("newGameBtn", "NEW GAME");
+            newGameBtn.width = "280px";
+            newGameBtn.height = "60px";
+            newGameBtn.top = "-20px";
+            newGameBtn.color = "#ffd700";
+            newGameBtn.background = "#2a2a40";
+            newGameBtn.cornerRadius = 8;
+            newGameBtn.thickness = 2;
+            newGameBtn.fontSize = 22;
+            newGameBtn.fontFamily = "Courier New";
+            newGameBtn.onPointerUpObservable.add(() => {
                 startNewGame();
                 showScreen('hub');
             });
             container.addControl(newGameBtn);
 
-            const continueBtn = createStyledButton("CONTINUE", "60%", "70px");
-            continueBtn.maxWidth = "350px";
-            continueBtn.top = "18%";
-            continueBtn.fontSize = 20;
-            continueBtn.onPointerClickObservable.add(() => {
+            // Continue Button
+            const continueBtn = BABYLON.GUI.Button.CreateSimpleButton("continueBtn", "CONTINUE");
+            continueBtn.width = "280px";
+            continueBtn.height = "60px";
+            continueBtn.top = "60px";
+            continueBtn.color = "#ffd700";
+            continueBtn.background = "#2a2a40";
+            continueBtn.cornerRadius = 8;
+            continueBtn.thickness = 2;
+            continueBtn.fontSize = 22;
+            continueBtn.fontFamily = "Courier New";
+            continueBtn.onPointerUpObservable.add(() => {
                 if (managementState.initialized) {
                     showScreen('hub');
                 }
@@ -4973,8 +4982,8 @@
             container.addControl(continueBtn);
 
             // Version text
-            const version = createText("v1.0 - Management Edition", 16, "#555");
-            version.top = "40%";
+            const version = createText("v1.0", 14, "#444");
+            version.top = "180px";
             container.addControl(version);
 
             container._updateContinueButton = () => {
@@ -4993,92 +5002,87 @@
             const container = new BABYLON.GUI.Rectangle();
             container.width = "100%";
             container.height = "100%";
-            container.background = "rgba(10, 10, 20, 0.95)";
+            container.background = "#0a0a14";
             container.thickness = 0;
             advancedTexture.addControl(container);
 
             // Top status bar
             const statusBar = new BABYLON.GUI.Rectangle();
             statusBar.width = "100%";
-            statusBar.height = "60px";
-            statusBar.background = "rgba(0, 0, 0, 0.8)";
+            statusBar.height = "50px";
+            statusBar.background = "#000";
             statusBar.thickness = 0;
             statusBar.verticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_TOP;
             container.addControl(statusBar);
 
-            const statusText = createText("", 18, "#ffd700");
-            statusText.textHorizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
-            statusText.paddingLeft = "20px";
+            const statusText = createText("", 14, "#ffd700");
             statusBar.addControl(statusText);
 
             // Title
-            const title = createText("TEAM HUB", 32, "#ffd700");
-            title.top = "-250px";
+            const title = createText("TEAM HUB", 28, "#ffd700");
+            title.top = "-280px";
             container.addControl(title);
 
-            // Button grid
-            const grid = new BABYLON.GUI.Grid();
-            grid.width = "700px";
-            grid.height = "300px";
-            grid.top = "30px";
-            grid.addColumnDefinition(0.33);
-            grid.addColumnDefinition(0.33);
-            grid.addColumnDefinition(0.33);
-            grid.addRowDefinition(0.5);
-            grid.addRowDefinition(0.5);
-            container.addControl(grid);
+            // Button stack - mobile optimized
+            const buttonStack = new BABYLON.GUI.StackPanel();
+            buttonStack.width = "100%";
+            buttonStack.top = "-60px";
+            container.addControl(buttonStack);
 
             // Create menu buttons
             const menuButtons = [
-                { text: "ROSTER", screen: "roster", row: 0, col: 0 },
-                { text: "FREE AGENCY", screen: "free_agency", row: 0, col: 1 },
-                { text: "FACILITIES", screen: "facilities", row: 0, col: 2 },
-                { text: "SCHEDULE", screen: "schedule", row: 1, col: 0 },
-                { text: "PLAY GAME", screen: "play_game", row: 1, col: 1 },
-                { text: "STATS", screen: "stats", row: 1, col: 2 }
+                { text: "PLAY GAME", screen: "play_game" },
+                { text: "ROSTER", screen: "roster" },
+                { text: "FREE AGENCY", screen: "free_agency" },
+                { text: "SCHEDULE", screen: "schedule" },
+                { text: "FACILITIES", screen: "facilities" }
             ];
 
             menuButtons.forEach(mb => {
-                const btn = createStyledButton(mb.text, "200px", "80px");
-                btn.fontSize = 14;
-                btn.onPointerClickObservable.add(() => {
+                const btn = BABYLON.GUI.Button.CreateSimpleButton("hub_" + mb.screen, mb.text);
+                btn.width = "280px";
+                btn.height = "45px";
+                btn.color = "#ffd700";
+                btn.background = "#2a2a40";
+                btn.cornerRadius = 6;
+                btn.thickness = 1;
+                btn.fontSize = 16;
+                btn.fontFamily = "Courier New";
+                btn.paddingBottom = "8px";
+                btn.onPointerUpObservable.add(() => {
                     if (mb.screen === "play_game") {
                         const result = startMatch();
                         if (result.success) {
                             startArcadeGame();
                         }
-                    } else if (mb.screen === "stats") {
-                        // TODO: Stats screen
                     } else {
                         showScreen(mb.screen);
                     }
                 });
-                grid.addControl(btn, mb.row, mb.col);
+                buttonStack.addControl(btn);
             });
 
             // Next game info
-            const nextGameInfo = createText("", 16, "#aaa");
-            nextGameInfo.top = "220px";
+            const nextGameInfo = createText("", 14, "#aaa");
+            nextGameInfo.top = "200px";
             container.addControl(nextGameInfo);
 
             // Record display
-            const recordText = createText("", 20, "#fff");
+            const recordText = createText("", 18, "#fff");
             recordText.top = "260px";
             container.addControl(recordText);
 
             container._updateStatus = () => {
                 if (!managementState.team) return;
 
-                const salary = calculateTeamSalary(managementState.team);
-                const cap = managementState.team.salaryCap + managementState.team.salaryCapModifier;
-                statusText.text = `Credits: ${managementState.team.credits.toLocaleString()}  |  Salary: ${salary.toLocaleString()} / ${cap.toLocaleString()}  |  Week ${managementState.season?.week || 1}`;
+                statusText.text = `$${managementState.team.credits.toLocaleString()}  |  Week ${managementState.season?.week || 1}`;
 
                 recordText.text = `Record: ${managementState.team.record.wins} - ${managementState.team.record.losses}`;
 
                 // Next game info
                 if (managementState.season && managementState.season.week <= SEASON.WEEKS) {
                     const game = managementState.season.schedule[managementState.season.week - 1];
-                    nextGameInfo.text = `Next: vs ${game.opponent.name} (${game.isHome ? 'HOME' : 'AWAY'})`;
+                    nextGameInfo.text = `vs ${game.opponent.name}`;
                 } else {
                     nextGameInfo.text = "Season Complete!";
                 }
@@ -5106,7 +5110,7 @@
             backBtn.left = "20px";
             backBtn.top = "20px";
             backBtn.fontSize = 14;
-            backBtn.onPointerClickObservable.add(() => showScreen('hub'));
+            backBtn.onPointerUpObservable.add(() => showScreen('hub'));
             container.addControl(backBtn);
 
             // Title
@@ -5175,7 +5179,7 @@
             row.color = "#333";
 
             // Make clickable
-            row.onPointerClickObservable.add(() => {
+            row.onPointerUpObservable.add(() => {
                 managementState.selectedPlayerId = player.id;
                 showScreen('player_detail');
             });
@@ -5233,7 +5237,7 @@
             backBtn.left = "20px";
             backBtn.top = "20px";
             backBtn.fontSize = 14;
-            backBtn.onPointerClickObservable.add(() => showScreen('roster'));
+            backBtn.onPointerUpObservable.add(() => showScreen('roster'));
             container.addControl(backBtn);
 
             // Player name (dynamic)
@@ -5272,7 +5276,7 @@
 
             const setStarterBtn = createStyledButton("SET AS STARTER", "200px", "50px");
             setStarterBtn.fontSize = 12;
-            setStarterBtn.onPointerClickObservable.add(() => {
+            setStarterBtn.onPointerUpObservable.add(() => {
                 if (!managementState.selectedPlayerId) return;
                 const player = managementState.team.roster.find(p => p.id === managementState.selectedPlayerId);
                 if (!player) return;
@@ -5299,7 +5303,7 @@
             const cutBtn = createStyledButton("CUT PLAYER", "200px", "50px");
             cutBtn.fontSize = 12;
             cutBtn.color = "#f44";
-            cutBtn.onPointerClickObservable.add(() => {
+            cutBtn.onPointerUpObservable.add(() => {
                 if (!managementState.selectedPlayerId) return;
                 const result = cutPlayer(managementState.selectedPlayerId);
                 if (result.success) {
@@ -5405,7 +5409,7 @@
             backBtn.left = "20px";
             backBtn.top = "20px";
             backBtn.fontSize = 14;
-            backBtn.onPointerClickObservable.add(() => showScreen('hub'));
+            backBtn.onPointerUpObservable.add(() => showScreen('hub'));
             container.addControl(backBtn);
 
             // Title
@@ -5508,7 +5512,7 @@
             signBtn.isEnabled = canAfford && underCap;
             signBtn.alpha = signBtn.isEnabled ? 1 : 0.5;
 
-            signBtn.onPointerClickObservable.add(() => {
+            signBtn.onPointerUpObservable.add(() => {
                 const result = signFreeAgent(player.id);
                 if (result.success) {
                     refreshCallback();
@@ -5538,7 +5542,7 @@
             backBtn.left = "20px";
             backBtn.top = "20px";
             backBtn.fontSize = 14;
-            backBtn.onPointerClickObservable.add(() => showScreen('hub'));
+            backBtn.onPointerUpObservable.add(() => showScreen('hub'));
             container.addControl(backBtn);
 
             // Title
@@ -5587,7 +5591,7 @@
             const bribeBtn = createStyledButton("BRIBE", "150px", "40px");
             bribeBtn.top = "30px";
             bribeBtn.color = "#f88";
-            bribeBtn.onPointerClickObservable.add(() => {
+            bribeBtn.onPointerUpObservable.add(() => {
                 const result = bribeOfficials();
                 if (result.success) {
                     container._refresh();
@@ -5661,9 +5665,9 @@
             panel._upgradeBtn.alpha = panel._upgradeBtn.isEnabled ? 1 : 0.5;
 
             // Remove old observable and add new one
-            panel._upgradeBtn.onPointerClickObservable.clear();
+            panel._upgradeBtn.onPointerUpObservable.clear();
             if (!isMaxed) {
-                panel._upgradeBtn.onPointerClickObservable.add(() => {
+                panel._upgradeBtn.onPointerUpObservable.add(() => {
                     const result = upgradeFacility(type);
                     if (result.success) {
                         // Refresh the facilities screen
@@ -5694,7 +5698,7 @@
             backBtn.left = "20px";
             backBtn.top = "20px";
             backBtn.fontSize = 14;
-            backBtn.onPointerClickObservable.add(() => showScreen('hub'));
+            backBtn.onPointerUpObservable.add(() => showScreen('hub'));
             container.addControl(backBtn);
 
             // Title
@@ -5872,7 +5876,7 @@
             // Continue button
             const continueBtn = createStyledButton("CONTINUE", "200px", "60px");
             continueBtn.top = "180px";
-            continueBtn.onPointerClickObservable.add(() => {
+            continueBtn.onPointerUpObservable.add(() => {
                 showScreen('hub');
             });
             container.addControl(continueBtn);
