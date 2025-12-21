@@ -2075,7 +2075,10 @@
 
             // Create Receivers with routes - all start at same yardline, close to QB
             const RECEIVER_START_Z = QB_START_Z + 2;  // Close to QB, same line
-            const receiverConfigs = [
+
+            // Try to get roster configs, fall back to defaults
+            const rosterReceiverConfigs = getReceiverConfigsFromRoster();
+            const receiverConfigs = rosterReceiverConfigs || [
                 {
                     name: "Sir Aldric",
                     start: new BABYLON.Vector3(-5, 0, RECEIVER_START_Z),
@@ -2119,8 +2122,9 @@
                 }
             ];
 
-            // Defender configurations
-            const defenderConfigs = [
+            // Defender configurations - try roster first
+            const rosterDefenderConfigs = getDefenderConfigsFromRoster();
+            const defenderConfigs = rosterDefenderConfigs || [
                 {
                     name: "The Black Knight",
                     aiType: 'man',
@@ -2381,9 +2385,10 @@
                 gameState.defenders.push(defender);
             });
 
-            // Offensive Line configurations (5 players)
+            // Offensive Line configurations (5 players) - try roster first
             const LINE_OF_SCRIMMAGE_Z = RECEIVER_START_Z;  // Same as receivers start
-            const oLineConfigs = [
+            const rosterOLineConfigs = getOLineConfigsFromRoster();
+            const defaultOLineConfigs = [
                 {
                     name: "Sir Bulwark",
                     position: 'C',
@@ -2415,6 +2420,13 @@
                     stats: { passBlock: 83, strength: 80, balance: 80, awareness: 76, speed: 60, acceleration: 65 }
                 }
             ];
+            // Merge roster configs with default positions/startX
+            const oLineConfigs = rosterOLineConfigs ? rosterOLineConfigs.map((rc, i) => ({
+                ...defaultOLineConfigs[i],
+                name: rc.name,
+                playerId: rc.playerId,
+                stats: rc.stats
+            })) : defaultOLineConfigs;
 
             // Create Offensive Line
             oLineConfigs.forEach((config, i) => {
@@ -2440,8 +2452,9 @@
                 gameState.offensiveLine.push(oLineman);
             });
 
-            // Defensive Line configurations (4 players)
-            const dLineConfigs = [
+            // Defensive Line configurations (4 players) - try roster first
+            const rosterDLineConfigs = getDLineConfigsFromRoster();
+            const defaultDLineConfigs = [
                 {
                     name: "Siege Breaker",
                     position: 'LDE',
@@ -2467,6 +2480,13 @@
                     stats: { passRush: 85, strength: 78, acceleration: 82, speed: 75, awareness: 78, tackling: 78 }
                 }
             ];
+            // Merge roster configs with default positions/startX
+            const dLineConfigs = rosterDLineConfigs ? rosterDLineConfigs.map((rc, i) => ({
+                ...defaultDLineConfigs[i],
+                name: rc.name,
+                playerId: rc.playerId,
+                stats: rc.stats
+            })) : defaultDLineConfigs;
 
             // Create Defensive Line
             dLineConfigs.forEach((config, i) => {
