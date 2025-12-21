@@ -1749,47 +1749,74 @@
             return { points: 0, type: 'STOP', narrative };
         }
 
-        // Generate narrative text for enemy drive
+        // Generate narrative plays for enemy drive (returns array for progressive display)
         function generateDriveNarrative(opponent, roll, tdChance, fgChance) {
             // Get random player names from your roster for defensive mentions
             const defenders = (managementState.team?.roster || []).filter(p =>
                 ['CB', 'S', 'LB', 'DL'].includes(p.position)
             );
-            const defenderName = defenders.length > 0
-                ? defenders[Math.floor(Math.random() * defenders.length)].name
-                : 'the defense';
+            const getDefenderName = () => {
+                if (defenders.length === 0) return 'the defense';
+                const d = defenders[Math.floor(Math.random() * defenders.length)];
+                return `${d.firstName} ${d.lastName.charAt(0)}.`;
+            };
 
             // Opponent player names (fictional based on team)
-            const oppQB = `${opponent.name.split(' ')[0]} QB`;
-            const oppWR = `${opponent.name.split(' ')[0]} receiver`;
+            const teamShort = opponent.name.split(' ')[0];
+            const oppQB = `${teamShort} QB`;
+            const oppWR = `${teamShort} receiver`;
+            const oppRB = `${teamShort} runner`;
 
             if (roll < tdChance) {
-                // TD scenarios
-                const tdPlays = [
-                    `${oppQB} connects on a deep bomb to ${oppWR} for a 45-yard TD!`,
-                    `${opponent.name} march down the field. ${oppQB} finds the end zone on a 12-yard strike.`,
-                    `Quick slant turns into a 65-yard TD after ${oppWR} breaks a tackle.`,
-                    `${opponent.name} score on a methodical 8-play drive. ${oppQB} with the 5-yard TD pass.`
+                // TD drive - 4-5 plays
+                const plays = [
+                    `1st & 10: ${oppQB} hits ${oppWR} for 12 yards.`,
+                    `1st & 10: ${oppRB} bursts through for 8 yards.`,
+                    `2nd & 2: Play action! ${oppWR} gets behind ${getDefenderName()} for 25 yards!`,
+                    `1st & Goal: ${oppQB} rolls out...`,
+                    `TOUCHDOWN ${opponent.name}! ${oppQB} finds ${oppWR} in the corner of the end zone.`
                 ];
-                return tdPlays[Math.floor(Math.random() * tdPlays.length)];
+                return plays;
             } else if (roll < tdChance + fgChance) {
-                // FG scenarios
-                const fgPlays = [
-                    `${opponent.name} stall in the red zone. ${defenderName} with key coverage. FG is good from 32 yards.`,
-                    `Drive bogs down at the 25. ${opponent.name} settle for a 42-yard FG.`,
-                    `Good defensive stand! ${defenderName} forces an incompletion. ${opponent.name} kick the FG.`
+                // FG drive - 4-5 plays
+                const plays = [
+                    `1st & 10: ${oppQB} throws short to ${oppWR} for 7 yards.`,
+                    `2nd & 3: ${oppRB} runs for 4 yards. First down.`,
+                    `1st & 10: ${getDefenderName()} with tight coverage! Incomplete.`,
+                    `2nd & 10: ${oppQB} scrambles for 5 yards.`,
+                    `3rd & 5: Pass broken up by ${getDefenderName()}! Field goal unit comes on.`,
+                    `Field goal is GOOD from 38 yards.`
                 ];
-                return fgPlays[Math.floor(Math.random() * fgPlays.length)];
+                return plays;
             } else {
-                // Defensive stop scenarios
-                const stopPlays = [
-                    `${defenderName} with a huge interception! Drive ends with no points.`,
-                    `4th down stop! ${defenderName} breaks up the pass in the end zone.`,
-                    `Sack on 3rd down! ${opponent.name} forced to punt.`,
-                    `${defenderName} forces a fumble! Turnover on downs.`,
-                    `Great coverage all drive. ${opponent.name} can't move the ball. Punt.`
-                ];
-                return stopPlays[Math.floor(Math.random() * stopPlays.length)];
+                // Defensive stop - 3-4 plays
+                const stopType = Math.floor(Math.random() * 4);
+                if (stopType === 0) {
+                    return [
+                        `1st & 10: ${oppQB} drops back...`,
+                        `${getDefenderName()} jumps the route!`,
+                        `INTERCEPTION! ${getDefenderName()} returns it 15 yards!`
+                    ];
+                } else if (stopType === 1) {
+                    return [
+                        `1st & 10: ${oppRB} stuffed at the line by ${getDefenderName()}.`,
+                        `2nd & 11: ${oppQB} sacked! ${getDefenderName()} with the pressure!`,
+                        `3rd & 18: Incomplete. ${opponent.name} forced to punt.`
+                    ];
+                } else if (stopType === 2) {
+                    return [
+                        `1st & 10: Short pass to ${oppWR} for 3 yards.`,
+                        `2nd & 7: ${oppRB} runs for 2 yards.`,
+                        `3rd & 5: ${getDefenderName()} with the pass breakup!`,
+                        `4th & 5: ${opponent.name} goes for it... Incomplete! Turnover on downs!`
+                    ];
+                } else {
+                    return [
+                        `1st & 10: ${oppQB} under pressure, throws it away.`,
+                        `2nd & 10: ${getDefenderName()} forces a fumble!`,
+                        `TURNOVER! Your ball!`
+                    ];
+                }
             }
         }
 
@@ -7046,9 +7073,12 @@
             }
         }
 
-        // Show enemy drive result overlay between possessions
+        // Show enemy drive result overlay between possessions with progressive play-by-play
         function showEnemyDriveResult(result) {
             const game = managementState.season.schedule[managementState.season.week - 1];
+            const plays = result.enemyResult.narrative; // Array of play descriptions
+            const totalDuration = 3500; // 3.5 seconds total
+            const delayPerPlay = Math.floor(totalDuration / plays.length);
 
             // Create overlay
             const overlay = document.createElement('div');
@@ -7069,39 +7099,73 @@
                 : 'No score!';
 
             overlay.innerHTML = `
-                <div style="background: #1a1a2e; border: 2px solid #333; border-radius: 12px; padding: 30px; max-width: 500px; text-align: center;">
-                    <h2 style="color: #888; margin: 0 0 10px; font-size: 14px; text-transform: uppercase;">
+                <div style="background: #1a1a2e; border: 2px solid #333; border-radius: 12px; padding: 30px; max-width: 550px; text-align: center; min-height: 280px;">
+                    <h2 style="color: #888; margin: 0 0 15px; font-size: 14px; text-transform: uppercase;">
                         ${game.opponent.name} Possession
                     </h2>
-                    <p style="color: #ccc; margin: 0 0 20px; font-size: 16px; line-height: 1.5;">
-                        ${result.enemyResult.narrative}
-                    </p>
-                    <div style="color: ${pointsColor}; font-size: 24px; font-weight: bold; margin-bottom: 20px;">
-                        ${pointsText}
+                    <div id="playByPlay" style="color: #ccc; margin: 0 0 15px; font-size: 15px; line-height: 1.6; min-height: 120px; text-align: left; padding: 0 10px;">
                     </div>
-                    <div style="color: #aaa; margin-bottom: 20px;">
-                        <span style="color: #4af;">You: ${result.score.player}</span>
-                        &nbsp;-&nbsp;
-                        <span style="color: #f44;">${game.opponent.name}: ${result.score.opponent}</span>
+                    <div id="driveResult" style="display: none;">
+                        <div style="color: ${pointsColor}; font-size: 24px; font-weight: bold; margin-bottom: 15px;">
+                            ${pointsText}
+                        </div>
+                        <div style="color: #aaa; margin-bottom: 15px;">
+                            <span style="color: #4af;">You: ${result.score.player}</span>
+                            &nbsp;-&nbsp;
+                            <span style="color: #f44;">${game.opponent.name}: ${result.score.opponent}</span>
+                        </div>
+                        <div style="color: #666; margin-bottom: 12px;">
+                            Possession ${result.possession + 1} of ${SEASON.POSSESSIONS_PER_GAME}
+                        </div>
+                        <button id="btnContinueDrive" style="
+                            background: #4a4; color: white; border: none;
+                            padding: 12px 30px; border-radius: 6px; cursor: pointer;
+                            font-size: 16px;
+                        ">Continue</button>
                     </div>
-                    <div style="color: #666; margin-bottom: 15px;">
-                        Possession ${result.possession + 1} of ${SEASON.POSSESSIONS_PER_GAME}
-                    </div>
-                    <button id="btnContinueDrive" style="
-                        background: #4a4; color: white; border: none;
-                        padding: 12px 30px; border-radius: 6px; cursor: pointer;
-                        font-size: 16px;
-                    ">Continue</button>
                 </div>
             `;
 
             document.body.appendChild(overlay);
 
-            document.getElementById('btnContinueDrive').addEventListener('click', () => {
-                overlay.remove();
-                // Reset for next possession
-                resetDrive();
-            });
+            const playByPlayDiv = document.getElementById('playByPlay');
+            let playIndex = 0;
+
+            // Show plays progressively
+            const showNextPlay = () => {
+                if (playIndex < plays.length) {
+                    const playText = document.createElement('div');
+                    playText.style.cssText = 'margin-bottom: 8px; opacity: 0; transition: opacity 0.2s;';
+
+                    // Highlight final play differently
+                    const isFinalPlay = playIndex === plays.length - 1;
+                    if (isFinalPlay) {
+                        playText.style.color = pointsColor;
+                        playText.style.fontWeight = 'bold';
+                    }
+
+                    playText.textContent = plays[playIndex];
+                    playByPlayDiv.appendChild(playText);
+
+                    // Fade in
+                    setTimeout(() => playText.style.opacity = '1', 50);
+
+                    playIndex++;
+                    setTimeout(showNextPlay, delayPerPlay);
+                } else {
+                    // All plays shown, reveal result and button
+                    setTimeout(() => {
+                        document.getElementById('driveResult').style.display = 'block';
+                        document.getElementById('btnContinueDrive').addEventListener('click', () => {
+                            overlay.remove();
+                            resetDrive();
+                        });
+                    }, 300);
+                }
+            };
+
+            // Start showing plays after a brief pause
+            setTimeout(showNextPlay, 400);
         }
 
         // Main
