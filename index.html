@@ -224,14 +224,14 @@
 
         <!-- Roster Screen -->
         <div id="rosterScreen" class="mgmt-screen" style="display:none;">
-            <button id="btnRosterBack" class="mgmt-btn back-btn">← BACK</button>
+            <button id="btnRosterBack" class="mgmt-btn back-btn">✕</button>
             <h2>ROSTER</h2>
             <div id="rosterList" class="roster-list"></div>
         </div>
 
         <!-- Free Agency Screen -->
         <div id="freeAgencyScreen" class="mgmt-screen" style="display:none;">
-            <button id="btnFABack" class="mgmt-btn back-btn">← BACK</button>
+            <button id="btnFABack" class="mgmt-btn back-btn">✕</button>
             <h2>FREE AGENCY</h2>
             <p id="faStatus" class="fa-status"></p>
             <div id="freeAgentList" class="roster-list"></div>
@@ -239,7 +239,7 @@
 
         <!-- Schedule Screen -->
         <div id="scheduleScreen" class="mgmt-screen" style="display:none;">
-            <button id="btnScheduleBack" class="mgmt-btn back-btn">← BACK</button>
+            <button id="btnScheduleBack" class="mgmt-btn back-btn">✕</button>
             <h2>SCHEDULE</h2>
             <div id="teamStrength" class="team-strength">
                 <h3>YOUR TEAM</h3>
@@ -263,7 +263,7 @@
 
         <!-- Facilities Screen -->
         <div id="facilitiesScreen" class="mgmt-screen" style="display:none;">
-            <button id="btnFacilitiesBack" class="mgmt-btn back-btn">← BACK</button>
+            <button id="btnFacilitiesBack" class="mgmt-btn back-btn">✕</button>
             <h2>FACILITIES</h2>
             <p id="facCredits" class="fac-credits"></p>
             <div class="facility-item">
@@ -291,7 +291,7 @@
         <!-- Player Detail Modal -->
         <div id="playerDetailModal" class="mgmt-modal" style="display:none;">
             <div class="modal-content">
-                <button id="btnCloseDetail" class="mgmt-btn back-btn">← BACK</button>
+                <button id="btnCloseDetail" class="mgmt-btn back-btn">✕</button>
                 <h2 id="playerName">Player Name</h2>
                 <div id="playerInfo" class="player-info"></div>
                 <div id="playerStats" class="player-stats"></div>
@@ -331,7 +331,7 @@
         .mgmt-screen h2 {
             color: #ffd700;
             font-size: 28px;
-            margin: 10px 0 20px 0;
+            margin: 50px 0 20px 0;
         }
         .mgmt-screen .subtitle {
             color: #888;
@@ -358,11 +358,16 @@
         .mgmt-btn.primary { background: #3a3a60; }
         .mgmt-btn.back-btn {
             position: absolute;
-            top: 20px;
-            left: 20px;
-            width: auto;
-            padding: 10px 16px;
-            font-size: 14px;
+            top: 10px;
+            left: 10px;
+            width: 36px;
+            height: 36px;
+            padding: 0;
+            font-size: 20px;
+            line-height: 36px;
+            text-align: center;
+            border-radius: 50%;
+            background: rgba(40, 40, 60, 0.8);
         }
         .hub-status {
             position: absolute;
