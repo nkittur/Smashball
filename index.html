@@ -1404,8 +1404,14 @@
         // Process growth for a player (weekly)
         // Growth is based purely on current potential grade
         function processPlayerGrowth(player) {
-            if (player.age >= player.peakAge) return [];
-            if (player.potentialGrade <= 0) return []; // No growth potential left
+            if (player.age >= player.peakAge) {
+                console.log(`[GROWTH] ${player.firstName} ${player.lastName}: No growth - age ${player.age} >= peakAge ${player.peakAge}`);
+                return [];
+            }
+            if (player.potentialGrade <= 0) {
+                console.log(`[GROWTH] ${player.firstName} ${player.lastName}: No growth - potentialGrade ${player.potentialGrade} <= 0`);
+                return []; // No growth potential left
+            }
 
             // Potential grade affects growth chance (0-3 scale)
             const potentialMultiplier = 0.5 + (player.potentialGrade * 0.5); // 0.5x to 2.0x
@@ -1431,6 +1437,7 @@
                     const growth = PROGRESSION.GROWTH_AMOUNT_MIN + bonusGrowth;
                     player.stats[stat] = Math.min(99, player.stats[stat] + growth);
                     if (player.stats[stat] > oldVal) {
+                        console.log(`[GROWTH] ${player.firstName} ${player.lastName}: ${stat} +${player.stats[stat] - oldVal} (${oldVal} -> ${player.stats[stat]})`);
                         improvements.push({ stat, change: player.stats[stat] - oldVal });
                     }
                 }
@@ -1439,6 +1446,10 @@
             // Recalculate derived values
             player.salaryCost = calculateSalary(player.stats);
             player.overall = calculateOverall(player);
+
+            if (improvements.length === 0) {
+                console.log(`[GROWTH] ${player.firstName} ${player.lastName}: Eligible but no growth this week (chance: ${(baseGrowthChance * 100).toFixed(1)}%)`);
+            }
 
             return improvements;
         }
@@ -1506,6 +1517,7 @@
 
         // Process weekly progression for all players
         function processWeeklyProgression() {
+            console.log(`[PROGRESSION] Processing weekly progression for ${managementState.team.roster.length} players`);
             const results = {
                 improvements: [],
                 declines: [],
