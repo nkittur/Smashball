@@ -1747,11 +1747,18 @@
             const offenseRating = opponent.offenseRating;
 
             // Differential affects probabilities
+            // With 80 defense: elite (95 off) should avg ~6.5 pts, easy (70 off) should avg ~4 pts
             const differential = offenseRating - defenseRating;
 
-            // Base probabilities adjusted by differential
-            const tdChance = Math.max(5, Math.min(40, 20 + (differential * 0.3)));
-            const fgChance = Math.max(10, Math.min(35, 25 + (differential * 0.2)));
+            // High base TD chance, scales strongly with differential
+            // At diff +15 (elite vs 80 def): 65 + 18 = 83% TD
+            // At diff -10 (easy vs 80 def): 65 - 12 = 53% TD
+            const tdChance = Math.max(30, Math.min(95, 65 + (differential * 1.2)));
+
+            // FG chance decreases slightly as offense gets better (they score TDs instead)
+            // At diff +15: 22 - 6 = 16% FG
+            // At diff -10: 22 + 4 = 26% FG
+            const fgChance = Math.max(5, Math.min(35, 22 - (differential * 0.4)));
 
             const roll = Math.random() * 100;
 
