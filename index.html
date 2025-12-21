@@ -4310,6 +4310,9 @@
         const setupIdleAnimations = (scene) => {
             // QB idle sway
             scene.onBeforeRenderObservable.add(() => {
+                // Skip all game logic when in management mode
+                if (!gameSceneActive) return;
+
                 const time = performance.now() * 0.001;
 
                 // QB breathing/ready animation (only when not in danger)
