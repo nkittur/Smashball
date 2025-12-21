@@ -1747,7 +1747,7 @@
         // Generate narrative text for enemy drive
         function generateDriveNarrative(opponent, roll, tdChance, fgChance) {
             // Get random player names from your roster for defensive mentions
-            const defenders = managementState.roster.filter(p =>
+            const defenders = (managementState.team?.roster || []).filter(p =>
                 ['CB', 'S', 'LB', 'DL'].includes(p.position)
             );
             const defenderName = defenders.length > 0
