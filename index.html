@@ -1971,6 +1971,19 @@
             return configs;
         }
 
+        // Record a stat for a roster player by their in-game mesh
+        function recordPlayerStat(gameMesh, statName, increment = 1) {
+            if (!gameMesh || !gameMesh.playerId) return;
+            if (!managementState.team || !managementState.team.roster) return;
+
+            const player = managementState.team.roster.find(p => p.id === gameMesh.playerId);
+            if (!player) return;
+
+            // Initialize stat if it doesn't exist
+            if (player[statName] === undefined) player[statName] = 0;
+            player[statName] += increment;
+        }
+
         // Initialize management system
         function initializeManagement() {
             // Try to load existing save
@@ -2187,6 +2200,7 @@
 
                 // Store config data on receiver
                 receiver.displayName = config.name;
+                receiver.playerId = config.playerId || null;  // Link to roster player
                 receiver.route = config.route;
                 receiver.routeIndex = 0;
                 receiver.startPos = config.start.clone();
@@ -2299,6 +2313,7 @@
 
                 // Store config data on defender
                 defender.displayName = config.name;
+                defender.playerId = config.playerId || null;  // Link to roster player
                 defender.aiType = config.aiType;
                 defender.assignedReceiver = config.assignedReceiver;
                 defender.cushion = config.cushion;
@@ -2408,6 +2423,7 @@
                 const oLineman = createLineman(scene, oLineMat, startPos, true);
                 oLineman.name = `oline_${i}`;
                 oLineman.displayName = config.name;
+                oLineman.playerId = config.playerId || null;  // Link to roster player
                 oLineman.position_label = config.position;
                 oLineman.stats = config.stats;
                 oLineman.startPos = startPos.clone();
@@ -2459,6 +2475,7 @@
                 const dLineman = createLineman(scene, dLineMat, startPos, false);
                 dLineman.name = `dline_${i}`;
                 dLineman.displayName = config.name;
+                dLineman.playerId = config.playerId || null;  // Link to roster player
                 dLineman.position_label = config.position;
                 dLineman.stats = config.stats;
                 dLineman.startPos = startPos.clone();
@@ -3283,6 +3300,10 @@
                 // O-lineman is free to help another
                 oLineman.engagedWith = null;
 
+                // Record clash stats
+                recordPlayerStat(oLineman, 'seasonClashesWon');
+                recordPlayerStat(dLineman, 'seasonClashesLost');
+
             } else if (margin < -LINE_CLASH_CONSTANTS.DEFENSE_WIN_THRESHOLD) {
                 // D-line wins decisively - knock O-lineman aside, speed burst
                 oLineman.knockdownUntil = currentTime + LINE_CLASH_CONSTANTS.KNOCKDOWN_DURATION;
@@ -3296,6 +3317,10 @@
                 // Knock O-lineman to the side
                 const sideDir = Math.random() > 0.5 ? 1 : -1;
                 oLineman.position.x += sideDir * 1.5;
+
+                // Record clash stats
+                recordPlayerStat(dLineman, 'seasonClashesWon');
+                recordPlayerStat(oLineman, 'seasonClashesLost');
 
             } else if (margin > LINE_CLASH_CONSTANTS.OFFENSE_WIN_THRESHOLD / 2) {
                 // O-line winning but not decisive - D-lineman very slow
@@ -3446,6 +3471,9 @@
             gameState.qbSacked = true;
             gameState.canThrow = false;
 
+            // Record sack for roster player
+            recordPlayerStat(tackler, 'seasonSacks');
+
             // Move line of scrimmage back to sack location
             handleSackFieldPosition(scene.qb.position.z);
 
@@ -3554,6 +3582,9 @@
             if (gameState.playEnded) return;
 
             gameState.playEnded = true;
+
+            // Record tackle for roster player
+            recordPlayerStat(defender, 'seasonTackles');
 
             // Advance ball to tackle location
             advanceBall(receiver.position.z);
@@ -3699,6 +3730,9 @@
             gameState.playEnded = true;
             gameState.touchdowns++;
             updateScore();
+
+            // Record TD for roster player
+            recordPlayerStat(receiver, 'seasonTDs');
 
             updateMessage(`TOUCHDOWN by ${receiver.displayName}!`);
 
@@ -4236,6 +4270,9 @@
                 // Track attempt
                 gameState.attempts++;
 
+                // Record target for roster player
+                recordPlayerStat(potentialCatcher, 'seasonTargets');
+
                 // Show the catch probability display
                 showCatchDisplay(catchInfo, catchRoll, success);
 
@@ -4244,6 +4281,9 @@
                     gameState.catches++;
                     updateScore();
                     updateMessage(`CATCH by ${potentialCatcher.displayName}! RUN!`);
+
+                    // Record catch for roster player
+                    recordPlayerStat(potentialCatcher, 'seasonCatches');
 
                     // Attach ball to receiver
                     scene.football.position.y = 0.8;
@@ -4263,6 +4303,23 @@
                     updateScore();
                     const wasDefended = potentialCatcher.separationState === 'covered';
                     updateMessage(wasDefended ? 'DEFENDED!' : 'Dropped...');
+
+                    // Record pass defended for nearest defender if it was defended
+                    if (wasDefended) {
+                        let closestDefender = null;
+                        let closestDist = Infinity;
+                        for (const def of gameState.defenders) {
+                            const dist = BABYLON.Vector3.Distance(def.position, potentialCatcher.position);
+                            if (dist < closestDist) {
+                                closestDist = dist;
+                                closestDefender = def;
+                            }
+                        }
+                        if (closestDefender) {
+                            recordPlayerStat(closestDefender, 'seasonPassesDefended');
+                        }
+                    }
+
                     bounceBall(scene, ballPosition);
                 }
             } else {
@@ -5247,6 +5304,9 @@
                 // Receiver wins - gets speed boost
                 receiver.clashSpeedBoostUntil = currentTime + CLASH_SPEED_EFFECT_DURATION;
                 receiver.speed = receiver.baseSpeed * CLASH_SPEED_BOOST;
+                // Record clash stats
+                recordPlayerStat(receiver, 'seasonClashesWon');
+                recordPlayerStat(defender, 'seasonClashesLost');
             } else if (margin < -CLASH_CONSTANTS.COVERAGE_THRESHOLD) {
                 // Direction changes (jukes) only benefit receivers - ignore defender wins
                 if (reason === 'direction_change') {
@@ -5259,6 +5319,9 @@
                     // Receiver loses - gets slowed
                     receiver.clashSpeedPenaltyUntil = currentTime + CLASH_SPEED_EFFECT_DURATION;
                     receiver.speed = receiver.baseSpeed * CLASH_SPEED_PENALTY;
+                    // Record clash stats
+                    recordPlayerStat(defender, 'seasonClashesWon');
+                    recordPlayerStat(receiver, 'seasonClashesLost');
                 }
             } else {
                 result.winner = 'none';
