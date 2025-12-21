@@ -197,6 +197,199 @@
     </div>
     <div id="debugInfo"></div>
 
+    <!-- Management UI Overlay -->
+    <div id="managementOverlay">
+        <!-- Main Menu -->
+        <div id="mainMenuScreen" class="mgmt-screen">
+            <h1>SMASHBALL</h1>
+            <p class="subtitle">Medieval Football Management</p>
+            <button id="btnNewGame" class="mgmt-btn">NEW GAME</button>
+            <button id="btnContinue" class="mgmt-btn">CONTINUE</button>
+        </div>
+
+        <!-- Hub Screen -->
+        <div id="hubScreen" class="mgmt-screen" style="display:none;">
+            <div class="hub-status" id="hubStatus">$10,000 | Week 1</div>
+            <h2>TEAM HUB</h2>
+            <div class="hub-buttons">
+                <button id="btnPlayGame" class="mgmt-btn primary">PLAY GAME</button>
+                <button id="btnRoster" class="mgmt-btn">ROSTER</button>
+                <button id="btnFreeAgency" class="mgmt-btn">FREE AGENCY</button>
+                <button id="btnSchedule" class="mgmt-btn">SCHEDULE</button>
+                <button id="btnFacilities" class="mgmt-btn">FACILITIES</button>
+            </div>
+            <p id="hubRecord" class="hub-record">Record: 0-0</p>
+            <p id="hubNextGame" class="hub-next"></p>
+        </div>
+
+        <!-- Roster Screen -->
+        <div id="rosterScreen" class="mgmt-screen" style="display:none;">
+            <button id="btnRosterBack" class="mgmt-btn back-btn">← BACK</button>
+            <h2>ROSTER</h2>
+            <div id="rosterList" class="roster-list"></div>
+        </div>
+
+        <!-- Free Agency Screen -->
+        <div id="freeAgencyScreen" class="mgmt-screen" style="display:none;">
+            <button id="btnFABack" class="mgmt-btn back-btn">← BACK</button>
+            <h2>FREE AGENCY</h2>
+            <p id="faStatus" class="fa-status"></p>
+            <div id="freeAgentList" class="roster-list"></div>
+        </div>
+
+        <!-- Schedule Screen -->
+        <div id="scheduleScreen" class="mgmt-screen" style="display:none;">
+            <button id="btnScheduleBack" class="mgmt-btn back-btn">← BACK</button>
+            <h2>SCHEDULE</h2>
+            <div id="scheduleList" class="schedule-list"></div>
+        </div>
+
+        <!-- Facilities Screen -->
+        <div id="facilitiesScreen" class="mgmt-screen" style="display:none;">
+            <button id="btnFacilitiesBack" class="mgmt-btn back-btn">← BACK</button>
+            <h2>FACILITIES</h2>
+            <p id="facCredits" class="fac-credits"></p>
+            <div class="facility-item">
+                <h3>ARENA</h3>
+                <p id="arenaLevel">Level 1/5</p>
+                <p class="fac-desc">Increases home game revenue</p>
+                <button id="btnUpgradeArena" class="mgmt-btn">UPGRADE</button>
+            </div>
+            <div class="facility-item">
+                <h3>TRAINING GROUNDS</h3>
+                <p id="trainingLevel">Level 1/5</p>
+                <p class="fac-desc">Boosts player development</p>
+                <button id="btnUpgradeTraining" class="mgmt-btn">UPGRADE</button>
+            </div>
+        </div>
+
+        <!-- Match End Screen -->
+        <div id="matchEndScreen" class="mgmt-screen" style="display:none;">
+            <h1 id="matchResult">VICTORY!</h1>
+            <p id="matchScore" class="match-score">21 - 14</p>
+            <p id="matchRevenue" class="match-revenue"></p>
+            <button id="btnMatchContinue" class="mgmt-btn primary">CONTINUE</button>
+        </div>
+    </div>
+
+    <style>
+        #managementOverlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: #0a0a14;
+            z-index: 1000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        #managementOverlay.hidden { display: none; }
+        .mgmt-screen {
+            text-align: center;
+            color: #fff;
+            font-family: 'Courier New', monospace;
+            padding: 20px;
+            width: 100%;
+            max-width: 400px;
+        }
+        .mgmt-screen h1 {
+            color: #ffd700;
+            font-size: 48px;
+            margin: 0 0 10px 0;
+        }
+        .mgmt-screen h2 {
+            color: #ffd700;
+            font-size: 28px;
+            margin: 10px 0 20px 0;
+        }
+        .mgmt-screen .subtitle {
+            color: #888;
+            font-size: 16px;
+            margin-bottom: 40px;
+        }
+        .mgmt-btn {
+            display: block;
+            width: 100%;
+            max-width: 280px;
+            margin: 10px auto;
+            padding: 16px 20px;
+            font-size: 18px;
+            font-family: 'Courier New', monospace;
+            background: #2a2a40;
+            color: #ffd700;
+            border: 2px solid #ffd700;
+            border-radius: 8px;
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .mgmt-btn:active { background: #3a3a50; }
+        .mgmt-btn:disabled { opacity: 0.5; }
+        .mgmt-btn.primary { background: #3a3a60; }
+        .mgmt-btn.back-btn {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            width: auto;
+            padding: 10px 16px;
+            font-size: 14px;
+        }
+        .hub-status {
+            position: absolute;
+            top: 10px;
+            left: 0; right: 0;
+            text-align: center;
+            color: #ffd700;
+            font-size: 14px;
+        }
+        .hub-record { font-size: 20px; margin-top: 30px; }
+        .hub-next { color: #aaa; font-size: 14px; }
+        .roster-list, .schedule-list {
+            max-height: 400px;
+            overflow-y: auto;
+            text-align: left;
+            margin-top: 10px;
+        }
+        .roster-item, .schedule-item {
+            background: #1a1a2a;
+            padding: 12px;
+            margin: 6px 0;
+            border-radius: 6px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .roster-item .name { font-size: 14px; }
+        .roster-item .stats { font-size: 12px; color: #aaa; }
+        .roster-item .ovr { color: #4f4; font-size: 16px; }
+        .position-header {
+            background: #2a2a40;
+            color: #ffd700;
+            padding: 8px 12px;
+            margin-top: 12px;
+            font-size: 14px;
+        }
+        .schedule-item.current { background: #2a3a2a; }
+        .schedule-item.past { opacity: 0.6; }
+        .schedule-item .result { font-weight: bold; }
+        .schedule-item .result.win { color: #4f4; }
+        .schedule-item .result.loss { color: #f44; }
+        .facility-item {
+            background: #1a1a2a;
+            padding: 16px;
+            margin: 12px 0;
+            border-radius: 8px;
+            text-align: left;
+        }
+        .facility-item h3 { color: #ffd700; margin: 0 0 8px 0; font-size: 16px; }
+        .fac-desc { color: #888; font-size: 12px; margin: 8px 0; }
+        .fac-credits { color: #ffd700; font-size: 18px; }
+        .fa-status { color: #aaa; font-size: 14px; }
+        .fa-btn { padding: 8px 16px; font-size: 14px; }
+        .match-score { font-size: 36px; margin: 20px 0; }
+        .match-revenue { color: #4f4; font-size: 18px; }
+        #matchResult.win { color: #4f4; }
+        #matchResult.loss { color: #f44; }
+    </style>
+
     <script src="https://cdn.babylonjs.com/babylon.js"></script>
     <script src="https://cdn.babylonjs.com/gui/babylon.gui.min.js"></script>
     <script>
@@ -1544,16 +1737,8 @@
                 new BABYLON.Vector3(0, 0, 2),  // Target moved down to show QB better
                 scene
             );
-            // Enable camera rotation: right-click on desktop, two-finger on mobile
-            camera.attachControl(canvas, true);
-            camera.inputs.attached.pointers.buttons = [1, 2];  // Right and middle mouse buttons
-            camera.inputs.attached.pointers.multiTouchPanAndZoom = true;  // Enable pinch zoom
-            camera.panningSensibility = 0;  // Disable panning
-            camera.lowerRadiusLimit = 15;   // Min zoom
-            camera.upperRadiusLimit = 50;   // Max zoom
-            camera.lowerBetaLimit = 0.3;    // Don't go below ground
-            camera.upperBetaLimit = Math.PI / 2.2;  // Don't go too flat
-            scene.activeCamera = camera;  // Store reference for later updates
+            // Camera is view-only, no user controls
+            scene.activeCamera = camera;
 
             // Lighting
             const light = new BABYLON.HemisphericLight(
@@ -5934,89 +6119,62 @@
         }
 
         // ========================================
-        // SCREEN NAVIGATION
+        // HTML-BASED SCREEN NAVIGATION
         // ========================================
 
+        // Hide all management screens
+        function hideAllScreens() {
+            document.querySelectorAll('.mgmt-screen').forEach(s => s.style.display = 'none');
+        }
+
+        // Show a specific screen
         function showScreen(screenName) {
-            if (!managementUI) return;
-
-            // Hide all screens
-            Object.values(managementUI.containers).forEach(c => c.isVisible = false);
-
-            // Handle HTML elements visibility
+            const overlay = document.getElementById('managementOverlay');
             const topBar = document.getElementById('topBar');
             const viewButtons = document.getElementById('viewButtons');
-            const canvas = document.getElementById('renderCanvas');
-
-            // Get camera from scene
-            const camera = gameState.scene?.activeCamera;
 
             if (screenName === 'game') {
-                // Game mode - hide management UI, show game UI
+                // Game mode - hide overlay, show game
+                overlay.classList.add('hidden');
                 topBar.style.display = 'flex';
                 viewButtons.style.display = 'flex';
-                managementUI.containers.matchHUD.isVisible = true;
-                managementUI.containers.matchHUD._refresh();
                 gameSceneActive = true;
-                // Re-attach camera controls for gameplay
-                if (camera && canvas) {
-                    camera.attachControl(canvas, true);
-                }
             } else {
-                // Management mode - show management UI, hide game UI
+                // Management mode - show overlay, hide game
+                overlay.classList.remove('hidden');
                 topBar.style.display = 'none';
                 viewButtons.style.display = 'none';
                 gameSceneActive = false;
-                // Detach camera controls so GUI can receive touch events
-                if (camera) {
-                    camera.detachControl();
-                }
+
+                hideAllScreens();
 
                 switch (screenName) {
                     case 'main_menu':
-                        managementUI.containers.mainMenu.isVisible = true;
-                        if (managementUI.containers.mainMenu._updateContinueButton) {
-                            managementUI.containers.mainMenu._updateContinueButton();
-                        }
+                        document.getElementById('mainMenuScreen').style.display = 'block';
+                        document.getElementById('btnContinue').disabled = !managementState.initialized;
                         break;
                     case 'hub':
-                        managementUI.containers.hub.isVisible = true;
-                        if (managementUI.containers.hub._updateStatus) {
-                            managementUI.containers.hub._updateStatus();
-                        }
+                        document.getElementById('hubScreen').style.display = 'block';
+                        refreshHubScreen();
                         break;
                     case 'roster':
-                        managementUI.containers.roster.isVisible = true;
-                        if (managementUI.containers.roster._refreshRoster) {
-                            managementUI.containers.roster._refreshRoster();
-                        }
-                        break;
-                    case 'player_detail':
-                        managementUI.containers.playerDetail.isVisible = true;
-                        if (managementUI.containers.playerDetail._refresh) {
-                            managementUI.containers.playerDetail._refresh();
-                        }
+                        document.getElementById('rosterScreen').style.display = 'block';
+                        refreshRosterScreen();
                         break;
                     case 'free_agency':
-                        managementUI.containers.freeAgency.isVisible = true;
-                        if (managementUI.containers.freeAgency._refresh) {
-                            managementUI.containers.freeAgency._refresh();
-                        }
-                        break;
-                    case 'facilities':
-                        managementUI.containers.facilities.isVisible = true;
-                        if (managementUI.containers.facilities._refresh) {
-                            managementUI.containers.facilities._refresh();
-                        }
+                        document.getElementById('freeAgencyScreen').style.display = 'block';
+                        refreshFreeAgencyScreen();
                         break;
                     case 'schedule':
-                        managementUI.containers.schedule.isVisible = true;
-                        if (managementUI.containers.schedule._refresh) {
-                            managementUI.containers.schedule._refresh();
-                        }
+                        document.getElementById('scheduleScreen').style.display = 'block';
+                        refreshScheduleScreen();
+                        break;
+                    case 'facilities':
+                        document.getElementById('facilitiesScreen').style.display = 'block';
+                        refreshFacilitiesScreen();
                         break;
                     case 'match_end':
-                        managementUI.containers.matchEnd.isVisible = true;
+                        document.getElementById('matchEndScreen').style.display = 'block';
                         break;
                 }
             }
@@ -6024,10 +6182,166 @@
             managementState.currentScreen = screenName;
         }
 
+        // Refresh hub screen data
+        function refreshHubScreen() {
+            if (!managementState.team) return;
+            document.getElementById('hubStatus').textContent =
+                `$${managementState.team.credits.toLocaleString()} | Week ${managementState.season?.week || 1}`;
+            document.getElementById('hubRecord').textContent =
+                `Record: ${managementState.team.record.wins}-${managementState.team.record.losses}`;
+
+            if (managementState.season && managementState.season.week <= SEASON.WEEKS) {
+                const game = managementState.season.schedule[managementState.season.week - 1];
+                document.getElementById('hubNextGame').textContent = `Next: vs ${game.opponent.name}`;
+            } else {
+                document.getElementById('hubNextGame').textContent = 'Season Complete!';
+            }
+        }
+
+        // Refresh roster screen
+        function refreshRosterScreen() {
+            const list = document.getElementById('rosterList');
+            list.innerHTML = '';
+            if (!managementState.team) return;
+
+            const positions = ['QB', 'WR', 'CB', 'OL', 'DL'];
+            positions.forEach(pos => {
+                const players = managementState.team.roster.filter(p => p.position === pos);
+                if (players.length === 0) return;
+
+                const header = document.createElement('div');
+                header.className = 'position-header';
+                header.textContent = POSITIONS[pos].name;
+                list.appendChild(header);
+
+                players.sort((a, b) => b.overall - a.overall);
+                players.forEach(player => {
+                    const item = document.createElement('div');
+                    item.className = 'roster-item';
+                    item.innerHTML = `
+                        <div>
+                            <div class="name">${player.firstName} ${player.lastName}</div>
+                            <div class="stats">Age ${player.age} | $${player.salaryCost.toLocaleString()}</div>
+                        </div>
+                        <div class="ovr">${player.overall}</div>
+                    `;
+                    list.appendChild(item);
+                });
+            });
+        }
+
+        // Refresh free agency screen
+        function refreshFreeAgencyScreen() {
+            const list = document.getElementById('freeAgentList');
+            const status = document.getElementById('faStatus');
+            list.innerHTML = '';
+            if (!managementState.team) return;
+
+            const salary = calculateTeamSalary(managementState.team);
+            const cap = managementState.team.salaryCap + managementState.team.salaryCapModifier;
+            status.textContent = `Credits: $${managementState.team.credits.toLocaleString()} | Cap Space: $${(cap - salary).toLocaleString()}`;
+
+            if (managementState.freeAgents.length === 0) {
+                list.innerHTML = '<p style="color:#888;text-align:center;">No free agents available</p>';
+                return;
+            }
+
+            managementState.freeAgents.forEach(player => {
+                const bonus = calculateSigningBonus(player);
+                const canAfford = managementState.team.credits >= bonus && canSignPlayer(managementState.team, player);
+
+                const item = document.createElement('div');
+                item.className = 'roster-item';
+                item.innerHTML = `
+                    <div>
+                        <div class="name">${player.firstName} ${player.lastName} (${player.position})</div>
+                        <div class="stats">Age ${player.age} | Bonus: $${bonus.toLocaleString()}</div>
+                    </div>
+                    <div style="text-align:right;">
+                        <div class="ovr">${player.overall}</div>
+                        <button class="mgmt-btn fa-btn" ${canAfford ? '' : 'disabled'}
+                            onclick="signAndRefresh('${player.id}')">SIGN</button>
+                    </div>
+                `;
+                list.appendChild(item);
+            });
+        }
+
+        // Sign player and refresh
+        function signAndRefresh(playerId) {
+            const result = signFreeAgent(playerId);
+            if (result.success) {
+                refreshFreeAgencyScreen();
+            }
+        }
+
+        // Refresh schedule screen
+        function refreshScheduleScreen() {
+            const list = document.getElementById('scheduleList');
+            list.innerHTML = '';
+            if (!managementState.season) return;
+
+            managementState.season.schedule.forEach((game, index) => {
+                const weekNum = index + 1;
+                const isCurrent = weekNum === managementState.season.week;
+                const isPast = weekNum < managementState.season.week;
+
+                const item = document.createElement('div');
+                item.className = `schedule-item ${isCurrent ? 'current' : ''} ${isPast ? 'past' : ''}`;
+
+                let resultText = '-';
+                let resultClass = '';
+                if (game.result) {
+                    resultText = `${game.result.win ? 'W' : 'L'} ${game.result.playerScore}-${game.result.opponentScore}`;
+                    resultClass = game.result.win ? 'win' : 'loss';
+                } else if (isCurrent) {
+                    resultText = 'NEXT';
+                    resultClass = '';
+                }
+
+                item.innerHTML = `
+                    <div>Wk ${weekNum}: ${game.isHome ? 'vs' : '@'} ${game.opponent.name}</div>
+                    <div class="result ${resultClass}">${resultText}</div>
+                `;
+                list.appendChild(item);
+            });
+        }
+
+        // Refresh facilities screen
+        function refreshFacilitiesScreen() {
+            if (!managementState.team) return;
+
+            document.getElementById('facCredits').textContent = `Credits: $${managementState.team.credits.toLocaleString()}`;
+
+            const arena = managementState.team.facilities.stadium;
+            const training = managementState.team.facilities.trainingCenter;
+
+            document.getElementById('arenaLevel').textContent = `Level ${arena.level}/${arena.maxLevel}`;
+            document.getElementById('trainingLevel').textContent = `Level ${training.level}/${training.maxLevel}`;
+
+            const arenaCost = arena.level < arena.maxLevel ? ECONOMY.STADIUM_UPGRADE_COSTS[arena.level - 1] : 0;
+            const trainingCost = training.level < training.maxLevel ? ECONOMY.TRAINING_UPGRADE_COSTS[training.level - 1] : 0;
+
+            document.getElementById('btnUpgradeArena').textContent = arena.level >= arena.maxLevel ? 'MAXED' : `UPGRADE ($${arenaCost.toLocaleString()})`;
+            document.getElementById('btnUpgradeArena').disabled = arena.level >= arena.maxLevel || managementState.team.credits < arenaCost;
+
+            document.getElementById('btnUpgradeTraining').textContent = training.level >= training.maxLevel ? 'MAXED' : `UPGRADE ($${trainingCost.toLocaleString()})`;
+            document.getElementById('btnUpgradeTraining').disabled = training.level >= training.maxLevel || managementState.team.credits < trainingCost;
+        }
+
+        // Show match end result
+        function showMatchEnd(matchResult) {
+            const result = matchResult.result;
+            document.getElementById('matchResult').textContent = result.win ? 'VICTORY!' : 'DEFEAT';
+            document.getElementById('matchResult').className = result.win ? 'win' : 'loss';
+            document.getElementById('matchScore').textContent = `${result.playerScore} - ${result.opponentScore}`;
+            document.getElementById('matchRevenue').textContent = `+$${matchResult.revenue.toLocaleString()}`;
+            showScreen('match_end');
+        }
+
         // Start the arcade game portion
         function startArcadeGame() {
             showScreen('game');
-            // Reset game state for new possession
             gameState.down = 1;
             gameState.yardsToGo = 10;
             gameState.catches = 0;
@@ -6041,17 +6355,9 @@
 
             const result = recordPossessionResult(points);
 
-            // Update HUD
-            if (managementUI.containers.matchHUD._refresh) {
-                managementUI.containers.matchHUD._refresh();
-            }
-
             if (!result.ongoing) {
-                // Match ended - show results
-                managementUI.containers.matchEnd._showResult(result);
-                showScreen('match_end');
+                showMatchEnd(result);
             }
-            // If ongoing, continue playing
         }
 
         // Main
@@ -6059,58 +6365,70 @@
         setupInput(scene);
         setupIdleAnimations(scene);
 
-        // Initialize management UI and system
-        createManagementUI();
+        // Initialize management system
         initializeManagement();
 
-        // Detach camera for management screens on startup
-        if (managementState.currentScreen !== 'game') {
-            scene.activeCamera.detachControl();
-        }
+        // Setup HTML button handlers
+        document.getElementById('btnNewGame').addEventListener('click', () => {
+            startNewGame();
+            showScreen('hub');
+        });
+        document.getElementById('btnContinue').addEventListener('click', () => {
+            if (managementState.initialized) showScreen('hub');
+        });
+        document.getElementById('btnPlayGame').addEventListener('click', () => {
+            const result = startMatch();
+            if (result.success) startArcadeGame();
+        });
+        document.getElementById('btnRoster').addEventListener('click', () => showScreen('roster'));
+        document.getElementById('btnFreeAgency').addEventListener('click', () => showScreen('free_agency'));
+        document.getElementById('btnSchedule').addEventListener('click', () => showScreen('schedule'));
+        document.getElementById('btnFacilities').addEventListener('click', () => showScreen('facilities'));
+        document.getElementById('btnRosterBack').addEventListener('click', () => showScreen('hub'));
+        document.getElementById('btnFABack').addEventListener('click', () => showScreen('hub'));
+        document.getElementById('btnScheduleBack').addEventListener('click', () => showScreen('hub'));
+        document.getElementById('btnFacilitiesBack').addEventListener('click', () => showScreen('hub'));
+        document.getElementById('btnMatchContinue').addEventListener('click', () => showScreen('hub'));
+        document.getElementById('btnUpgradeArena').addEventListener('click', () => {
+            upgradeFacility('stadium');
+            refreshFacilitiesScreen();
+        });
+        document.getElementById('btnUpgradeTraining').addEventListener('click', () => {
+            upgradeFacility('trainingCenter');
+            refreshFacilitiesScreen();
+        });
 
-        // Show initial screen (main menu or hub)
+        // Show initial screen
         showScreen(managementState.currentScreen);
 
         // Camera view switching
         const setCameraView = (viewType) => {
             const camera = scene.activeCamera;
             if (!camera) return;
-
             gameState.currentView = viewType;
-
-            // Update button states
-            document.querySelectorAll('#viewButtons button').forEach(btn => {
-                btn.classList.remove('active');
-            });
-
+            document.querySelectorAll('#viewButtons button').forEach(btn => btn.classList.remove('active'));
             switch(viewType) {
                 case 'iso':
-                    // Isometric view (default)
                     camera.alpha = -Math.PI / 2;
                     camera.beta = Math.PI / 3.5;
                     camera.radius = 32;
                     document.getElementById('viewIso').classList.add('active');
                     break;
-
                 case 'overhead':
-                    // Top-down view
                     camera.alpha = -Math.PI / 2;
-                    camera.beta = 0.1;  // Nearly straight down
+                    camera.beta = 0.1;
                     camera.radius = 28;
                     document.getElementById('viewOverhead').classList.add('active');
                     break;
-
                 case 'shoulder':
-                    // Over-the-shoulder (behind QB)
                     camera.alpha = -Math.PI / 2;
-                    camera.beta = Math.PI / 2.5;  // Lower angle
+                    camera.beta = Math.PI / 2.5;
                     camera.radius = 18;
                     document.getElementById('viewShoulder').classList.add('active');
                     break;
             }
         };
 
-        // Setup view button handlers
         document.getElementById('viewIso').addEventListener('click', () => setCameraView('iso'));
         document.getElementById('viewOverhead').addEventListener('click', () => setCameraView('overhead'));
         document.getElementById('viewShoulder').addEventListener('click', () => setCameraView('shoulder'));
