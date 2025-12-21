@@ -1007,21 +1007,26 @@
         }
 
         // Roll potential grade based on age and tier (0-3 scale)
+        // Distribution: max (3) 15%, average (2) 35%, low (1) 35%, very low (0) 15%
         function rollPotential(age, tier) {
-            // Younger players have higher potential
-            let basePotential = 1;
-            if (age <= 22) basePotential = 2;
-            else if (age <= 25) basePotential = 1;
-            else if (age <= 28) basePotential = 1;
-            else basePotential = 0;
+            // Base weighted distribution
+            const roll = Math.random() * 100;
+            let potential;
+            if (roll < 15) potential = 3;        // 15% max
+            else if (roll < 50) potential = 2;   // 35% average
+            else if (roll < 85) potential = 1;   // 35% low
+            else potential = 0;                   // 15% very low
 
-            // Tier bonus
-            if (tier === 'elite') basePotential = Math.min(3, basePotential + 1);
-            if (tier === 'rookie') basePotential = Math.min(3, basePotential + 1);
+            // Age modifier: older players lose potential
+            if (age > 28) potential = Math.max(0, potential - 1);
+            if (age > 32) potential = Math.max(0, potential - 1);
 
-            // Random variance
-            const variance = randomInt(-1, 1);
-            return Math.max(0, Math.min(3, basePotential + variance));
+            // Tier bonus for young elite/rookie players
+            if ((tier === 'elite' || tier === 'rookie') && age <= 24) {
+                potential = Math.min(3, potential + 1);
+            }
+
+            return potential;
         }
 
         // Generate position-specific stats
