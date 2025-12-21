@@ -738,13 +738,11 @@
 
         // Progression constants
         const PROGRESSION = {
-            // Growth: each stat has independent chance to grow each week
-            // Higher potential = higher chance AND wider range
-            GROWTH_CHANCE_BASE: 0.10,           // 10% base chance per stat
-            GROWTH_CHANCE_PER_POTENTIAL: 0.05,  // +5% per potential grade (10-25% for grades 0-3)
-            GROWTH_MIN: 0.2,                    // minimum growth when it happens
-            GROWTH_MAX_BASE: 0.4,               // max growth for potential 0
-            GROWTH_MAX_PER_POTENTIAL: 0.25,     // +0.25 to max per potential grade (0.4-1.15 range)
+            // Growth is front-loaded (years 1-4) and scaled by potential grade
+            GROWTH_CHANCE_BASE: 0.25,           // 25% base chance per stat per week
+            GROWTH_AMOUNT_BASE: 0.15,           // base growth amount when it happens
+            // Year multipliers (front-loaded: years 1-4 have boosted growth)
+            YEAR_MULTIPLIERS: [2.5, 2.0, 1.5, 1.0, 0.5, 0.3, 0.2, 0.1],  // index = years in league
             // Decline
             DECLINE_RATE: 0.3,  // per year over peak
             PHYSICAL_DECLINE_STATS: ['speed', 'acceleration', 'agility', 'strength', 'stamina'],
@@ -891,7 +889,7 @@
             }
         }
 
-        // Roll potential grade based on age and tier
+        // Roll potential grade based on age and tier (0-3 scale)
         function rollPotential(age, tier) {
             // Younger players have higher potential
             let basePotential = 1;
@@ -959,6 +957,9 @@
             const peakAge = randomInt(28, 32);
             const stats = generatePositionStats(position, baseRange);
 
+            // Years in league based on age (rookies start at 0)
+            const yearsInLeague = tier === 'rookie' ? 0 : Math.max(0, age - 22);
+
             const player = {
                 id: generateUUID(),
                 firstName: randomFrom(FIRST_NAMES),
@@ -967,6 +968,7 @@
                 position,
                 stats,
                 potentialGrade: rollPotential(age, tier),
+                yearsInLeague,
                 peakAge,
                 salaryCost: calculateSalary(stats),
                 seasonStartStats: { ...stats },
@@ -1264,14 +1266,20 @@
         // ========================================
 
         // Process growth for a player (weekly)
-        // Each primary stat has independent chance to grow based on potential
-        // Higher potential = higher chance AND wider growth range
+        // Growth is front-loaded (first 2-4 years) and scaled by potential grade
         function processPlayerGrowth(player) {
             if (player.age >= player.peakAge) return [];
 
-            const potential = player.potentialGrade; // 0-3
-            const growthChance = PROGRESSION.GROWTH_CHANCE_BASE + (potential * PROGRESSION.GROWTH_CHANCE_PER_POTENTIAL);
-            const growthMax = PROGRESSION.GROWTH_MAX_BASE + (potential * PROGRESSION.GROWTH_MAX_PER_POTENTIAL);
+            // Potential grade affects growth multiplier (0-3 scale)
+            const potentialMultiplier = 0.5 + (player.potentialGrade * 0.5); // 0.5x to 2.0x
+
+            // Get year multiplier (front-loaded growth in years 1-4)
+            const yearIndex = Math.min(player.yearsInLeague || 0, PROGRESSION.YEAR_MULTIPLIERS.length - 1);
+            const yearMultiplier = PROGRESSION.YEAR_MULTIPLIERS[yearIndex];
+
+            // Final growth chance and amount
+            const growthChance = PROGRESSION.GROWTH_CHANCE_BASE * yearMultiplier;
+            const growthAmount = PROGRESSION.GROWTH_AMOUNT_BASE * potentialMultiplier * yearMultiplier;
 
             const positionData = POSITIONS[player.position];
             const primaryStats = positionData.primaryStats;
@@ -1280,9 +1288,9 @@
             primaryStats.forEach(stat => {
                 if (player.stats[stat] !== undefined && Math.random() < growthChance) {
                     const oldVal = player.stats[stat];
-                    // Random growth between min and max (wider range for higher potential)
-                    const growth = PROGRESSION.GROWTH_MIN + Math.random() * (growthMax - PROGRESSION.GROWTH_MIN);
-                    player.stats[stat] = Math.min(99, player.stats[stat] + growth);
+                    // Add some randomness to growth amount (0.5x to 1.5x)
+                    const randomizedGrowth = growthAmount * (0.5 + Math.random());
+                    player.stats[stat] = Math.min(99, player.stats[stat] + randomizedGrowth);
                     if (player.stats[stat] > oldVal) {
                         improvements.push({ stat, change: player.stats[stat] - oldVal });
                     }
@@ -1394,6 +1402,7 @@
 
             managementState.team.roster.forEach(player => {
                 player.age++;
+                player.yearsInLeague = (player.yearsInLeague || 0) + 1;
                 results.ageUps.push(player);
 
                 // Reset season stats
@@ -5250,9 +5259,9 @@
             return container;
         }
 
-        // Helper: Format potential grade
+        // Helper: Format potential grade as stars
         function formatPotential(grade) {
-            return grade === 0 ? '' : '+'.repeat(grade);
+            return '★'.repeat(grade + 1);
         }
 
         // ========================================
@@ -5655,7 +5664,7 @@
                 }
 
                 nameText.text = `${player.firstName} ${player.lastName}`;
-                infoText.text = `${POSITIONS[player.position].name}  |  Age: ${player.age}  |  Potential: ${formatPotential(player.potentialGrade) || 'None'}  |  OVR: ${player.overall}  |  $${player.salaryCost.toLocaleString()}`;
+                infoText.text = `${POSITIONS[player.position].name}  |  Age: ${player.age}  |  ${formatPotential(player.potentialGrade)}  |  OVR: ${player.overall}  |  ${formatSalaryM(player.salaryCost)}`;
 
                 // Refresh stats
                 statsStack.clearControls();
