@@ -4063,17 +4063,15 @@
             // Receivers line up at the line of scrimmage
             const receiverLineZ = gameState.lineOfScrimmage;
 
-            // Assign spread positions: wide left, wide right, slot - use full field width
+            // Fixed positions - receivers stay in same relative spots each play
+            // Slot receiver lines up just outside the offensive tackle (randomly left or right)
+            const slotSide = Math.random() > 0.5 ? 1 : -1;  // Randomly pick left or right side
             const positions = [
-                -(6 + Math.random() * 1.5),   // Wide left: -6 to -7.5 (near sideline)
-                (6 + Math.random() * 1.5),    // Wide right: 6 to 7.5 (near sideline)
-                (Math.random() - 0.5) * 3     // Slot: -1.5 to 1.5 (middle)
+                -(6 + Math.random() * 1.5),   // WR1: Wide left (-6 to -7.5)
+                (6 + Math.random() * 1.5),    // WR2: Wide right (6 to 7.5)
+                slotSide * (4 + Math.random() * 0.5)  // WR3/Slot: Just outside tackle (±4 to ±4.5)
             ];
-            // Shuffle positions for variety
-            for (let i = positions.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                [positions[i], positions[j]] = [positions[j], positions[i]];
-            }
+            // No shuffle - receivers stay in consistent positions
 
             // Rarely pick 0-1 receivers to run crossing routes (less overlap)
             const numCrossing = Math.random() < 0.3 ? 1 : 0;  // 30% chance of 1 crossing route
