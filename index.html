@@ -733,15 +733,19 @@
 
             // Other
             BRIBE_COST: 10000,
-            BRIBE_CAP_BONUS: 5000,
-            SIGNING_BONUS_RATE: 0.2  // 20% of salary as signing bonus
+            BRIBE_CAP_BONUS: 5000
         };
 
         // Progression constants
         const PROGRESSION = {
-            BASE_GROWTH: 0.5,
-            FACILITY_BONUS_PER_LEVEL: 0.1,
-            POTENTIAL_MULTIPLIER: 0.5,  // per grade (0-3)
+            // Growth: each stat has independent chance to grow each week
+            // Higher potential = higher chance AND wider range
+            GROWTH_CHANCE_BASE: 0.10,           // 10% base chance per stat
+            GROWTH_CHANCE_PER_POTENTIAL: 0.05,  // +5% per potential grade (10-25% for grades 0-3)
+            GROWTH_MIN: 0.2,                    // minimum growth when it happens
+            GROWTH_MAX_BASE: 0.4,               // max growth for potential 0
+            GROWTH_MAX_PER_POTENTIAL: 0.25,     // +0.25 to max per potential grade (0.4-1.15 range)
+            // Decline
             DECLINE_RATE: 0.3,  // per year over peak
             PHYSICAL_DECLINE_STATS: ['speed', 'acceleration', 'agility', 'strength', 'stamina'],
             MENTAL_DECLINE_RATE: 0.5,  // mental stats decline slower
@@ -1157,32 +1161,21 @@
             return currentSalary + player.salaryCost <= cap;
         }
 
-        // Calculate signing bonus
-        function calculateSigningBonus(player) {
-            return Math.floor(player.salaryCost * ECONOMY.SIGNING_BONUS_RATE);
-        }
-
         // Sign a free agent
         function signFreeAgent(playerId) {
             const player = managementState.freeAgents.find(p => p.id === playerId);
             if (!player) return { success: false, error: 'Player not found' };
 
-            const signingBonus = calculateSigningBonus(player);
-            if (managementState.team.credits < signingBonus) {
-                return { success: false, error: 'Insufficient credits' };
-            }
-
             if (!canSignPlayer(managementState.team, player)) {
                 return { success: false, error: 'Over salary cap' };
             }
 
-            managementState.team.credits -= signingBonus;
             managementState.team.roster.push(player);
             managementState.freeAgents = managementState.freeAgents.filter(p => p.id !== playerId);
 
             if (managementState.settings.autoSave) SaveSystem.save();
 
-            return { success: true, signingBonus };
+            return { success: true };
         }
 
         // Cut/release a player
@@ -1271,24 +1264,25 @@
         // ========================================
 
         // Process growth for a player (weekly)
+        // Each primary stat has independent chance to grow based on potential
+        // Higher potential = higher chance AND wider growth range
         function processPlayerGrowth(player) {
             if (player.age >= player.peakAge) return [];
 
-            const facilityBonus = managementState.team.facilities.trainingCenter.level * PROGRESSION.FACILITY_BONUS_PER_LEVEL;
-            const potentialMultiplier = PROGRESSION.POTENTIAL_MULTIPLIER + (player.potentialGrade * PROGRESSION.POTENTIAL_MULTIPLIER);
-            const totalGrowth = PROGRESSION.BASE_GROWTH + (facilityBonus * potentialMultiplier);
+            const potential = player.potentialGrade; // 0-3
+            const growthChance = PROGRESSION.GROWTH_CHANCE_BASE + (potential * PROGRESSION.GROWTH_CHANCE_PER_POTENTIAL);
+            const growthMax = PROGRESSION.GROWTH_MAX_BASE + (potential * PROGRESSION.GROWTH_MAX_PER_POTENTIAL);
 
-            // Apply to 2-3 random primary stats
             const positionData = POSITIONS[player.position];
-            const primaryStats = [...positionData.primaryStats];
-            shuffleArray(primaryStats);
-            const statsToImprove = primaryStats.slice(0, randomInt(2, 3));
+            const primaryStats = positionData.primaryStats;
 
             const improvements = [];
-            statsToImprove.forEach(stat => {
-                if (player.stats[stat] !== undefined) {
+            primaryStats.forEach(stat => {
+                if (player.stats[stat] !== undefined && Math.random() < growthChance) {
                     const oldVal = player.stats[stat];
-                    player.stats[stat] = Math.min(99, player.stats[stat] + totalGrowth);
+                    // Random growth between min and max (wider range for higher potential)
+                    const growth = PROGRESSION.GROWTH_MIN + Math.random() * (growthMax - PROGRESSION.GROWTH_MIN);
+                    player.stats[stat] = Math.min(99, player.stats[stat] + growth);
                     if (player.stats[stat] > oldVal) {
                         improvements.push({ stat, change: player.stats[stat] - oldVal });
                     }
@@ -5830,9 +5824,8 @@
             overall.textHorizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_CENTER;
             row.addControl(overall);
 
-            // Cost
-            const signingBonus = calculateSigningBonus(player);
-            const cost = createText(`Bonus: $${signingBonus.toLocaleString()}\nSalary: $${player.salaryCost.toLocaleString()}`, 11, "#ffd700");
+            // Cost (salary only, no signing bonus)
+            const cost = createText(`Salary: ${formatSalaryM(player.salaryCost)}`, 11, "#ffd700");
             cost.textHorizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_RIGHT;
             cost.left = "-140px";
             row.addControl(cost);
@@ -5843,10 +5836,9 @@
             signBtn.left = "-20px";
             signBtn.fontSize = 12;
 
-            // Check if can sign
-            const canAfford = managementState.team.credits >= signingBonus;
+            // Check if can sign (only salary cap matters now)
             const underCap = canSignPlayer(managementState.team, player);
-            signBtn.isEnabled = canAfford && underCap;
+            signBtn.isEnabled = underCap;
             signBtn.alpha = signBtn.isEnabled ? 1 : 0.5;
 
             signBtn.onPointerUpObservable.add(() => {
@@ -6483,19 +6475,18 @@
             }
 
             managementState.freeAgents.forEach(player => {
-                const bonus = calculateSigningBonus(player);
-                const canAfford = managementState.team.credits >= bonus && canSignPlayer(managementState.team, player);
+                const canSign = canSignPlayer(managementState.team, player);
 
                 const item = document.createElement('div');
                 item.className = 'roster-item';
                 item.innerHTML = `
                     <div>
                         <div class="name">${player.firstName} ${player.lastName} (${player.position})</div>
-                        <div class="stats">Age ${player.age} | Bonus: ${formatSalaryM(bonus)}</div>
+                        <div class="stats">Age ${player.age} | Salary: ${formatSalaryM(player.salaryCost)}</div>
                     </div>
                     <div style="text-align:right;">
                         <div class="ovr">${player.overall}</div>
-                        <button class="mgmt-btn fa-btn" ${canAfford ? '' : 'disabled'}
+                        <button class="mgmt-btn fa-btn" ${canSign ? '' : 'disabled'}
                             onclick="signAndRefresh('${player.id}')">SIGN</button>
                     </div>
                 `;
