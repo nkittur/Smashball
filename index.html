@@ -846,7 +846,7 @@
         // Progression constants
         const PROGRESSION = {
             // Growth is based purely on potential grade
-            GROWTH_CHANCE_BASE: 0.125,          // 12.5% base chance per stat per week (~8/year skill)
+            GROWTH_CHANCE_BASE: 0.07,           // 7% base chance per stat per week (~20 total skill for max pot)
             GROWTH_AMOUNT_MIN: 1,               // Minimum +1 when growth happens
             // Potential decay: chance for potential to drop each year
             POTENTIAL_DECAY_EARLY: 0.15,        // 15% chance years 1-3
@@ -856,7 +856,7 @@
             DECLINE_RATE: 0.3,                  // per year over peak (base)
             // Physical stats: grow rarely, decline in phases
             PHYSICAL_STATS: ['speed', 'acceleration', 'agility', 'strength', 'stamina'],
-            PHYSICAL_GROWTH_CHANCE_MULT: 0.125, // 12.5% of normal growth chance (~1/year)
+            PHYSICAL_GROWTH_CHANCE_MULT: 0.22,  // 22% of normal growth chance (~1/year)
             PHYSICAL_DECLINE_EARLY_MULT: 0.5,   // Gentle decline years 1-3 after peak
             PHYSICAL_DECLINE_LATE_MULT: 3.0,    // Steep decline years 4+ after peak
             PHYSICAL_DECLINE_LATE_START: 4,     // When steep decline begins
