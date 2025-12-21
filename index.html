@@ -2640,53 +2640,87 @@
             qb.overall = qbPlayer.overall;
             qb.displayName = `${qbPlayer.firstName} ${qbPlayer.lastName.charAt(0)}.`;
 
-            // Add name label to QB
-            const qbNameLabel = new BABYLON.GUI.TextBlock();
-            qbNameLabel.text = `${qb.lastName} ${qb.overall}`;
-            qbNameLabel.color = '#ffcc44';
-            qbNameLabel.fontSize = 16;
-            qbNameLabel.fontFamily = 'Courier New';
-            qbNameLabel.fontWeight = 'bold';
-            qbNameLabel.outlineWidth = 3;
-            qbNameLabel.outlineColor = '#000000';
-
+            // Add name label to QB (stacked: name on top, OVR below bigger)
             const qbLabelRect = new BABYLON.GUI.Rectangle();
-            qbLabelRect.width = '120px';
-            qbLabelRect.height = '28px';
-            qbLabelRect.cornerRadius = 4;
+            qbLabelRect.width = '140px';
+            qbLabelRect.height = '70px';
+            qbLabelRect.cornerRadius = 6;
             qbLabelRect.thickness = 0;
-            qbLabelRect.background = 'rgba(0, 0, 0, 0.6)';
-            qbLabelRect.addControl(qbNameLabel);
+            qbLabelRect.background = 'rgba(0, 0, 0, 0.7)';
+
+            const qbStack = new BABYLON.GUI.StackPanel();
+            qbStack.isVertical = true;
+
+            const qbNameText = new BABYLON.GUI.TextBlock();
+            qbNameText.text = qb.lastName.toUpperCase();
+            qbNameText.color = '#ffcc44';
+            qbNameText.fontSize = 20;
+            qbNameText.fontFamily = 'Courier New';
+            qbNameText.fontWeight = 'bold';
+            qbNameText.outlineWidth = 3;
+            qbNameText.outlineColor = '#000000';
+            qbNameText.height = '28px';
+
+            const qbOvrText = new BABYLON.GUI.TextBlock();
+            qbOvrText.text = `${qb.overall}`;
+            qbOvrText.color = '#ffffff';
+            qbOvrText.fontSize = 28;
+            qbOvrText.fontFamily = 'Courier New';
+            qbOvrText.fontWeight = 'bold';
+            qbOvrText.outlineWidth = 4;
+            qbOvrText.outlineColor = '#000000';
+            qbOvrText.height = '36px';
+
+            qbStack.addControl(qbNameText);
+            qbStack.addControl(qbOvrText);
+            qbLabelRect.addControl(qbStack);
 
             advancedTexture.addControl(qbLabelRect);
             qbLabelRect.linkWithMesh(qb);
-            qbLabelRect.linkOffsetY = -55;
+            qbLabelRect.linkOffsetY = -70;
             qbLabelRect.alpha = 1;  // Show when frozen
 
             qb.nameLabel = qbLabelRect;
 
-            // Add name labels to receivers
+            // Add name labels to receivers (stacked: name on top, OVR below bigger)
             gameState.receivers.forEach((receiver, i) => {
-                const nameLabel = new BABYLON.GUI.TextBlock();
-                nameLabel.text = `${receiver.lastName} ${receiver.overall}`;
-                nameLabel.color = '#88bbff';
-                nameLabel.fontSize = 14;
-                nameLabel.fontFamily = 'Courier New';
-                nameLabel.fontWeight = 'bold';
-                nameLabel.outlineWidth = 2;
-                nameLabel.outlineColor = '#000000';
-
                 const labelRect = new BABYLON.GUI.Rectangle();
-                labelRect.width = '120px';
-                labelRect.height = '24px';
-                labelRect.cornerRadius = 4;
+                labelRect.width = '130px';
+                labelRect.height = '65px';
+                labelRect.cornerRadius = 6;
                 labelRect.thickness = 0;
-                labelRect.background = 'rgba(0, 0, 0, 0.5)';
-                labelRect.addControl(nameLabel);
+                labelRect.background = 'rgba(0, 0, 0, 0.65)';
+
+                const stack = new BABYLON.GUI.StackPanel();
+                stack.isVertical = true;
+
+                const nameText = new BABYLON.GUI.TextBlock();
+                nameText.text = receiver.lastName.toUpperCase();
+                nameText.color = '#88bbff';
+                nameText.fontSize = 18;
+                nameText.fontFamily = 'Courier New';
+                nameText.fontWeight = 'bold';
+                nameText.outlineWidth = 3;
+                nameText.outlineColor = '#000000';
+                nameText.height = '26px';
+
+                const ovrText = new BABYLON.GUI.TextBlock();
+                ovrText.text = `${receiver.overall}`;
+                ovrText.color = '#ffffff';
+                ovrText.fontSize = 26;
+                ovrText.fontFamily = 'Courier New';
+                ovrText.fontWeight = 'bold';
+                ovrText.outlineWidth = 4;
+                ovrText.outlineColor = '#000000';
+                ovrText.height = '34px';
+
+                stack.addControl(nameText);
+                stack.addControl(ovrText);
+                labelRect.addControl(stack);
 
                 advancedTexture.addControl(labelRect);
                 labelRect.linkWithMesh(receiver);
-                labelRect.linkOffsetY = -50;
+                labelRect.linkOffsetY = -65;
                 labelRect.alpha = 1;  // Show when frozen
 
                 receiver.nameLabel = labelRect;
