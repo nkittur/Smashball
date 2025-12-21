@@ -847,15 +847,21 @@
         const PROGRESSION = {
             // Growth is based purely on potential grade
             GROWTH_CHANCE_BASE: 0.30,           // 30% base chance per stat per week
-            GROWTH_AMOUNT_BASE: 0.20,           // base growth amount when it happens
+            GROWTH_AMOUNT_MIN: 1,               // Minimum +1 when growth happens
             // Potential decay: chance for potential to drop each year
             POTENTIAL_DECAY_EARLY: 0.15,        // 15% chance years 1-3
             POTENTIAL_DECAY_LATE: 0.50,         // 50% chance after year 3
             POTENTIAL_DROP_TWO_CHANCE: 0.25,    // 25% chance to drop 2 levels instead of 1
-            // Decline
-            DECLINE_RATE: 0.3,  // per year over peak
-            PHYSICAL_DECLINE_STATS: ['speed', 'acceleration', 'agility', 'strength', 'stamina'],
-            MENTAL_DECLINE_RATE: 0.5,  // mental stats decline slower
+            // Decline rates
+            DECLINE_RATE: 0.3,                  // per year over peak (base)
+            // Physical stats: grow rarely, decline frequently
+            PHYSICAL_STATS: ['speed', 'acceleration', 'agility', 'strength', 'stamina'],
+            PHYSICAL_GROWTH_CHANCE_MULT: 0.15,  // Only 15% of normal growth chance
+            PHYSICAL_DECLINE_MULT: 2.0,         // 2x faster decline
+            // Skill stats: decline very slowly
+            SKILL_STATS: ['catching', 'routeRunning', 'blocking', 'runBlock', 'passBlock',
+                          'tackling', 'manCoverage', 'zoneCoverage', 'passRush', 'awareness', 'focus'],
+            SKILL_DECLINE_MULT: 0.1,            // Only 10% of normal decline
             MIN_STAT: 20,
             MIN_AVERAGE_STAT: 35,  // retire if average drops below
             MAX_AGE: 40
@@ -1392,22 +1398,29 @@
             if (player.age >= player.peakAge) return [];
             if (player.potentialGrade <= 0) return []; // No growth potential left
 
-            // Potential grade affects growth (0-3 scale)
-            // Higher potential = higher chance and higher amount
+            // Potential grade affects growth chance (0-3 scale)
             const potentialMultiplier = 0.5 + (player.potentialGrade * 0.5); // 0.5x to 2.0x
-            const growthChance = PROGRESSION.GROWTH_CHANCE_BASE * potentialMultiplier;
-            const growthAmount = PROGRESSION.GROWTH_AMOUNT_BASE * potentialMultiplier;
+            const baseGrowthChance = PROGRESSION.GROWTH_CHANCE_BASE * potentialMultiplier;
 
             const positionData = POSITIONS[player.position];
             const primaryStats = positionData.primaryStats;
 
             const improvements = [];
             primaryStats.forEach(stat => {
-                if (player.stats[stat] !== undefined && Math.random() < growthChance) {
+                if (player.stats[stat] === undefined) return;
+
+                // Physical stats grow very rarely
+                const isPhysical = PROGRESSION.PHYSICAL_STATS.includes(stat);
+                const growthChance = isPhysical
+                    ? baseGrowthChance * PROGRESSION.PHYSICAL_GROWTH_CHANCE_MULT
+                    : baseGrowthChance;
+
+                if (Math.random() < growthChance) {
                     const oldVal = player.stats[stat];
-                    // Add some randomness to growth amount (0.5x to 1.5x)
-                    const randomizedGrowth = growthAmount * (0.5 + Math.random());
-                    player.stats[stat] = Math.min(99, player.stats[stat] + randomizedGrowth);
+                    // Growth is always at least +1, with potential for more based on potential
+                    const bonusGrowth = Math.floor(Math.random() * player.potentialGrade);
+                    const growth = PROGRESSION.GROWTH_AMOUNT_MIN + bonusGrowth;
+                    player.stats[stat] = Math.min(99, player.stats[stat] + growth);
                     if (player.stats[stat] > oldVal) {
                         improvements.push({ stat, change: player.stats[stat] - oldVal });
                     }
@@ -1426,28 +1439,35 @@
             if (player.age < player.peakAge) return [];
 
             const yearsOver = player.age - player.peakAge;
-            const declineRate = yearsOver * PROGRESSION.DECLINE_RATE;
+            const baseDeclineRate = yearsOver * PROGRESSION.DECLINE_RATE;
 
             const declines = [];
 
-            // Physical stats decline faster
-            PROGRESSION.PHYSICAL_DECLINE_STATS.forEach(stat => {
-                if (player.stats[stat] !== undefined) {
-                    const oldVal = player.stats[stat];
-                    player.stats[stat] = Math.max(PROGRESSION.MIN_STAT, player.stats[stat] - declineRate);
-                    if (player.stats[stat] < oldVal) {
-                        declines.push({ stat, change: player.stats[stat] - oldVal });
-                    }
-                }
-            });
+            // Process all stats the player has
+            Object.keys(player.stats).forEach(stat => {
+                const isPhysical = PROGRESSION.PHYSICAL_STATS.includes(stat);
+                const isSkill = PROGRESSION.SKILL_STATS.includes(stat);
 
-            // Mental stats decline slower
-            const mentalStats = ['awareness', 'routeRunning', 'catching', 'manCoverage', 'zoneCoverage'];
-            mentalStats.forEach(stat => {
-                if (player.stats[stat] !== undefined) {
+                let declineRate;
+                let minStat = PROGRESSION.MIN_STAT;
+
+                if (isPhysical) {
+                    // Physical stats decline frequently (2x faster)
+                    declineRate = baseDeclineRate * PROGRESSION.PHYSICAL_DECLINE_MULT;
+                } else if (isSkill) {
+                    // Skill stats barely decline (10% of normal)
+                    declineRate = baseDeclineRate * PROGRESSION.SKILL_DECLINE_MULT;
+                    minStat = PROGRESSION.MIN_STAT + 15; // Skills floor higher
+                } else {
+                    // Other stats decline normally
+                    declineRate = baseDeclineRate;
+                }
+
+                // Apply decline with some randomness
+                if (Math.random() < 0.5 + (yearsOver * 0.1)) { // More likely to decline as years pass
                     const oldVal = player.stats[stat];
-                    player.stats[stat] = Math.max(PROGRESSION.MIN_STAT + 10,
-                        player.stats[stat] - (declineRate * PROGRESSION.MENTAL_DECLINE_RATE));
+                    const actualDecline = declineRate * (0.5 + Math.random()); // 50-150% of rate
+                    player.stats[stat] = Math.max(minStat, player.stats[stat] - actualDecline);
                     if (player.stats[stat] < oldVal) {
                         declines.push({ stat, change: player.stats[stat] - oldVal });
                     }
