@@ -650,6 +650,8 @@
             playStartTime: 0,  // When current play started (for label fading)
             ballCarrier: null,      // Receiver carrying the ball after catch
             playEnded: false,       // Track if play has ended (tackle/sack/TD)
+            waitingForPossession: false, // Pause game during possession overlay
+            playFrozen: true,       // Play frozen until player holds screen
             qbSacked: false,        // Track if QB was sacked
             qbStartZ: -6,           // QB's randomized starting position (set each play)
             currentView: 'iso',     // Camera view: 'iso', 'overhead', 'shoulder'
@@ -1955,6 +1957,8 @@
             const xPositions = [-5, 0, 5];
             return {
                 name: `${player.firstName} ${player.lastName.charAt(0)}.`,
+                lastName: player.lastName,
+                overall: player.overall || calculateOverall(player),
                 playerId: player.id,
                 start: new BABYLON.Vector3(xPositions[index], 0, startZ),
                 route: [],  // Will be generated
@@ -2309,6 +2313,8 @@
 
                 // Store config data on receiver
                 receiver.displayName = config.name;
+                receiver.lastName = config.lastName || config.name.split(' ').pop();  // Extract last name from display name if not provided
+                receiver.overall = config.overall || Math.round(Object.values(config.stats).reduce((a, b) => a + b, 0) / Object.keys(config.stats).length);
                 receiver.playerId = config.playerId || null;  // Link to roster player
                 receiver.route = config.route;
                 receiver.routeIndex = 0;
@@ -2622,13 +2628,51 @@
             // Create GUI for player name labels
             const advancedTexture = BABYLON.GUI.AdvancedDynamicTexture.CreateFullscreenUI('UI', true, scene);
 
+            // Get QB data from roster
+            let qbPlayer = null;
+            if (managementState.initialized && managementState.team && managementState.team.depthChart.QB) {
+                qbPlayer = managementState.team.roster.find(p => p.id === managementState.team.depthChart.QB);
+            }
+            if (!qbPlayer) {
+                qbPlayer = { firstName: 'Knight', lastName: 'Commander', overall: 80 };
+            }
+            qb.lastName = qbPlayer.lastName;
+            qb.overall = qbPlayer.overall;
+            qb.displayName = `${qbPlayer.firstName} ${qbPlayer.lastName.charAt(0)}.`;
+
+            // Add name label to QB
+            const qbNameLabel = new BABYLON.GUI.TextBlock();
+            qbNameLabel.text = `${qb.lastName} ${qb.overall}`;
+            qbNameLabel.color = '#ffcc44';
+            qbNameLabel.fontSize = 16;
+            qbNameLabel.fontFamily = 'Courier New';
+            qbNameLabel.fontWeight = 'bold';
+            qbNameLabel.outlineWidth = 3;
+            qbNameLabel.outlineColor = '#000000';
+
+            const qbLabelRect = new BABYLON.GUI.Rectangle();
+            qbLabelRect.width = '120px';
+            qbLabelRect.height = '28px';
+            qbLabelRect.cornerRadius = 4;
+            qbLabelRect.thickness = 0;
+            qbLabelRect.background = 'rgba(0, 0, 0, 0.6)';
+            qbLabelRect.addControl(qbNameLabel);
+
+            advancedTexture.addControl(qbLabelRect);
+            qbLabelRect.linkWithMesh(qb);
+            qbLabelRect.linkOffsetY = -55;
+            qbLabelRect.alpha = 1;  // Show when frozen
+
+            qb.nameLabel = qbLabelRect;
+
             // Add name labels to receivers
             gameState.receivers.forEach((receiver, i) => {
                 const nameLabel = new BABYLON.GUI.TextBlock();
-                nameLabel.text = receiver.displayName;
+                nameLabel.text = `${receiver.lastName} ${receiver.overall}`;
                 nameLabel.color = '#88bbff';
                 nameLabel.fontSize = 14;
                 nameLabel.fontFamily = 'Courier New';
+                nameLabel.fontWeight = 'bold';
                 nameLabel.outlineWidth = 2;
                 nameLabel.outlineColor = '#000000';
 
@@ -2643,7 +2687,7 @@
                 advancedTexture.addControl(labelRect);
                 labelRect.linkWithMesh(receiver);
                 labelRect.linkOffsetY = -50;
-                labelRect.alpha = 0;  // Names hidden for now
+                labelRect.alpha = 1;  // Show when frozen
 
                 receiver.nameLabel = labelRect;
             });
@@ -3805,6 +3849,7 @@
                     resetDrive();
                     // Management: record possession complete with 0 points (turnover)
                     if (managementState.matchInProgress) {
+                        gameState.waitingForPossession = true;
                         setTimeout(() => {
                             onPossessionComplete(0);
                         }, 1500);
@@ -3821,6 +3866,7 @@
                 resetDrive();
                 // Management: record possession complete with 0 points (turnover)
                 if (managementState.matchInProgress) {
+                    gameState.waitingForPossession = true;
                     setTimeout(() => {
                         onPossessionComplete(0);
                     }, 1500);
@@ -3841,6 +3887,7 @@
                 resetDrive();
                 // Management: record possession complete with 0 points (turnover)
                 if (managementState.matchInProgress) {
+                    gameState.waitingForPossession = true;
                     setTimeout(() => {
                         onPossessionComplete(0);
                     }, 1500);
@@ -3864,17 +3911,20 @@
             // Celebration
             celebrateReceiver(receiver, gameState.scene);
 
-            // Reset drive after touchdown
+            // Reset drive tracking (downs/yardage)
             resetDrive();
 
             // Management: record possession complete with 7 points
             if (managementState.matchInProgress) {
+                // Pause game during possession overlay
+                gameState.waitingForPossession = true;
                 setTimeout(() => {
                     onPossessionComplete(7);
                 }, 2500);
+                return; // Don't reset play yet - wait for overlay to be dismissed
             }
 
-            // Reset after delay
+            // Only reset play immediately if not in management match
             setTimeout(() => {
                 resetPlay(gameState.scene);
             }, 3000);
@@ -4750,6 +4800,30 @@
             }, 30);
         };
 
+        // Hide player labels when play starts
+        const hidePlayerLabels = () => {
+            if (gameState.scene && gameState.scene.qb && gameState.scene.qb.nameLabel) {
+                gameState.scene.qb.nameLabel.alpha = 0;
+            }
+            gameState.receivers.forEach(receiver => {
+                if (receiver.nameLabel) {
+                    receiver.nameLabel.alpha = 0;
+                }
+            });
+        };
+
+        // Show player labels when play is frozen
+        const showPlayerLabels = () => {
+            if (gameState.scene && gameState.scene.qb && gameState.scene.qb.nameLabel) {
+                gameState.scene.qb.nameLabel.alpha = 1;
+            }
+            gameState.receivers.forEach(receiver => {
+                if (receiver.nameLabel) {
+                    receiver.nameLabel.alpha = 1;
+                }
+            });
+        };
+
         // Reset Play
         const resetPlay = (scene) => {
             // Detach football from any parent
@@ -4767,6 +4841,7 @@
             gameState.ballCarrier = null;
             gameState.playEnded = false;
             gameState.qbSacked = false;
+            gameState.playFrozen = true;  // Freeze until player holds screen
 
             // Reset receiver and defender positions
             resetReceivers();
@@ -4830,10 +4905,13 @@
             // Update down and distance display
             updateDownDistance();
 
+            // Show player labels while frozen
+            showPlayerLabels();
+
             // Slight delay before allowing next throw
             setTimeout(() => {
                 gameState.canThrow = true;
-                updateMessage('Drag from knight to throw');
+                updateMessage('Hold to start play');
             }, 500);
         };
 
@@ -4939,6 +5017,14 @@
                 // Only capture left-click (button 0) or single touch for throwing
                 // Let right-click (button 2) and multi-touch pass through to camera
                 if (evt.button !== 0 && evt.pointerType === 'mouse') return;
+
+                // Unfreeze play when holding down (starts the play)
+                if (gameState.playFrozen) {
+                    gameState.playFrozen = false;
+                    gameState.playStartTime = performance.now() * 0.001;
+                    hidePlayerLabels();
+                }
+
                 if (!gameState.canThrow || gameState.ballInFlight) return;
 
                 evt.preventDefault();
@@ -5001,6 +5087,12 @@
             scene.onBeforeRenderObservable.add(() => {
                 // Skip all game logic when in management mode
                 if (!gameSceneActive) return;
+
+                // Pause game during possession overlay
+                if (gameState.waitingForPossession) return;
+
+                // Freeze play until player holds screen
+                if (gameState.playFrozen) return;
 
                 const time = performance.now() * 0.001;
 
@@ -5094,13 +5186,7 @@
                         }
                     });
 
-                    // Reset all players when any route completes
-                    if (anyRouteComplete && !gameState.playEnded) {
-                        resetReceivers();
-                        resetDefenders();
-                        resetOffensiveLine();
-                        resetDefensiveLine();
-                    }
+                    // Route completion no longer triggers reset - play continues normally
 
                     // Move offensive linemen
                     gameState.offensiveLine.forEach((oLineman, i) => {
@@ -7158,7 +7244,9 @@
                         document.getElementById('driveResult').style.display = 'block';
                         document.getElementById('btnContinueDrive').addEventListener('click', () => {
                             overlay.remove();
-                            resetDrive();
+                            // Clear waiting flag and reset play for next possession
+                            gameState.waitingForPossession = false;
+                            resetPlay(gameState.scene);
                         });
                     }, 300);
                 }
