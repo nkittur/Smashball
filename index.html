@@ -4418,6 +4418,19 @@
             let hasNearbyDefender = false;
             const coverageRange = CLASH_CONSTANTS.CLASH_RANGE * 1.5;
 
+            // For zone defenders, count how many receivers are in their zone to split coverage
+            const zoneReceiverCounts = new Map();
+            gameState.defenders.forEach(defender => {
+                if (defender.aiType === 'zone' && defender.knockdownUntil <= gameState.gameTime) {
+                    let count = 0;
+                    gameState.receivers.forEach(rec => {
+                        const dist = BABYLON.Vector3.Distance(defender.position, rec.position);
+                        if (dist < coverageRange) count++;
+                    });
+                    zoneReceiverCounts.set(defender, Math.max(1, count));
+                }
+            });
+
             gameState.defenders.forEach(defender => {
                 if (defender.knockdownUntil > gameState.gameTime) return;
 
@@ -4456,6 +4469,19 @@
                         // If ball and defender are on opposite sides, halve the penalty
                         if (defenderSide !== 0 && ballSide !== 0 && defenderSide !== ballSide) {
                             penalty *= 0.5;
+                        }
+                    }
+
+                    // If defender lost a clash (has speed penalty), reduce their coverage effect by 50%
+                    if (defender.clashSpeedPenaltyUntil && defender.clashSpeedPenaltyUntil > gameState.gameTime) {
+                        penalty *= 0.5;
+                    }
+
+                    // For zone defenders covering multiple receivers, split their coverage
+                    if (defender.aiType === 'zone') {
+                        const receiversInZone = zoneReceiverCounts.get(defender) || 1;
+                        if (receiversInZone > 1) {
+                            penalty /= receiversInZone;
                         }
                     }
 
