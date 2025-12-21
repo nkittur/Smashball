@@ -1520,7 +1520,12 @@
 
         // Initialize Babylon.js
         const canvas = document.getElementById('renderCanvas');
-        const engine = new BABYLON.Engine(canvas, true);
+        const engine = new BABYLON.Engine(canvas, true, {
+            preserveDrawingBuffer: true,
+            stencil: true
+        });
+        // Set hardware scaling for sharp rendering on high-DPI screens
+        engine.setHardwareScalingLevel(1 / window.devicePixelRatio);
 
         // Create Scene
         const createScene = () => {
@@ -4838,10 +4843,10 @@
         function createManagementUI() {
             const advancedTexture = BABYLON.GUI.AdvancedDynamicTexture.CreateFullscreenUI("ManagementUI");
 
-            // Render at ideal size for sharp text, then scale
-            advancedTexture.renderAtIdealSize = true;
-            advancedTexture.idealWidth = 600;
-            advancedTexture.idealHeight = 800;
+            // Scale UI elements based on screen size for mobile
+            const scale = Math.min(window.innerWidth / 400, window.innerHeight / 600, 1.5);
+            advancedTexture.rootContainer.scaleX = scale;
+            advancedTexture.rootContainer.scaleY = scale;
 
             const ui = {
                 advancedTexture,
