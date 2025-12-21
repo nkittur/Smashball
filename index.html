@@ -295,6 +295,8 @@
                 <h2 id="playerName">Player Name</h2>
                 <div id="playerInfo" class="player-info"></div>
                 <div id="playerStats" class="player-stats"></div>
+                <div id="playerSeasonStats" class="player-season-stats"></div>
+                <div id="playerCareerGraph" class="player-career-graph"></div>
                 <div class="modal-actions">
                     <button id="btnCutPlayer" class="mgmt-btn danger">CUT PLAYER</button>
                 </div>
@@ -499,6 +501,90 @@
         .stat-poor { color: #f44; }       /* <55 red */
         .stat-change.positive { color: #4f4; }
         .stat-change.negative { color: #f44; }
+        /* Season stats section */
+        .player-season-stats {
+            margin-top: 16px;
+            padding: 12px;
+            background: #1a1a2a;
+            border-radius: 6px;
+        }
+        .season-stats-title {
+            color: #888;
+            font-size: 11px;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+        .season-stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+            gap: 8px;
+        }
+        .season-stat-item {
+            text-align: center;
+        }
+        .season-stat-value {
+            font-size: 18px;
+            font-weight: bold;
+            color: #4f4;
+        }
+        .season-stat-label {
+            font-size: 10px;
+            color: #888;
+            text-transform: uppercase;
+        }
+        /* Career graph section */
+        .player-career-graph {
+            margin-top: 16px;
+            padding: 12px;
+            background: #1a1a2a;
+            border-radius: 6px;
+        }
+        .career-graph-title {
+            color: #888;
+            font-size: 11px;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+        .career-graph-container {
+            display: flex;
+            align-items: flex-end;
+            height: 60px;
+            gap: 4px;
+            padding: 4px 0;
+            border-bottom: 1px solid #333;
+        }
+        .career-bar {
+            flex: 1;
+            min-width: 20px;
+            max-width: 40px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .career-bar-fill {
+            width: 100%;
+            background: linear-gradient(to top, #4f4, #8f8);
+            border-radius: 2px 2px 0 0;
+            position: relative;
+        }
+        .career-bar-potential {
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #ff0;
+            font-size: 8px;
+        }
+        .career-bar-label {
+            font-size: 9px;
+            color: #666;
+            margin-top: 4px;
+        }
+        .career-bar-ovr {
+            font-size: 10px;
+            color: #fff;
+            margin-bottom: 2px;
+        }
         .modal-actions {
             margin-top: 20px;
             text-align: center;
@@ -995,10 +1081,22 @@
                 peakAge,
                 salaryCost: calculateSalary(stats),
                 seasonStartStats: { ...stats },
+                // Season stats
                 gamesPlayed: 0,
                 seasonTDs: 0,
                 seasonCatches: 0,
-                seasonTackles: 0
+                seasonTargets: 0,
+                seasonTackles: 0,
+                seasonClashesWon: 0,
+                seasonClashesLost: 0,
+                seasonSacks: 0,
+                seasonPassesDefended: 0,
+                // Career history (array of season snapshots)
+                careerHistory: [{
+                    season: 0,
+                    overall: Math.round(Object.values(stats).reduce((a, b) => a + b, 0) / Object.keys(stats).length),
+                    potential: rollPotential(age, tier)
+                }]
             };
 
             player.overall = calculateOverall(player);
@@ -1438,12 +1536,34 @@
                     }
                 }
 
+                // Record career history before resetting
+                if (!player.careerHistory) player.careerHistory = [];
+                player.careerHistory.push({
+                    season: player.careerHistory.length,
+                    overall: player.overall,
+                    potential: player.potentialGrade,
+                    gamesPlayed: player.gamesPlayed || 0,
+                    tds: player.seasonTDs || 0,
+                    catches: player.seasonCatches || 0,
+                    targets: player.seasonTargets || 0,
+                    tackles: player.seasonTackles || 0,
+                    clashesWon: player.seasonClashesWon || 0,
+                    clashesLost: player.seasonClashesLost || 0,
+                    sacks: player.seasonSacks || 0,
+                    passesDefended: player.seasonPassesDefended || 0
+                });
+
                 // Reset season stats
                 player.seasonStartStats = { ...player.stats };
                 player.gamesPlayed = 0;
                 player.seasonTDs = 0;
                 player.seasonCatches = 0;
+                player.seasonTargets = 0;
                 player.seasonTackles = 0;
+                player.seasonClashesWon = 0;
+                player.seasonClashesLost = 0;
+                player.seasonSacks = 0;
+                player.seasonPassesDefended = 0;
 
                 // Check retirement after aging
                 if (checkRetirement(player)) {
@@ -6487,6 +6607,77 @@
                 </div>`;
             }).join('');
             document.getElementById('playerStats').innerHTML = statsHtml;
+
+            // Season stats (position-dependent)
+            let seasonStatsHtml = '<div class="season-stats-title">Season Stats</div><div class="season-stats-grid">';
+
+            if (player.position === 'WR' || player.position === 'QB') {
+                const catchPct = player.seasonTargets > 0
+                    ? Math.round((player.seasonCatches || 0) / player.seasonTargets * 100)
+                    : 0;
+                seasonStatsHtml += `
+                    <div class="season-stat-item"><div class="season-stat-value">${player.gamesPlayed || 0}</div><div class="season-stat-label">Games</div></div>
+                    <div class="season-stat-item"><div class="season-stat-value">${player.seasonTDs || 0}</div><div class="season-stat-label">TDs</div></div>
+                    <div class="season-stat-item"><div class="season-stat-value">${player.seasonCatches || 0}</div><div class="season-stat-label">Catches</div></div>
+                    <div class="season-stat-item"><div class="season-stat-value">${catchPct}%</div><div class="season-stat-label">Catch %</div></div>
+                `;
+            } else if (player.position === 'CB') {
+                seasonStatsHtml += `
+                    <div class="season-stat-item"><div class="season-stat-value">${player.gamesPlayed || 0}</div><div class="season-stat-label">Games</div></div>
+                    <div class="season-stat-item"><div class="season-stat-value">${player.seasonTackles || 0}</div><div class="season-stat-label">Tackles</div></div>
+                    <div class="season-stat-item"><div class="season-stat-value">${player.seasonPassesDefended || 0}</div><div class="season-stat-label">PDs</div></div>
+                    <div class="season-stat-item"><div class="season-stat-value">${player.seasonClashesWon || 0}</div><div class="season-stat-label">Clashes Won</div></div>
+                `;
+            } else if (player.position === 'OL') {
+                const clashTotal = (player.seasonClashesWon || 0) + (player.seasonClashesLost || 0);
+                const clashPct = clashTotal > 0 ? Math.round((player.seasonClashesWon || 0) / clashTotal * 100) : 0;
+                seasonStatsHtml += `
+                    <div class="season-stat-item"><div class="season-stat-value">${player.gamesPlayed || 0}</div><div class="season-stat-label">Games</div></div>
+                    <div class="season-stat-item"><div class="season-stat-value">${player.seasonClashesWon || 0}</div><div class="season-stat-label">Clashes Won</div></div>
+                    <div class="season-stat-item"><div class="season-stat-value">${player.seasonClashesLost || 0}</div><div class="season-stat-label">Clashes Lost</div></div>
+                    <div class="season-stat-item"><div class="season-stat-value">${clashPct}%</div><div class="season-stat-label">Win %</div></div>
+                `;
+            } else if (player.position === 'DL') {
+                const clashTotal = (player.seasonClashesWon || 0) + (player.seasonClashesLost || 0);
+                const clashPct = clashTotal > 0 ? Math.round((player.seasonClashesWon || 0) / clashTotal * 100) : 0;
+                seasonStatsHtml += `
+                    <div class="season-stat-item"><div class="season-stat-value">${player.gamesPlayed || 0}</div><div class="season-stat-label">Games</div></div>
+                    <div class="season-stat-item"><div class="season-stat-value">${player.seasonSacks || 0}</div><div class="season-stat-label">Sacks</div></div>
+                    <div class="season-stat-item"><div class="season-stat-value">${player.seasonClashesWon || 0}</div><div class="season-stat-label">Clashes Won</div></div>
+                    <div class="season-stat-item"><div class="season-stat-value">${clashPct}%</div><div class="season-stat-label">Win %</div></div>
+                `;
+            }
+            seasonStatsHtml += '</div>';
+            document.getElementById('playerSeasonStats').innerHTML = seasonStatsHtml;
+
+            // Career graph
+            const history = player.careerHistory || [];
+            let graphHtml = '<div class="career-graph-title">Career Progression</div>';
+
+            if (history.length > 0) {
+                graphHtml += '<div class="career-graph-container">';
+                const maxOvr = Math.max(...history.map(h => h.overall), 99);
+                const minOvr = Math.min(...history.map(h => h.overall), 40);
+                const range = Math.max(maxOvr - minOvr, 20);
+
+                history.forEach((season, idx) => {
+                    const heightPct = ((season.overall - minOvr) / range) * 100;
+                    const potentialStars = '★'.repeat((season.potential || 0) + 1);
+                    graphHtml += `
+                        <div class="career-bar">
+                            <div class="career-bar-ovr">${season.overall}</div>
+                            <div class="career-bar-fill" style="height: ${Math.max(heightPct, 10)}%;">
+                                <span class="career-bar-potential">${potentialStars}</span>
+                            </div>
+                            <div class="career-bar-label">Y${idx + 1}</div>
+                        </div>
+                    `;
+                });
+                graphHtml += '</div>';
+            } else {
+                graphHtml += '<div style="color:#666;font-size:12px;">No career history yet</div>';
+            }
+            document.getElementById('playerCareerGraph').innerHTML = graphHtml;
 
             // Show modal
             document.getElementById('playerDetailModal').style.display = 'flex';
