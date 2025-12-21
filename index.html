@@ -474,8 +474,29 @@
             font-size: 12px;
         }
         .stat-row .stat-name { color: #888; }
-        .stat-row .stat-value { color: #fff; }
-        .stat-row .stat-change { margin-left: 6px; font-size: 11px; }
+        .stat-row .stat-values {
+            display: flex;
+            align-items: center;
+            min-width: 60px;
+            justify-content: flex-end;
+        }
+        .stat-row .stat-value {
+            display: inline-block;
+            width: 24px;
+            text-align: right;
+        }
+        .stat-row .stat-change {
+            display: inline-block;
+            width: 28px;
+            text-align: right;
+            font-size: 11px;
+        }
+        /* Stat color coding by value */
+        .stat-elite { color: #4f4; }      /* 85+ green */
+        .stat-good { color: #8f8; }       /* 75-84 light green */
+        .stat-average { color: #ff0; }    /* 65-74 yellow */
+        .stat-below { color: #f80; }      /* 55-64 orange */
+        .stat-poor { color: #f44; }       /* <55 red */
         .stat-change.positive { color: #4f4; }
         .stat-change.negative { color: #f44; }
         .modal-actions {
@@ -6446,15 +6467,23 @@
                 const start = Math.floor(startRaw);
                 const change = current - start;
                 const changeClass = change > 0 ? 'positive' : change < 0 ? 'negative' : '';
-                const changeText = change !== 0 ?
-                    `<span class="stat-change ${changeClass}">${change > 0 ? '+' : ''}${change}</span>` : '';
+                const changeText = change !== 0 ? `${change > 0 ? '+' : ''}${change}` : '';
+
+                // Color code based on stat value
+                const statColorClass = current >= 85 ? 'stat-elite' :
+                                       current >= 75 ? 'stat-good' :
+                                       current >= 65 ? 'stat-average' :
+                                       current >= 55 ? 'stat-below' : 'stat-poor';
 
                 // Format stat name
                 const statName = stat.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase());
 
                 return `<div class="stat-row">
                     <span class="stat-name">${statName}</span>
-                    <span><span class="stat-value">${current}</span>${changeText}</span>
+                    <span class="stat-values">
+                        <span class="stat-value ${statColorClass}">${current}</span>
+                        <span class="stat-change ${changeClass}">${changeText}</span>
+                    </span>
                 </div>`;
             }).join('');
             document.getElementById('playerStats').innerHTML = statsHtml;
