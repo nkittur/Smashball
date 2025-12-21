@@ -5989,7 +5989,7 @@
                 buttonStack.addControl(btn);
             });
 
-            // New Game button (with confirmation)
+            // New Game button (with confirmation) - added to button stack
             const newGameBtn = BABYLON.GUI.Button.CreateSimpleButton("hub_new_game", "NEW GAME");
             newGameBtn.width = "280px";
             newGameBtn.height = "45px";
@@ -6000,7 +6000,7 @@
             newGameBtn.fontSize = 16;
             newGameBtn.fontFamily = "Courier New";
             newGameBtn.paddingBottom = "8px";
-            newGameBtn.top = "40px";
+            newGameBtn.paddingTop = "15px";
             newGameBtn.onPointerUpObservable.add(() => {
                 if (confirm("Start a new game? All progress will be lost!")) {
                     SaveSystem.clear();
@@ -6012,7 +6012,7 @@
                     showScreen('hub');
                 }
             });
-            container.addControl(newGameBtn);
+            buttonStack.addControl(newGameBtn);
 
             // Next game info
             const nextGameInfo = createText("", 14, "#aaa");
