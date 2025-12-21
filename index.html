@@ -4107,114 +4107,191 @@
         const generateRandomRoute = (receiver, forceCrossing = false) => {
             const startX = receiver.startPos.x;
             const startZ = receiver.startPos.z;
-            const END_ZONE_Z = 11;  // End zone starts here (matches visual)
-            const END_ZONE_BACK = 15;  // Back of end zone (30% deeper)
+            const END_ZONE_Z = 11;  // End zone starts here
+            const END_ZONE_BACK = 15;  // Back of end zone
+            const SIDELINE = 8;  // Field boundary
 
-            // Route types - favor routes that stay on receiver's side of field
-            // Weight toward sideline routes (go_fade, out_corner, corner_fade) to reduce crossing
-            const sidelineRoutes = ['go_fade', 'out_corner', 'corner_fade', 'double_move'];
-            const middleRoutes = ['slant_across', 'in_post', 'post_corner', 'comeback_fade'];
-            // 70% sideline routes, 30% middle routes
-            const routes = Math.random() < 0.7 ? sidelineRoutes : middleRoutes;
-            const routeType = forceCrossing ? 'crossing' : routes[Math.floor(Math.random() * routes.length)];
+            // Calculate available depth to end zone
+            const depthToEndZone = END_ZONE_Z - startZ;
+            const isNearGoalLine = depthToEndZone < 6;  // Within 6 yards of end zone
+            const isOnSideline = Math.abs(startX) > 5;  // Near sideline
+            const isInRedZone = depthToEndZone < 10;  // Inside the 10
 
-            const route = [];
-
-            // First break point (5-8 yards from start, but not past end zone)
-            const break1Depth = Math.min(startZ + 5 + Math.random() * 3, END_ZONE_Z - 2);
-            // Entry point into end zone
-            const endZoneEntry = END_ZONE_Z + 0.5;
-
-            // Determine lateral movement based on field position
+            // Determine lateral directions
             const towardMiddle = startX > 0 ? -1 : 1;
             const towardSideline = startX > 0 ? 1 : -1;
 
-            // Sideways fade distance in end zone (3-5 yards)
-            const fadeDistance = 3 + Math.random() * 2;
+            const route = [];
+            let routeType;
 
+            // Select route type based on field position
+            if (isNearGoalLine) {
+                // Goal line routes - short, quick, mostly crossing or corner fades
+                if (isOnSideline || forceCrossing) {
+                    // Near sideline + goal line = must cross toward middle
+                    const types = ['quick_slant', 'corner_fade', 'flat_cross'];
+                    routeType = types[Math.floor(Math.random() * types.length)];
+                } else {
+                    // Middle of field near goal line
+                    const types = ['quick_slant', 'fade', 'back_shoulder', 'out_and_up'];
+                    routeType = types[Math.floor(Math.random() * types.length)];
+                }
+            } else if (isInRedZone) {
+                // Red zone routes - medium depth, need to get into end zone
+                if (isOnSideline) {
+                    const types = ['corner', 'fade', 'comeback_corner', 'slant'];
+                    routeType = forceCrossing ? 'slant' : types[Math.floor(Math.random() * types.length)];
+                } else {
+                    const types = ['post', 'dig', 'seam', 'out'];
+                    routeType = forceCrossing ? 'dig' : types[Math.floor(Math.random() * types.length)];
+                }
+            } else {
+                // Normal field position - full route tree
+                if (forceCrossing) {
+                    routeType = Math.random() > 0.5 ? 'crossing' : 'dig';
+                } else if (isOnSideline) {
+                    // Sideline receivers: go, corner, out, comeback
+                    const types = ['go', 'corner', 'out', 'comeback', 'post'];
+                    routeType = types[Math.floor(Math.random() * types.length)];
+                } else {
+                    // Slot/middle receivers: slant, seam, dig, post
+                    const types = ['slant', 'seam', 'dig', 'post', 'curl'];
+                    routeType = types[Math.floor(Math.random() * types.length)];
+                }
+            }
+
+            // Generate route points based on type
             switch(routeType) {
-                case 'go_fade':
-                    // Straight into end zone, then fade sideways
-                    route.push({ z: endZoneEntry, x: startX });
-                    route.push({ z: END_ZONE_BACK, x: Math.max(-7, Math.min(7, startX + towardSideline * fadeDistance)) });
+                // === GOAL LINE ROUTES ===
+                case 'quick_slant':
+                    // Quick slant toward middle - 2-3 yards then cut
+                    const qsDepth = Math.min(startZ + 2, END_ZONE_Z);
+                    const qsEndX = Math.max(-6, Math.min(6, startX + towardMiddle * (4 + Math.random() * 2)));
+                    route.push({ z: qsDepth, x: startX });
+                    route.push({ z: Math.min(qsDepth + 3, END_ZONE_BACK), x: qsEndX });
                     break;
 
-                case 'slant_across':
-                    // Slant toward middle, enter end zone, cut across
-                    const slantX = startX + towardMiddle * (3 + Math.random() * 2);
-                    route.push({ z: break1Depth, x: slantX });
-                    route.push({ z: endZoneEntry, x: slantX });
-                    route.push({ z: END_ZONE_BACK, x: slantX + towardMiddle * fadeDistance });
+                case 'flat_cross':
+                    // Run flat across the formation then angle to end zone
+                    const fcX = startX + towardMiddle * (6 + Math.random() * 3);
+                    route.push({ z: startZ + 1, x: Math.max(-6, Math.min(6, fcX)) });
+                    route.push({ z: Math.min(startZ + 4, END_ZONE_BACK), x: Math.max(-6, Math.min(6, fcX + towardMiddle * 2)) });
                     break;
 
-                case 'out_corner':
-                    // Out route, then up into end zone corner, fade along back line
-                    const outX = Math.max(-7, Math.min(7, startX + towardSideline * (4 + Math.random() * 2)));
-                    route.push({ z: break1Depth, x: startX });
-                    route.push({ z: break1Depth, x: outX });
-                    route.push({ z: endZoneEntry, x: outX });
-                    route.push({ z: END_ZONE_BACK, x: outX + towardSideline * 2 });
-                    break;
-
-                case 'in_post':
-                    // In route, then post into end zone, fade across
-                    const inX = startX + towardMiddle * (4 + Math.random() * 2);
-                    route.push({ z: break1Depth, x: startX });
-                    route.push({ z: break1Depth, x: inX });
-                    route.push({ z: endZoneEntry, x: inX });
-                    route.push({ z: END_ZONE_BACK, x: inX + towardMiddle * fadeDistance });
+                case 'back_shoulder':
+                    // Straight then slight fade back - for back shoulder throw
+                    route.push({ z: Math.min(startZ + 3, END_ZONE_Z + 1), x: startX });
+                    route.push({ z: Math.min(startZ + 2, END_ZONE_Z), x: startX + towardSideline * 1.5 });
                     break;
 
                 case 'corner_fade':
-                    // Straight, break to corner, enter end zone, fade along back
+                    // Quick move to corner of end zone
+                    const cfX = Math.max(-7, Math.min(7, startX + towardSideline * 3));
+                    route.push({ z: Math.min(startZ + 2, END_ZONE_Z), x: cfX });
+                    route.push({ z: Math.min(startZ + 5, END_ZONE_BACK), x: Math.max(-7, Math.min(7, cfX + towardSideline * 2)) });
+                    break;
+
+                case 'out_and_up':
+                    // Fake out, then go vertical
+                    const oauOutX = startX + towardSideline * 2;
+                    route.push({ z: startZ + 2, x: oauOutX });
+                    route.push({ z: Math.min(startZ + 6, END_ZONE_BACK), x: oauOutX });
+                    break;
+
+                // === RED ZONE ROUTES ===
+                case 'corner':
+                    // Break toward corner of end zone
+                    const cornerBreak = startZ + 5 + Math.random() * 2;
                     const cornerX = Math.max(-7, Math.min(7, startX + towardSideline * (4 + Math.random() * 2)));
-                    route.push({ z: break1Depth, x: startX });
-                    route.push({ z: endZoneEntry, x: cornerX });
-                    route.push({ z: END_ZONE_BACK, x: cornerX + towardSideline * 2 });
+                    route.push({ z: Math.min(cornerBreak, END_ZONE_Z - 1), x: startX });
+                    route.push({ z: Math.min(cornerBreak + 4, END_ZONE_BACK), x: cornerX });
                     break;
 
-                case 'post_corner':
-                    // Post toward middle, enter end zone, cut back toward corner
-                    const postX = towardMiddle * (2 + Math.random() * 2);
-                    route.push({ z: break1Depth, x: startX });
-                    route.push({ z: endZoneEntry, x: postX });
-                    route.push({ z: END_ZONE_BACK, x: postX + towardSideline * fadeDistance });
+                case 'comeback_corner':
+                    // Go, comeback, then break to corner
+                    const ccBreak = startZ + 6;
+                    route.push({ z: Math.min(ccBreak, END_ZONE_Z), x: startX });
+                    route.push({ z: Math.min(ccBreak - 1, END_ZONE_Z - 1), x: startX });
+                    route.push({ z: Math.min(ccBreak + 3, END_ZONE_BACK), x: Math.max(-7, Math.min(7, startX + towardSideline * 4)) });
                     break;
 
-                case 'double_move':
-                    // Fake one way, cut back, into end zone, fade
-                    const fakeDir = Math.random() > 0.5 ? towardSideline : towardMiddle;
-                    const fakeX = startX + fakeDir * 2;
-                    route.push({ z: break1Depth - 2, x: fakeX });
-                    route.push({ z: break1Depth, x: startX });
-                    route.push({ z: endZoneEntry, x: startX });
-                    route.push({ z: END_ZONE_BACK, x: startX + towardSideline * fadeDistance });
+                // === STANDARD ROUTES ===
+                case 'go':
+                case 'fade':
+                    // Straight up the field with slight fade
+                    const goMid = startZ + 8 + Math.random() * 3;
+                    const fadeAmount = towardSideline * (1 + Math.random() * 2);
+                    route.push({ z: Math.min(goMid, END_ZONE_Z), x: startX + fadeAmount * 0.3 });
+                    route.push({ z: Math.min(goMid + 5, END_ZONE_BACK), x: Math.max(-7, Math.min(7, startX + fadeAmount)) });
                     break;
 
-                case 'comeback_fade':
-                    // Go deep, slight comeback, sprint into end zone, fade
-                    route.push({ z: break1Depth, x: startX });
-                    route.push({ z: break1Depth - 1, x: startX + towardMiddle * 1 });
-                    route.push({ z: endZoneEntry, x: startX + towardMiddle * 2 });
-                    route.push({ z: END_ZONE_BACK, x: startX + towardMiddle * 2 + towardSideline * fadeDistance });
+                case 'slant':
+                    // Quick slant across the middle
+                    const slantBreak = startZ + 3 + Math.random() * 2;
+                    const slantX = startX + towardMiddle * (5 + Math.random() * 3);
+                    route.push({ z: slantBreak, x: startX });
+                    route.push({ z: Math.min(slantBreak + 6, END_ZONE_Z), x: Math.max(-5, Math.min(5, slantX)) });
+                    route.push({ z: Math.min(slantBreak + 10, END_ZONE_BACK), x: Math.max(-5, Math.min(5, slantX)) });
                     break;
 
+                case 'out':
+                    // Break to sideline
+                    const outBreak = startZ + 5 + Math.random() * 3;
+                    const outX = Math.max(-7, Math.min(7, startX + towardSideline * (4 + Math.random() * 2)));
+                    route.push({ z: outBreak, x: startX });
+                    route.push({ z: outBreak + 1, x: outX });
+                    route.push({ z: Math.min(outBreak + 6, END_ZONE_BACK), x: outX });
+                    break;
+
+                case 'post':
+                    // Break toward the goalpost (middle deep)
+                    const postBreak = startZ + 6 + Math.random() * 3;
+                    route.push({ z: postBreak, x: startX });
+                    route.push({ z: Math.min(postBreak + 6, END_ZONE_BACK), x: towardMiddle * (2 + Math.random() * 2) });
+                    break;
+
+                case 'dig':
                 case 'crossing':
-                    // Crossing route - run across the field at shallow/medium depth
-                    const crossDepth = startZ + 4 + Math.random() * 4;  // 4-8 yards deep
-                    const crossDistance = 10 + Math.random() * 4;  // Cross 10-14 yards
-                    const crossEndX = Math.max(-7, Math.min(7, startX + towardMiddle * crossDistance));
-                    route.push({ z: crossDepth, x: startX });  // Run straight first
-                    route.push({ z: crossDepth + 1, x: crossEndX });  // Cross the field
-                    // Then angle toward end zone
-                    route.push({ z: endZoneEntry, x: crossEndX });
-                    route.push({ z: END_ZONE_BACK, x: crossEndX + towardMiddle * 2 });
+                    // Deep cross - run vertical then cut across
+                    const digBreak = startZ + 7 + Math.random() * 3;
+                    const digEndX = Math.max(-6, Math.min(6, startX + towardMiddle * (8 + Math.random() * 4)));
+                    route.push({ z: Math.min(digBreak, END_ZONE_Z), x: startX });
+                    route.push({ z: Math.min(digBreak + 2, END_ZONE_Z + 2), x: digEndX });
+                    route.push({ z: Math.min(digBreak + 5, END_ZONE_BACK), x: digEndX });
                     break;
+
+                case 'seam':
+                    // Straight up the seam (between zones)
+                    const seamTarget = startX > 0 ? 3 : -3;  // Stay in seam
+                    route.push({ z: startZ + 5, x: (startX + seamTarget) / 2 });
+                    route.push({ z: Math.min(startZ + 12, END_ZONE_Z), x: seamTarget });
+                    route.push({ z: Math.min(startZ + 16, END_ZONE_BACK), x: seamTarget });
+                    break;
+
+                case 'curl':
+                case 'comeback':
+                    // Run up, curl back toward QB
+                    const curlDepth = startZ + 8 + Math.random() * 3;
+                    route.push({ z: curlDepth, x: startX });
+                    route.push({ z: curlDepth - 2, x: startX + towardMiddle * 1 });
+                    break;
+
+                default:
+                    // Fallback: simple go route
+                    route.push({ z: Math.min(startZ + 8, END_ZONE_Z), x: startX });
+                    route.push({ z: Math.min(startZ + 14, END_ZONE_BACK), x: startX });
             }
 
-            // Clamp all route points to not exceed end zone back
+            // Ensure all route points move forward (no backwards routes)
+            let lastZ = startZ;
             route.forEach(point => {
+                if (point.z < lastZ) {
+                    point.z = lastZ + 0.5;  // Force forward movement
+                }
+                lastZ = point.z;
+                // Clamp to field boundaries
                 point.z = Math.min(point.z, END_ZONE_BACK);
+                point.x = Math.max(-SIDELINE, Math.min(SIDELINE, point.x));
             });
 
             receiver.route = route;
