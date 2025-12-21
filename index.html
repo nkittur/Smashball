@@ -4837,8 +4837,14 @@
         // Create Management UI
         function createManagementUI() {
             const advancedTexture = BABYLON.GUI.AdvancedDynamicTexture.CreateFullscreenUI("ManagementUI");
-            advancedTexture.idealWidth = 1920;
-            advancedTexture.idealHeight = 1080;
+
+            // Use responsive scaling - scale based on screen size
+            // Lower ideal width means larger UI elements on small screens
+            const isMobile = window.innerWidth < 768;
+            advancedTexture.idealWidth = isMobile ? 800 : 1400;
+            advancedTexture.idealHeight = isMobile ? 600 : 900;
+            advancedTexture.useSmallestIdeal = true;  // Scale based on smallest dimension
+            advancedTexture.renderAtIdealSize = false;
 
             const ui = {
                 advancedTexture,
@@ -4865,16 +4871,16 @@
         }
 
         // Helper: Create styled button
-        function createStyledButton(text, width = "200px", height = "50px") {
+        function createStyledButton(text, width = "200px", height = "55px") {
             const button = BABYLON.GUI.Button.CreateSimpleButton("btn_" + text, text);
             button.width = width;
             button.height = height;
             button.color = "#ffd700";
             button.background = "rgba(40, 40, 60, 0.95)";
-            button.cornerRadius = 8;
+            button.cornerRadius = 10;
             button.thickness = 2;
             button.fontFamily = "Courier New";
-            button.fontSize = 16;
+            button.fontSize = 18;
 
             button.onPointerEnterObservable.add(() => {
                 button.background = "rgba(60, 60, 90, 0.95)";
@@ -4887,13 +4893,14 @@
         }
 
         // Helper: Create text block
-        function createText(text, fontSize = 16, color = "#ffffff") {
+        function createText(text, fontSize = 18, color = "#ffffff") {
             const textBlock = new BABYLON.GUI.TextBlock();
             textBlock.text = text;
             textBlock.color = color;
             textBlock.fontSize = fontSize;
             textBlock.fontFamily = "Courier New";
             textBlock.textHorizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_CENTER;
+            textBlock.textWrapping = true;
             return textBlock;
         }
 
@@ -4932,27 +4939,32 @@
             container.thickness = 0;
             advancedTexture.addControl(container);
 
-            // Title
-            const title = createText("SMASHBALL", 64, "#ffd700");
-            title.top = "-200px";
+            // Title - larger for mobile visibility
+            const title = createText("SMASHBALL", 72, "#ffd700");
+            title.top = "-25%";
             title.fontWeight = "bold";
+            title.textWrapping = true;
             container.addControl(title);
 
-            const subtitle = createText("Medieval Football Management", 24, "#888");
-            subtitle.top = "-140px";
+            const subtitle = createText("Medieval Football Management", 28, "#888");
+            subtitle.top = "-15%";
             container.addControl(subtitle);
 
-            // Buttons
-            const newGameBtn = createStyledButton("NEW GAME", "300px", "60px");
-            newGameBtn.top = "20px";
+            // Buttons - larger and percentage positioned
+            const newGameBtn = createStyledButton("NEW GAME", "60%", "70px");
+            newGameBtn.maxWidth = "350px";
+            newGameBtn.top = "5%";
+            newGameBtn.fontSize = 20;
             newGameBtn.onPointerClickObservable.add(() => {
                 startNewGame();
                 showScreen('hub');
             });
             container.addControl(newGameBtn);
 
-            const continueBtn = createStyledButton("CONTINUE", "300px", "60px");
-            continueBtn.top = "100px";
+            const continueBtn = createStyledButton("CONTINUE", "60%", "70px");
+            continueBtn.maxWidth = "350px";
+            continueBtn.top = "18%";
+            continueBtn.fontSize = 20;
             continueBtn.onPointerClickObservable.add(() => {
                 if (managementState.initialized) {
                     showScreen('hub');
@@ -4961,8 +4973,8 @@
             container.addControl(continueBtn);
 
             // Version text
-            const version = createText("v1.0 - Management Edition", 14, "#555");
-            version.top = "300px";
+            const version = createText("v1.0 - Management Edition", 16, "#555");
+            version.top = "40%";
             container.addControl(version);
 
             container._updateContinueButton = () => {
