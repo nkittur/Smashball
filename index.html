@@ -494,11 +494,11 @@
             font-size: 11px;
         }
         /* Stat color coding by value */
-        .stat-elite { color: #4f4; }      /* 85+ green */
-        .stat-good { color: #8f8; }       /* 75-84 light green */
-        .stat-average { color: #ff0; }    /* 65-74 yellow */
-        .stat-below { color: #f80; }      /* 55-64 orange */
-        .stat-poor { color: #f44; }       /* <55 red */
+        .stat-elite { color: #4f4; }      /* 90+ green */
+        .stat-good { color: #8f8; }       /* 80-89 light green */
+        .stat-average { color: #ff0; }    /* 70-79 yellow */
+        .stat-below { color: #f80; }      /* 60-69 orange */
+        .stat-poor { color: #f44; }       /* <60 red */
         .stat-change.positive { color: #4f4; }
         .stat-change.negative { color: #f44; }
         /* Season stats section */
@@ -6699,10 +6699,10 @@
                 const changeText = change !== 0 ? `${change > 0 ? '+' : ''}${change}` : '';
 
                 // Color code based on stat value
-                const statColorClass = current >= 85 ? 'stat-elite' :
-                                       current >= 75 ? 'stat-good' :
-                                       current >= 65 ? 'stat-average' :
-                                       current >= 55 ? 'stat-below' : 'stat-poor';
+                const statColorClass = current >= 90 ? 'stat-elite' :
+                                       current >= 80 ? 'stat-good' :
+                                       current >= 70 ? 'stat-average' :
+                                       current >= 60 ? 'stat-below' : 'stat-poor';
 
                 // Format stat name
                 const statName = stat.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase());
