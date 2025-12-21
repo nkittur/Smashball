@@ -779,6 +779,12 @@
             return Math.floor(Math.random() * (max - min + 1)) + min;
         }
 
+        // Format salary in millions (e.g., 5000 -> "$5M")
+        function formatSalaryM(amount) {
+            const millions = Math.round(amount / 1000);
+            return `$${millions}M`;
+        }
+
         // Shuffle array (Fisher-Yates)
         function shuffleArray(arr) {
             const result = [...arr];
@@ -6366,7 +6372,7 @@
                     item.innerHTML = `
                         <div>
                             <div class="name">${player.firstName} ${player.lastName}</div>
-                            <div class="stats">Age ${player.age} | $${player.salaryCost.toLocaleString()}</div>
+                            <div class="stats">Age ${player.age} | ${formatSalaryM(player.salaryCost)}</div>
                         </div>
                         <div style="text-align:right;">
                             <span class="ovr">${player.overall}</span>${changeText}
@@ -6407,7 +6413,7 @@
                 <div><span class="ovr-big">${player.overall}</span>${overallChangeText}</div>
                 <div style="margin-top:10px;">
                     ${POSITIONS[player.position].name} | Age ${player.age} | Peak ${player.peakAge}<br>
-                    Salary: $${player.salaryCost.toLocaleString()} | Potential: ${'★'.repeat(player.potentialGrade + 1)}
+                    Salary: ${formatSalaryM(player.salaryCost)} | Potential: ${'★'.repeat(player.potentialGrade + 1)}
                 </div>
             `;
             document.getElementById('playerInfo').innerHTML = infoHtml;
@@ -6421,8 +6427,10 @@
             ];
 
             const statsHtml = allStats.map(stat => {
-                const current = player.stats[stat] || 0;
-                const start = player.seasonStartStats ? (player.seasonStartStats[stat] || 0) : current;
+                const currentRaw = player.stats[stat] || 0;
+                const startRaw = player.seasonStartStats ? (player.seasonStartStats[stat] || 0) : currentRaw;
+                const current = Math.floor(currentRaw);
+                const start = Math.floor(startRaw);
                 const change = current - start;
                 const changeClass = change > 0 ? 'positive' : change < 0 ? 'negative' : '';
                 const changeText = change !== 0 ?
@@ -6467,7 +6475,7 @@
 
             const salary = calculateTeamSalary(managementState.team);
             const cap = managementState.team.salaryCap + managementState.team.salaryCapModifier;
-            status.textContent = `Credits: $${managementState.team.credits.toLocaleString()} | Cap Space: $${(cap - salary).toLocaleString()}`;
+            status.textContent = `Credits: ${formatSalaryM(managementState.team.credits)} | Cap Space: ${formatSalaryM(cap - salary)}`;
 
             if (managementState.freeAgents.length === 0) {
                 list.innerHTML = '<p style="color:#888;text-align:center;">No free agents available</p>';
@@ -6483,7 +6491,7 @@
                 item.innerHTML = `
                     <div>
                         <div class="name">${player.firstName} ${player.lastName} (${player.position})</div>
-                        <div class="stats">Age ${player.age} | Bonus: $${bonus.toLocaleString()}</div>
+                        <div class="stats">Age ${player.age} | Bonus: ${formatSalaryM(bonus)}</div>
                     </div>
                     <div style="text-align:right;">
                         <div class="ovr">${player.overall}</div>
