@@ -6733,6 +6733,78 @@
             gameState.attempts = 0;
             gameState.touchdowns = 0;
             gameStats.reset();  // Reset per-game stats
+
+            // Update game meshes with roster player data
+            updateGamePlayersFromRoster();
+        }
+
+        // Update game player meshes with roster data
+        function updateGamePlayersFromRoster() {
+            if (!managementState.initialized || !managementState.team) return;
+
+            const scene = gameState.scene;
+            if (!scene) return;
+
+            // Update QB
+            const rosterQB = getDepthChartPlayer('QB1');
+            if (rosterQB && scene.qb) {
+                scene.qb.playerId = rosterQB.id;
+                scene.qb.displayName = `${rosterQB.firstName} ${rosterQB.lastName.charAt(0)}.`;
+                scene.qb.stats = { ...rosterQB.stats };
+                if (scene.qb.nameLabel) {
+                    scene.qb.nameLabel.text = `${rosterQB.lastName}\n${rosterQB.overall}`;
+                }
+            }
+
+            // Update Receivers
+            ['WR1', 'WR2', 'WR3'].forEach((slot, index) => {
+                const player = getDepthChartPlayer(slot);
+                const receiver = gameState.receivers[index];
+                if (player && receiver) {
+                    receiver.playerId = player.id;
+                    receiver.displayName = `${player.firstName} ${player.lastName.charAt(0)}.`;
+                    receiver.stats = { ...player.stats };
+                    receiver.lastName = player.lastName;
+                    receiver.overall = player.overall;
+                    // Update name label
+                    if (receiver.nameLabel) {
+                        receiver.nameLabel.text = `${player.lastName}\n${player.overall}`;
+                    }
+                }
+            });
+
+            // Update Defenders (CBs)
+            ['CB1', 'CB2', 'CB3', 'CB4'].forEach((slot, index) => {
+                const player = getDepthChartPlayer(slot);
+                const defender = gameState.defenders[index];
+                if (player && defender) {
+                    defender.playerId = player.id;
+                    defender.displayName = `${player.firstName} ${player.lastName.charAt(0)}.`;
+                    defender.stats = { ...player.stats };
+                }
+            });
+
+            // Update O-Line
+            managementState.team.depthChart.OL.forEach((playerId, index) => {
+                const player = managementState.team.roster.find(p => p.id === playerId);
+                const oLineman = gameState.offensiveLine[index];
+                if (player && oLineman) {
+                    oLineman.playerId = player.id;
+                    oLineman.displayName = `${player.firstName} ${player.lastName.charAt(0)}.`;
+                    oLineman.stats = { ...player.stats };
+                }
+            });
+
+            // Update D-Line
+            managementState.team.depthChart.DL.forEach((playerId, index) => {
+                const player = managementState.team.roster.find(p => p.id === playerId);
+                const dLineman = gameState.defensiveLine[index];
+                if (player && dLineman) {
+                    dLineman.playerId = player.id;
+                    dLineman.displayName = `${player.firstName} ${player.lastName.charAt(0)}.`;
+                    dLineman.stats = { ...player.stats };
+                }
+            });
         }
 
         // Called when a drive/possession ends in the arcade game
