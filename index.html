@@ -290,6 +290,13 @@
             <button id="btnMatchContinue" class="mgmt-btn primary">CONTINUE</button>
         </div>
 
+        <!-- Pre-Game Matchup Screen -->
+        <div id="preGameScreen" class="mgmt-screen" style="display:none;max-width:500px;">
+            <h2 id="preGameOpponent">VS OPPONENT</h2>
+            <div id="preGameMatchups" class="pre-game-matchups"></div>
+            <button id="btnStartGame" class="mgmt-btn primary">START GAME</button>
+        </div>
+
         <!-- Player Detail Modal -->
         <div id="playerDetailModal" class="mgmt-modal" style="display:none;">
             <div class="modal-content">
@@ -466,6 +473,50 @@
             font-size: 9px;
             color: #888;
         }
+
+        /* Pre-game matchups */
+        .pre-game-matchups {
+            margin: 15px 0;
+            text-align: left;
+        }
+        .matchup-section {
+            margin: 12px 0;
+            padding: 10px;
+            background: #1a1a2a;
+            border-radius: 6px;
+        }
+        .matchup-section-title {
+            font-size: 11px;
+            color: #888;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+        }
+        .matchup-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 4px 0;
+            border-bottom: 1px solid #333;
+        }
+        .matchup-row:last-child { border-bottom: none; }
+        .matchup-player {
+            flex: 1;
+            font-size: 13px;
+        }
+        .matchup-player.yours { color: #4af; }
+        .matchup-player.theirs { color: #f66; text-align: right; }
+        .matchup-vs {
+            color: #666;
+            padding: 0 8px;
+            font-size: 11px;
+        }
+        .matchup-ovr {
+            font-weight: bold;
+            font-size: 14px;
+        }
+        .matchup-ovr.advantage { color: #4f4; }
+        .matchup-ovr.disadvantage { color: #f44; }
+        .matchup-ovr.even { color: #ff0; }
 
         /* Player Detail Modal */
         .mgmt-modal {
@@ -2301,9 +2352,23 @@
             // Create Field
             createField(scene, materials);
 
-            // Create Quarterback
+            // Create Quarterback - link to roster QB
             const qb = createKnight(scene, materials.qbMaterial, new BABYLON.Vector3(0, 0, QB_START_Z));
             qb.name = 'quarterback';
+
+            // Link QB to roster player
+            const rosterQB = getDepthChartPlayer('QB1');
+            if (rosterQB) {
+                qb.playerId = rosterQB.id;
+                qb.displayName = `${rosterQB.firstName} ${rosterQB.lastName.charAt(0)}.`;
+                qb.stats = { ...rosterQB.stats };
+            } else {
+                // Fallback stats
+                qb.stats = {
+                    throwing: 75, awareness: 70, agility: 65, speed: 60,
+                    strength: 65, accuracy: 75, armStrength: 70
+                };
+            }
 
             // Create Receivers with routes - all start at same yardline, close to QB
             const RECEIVER_START_Z = QB_START_Z + 2;  // Close to QB, same line
@@ -6048,6 +6113,9 @@
                     case 'match_end':
                         document.getElementById('matchEndScreen').style.display = 'block';
                         break;
+                    case 'pre_game':
+                        document.getElementById('preGameScreen').style.display = 'block';
+                        break;
                 }
             }
 
@@ -6559,6 +6627,103 @@
             showScreen('match_end');
         }
 
+        // Show pre-game matchup screen
+        function showPreGame(opponent) {
+            document.getElementById('preGameOpponent').textContent = `VS ${opponent.name.toUpperCase()}`;
+
+            const matchupsContainer = document.getElementById('preGameMatchups');
+            let html = '';
+
+            // Helper to get advantage class
+            const getAdvClass = (yours, theirs) => {
+                const diff = yours - theirs;
+                if (diff > 3) return 'advantage';
+                if (diff < -3) return 'disadvantage';
+                return 'even';
+            };
+
+            // QB vs avg defense
+            const qb = getDepthChartPlayer('QB1');
+            if (qb) {
+                html += `
+                    <div class="matchup-section">
+                        <div class="matchup-section-title">Quarterback</div>
+                        <div class="matchup-row">
+                            <div class="matchup-player yours">
+                                ${qb.firstName} ${qb.lastName}
+                                <span class="matchup-ovr ${getAdvClass(qb.overall, opponent.ratings.defense)}">${qb.overall}</span>
+                            </div>
+                            <div class="matchup-vs">vs</div>
+                            <div class="matchup-player theirs">
+                                <span class="matchup-ovr">${opponent.ratings.defense}</span>
+                                Defense
+                            </div>
+                        </div>
+                    </div>`;
+            }
+
+            // WRs vs CBs
+            const wrs = ['WR1', 'WR2', 'WR3'].map(s => getDepthChartPlayer(s)).filter(Boolean);
+            const cbs = ['CB1', 'CB2', 'CB3'].map(s => getDepthChartPlayer(s)).filter(Boolean);
+            if (wrs.length > 0) {
+                html += `<div class="matchup-section"><div class="matchup-section-title">Receivers vs Corners</div>`;
+                wrs.forEach((wr, i) => {
+                    const cb = cbs[i];
+                    const cbOvr = cb ? cb.overall : opponent.ratings.defense;
+                    const cbName = cb ? `${cb.firstName} ${cb.lastName.charAt(0)}.` : 'CB';
+                    html += `
+                        <div class="matchup-row">
+                            <div class="matchup-player yours">
+                                ${wr.firstName} ${wr.lastName.charAt(0)}.
+                                <span class="matchup-ovr ${getAdvClass(wr.overall, cbOvr)}">${wr.overall}</span>
+                            </div>
+                            <div class="matchup-vs">vs</div>
+                            <div class="matchup-player theirs">
+                                <span class="matchup-ovr">${cbOvr}</span>
+                                ${cbName}
+                            </div>
+                        </div>`;
+                });
+                html += `</div>`;
+            }
+
+            // O-Line vs D-Line (averages)
+            const olPlayers = managementState.team.depthChart.OL.map(id =>
+                managementState.team.roster.find(p => p.id === id)
+            ).filter(Boolean);
+            const dlPlayers = managementState.team.depthChart.DL.map(id =>
+                managementState.team.roster.find(p => p.id === id)
+            ).filter(Boolean);
+
+            if (olPlayers.length > 0 || dlPlayers.length > 0) {
+                const olAvg = olPlayers.length > 0
+                    ? Math.round(olPlayers.reduce((s, p) => s + p.overall, 0) / olPlayers.length)
+                    : 60;
+                const dlAvg = dlPlayers.length > 0
+                    ? Math.round(dlPlayers.reduce((s, p) => s + p.overall, 0) / dlPlayers.length)
+                    : opponent.ratings.defense;
+
+                html += `
+                    <div class="matchup-section">
+                        <div class="matchup-section-title">Line Battle</div>
+                        <div class="matchup-row">
+                            <div class="matchup-player yours">
+                                O-Line (${olPlayers.length})
+                                <span class="matchup-ovr ${getAdvClass(olAvg, dlAvg)}">${olAvg}</span>
+                            </div>
+                            <div class="matchup-vs">vs</div>
+                            <div class="matchup-player theirs">
+                                <span class="matchup-ovr">${dlAvg}</span>
+                                D-Line (${dlPlayers.length})
+                            </div>
+                        </div>
+                    </div>`;
+            }
+
+            matchupsContainer.innerHTML = html;
+            showScreen('pre_game');
+        }
+
         // Start the arcade game portion
         function startArcadeGame() {
             showScreen('game');
@@ -6698,6 +6863,12 @@
             if (managementState.initialized) showScreen('hub');
         });
         document.getElementById('btnPlayGame').addEventListener('click', () => {
+            if (!managementState.season || managementState.season.week > SEASON.WEEKS) return;
+            const game = managementState.season.schedule[managementState.season.week - 1];
+            if (game.result) return;
+            showPreGame(game.opponent);
+        });
+        document.getElementById('btnStartGame').addEventListener('click', () => {
             const result = startMatch();
             if (result.success) startArcadeGame();
         });
