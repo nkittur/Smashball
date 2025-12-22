@@ -4679,13 +4679,13 @@
 
             const margin = tackleRoll - evasionRoll;
 
-            // Tackling is meant to be fairly easy on equal stats
-            // So a small positive margin should result in a tackle
-            if (margin > -5) {
+            // Tackling favors the defender - receiver needs to significantly outroll
+            // to break a tackle (margin must be < -12, meaning receiver wins by 12+)
+            if (margin > -12) {
                 // Tackle successful!
                 handleTackle(receiver, defender);
             } else {
-                // Broken tackle!
+                // Broken tackle! (rare - requires big evasion win)
                 handleBrokenTackle(receiver, defender);
             }
         };
