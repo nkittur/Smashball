@@ -220,6 +220,7 @@
             </div>
             <p id="hubRecord" class="hub-record">Record: 0-0</p>
             <p id="hubNextGame" class="hub-next"></p>
+            <button id="btnHubNewGame" class="mgmt-btn danger" style="margin-top: 30px;">NEW GAME</button>
         </div>
 
         <!-- Roster Screen -->
@@ -7451,6 +7452,17 @@
         document.getElementById('btnFreeAgency').addEventListener('click', () => showScreen('free_agency'));
         document.getElementById('btnSchedule').addEventListener('click', () => showScreen('schedule'));
         document.getElementById('btnFacilities').addEventListener('click', () => showScreen('facilities'));
+        document.getElementById('btnHubNewGame').addEventListener('click', () => {
+            if (confirm("Start a new game? All progress will be lost!")) {
+                SaveSystem.clear();
+                managementState.initialized = false;
+                managementState.team = null;
+                managementState.season = null;
+                managementState.freeAgents = [];
+                initializeNewGame();
+                showScreen('hub');
+            }
+        });
         document.getElementById('btnRosterBack').addEventListener('click', () => showScreen('hub'));
         document.getElementById('btnFABack').addEventListener('click', () => showScreen('hub'));
         document.getElementById('btnScheduleBack').addEventListener('click', () => showScreen('hub'));
