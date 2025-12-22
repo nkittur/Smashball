@@ -5924,6 +5924,7 @@
                     const seasonChange = calculateSeasonStatChange(player);
                     const changeClass = seasonChange > 0 ? 'positive' : seasonChange < 0 ? 'negative' : '';
                     const changeText = seasonChange > 0 ? `+${seasonChange}` : seasonChange < 0 ? `${seasonChange}` : '';
+                    const potentialStars = '★'.repeat(player.potentialGrade + 1);
 
                     const item = document.createElement('div');
                     item.className = 'roster-item';
@@ -5934,7 +5935,8 @@
                         </div>
                         <div style="display:flex;align-items:center;gap:8px;">
                             <span class="season-gain ${changeClass}" style="min-width:28px;text-align:right;">${changeText}</span>
-                            <span class="ovr">${player.overall}</span>
+                            <span class="ovr" style="min-width:28px;text-align:right;">${player.overall}</span>
+                            <span class="potential-stars" style="min-width:48px;color:#ffd700;font-size:12px;">${potentialStars}</span>
                         </div>
                     `;
                     item.addEventListener('click', () => showPlayerDetail(player.id));
@@ -6154,6 +6156,7 @@
 
             managementState.freeAgents.forEach(player => {
                 const canSign = canSignPlayer(managementState.team, player);
+                const potentialStars = '★'.repeat(player.potentialGrade + 1);
 
                 const item = document.createElement('div');
                 item.className = 'roster-item';
@@ -6162,8 +6165,11 @@
                         <div class="name">${player.firstName} ${player.lastName} (${player.position})</div>
                         <div class="stats">Age ${player.age} | Salary: ${formatSalary(player.salaryCost)}</div>
                     </div>
-                    <div style="text-align:right;">
-                        <div class="ovr">${player.overall}</div>
+                    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
+                        <div style="display:flex;align-items:center;gap:8px;">
+                            <span class="ovr" style="min-width:28px;text-align:right;">${player.overall}</span>
+                            <span class="potential-stars" style="min-width:48px;color:#ffd700;font-size:12px;">${potentialStars}</span>
+                        </div>
                         <button class="mgmt-btn fa-btn" ${canSign ? '' : 'disabled'}
                             onclick="signAndRefresh('${player.id}')">SIGN</button>
                     </div>
