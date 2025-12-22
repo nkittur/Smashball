@@ -7837,6 +7837,21 @@
         setupInput(scene);
         setupIdleAnimations(scene);
 
+        // Handle visibility changes (app switching) - clear stale pointer state
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                // App is being hidden - clear any in-progress drag
+                gameState.isDragging = false;
+                gameState.activePointerId = null;
+                gameState.dragStart = null;
+                gameState.dragCurrent = null;
+                if (scene.trajectoryDots) {
+                    scene.trajectoryDots.forEach(dot => dot.dispose());
+                    scene.trajectoryDots = null;
+                }
+            }
+        });
+
         // Initialize management system
         initializeManagement();
 
