@@ -2877,6 +2877,8 @@
             qbLabelRect.alpha = 1;  // Show when frozen
 
             qb.nameLabel = qbLabelRect;
+            qb.nameTextBlock = qbNameText;
+            qb.ovrTextBlock = qbOvrText;
 
             // Add name labels to receivers (stacked: name on top, OVR below bigger)
             gameState.receivers.forEach((receiver, i) => {
@@ -2920,6 +2922,8 @@
                 labelRect.alpha = 1;  // Show when frozen
 
                 receiver.nameLabel = labelRect;
+                receiver.nameTextBlock = nameText;
+                receiver.ovrTextBlock = ovrText;
             });
 
             // Store GUI reference
@@ -6759,8 +6763,14 @@
                 scene.qb.playerId = rosterQB.id;
                 scene.qb.displayName = `${rosterQB.firstName} ${rosterQB.lastName.charAt(0)}.`;
                 scene.qb.stats = { ...rosterQB.stats };
-                if (scene.qb.nameLabel) {
-                    scene.qb.nameLabel.text = `${rosterQB.lastName}\n${rosterQB.overall}`;
+                scene.qb.lastName = rosterQB.lastName;
+                scene.qb.overall = rosterQB.overall;
+                // Update name label TextBlocks
+                if (scene.qb.nameTextBlock) {
+                    scene.qb.nameTextBlock.text = rosterQB.lastName.toUpperCase();
+                }
+                if (scene.qb.ovrTextBlock) {
+                    scene.qb.ovrTextBlock.text = `${rosterQB.overall}`;
                 }
             }
 
@@ -6774,9 +6784,12 @@
                     receiver.stats = { ...player.stats };
                     receiver.lastName = player.lastName;
                     receiver.overall = player.overall;
-                    // Update name label
-                    if (receiver.nameLabel) {
-                        receiver.nameLabel.text = `${player.lastName}\n${player.overall}`;
+                    // Update name label TextBlocks
+                    if (receiver.nameTextBlock) {
+                        receiver.nameTextBlock.text = player.lastName.toUpperCase();
+                    }
+                    if (receiver.ovrTextBlock) {
+                        receiver.ovrTextBlock.text = `${player.overall}`;
                     }
                 }
             });
