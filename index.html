@@ -5924,7 +5924,19 @@
                     const seasonChange = calculateSeasonStatChange(player);
                     const changeClass = seasonChange > 0 ? 'positive' : seasonChange < 0 ? 'negative' : '';
                     const changeText = seasonChange > 0 ? `+${seasonChange}` : seasonChange < 0 ? `${seasonChange}` : '';
-                    const potentialStars = '★'.repeat(player.potentialGrade + 1);
+
+                    // Show stars for growing players, minuses for declining
+                    let potentialDisplay = '';
+                    let potentialColor = '#ffd700';
+                    if (player.age >= player.peakAge) {
+                        // Declining: show red minuses based on years past peak
+                        const yearsPastPeak = Math.min(player.age - player.peakAge, 3);
+                        potentialDisplay = '−'.repeat(yearsPastPeak);
+                        potentialColor = '#f66';
+                    } else if (player.potentialGrade > 0) {
+                        // Growing: show 0-3 stars
+                        potentialDisplay = '★'.repeat(player.potentialGrade);
+                    }
 
                     const item = document.createElement('div');
                     item.className = 'roster-item';
@@ -5936,7 +5948,7 @@
                         <div style="display:flex;align-items:center;gap:8px;">
                             <span class="season-gain ${changeClass}" style="min-width:28px;text-align:right;">${changeText}</span>
                             <span class="ovr" style="min-width:28px;text-align:right;">${player.overall}</span>
-                            <span class="potential-stars" style="min-width:48px;color:#ffd700;font-size:12px;">${potentialStars}</span>
+                            <span class="potential-ind" style="min-width:36px;color:${potentialColor};font-size:14px;">${potentialDisplay}</span>
                         </div>
                     `;
                     item.addEventListener('click', () => showPlayerDetail(player.id));
@@ -6156,7 +6168,17 @@
 
             managementState.freeAgents.forEach(player => {
                 const canSign = canSignPlayer(managementState.team, player);
-                const potentialStars = '★'.repeat(player.potentialGrade + 1);
+
+                // Show stars for growing players, minuses for declining
+                let potentialDisplay = '';
+                let potentialColor = '#ffd700';
+                if (player.age >= player.peakAge) {
+                    const yearsPastPeak = Math.min(player.age - player.peakAge, 3);
+                    potentialDisplay = '−'.repeat(yearsPastPeak);
+                    potentialColor = '#f66';
+                } else if (player.potentialGrade > 0) {
+                    potentialDisplay = '★'.repeat(player.potentialGrade);
+                }
 
                 const item = document.createElement('div');
                 item.className = 'roster-item';
@@ -6168,7 +6190,7 @@
                     <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
                         <div style="display:flex;align-items:center;gap:8px;">
                             <span class="ovr" style="min-width:28px;text-align:right;">${player.overall}</span>
-                            <span class="potential-stars" style="min-width:48px;color:#ffd700;font-size:12px;">${potentialStars}</span>
+                            <span class="potential-ind" style="min-width:36px;color:${potentialColor};font-size:14px;">${potentialDisplay}</span>
                         </div>
                         <button class="mgmt-btn fa-btn" ${canSign ? '' : 'disabled'}
                             onclick="signAndRefresh('${player.id}')">SIGN</button>
