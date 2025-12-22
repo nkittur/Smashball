@@ -282,10 +282,11 @@
         </div>
 
         <!-- Match End Screen -->
-        <div id="matchEndScreen" class="mgmt-screen" style="display:none;">
+        <div id="matchEndScreen" class="mgmt-screen" style="display:none;max-width:500px;">
             <h1 id="matchResult">VICTORY!</h1>
             <p id="matchScore" class="match-score">21 - 14</p>
             <p id="matchRevenue" class="match-revenue"></p>
+            <div id="postGameStats" class="post-game-stats"></div>
             <button id="btnMatchContinue" class="mgmt-btn primary">CONTINUE</button>
         </div>
 
@@ -424,9 +425,47 @@
         .fa-status { color: #aaa; font-size: 14px; }
         .fa-btn { padding: 8px 16px; font-size: 14px; }
         .match-score { font-size: 36px; margin: 20px 0; }
-        .match-revenue { color: #4f4; font-size: 18px; }
+        .match-revenue { color: #4f4; font-size: 18px; margin-bottom: 15px; }
         #matchResult.win { color: #4f4; }
         #matchResult.loss { color: #f44; }
+
+        /* Post-game stats */
+        .post-game-stats {
+            max-height: 300px;
+            overflow-y: auto;
+            margin: 10px 0;
+            text-align: left;
+        }
+        .post-game-player {
+            background: #1a1a2a;
+            padding: 10px;
+            margin: 6px 0;
+            border-radius: 6px;
+        }
+        .post-game-player-name {
+            font-weight: bold;
+            color: #ffd700;
+            margin-bottom: 6px;
+        }
+        .post-game-player-stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 4px;
+            font-size: 11px;
+            color: #aaa;
+        }
+        .post-game-stat {
+            text-align: center;
+        }
+        .post-game-stat-value {
+            color: #fff;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        .post-game-stat-label {
+            font-size: 9px;
+            color: #888;
+        }
 
         /* Player Detail Modal */
         .mgmt-modal {
@@ -670,6 +709,46 @@
             lineOfScrimmage: -5,    // Current field position (Z coordinate) - own 30
             firstDownMarker: 5,     // Z position where first down is achieved
             startingLineOfScrimmage: -5  // Where drive started - own 30 yard line
+        };
+
+        // Per-game stats tracking (reset each match)
+        const gameStats = {
+            players: {},  // Keyed by playerId
+
+            // Initialize or get player stats
+            getPlayer(playerId, name) {
+                if (!this.players[playerId]) {
+                    this.players[playerId] = {
+                        name: name || 'Unknown',
+                        // Catching
+                        catches: 0,
+                        drops: 0,
+                        catchDifficulties: [],  // Array of difficulty values
+                        yardsAfterCatch: 0,
+                        // Throwing (QB)
+                        completions: 0,
+                        incompletions: 0,
+                        throwDistances: [],     // Total distance
+                        airDistances: [],       // In-air distance
+                        // Clashes
+                        clashesWon: 0,
+                        clashesLost: 0,
+                        clashDifficulties: [],  // Margin of win/loss
+                        // Defense
+                        sacks: 0,
+                        tackles: 0,
+                        passesDefended: 0,
+                        // Touchdowns
+                        touchdowns: 0
+                    };
+                }
+                return this.players[playerId];
+            },
+
+            // Reset all stats for new game
+            reset() {
+                this.players = {};
+            }
         };
 
         // Management mode flag - when false, game input is disabled
@@ -3551,6 +3630,18 @@
                 recordPlayerStat(oLineman, 'seasonClashesWon');
                 recordPlayerStat(dLineman, 'seasonClashesLost');
 
+                // Record per-game clash stats
+                if (oLineman.playerId) {
+                    const oStats = gameStats.getPlayer(oLineman.playerId, oLineman.displayName);
+                    oStats.clashesWon++;
+                    oStats.clashDifficulties.push(margin);
+                }
+                if (dLineman.playerId) {
+                    const dStats = gameStats.getPlayer(dLineman.playerId, dLineman.displayName);
+                    dStats.clashesLost++;
+                    dStats.clashDifficulties.push(-margin);
+                }
+
             } else if (margin < -LINE_CLASH_CONSTANTS.DEFENSE_WIN_THRESHOLD) {
                 // D-line wins decisively - knock O-lineman aside, speed burst
                 oLineman.knockdownUntil = currentTime + LINE_CLASH_CONSTANTS.KNOCKDOWN_DURATION;
@@ -3568,6 +3659,18 @@
                 // Record clash stats
                 recordPlayerStat(dLineman, 'seasonClashesWon');
                 recordPlayerStat(oLineman, 'seasonClashesLost');
+
+                // Record per-game clash stats
+                if (dLineman.playerId) {
+                    const dStats = gameStats.getPlayer(dLineman.playerId, dLineman.displayName);
+                    dStats.clashesWon++;
+                    dStats.clashDifficulties.push(-margin);
+                }
+                if (oLineman.playerId) {
+                    const oStats = gameStats.getPlayer(oLineman.playerId, oLineman.displayName);
+                    oStats.clashesLost++;
+                    oStats.clashDifficulties.push(margin);
+                }
 
             } else if (margin > LINE_CLASH_CONSTANTS.OFFENSE_WIN_THRESHOLD / 2) {
                 // O-line winning but not decisive - D-lineman very slow
@@ -3721,6 +3824,11 @@
             // Record sack for roster player
             recordPlayerStat(tackler, 'seasonSacks');
 
+            // Record per-game sack stats
+            if (tackler.playerId) {
+                gameStats.getPlayer(tackler.playerId, tackler.displayName).sacks++;
+            }
+
             // Move line of scrimmage back to sack location
             handleSackFieldPosition(scene.qb.position.z);
 
@@ -3832,6 +3940,17 @@
 
             // Record tackle for roster player
             recordPlayerStat(defender, 'seasonTackles');
+
+            // Record per-game tackle stats
+            if (defender.playerId) {
+                gameStats.getPlayer(defender.playerId, defender.displayName).tackles++;
+            }
+
+            // Record YAC for receiver
+            if (receiver.playerId && receiver.catchPosition !== undefined) {
+                const yac = Math.max(0, Math.round((receiver.position.z - receiver.catchPosition) * 2));
+                gameStats.getPlayer(receiver.playerId, receiver.displayName).yardsAfterCatch += yac;
+            }
 
             // Advance ball to tackle location
             advanceBall(receiver.position.z);
@@ -3983,6 +4102,17 @@
 
             // Record TD for roster player
             recordPlayerStat(receiver, 'seasonTDs');
+
+            // Record per-game TD stats
+            if (receiver.playerId) {
+                const rStats = gameStats.getPlayer(receiver.playerId, receiver.displayName);
+                rStats.touchdowns++;
+                // Also record YAC for TD run
+                if (receiver.catchPosition !== undefined) {
+                    const yac = Math.max(0, Math.round((receiver.position.z - receiver.catchPosition) * 2));
+                    rStats.yardsAfterCatch += yac;
+                }
+            }
 
             updateMessage(`TOUCHDOWN by ${receiver.displayName}!`);
 
@@ -4408,6 +4538,14 @@
             gameState.canThrow = false;
             updateMessage('');
 
+            // Record throw attempt for QB
+            if (scene.qb && scene.qb.playerId) {
+                const qbStats = gameStats.getPlayer(scene.qb.playerId, scene.qb.displayName || 'QB');
+                qbStats.throwDistances.push(throwParams.distance);
+                qbStats.airDistances.push(throwParams.distance * throwParams.power);
+                gameState.currentThrowQbId = scene.qb.playerId;
+            }
+
             const startPos = scene.qb.position.clone();
             startPos.y = 1;
             const path = generatePath(startPos, throwParams, 60);
@@ -4608,6 +4746,27 @@
                 // Show the catch probability display
                 showCatchDisplay(catchInfo, catchRoll, success);
 
+                // Record per-game catch stats
+                if (potentialCatcher.playerId) {
+                    const pStats = gameStats.getPlayer(potentialCatcher.playerId, potentialCatcher.displayName);
+                    pStats.catchDifficulties.push(catchInfo.probability);
+                    if (success) {
+                        pStats.catches++;
+                    } else {
+                        pStats.drops++;
+                    }
+                }
+
+                // Record QB completion/incompletion
+                if (gameState.currentThrowQbId) {
+                    const qbStats = gameStats.getPlayer(gameState.currentThrowQbId, 'QB');
+                    if (success) {
+                        qbStats.completions++;
+                    } else {
+                        qbStats.incompletions++;
+                    }
+                }
+
                 if (success) {
                     // Successful catch! Set up ball carrier
                     gameState.catches++;
@@ -4616,6 +4775,9 @@
 
                     // Record catch for roster player
                     recordPlayerStat(potentialCatcher, 'seasonCatches');
+
+                    // Store catch position for YAC tracking
+                    potentialCatcher.catchPosition = potentialCatcher.position.z;
 
                     // Attach ball to receiver
                     scene.football.position.y = 0.8;
@@ -4649,6 +4811,10 @@
                         }
                         if (closestDefender) {
                             recordPlayerStat(closestDefender, 'seasonPassesDefended');
+                            // Record per-game pass defended
+                            if (closestDefender.playerId) {
+                                gameStats.getPlayer(closestDefender.playerId, closestDefender.displayName).passesDefended++;
+                            }
                         }
                     }
 
@@ -5701,6 +5867,17 @@
                 // Record clash stats
                 recordPlayerStat(receiver, 'seasonClashesWon');
                 recordPlayerStat(defender, 'seasonClashesLost');
+                // Record per-game clash stats
+                if (receiver.playerId) {
+                    const rStats = gameStats.getPlayer(receiver.playerId, receiver.displayName);
+                    rStats.clashesWon++;
+                    rStats.clashDifficulties.push(margin);
+                }
+                if (defender.playerId) {
+                    const dStats = gameStats.getPlayer(defender.playerId, defender.displayName);
+                    dStats.clashesLost++;
+                    dStats.clashDifficulties.push(-margin);
+                }
             } else if (margin < -CLASH_CONSTANTS.COVERAGE_THRESHOLD) {
                 // Direction changes (jukes) only benefit receivers - ignore defender wins
                 if (reason === 'direction_change') {
@@ -5716,6 +5893,17 @@
                     // Record clash stats
                     recordPlayerStat(defender, 'seasonClashesWon');
                     recordPlayerStat(receiver, 'seasonClashesLost');
+                    // Record per-game clash stats
+                    if (defender.playerId) {
+                        const dStats = gameStats.getPlayer(defender.playerId, defender.displayName);
+                        dStats.clashesWon++;
+                        dStats.clashDifficulties.push(-margin);
+                    }
+                    if (receiver.playerId) {
+                        const rStats = gameStats.getPlayer(receiver.playerId, receiver.displayName);
+                        rStats.clashesLost++;
+                        rStats.clashDifficulties.push(margin);
+                    }
                 }
             } else {
                 result.winner = 'none';
@@ -6292,7 +6480,82 @@
             document.getElementById('matchResult').textContent = result.win ? 'VICTORY!' : 'DEFEAT';
             document.getElementById('matchResult').className = result.win ? 'win' : 'loss';
             document.getElementById('matchScore').textContent = `${result.playerScore} - ${result.opponentScore}`;
-            document.getElementById('matchRevenue').textContent = `+$${matchResult.revenue.toLocaleString()}`;
+            document.getElementById('matchRevenue').textContent = `+${matchResult.revenue.toLocaleString()} Fame`;
+
+            // Build post-game stats display
+            const statsContainer = document.getElementById('postGameStats');
+            let statsHtml = '';
+
+            // Get all players with stats and sort by activity
+            const playerEntries = Object.entries(gameStats.players);
+            playerEntries.sort((a, b) => {
+                const aActivity = a[1].catches + a[1].completions + a[1].clashesWon + a[1].tackles + a[1].sacks;
+                const bActivity = b[1].catches + b[1].completions + b[1].clashesWon + b[1].tackles + b[1].sacks;
+                return bActivity - aActivity;
+            });
+
+            for (const [playerId, pStats] of playerEntries) {
+                const statItems = [];
+
+                // QB stats
+                if (pStats.completions > 0 || pStats.incompletions > 0) {
+                    const total = pStats.completions + pStats.incompletions;
+                    const pct = total > 0 ? Math.round(pStats.completions / total * 100) : 0;
+                    statItems.push({ label: 'COMP', value: `${pStats.completions}/${total}` });
+                    statItems.push({ label: 'COMP%', value: `${pct}%` });
+                    if (pStats.throwDistances.length > 0) {
+                        const avgDist = Math.round(pStats.throwDistances.reduce((a,b) => a+b, 0) / pStats.throwDistances.length);
+                        statItems.push({ label: 'AVG YDS', value: avgDist });
+                    }
+                }
+
+                // Receiver stats
+                if (pStats.catches > 0 || pStats.drops > 0) {
+                    statItems.push({ label: 'CATCHES', value: pStats.catches });
+                    statItems.push({ label: 'DROPS', value: pStats.drops });
+                    if (pStats.catchDifficulties.length > 0) {
+                        const avgDiff = Math.round(pStats.catchDifficulties.reduce((a,b) => a+b, 0) / pStats.catchDifficulties.length);
+                        statItems.push({ label: 'AVG DIFF', value: `${avgDiff}%` });
+                    }
+                    if (pStats.yardsAfterCatch > 0) {
+                        statItems.push({ label: 'YAC', value: pStats.yardsAfterCatch });
+                    }
+                }
+
+                // Clash stats
+                if (pStats.clashesWon > 0 || pStats.clashesLost > 0) {
+                    statItems.push({ label: 'CLASH W', value: pStats.clashesWon });
+                    statItems.push({ label: 'CLASH L', value: pStats.clashesLost });
+                    if (pStats.clashDifficulties.length > 0) {
+                        const avgMargin = Math.round(pStats.clashDifficulties.reduce((a,b) => a+b, 0) / pStats.clashDifficulties.length);
+                        statItems.push({ label: 'AVG MARGIN', value: avgMargin > 0 ? `+${avgMargin}` : avgMargin });
+                    }
+                }
+
+                // Defense stats
+                if (pStats.sacks > 0) statItems.push({ label: 'SACKS', value: pStats.sacks });
+                if (pStats.tackles > 0) statItems.push({ label: 'TACKLES', value: pStats.tackles });
+                if (pStats.passesDefended > 0) statItems.push({ label: 'PD', value: pStats.passesDefended });
+
+                // TDs
+                if (pStats.touchdowns > 0) statItems.push({ label: 'TDs', value: pStats.touchdowns });
+
+                // Only show players with activity
+                if (statItems.length > 0) {
+                    const statItemsHtml = statItems.map(s =>
+                        `<div class="post-game-stat"><div class="post-game-stat-value">${s.value}</div><div class="post-game-stat-label">${s.label}</div></div>`
+                    ).join('');
+
+                    statsHtml += `
+                        <div class="post-game-player">
+                            <div class="post-game-player-name">${pStats.name}</div>
+                            <div class="post-game-player-stats">${statItemsHtml}</div>
+                        </div>
+                    `;
+                }
+            }
+
+            statsContainer.innerHTML = statsHtml || '<p style="color:#888;text-align:center;">No player stats recorded</p>';
             showScreen('match_end');
         }
 
@@ -6304,6 +6567,7 @@
             gameState.catches = 0;
             gameState.attempts = 0;
             gameState.touchdowns = 0;
+            gameStats.reset();  // Reset per-game stats
         }
 
         // Called when a drive/possession ends in the arcade game
