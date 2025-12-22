@@ -2104,6 +2104,8 @@
 
         // Get player from depth chart slot
         function getDepthChartPlayer(slot) {
+            if (!managementState.team || !managementState.team.depthChart) return null;
+
             const dc = managementState.team.depthChart;
             let playerId;
 
