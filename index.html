@@ -1099,7 +1099,7 @@
         // Season constants
         const SEASON = {
             WEEKS: 16,
-            POSSESSIONS_PER_GAME: 5
+            POSSESSIONS_PER_GAME: 4  // 4 quarters, with possible 2-minute drill and overtime
         };
 
         // ========================================
@@ -2577,6 +2577,24 @@
             return ordinals[down - 1] || `${down}th`;
         }
 
+        // Get display text for current game phase
+        function getGamePhaseDisplay(result) {
+            const phase = result.gamePhase || managementState.gamePhase || 'regulation';
+            const possession = result.possession + 1;
+
+            if (phase === 'overtime') {
+                const otPossession = managementState.overtimePossession || 1;
+                return `OVERTIME - Possession ${otPossession}`;
+            } else if (phase === 'twoMinuteDrill') {
+                return '2-MINUTE DRILL';
+            } else {
+                // Regulation - show as quarters
+                const quarter = Math.min(possession, 4);
+                const quarterNames = ['1st Quarter', '2nd Quarter', '3rd Quarter', '4th Quarter'];
+                return quarterNames[quarter - 1] || `Quarter ${quarter}`;
+            }
+        }
+
         // Start a match
         function startMatch() {
             if (!managementState.season || managementState.season.week > SEASON.WEEKS) {
@@ -2592,6 +2610,8 @@
             managementState.currentPossession = 0;
             managementState.matchScore = { player: 0, opponent: 0 };
             managementState.currentScreen = 'game';
+            managementState.gamePhase = 'regulation';  // regulation, twoMinuteDrill, overtime
+            managementState.overtimePossession = 0;
 
             return { success: true, opponent: game.opponent, isHome: game.isHome };
         }
@@ -2609,16 +2629,84 @@
 
             managementState.currentPossession++;
 
-            // Check if match is over
-            if (managementState.currentPossession >= SEASON.POSSESSIONS_PER_GAME) {
-                return endMatch();
+            const playerScore = managementState.matchScore.player;
+            const oppScore = managementState.matchScore.opponent;
+            const scoreDiff = playerScore - oppScore;
+
+            // Check game state based on phase
+            if (managementState.gamePhase === 'regulation') {
+                if (managementState.currentPossession >= SEASON.POSSESSIONS_PER_GAME) {
+                    // End of 4 quarters
+                    if (scoreDiff === 0) {
+                        // Tied - go to overtime
+                        managementState.gamePhase = 'overtime';
+                        managementState.overtimePossession = 0;
+                        return {
+                            ongoing: true,
+                            possession: managementState.currentPossession,
+                            score: managementState.matchScore,
+                            enemyResult,
+                            gamePhase: 'overtime',
+                            message: 'Tied game! Heading to overtime!'
+                        };
+                    } else if (scoreDiff < 0 && scoreDiff >= -7) {
+                        // Losing by 7 or less - 2 minute drill
+                        managementState.gamePhase = 'twoMinuteDrill';
+                        return {
+                            ongoing: true,
+                            possession: managementState.currentPossession,
+                            score: managementState.matchScore,
+                            enemyResult,
+                            gamePhase: 'twoMinuteDrill',
+                            message: `Down by ${Math.abs(scoreDiff)}! 2-minute drill to tie or win!`
+                        };
+                    } else {
+                        // Game over (winning or losing by more than 7)
+                        return endMatch();
+                    }
+                }
+            } else if (managementState.gamePhase === 'twoMinuteDrill') {
+                // After 2-minute drill possession
+                if (scoreDiff === 0) {
+                    // Tied - go to overtime
+                    managementState.gamePhase = 'overtime';
+                    managementState.overtimePossession = 0;
+                    return {
+                        ongoing: true,
+                        possession: managementState.currentPossession,
+                        score: managementState.matchScore,
+                        enemyResult,
+                        gamePhase: 'overtime',
+                        message: 'Tied game! Heading to overtime!'
+                    };
+                } else {
+                    // Game over (win or loss)
+                    return endMatch();
+                }
+            } else if (managementState.gamePhase === 'overtime') {
+                managementState.overtimePossession++;
+                // In overtime, check after each possession pair
+                if (scoreDiff !== 0) {
+                    // Someone is ahead - game over
+                    return endMatch();
+                }
+                // Still tied - continue overtime
+                return {
+                    ongoing: true,
+                    possession: managementState.currentPossession,
+                    score: managementState.matchScore,
+                    enemyResult,
+                    gamePhase: 'overtime',
+                    message: `Overtime continues! Still tied ${playerScore}-${oppScore}`
+                };
             }
 
             return {
                 ongoing: true,
                 possession: managementState.currentPossession,
                 score: managementState.matchScore,
-                enemyResult
+                enemyResult,
+                gamePhase: managementState.gamePhase
             };
         }
 
@@ -7702,8 +7790,9 @@
                             <span style="color: #f44;">${game.opponent.name}: ${result.score.opponent}</span>
                         </div>
                         <div style="color: #666; margin-bottom: 12px; font-size: 12px;">
-                            Possession ${result.possession + 1} of ${SEASON.POSSESSIONS_PER_GAME}
+                            ${getGamePhaseDisplay(result)}
                         </div>
+                        ${result.message ? `<div style="color: #fa4; margin-bottom: 12px; font-size: 14px; font-weight: bold;">${result.message}</div>` : ''}
                         <button id="btnContinueDrive" style="
                             background: #4a4; color: white; border: none;
                             padding: 12px 30px; border-radius: 6px; cursor: pointer;
