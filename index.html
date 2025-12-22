@@ -2343,6 +2343,18 @@
         // Simulate full enemy drive with realistic play-by-play
         function simulateRealisticEnemyDrive(opponent) {
             const playerTeam = managementState.team;
+
+            // Validate required data exists
+            if (!opponent || !opponent.roster || !playerTeam || !playerTeam.depthChart) {
+                console.error('Missing required data for enemy drive simulation:', {
+                    hasOpponent: !!opponent,
+                    hasOpponentRoster: !!(opponent && opponent.roster),
+                    hasPlayerTeam: !!playerTeam,
+                    hasDepthChart: !!(playerTeam && playerTeam.depthChart)
+                });
+                throw new Error('Missing required simulation data');
+            }
+
             const plays = [];
             let yardsFromGoal = 75; // Start at own 25
             let down = 1;
@@ -2441,8 +2453,15 @@
         // Simulate enemy possession using realistic simulation
         function simulateEnemyPossession(opponent) {
             try {
+                console.log('Starting enemy drive simulation for:', opponent?.name);
+                console.log('Opponent roster size:', opponent?.roster?.length);
+                console.log('Player team exists:', !!managementState.team);
+                console.log('Player depthChart exists:', !!managementState.team?.depthChart);
+
                 // Use the new realistic drive simulation
                 const driveResult = simulateRealisticEnemyDrive(opponent);
+
+                console.log('Drive result:', driveResult.type, 'with', driveResult.plays?.length, 'plays');
 
                 // Map to legacy result format for compatibility
                 return {
@@ -2455,6 +2474,7 @@
                 };
             } catch (error) {
                 console.error('Enemy drive simulation error:', error);
+                console.error('Error stack:', error.stack);
                 // Fallback to simple result on error
                 const roll = Math.random() * 100;
                 const points = roll < 50 ? 7 : roll < 70 ? 3 : 0;
@@ -7592,6 +7612,11 @@
             const game = managementState.season.schedule[managementState.season.week - 1];
             const plays = result.enemyResult.plays || []; // Array of detailed play objects
             const delayPerPlay = plays.length > 0 ? 1800 : 500; // Faster if no detailed plays
+
+            console.log('showEnemyDriveResult - plays count:', plays.length);
+            if (plays.length > 0) {
+                console.log('First play:', plays[0]);
+            }
 
             // Create overlay
             const overlay = document.createElement('div');
