@@ -1480,11 +1480,13 @@
             roster.push(generatePlayer('CB', tiers.good));
             roster.push(generatePlayer('CB', tiers.mid));
             roster.push(generatePlayer('CB', tiers.low));
-            // OL: 3
+            // OL: 4 (to match 4 DL matchups in simulation)
+            roster.push(generatePlayer('OL', tiers.good));
             roster.push(generatePlayer('OL', tiers.mid));
             roster.push(generatePlayer('OL', tiers.low));
             roster.push(generatePlayer('OL', tiers.low));
-            // DL: 3
+            // DL: 4
+            roster.push(generatePlayer('DL', tiers.good));
             roster.push(generatePlayer('DL', tiers.mid));
             roster.push(generatePlayer('DL', tiers.low));
             roster.push(generatePlayer('DL', tiers.low));
@@ -2667,12 +2669,12 @@
             return managementState.team.roster.find(p => p.id === playerId);
         }
 
-        // Generate walk-on player (very low stats) for empty slots
+        // Generate walk-on player (lower stats but not terrible) for empty slots
         function generateWalkOn(position) {
-            const player = generatePlayer(position, 'rookie');
-            // Reduce all stats significantly
+            const player = generatePlayer(position, 'average');
+            // Reduce stats moderately - walk-ons should be below average but not terrible
             Object.keys(player.stats).forEach(stat => {
-                player.stats[stat] = Math.max(20, player.stats[stat] - 30);
+                player.stats[stat] = Math.max(55, player.stats[stat] - 10);
             });
             player.firstName = 'Recruit';
             player.lastName = position;
