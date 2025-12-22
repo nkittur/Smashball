@@ -1115,6 +1115,12 @@
                 managementState.settings = saveData.settings || managementState.settings;
                 managementState.initialized = true;
 
+                // Migrate old saves: credits -> fame
+                if (managementState.team && managementState.team.credits !== undefined) {
+                    managementState.team.fame = Math.round(managementState.team.credits / 10);
+                    delete managementState.team.credits;
+                }
+
                 return true;
             }
         };
@@ -6955,7 +6961,7 @@
                 managementState.team = null;
                 managementState.season = null;
                 managementState.freeAgents = [];
-                initializeNewGame();
+                startNewGame();
                 showScreen('hub');
             }
         });
