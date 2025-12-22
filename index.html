@@ -293,6 +293,8 @@
         <!-- Pre-Game Matchup Screen -->
         <div id="preGameScreen" class="mgmt-screen" style="display:none;max-width:500px;">
             <h2 id="preGameOpponent">VS OPPONENT</h2>
+            <div id="preGameTeamScores" class="pre-game-team-scores"></div>
+            <div id="preGameQBScores" class="pre-game-qb-scores"></div>
             <div id="preGameMatchups" class="pre-game-matchups"></div>
             <button id="btnStartGame" class="mgmt-btn primary">START GAME</button>
         </div>
@@ -436,42 +438,73 @@
         #matchResult.win { color: #4f4; }
         #matchResult.loss { color: #f44; }
 
-        /* Post-game stats */
+        /* Post-game stats - roster-like layout */
         .post-game-stats {
-            max-height: 300px;
+            max-height: 350px;
             overflow-y: auto;
             margin: 10px 0;
             text-align: left;
         }
+        .post-game-section {
+            margin-bottom: 12px;
+        }
+        .post-game-section-title {
+            font-size: 11px;
+            color: #888;
+            text-transform: uppercase;
+            margin-bottom: 6px;
+            padding-left: 4px;
+        }
         .post-game-player {
             background: #1a1a2a;
-            padding: 10px;
-            margin: 6px 0;
+            padding: 10px 12px;
+            margin: 4px 0;
             border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .post-game-player:hover {
+            background: #252540;
+        }
+        .post-game-player-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
         }
         .post-game-player-name {
             font-weight: bold;
+            color: #fff;
+        }
+        .post-game-player-ovr {
+            font-weight: bold;
             color: #ffd700;
-            margin-bottom: 6px;
+            font-size: 16px;
         }
         .post-game-player-stats {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 4px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
             font-size: 11px;
-            color: #aaa;
         }
         .post-game-stat {
-            text-align: center;
+            display: flex;
+            align-items: baseline;
+            gap: 3px;
         }
         .post-game-stat-value {
-            color: #fff;
-            font-size: 14px;
+            color: #4af;
+            font-size: 13px;
             font-weight: bold;
         }
         .post-game-stat-label {
-            font-size: 9px;
+            font-size: 10px;
             color: #888;
+        }
+        .post-game-no-stats {
+            color: #555;
+            font-size: 11px;
+            font-style: italic;
         }
 
         /* Pre-game matchups */
@@ -517,6 +550,59 @@
         .matchup-ovr.advantage { color: #4f4; }
         .matchup-ovr.disadvantage { color: #f44; }
         .matchup-ovr.even { color: #ff0; }
+
+        /* Pre-game team scores */
+        .pre-game-team-scores {
+            display: flex;
+            justify-content: space-around;
+            margin: 15px 0;
+            padding: 15px;
+            background: #1a1a2a;
+            border-radius: 8px;
+        }
+        .team-score-block {
+            text-align: center;
+        }
+        .team-score-label {
+            font-size: 11px;
+            color: #888;
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+        .team-score-value {
+            font-size: 28px;
+            font-weight: bold;
+        }
+        .team-score-value.yours { color: #4af; }
+        .team-score-value.theirs { color: #f66; }
+        .team-score-vs {
+            font-size: 18px;
+            color: #666;
+            align-self: center;
+        }
+
+        /* Pre-game QB scores */
+        .pre-game-qb-scores {
+            display: flex;
+            justify-content: space-around;
+            margin: 10px 0 15px 0;
+            padding: 12px;
+            background: #1a1a2a;
+            border-radius: 8px;
+        }
+        .qb-stat-block {
+            text-align: center;
+        }
+        .qb-stat-label {
+            font-size: 10px;
+            color: #888;
+            text-transform: uppercase;
+        }
+        .qb-stat-value {
+            font-size: 18px;
+            font-weight: bold;
+            color: #4af;
+        }
 
         /* Player Detail Modal */
         .mgmt-modal {
@@ -1373,14 +1459,57 @@
         // MANAGEMENT LAYER - OPPONENT GENERATION
         // ========================================
 
+        // Generate a roster for an opponent team based on difficulty
+        function generateOpponentRoster(difficulty) {
+            const tierMap = {
+                'easy': { good: 'average', mid: 'below_average', low: 'below_average' },
+                'medium': { good: 'veteran', mid: 'average', low: 'average' },
+                'hard': { good: 'star', mid: 'veteran', low: 'average' },
+                'elite': { good: 'star', mid: 'star', low: 'veteran' }
+            };
+            const tiers = tierMap[difficulty] || tierMap['medium'];
+
+            const roster = [];
+            // QB
+            roster.push(generatePlayer('QB', tiers.good));
+            // WRs: 3
+            roster.push(generatePlayer('WR', tiers.good));
+            roster.push(generatePlayer('WR', tiers.mid));
+            roster.push(generatePlayer('WR', tiers.low));
+            // CBs: 3
+            roster.push(generatePlayer('CB', tiers.good));
+            roster.push(generatePlayer('CB', tiers.mid));
+            roster.push(generatePlayer('CB', tiers.low));
+            // OL: 3
+            roster.push(generatePlayer('OL', tiers.mid));
+            roster.push(generatePlayer('OL', tiers.low));
+            roster.push(generatePlayer('OL', tiers.low));
+            // DL: 3
+            roster.push(generatePlayer('DL', tiers.mid));
+            roster.push(generatePlayer('DL', tiers.low));
+            roster.push(generatePlayer('DL', tiers.low));
+
+            return roster;
+        }
+
+        // Calculate team ratings from roster
+        function calculateTeamRatings(roster) {
+            const offense = roster.filter(p => ['QB', 'WR', 'OL'].includes(p.position));
+            const defense = roster.filter(p => ['CB', 'DL'].includes(p.position));
+
+            const offenseRating = offense.length > 0
+                ? Math.round(offense.reduce((s, p) => s + p.overall, 0) / offense.length)
+                : 60;
+            const defenseRating = defense.length > 0
+                ? Math.round(defense.reduce((s, p) => s + p.overall, 0) / defense.length)
+                : 60;
+
+            return { offenseRating, defenseRating };
+        }
+
         // Pre-defined opponents with varying difficulty
         function generateOpponents() {
-            const difficulties = [
-                { name: 'easy', offenseRange: [65, 75], defenseRange: [35, 50] },
-                { name: 'medium', offenseRange: [75, 85], defenseRange: [50, 65] },
-                { name: 'hard', offenseRange: [85, 95], defenseRange: [65, 80] },
-                { name: 'elite', offenseRange: [90, 100], defenseRange: [75, 90] }
-            ];
+            const difficulties = ['easy', 'medium', 'hard', 'elite'];
 
             const opponents = [];
             const usedNames = new Set();
@@ -1395,20 +1524,23 @@
                 usedNames.add(fullName);
 
                 // Distribute difficulty: 4 easy, 6 medium, 4 hard, 2 elite
-                let diffIndex;
-                if (opponents.length < 4) diffIndex = 0;
-                else if (opponents.length < 10) diffIndex = 1;
-                else if (opponents.length < 14) diffIndex = 2;
-                else diffIndex = 3;
+                let difficulty;
+                if (opponents.length < 4) difficulty = 'easy';
+                else if (opponents.length < 10) difficulty = 'medium';
+                else if (opponents.length < 14) difficulty = 'hard';
+                else difficulty = 'elite';
 
-                const diff = difficulties[diffIndex];
+                // Generate roster and calculate ratings from it
+                const roster = generateOpponentRoster(difficulty);
+                const ratings = calculateTeamRatings(roster);
 
                 opponents.push({
                     id: generateUUID(),
                     name: fullName,
-                    difficulty: diff.name,
-                    offenseRating: randomInt(diff.offenseRange[0], diff.offenseRange[1]),
-                    defenseRating: randomInt(diff.defenseRange[0], diff.defenseRange[1]),
+                    difficulty,
+                    roster,
+                    offenseRating: ratings.offenseRating,
+                    defenseRating: ratings.defenseRating,
                     record: { wins: 0, losses: 0 }
                 });
             }
@@ -1711,7 +1843,50 @@
                 cutPlayer(id);
             });
 
+            // Also process opponent team progressions
+            processOpponentProgression();
+
             return results;
+        }
+
+        // Process weekly progression for all opponent teams
+        function processOpponentProgression() {
+            if (!managementState.season || !managementState.season.opponents) return;
+
+            managementState.season.opponents.forEach(opponent => {
+                if (!opponent.roster) return;
+
+                const toRemove = [];
+                opponent.roster.forEach(player => {
+                    // Apply growth/decline (simplified - no retirement tracking for opponents)
+                    processPlayerGrowth(player);
+                    processPlayerDecline(player);
+
+                    // Simple retirement check - replace with new player
+                    if (checkRetirement(player)) {
+                        toRemove.push(player);
+                    }
+                });
+
+                // Replace retired opponents with new players
+                toRemove.forEach(oldPlayer => {
+                    const idx = opponent.roster.indexOf(oldPlayer);
+                    if (idx !== -1) {
+                        const tierMap = {
+                            'easy': 'average',
+                            'medium': 'average',
+                            'hard': 'veteran',
+                            'elite': 'star'
+                        };
+                        opponent.roster[idx] = generatePlayer(oldPlayer.position, tierMap[opponent.difficulty] || 'average');
+                    }
+                });
+
+                // Recalculate team ratings
+                const ratings = calculateTeamRatings(opponent.roster);
+                opponent.offenseRating = ratings.offenseRating;
+                opponent.defenseRating = ratings.defenseRating;
+            });
         }
 
         // Process end of season (age all players)
@@ -6609,19 +6784,15 @@
             document.getElementById('matchScore').textContent = `${result.playerScore} - ${result.opponentScore}`;
             document.getElementById('matchRevenue').textContent = `+${matchResult.revenue.toLocaleString()} Fame`;
 
-            // Build post-game stats display
+            // Build post-game stats display using roster layout
             const statsContainer = document.getElementById('postGameStats');
-            let statsHtml = '';
+            statsContainer.innerHTML = '';
 
-            // Get all players with stats and sort by activity
-            const playerEntries = Object.entries(gameStats.players);
-            playerEntries.sort((a, b) => {
-                const aActivity = a[1].catches + a[1].completions + a[1].clashesWon + a[1].tackles + a[1].sacks;
-                const bActivity = b[1].catches + b[1].completions + b[1].clashesWon + b[1].tackles + b[1].sacks;
-                return bActivity - aActivity;
-            });
+            // Helper to get game stats for a player
+            const getPlayerGameStats = (player) => {
+                const pStats = gameStats.players[player.id];
+                if (!pStats) return [];
 
-            for (const [playerId, pStats] of playerEntries) {
                 const statItems = [];
 
                 // QB stats
@@ -6629,66 +6800,177 @@
                     const total = pStats.completions + pStats.incompletions;
                     const pct = total > 0 ? Math.round(pStats.completions / total * 100) : 0;
                     statItems.push({ label: 'COMP', value: `${pStats.completions}/${total}` });
-                    statItems.push({ label: 'COMP%', value: `${pct}%` });
+                    statItems.push({ label: '%', value: `${pct}%` });
                     if (pStats.throwDistances.length > 0) {
                         const avgDist = Math.round(pStats.throwDistances.reduce((a,b) => a+b, 0) / pStats.throwDistances.length);
-                        statItems.push({ label: 'AVG YDS', value: avgDist });
+                        statItems.push({ label: 'YDS', value: avgDist });
                     }
                 }
 
                 // Receiver stats
                 if (pStats.catches > 0 || pStats.drops > 0) {
-                    statItems.push({ label: 'CATCHES', value: pStats.catches });
-                    statItems.push({ label: 'DROPS', value: pStats.drops });
-                    if (pStats.catchDifficulties.length > 0) {
-                        const avgDiff = Math.round(pStats.catchDifficulties.reduce((a,b) => a+b, 0) / pStats.catchDifficulties.length);
-                        statItems.push({ label: 'AVG DIFF', value: `${avgDiff}%` });
-                    }
-                    if (pStats.yardsAfterCatch > 0) {
-                        statItems.push({ label: 'YAC', value: pStats.yardsAfterCatch });
-                    }
+                    statItems.push({ label: 'REC', value: pStats.catches });
+                    if (pStats.drops > 0) statItems.push({ label: 'DROP', value: pStats.drops });
+                    if (pStats.yardsAfterCatch > 0) statItems.push({ label: 'YAC', value: pStats.yardsAfterCatch });
                 }
 
                 // Clash stats
                 if (pStats.clashesWon > 0 || pStats.clashesLost > 0) {
-                    statItems.push({ label: 'CLASH W', value: pStats.clashesWon });
-                    statItems.push({ label: 'CLASH L', value: pStats.clashesLost });
-                    if (pStats.clashDifficulties.length > 0) {
-                        const avgMargin = Math.round(pStats.clashDifficulties.reduce((a,b) => a+b, 0) / pStats.clashDifficulties.length);
-                        statItems.push({ label: 'AVG MARGIN', value: avgMargin > 0 ? `+${avgMargin}` : avgMargin });
-                    }
+                    statItems.push({ label: 'W', value: pStats.clashesWon });
+                    statItems.push({ label: 'L', value: pStats.clashesLost });
                 }
 
                 // Defense stats
-                if (pStats.sacks > 0) statItems.push({ label: 'SACKS', value: pStats.sacks });
-                if (pStats.tackles > 0) statItems.push({ label: 'TACKLES', value: pStats.tackles });
+                if (pStats.sacks > 0) statItems.push({ label: 'SACK', value: pStats.sacks });
+                if (pStats.tackles > 0) statItems.push({ label: 'TKL', value: pStats.tackles });
                 if (pStats.passesDefended > 0) statItems.push({ label: 'PD', value: pStats.passesDefended });
 
                 // TDs
-                if (pStats.touchdowns > 0) statItems.push({ label: 'TDs', value: pStats.touchdowns });
+                if (pStats.touchdowns > 0) statItems.push({ label: 'TD', value: pStats.touchdowns });
 
-                // Only show players with activity
-                if (statItems.length > 0) {
-                    const statItemsHtml = statItems.map(s =>
-                        `<div class="post-game-stat"><div class="post-game-stat-value">${s.value}</div><div class="post-game-stat-label">${s.label}</div></div>`
-                    ).join('');
+                return statItems;
+            };
 
-                    statsHtml += `
-                        <div class="post-game-player">
-                            <div class="post-game-player-name">${pStats.name}</div>
-                            <div class="post-game-player-stats">${statItemsHtml}</div>
-                        </div>
-                    `;
-                }
+            // Helper to render a player row
+            const renderPlayerRow = (player) => {
+                const statItems = getPlayerGameStats(player);
+                const statsHtml = statItems.length > 0
+                    ? statItems.map(s => `<div class="post-game-stat"><span class="post-game-stat-value">${s.value}</span><span class="post-game-stat-label">${s.label}</span></div>`).join('')
+                    : '<span class="post-game-no-stats">No stats</span>';
+
+                const div = document.createElement('div');
+                div.className = 'post-game-player';
+                div.innerHTML = `
+                    <div class="post-game-player-header">
+                        <span class="post-game-player-name">${player.firstName} ${player.lastName}</span>
+                        <span class="post-game-player-ovr">${player.overall}</span>
+                    </div>
+                    <div class="post-game-player-stats">${statsHtml}</div>
+                `;
+                div.addEventListener('click', () => showPlayerDetail(player.id));
+                return div;
+            };
+
+            // Group players by position category (same order as roster)
+            const positionGroups = {
+                'Offense': ['QB', 'WR', 'OL'],
+                'Defense': ['CB', 'DL']
+            };
+
+            if (!managementState.team || !managementState.team.roster) {
+                statsContainer.innerHTML = '<p style="color:#888;text-align:center;">No roster data</p>';
+                showScreen('match_end');
+                return;
             }
 
-            statsContainer.innerHTML = statsHtml || '<p style="color:#888;text-align:center;">No player stats recorded</p>';
+            Object.entries(positionGroups).forEach(([groupName, positions]) => {
+                const groupPlayers = managementState.team.roster
+                    .filter(p => positions.includes(p.position))
+                    .sort((a, b) => b.overall - a.overall);
+
+                if (groupPlayers.length === 0) return;
+
+                const section = document.createElement('div');
+                section.className = 'post-game-section';
+                section.innerHTML = `<div class="post-game-section-title">${groupName}</div>`;
+
+                groupPlayers.forEach(player => {
+                    section.appendChild(renderPlayerRow(player));
+                });
+
+                statsContainer.appendChild(section);
+            });
+
+            if (statsContainer.children.length === 0) {
+                statsContainer.innerHTML = '<p style="color:#888;text-align:center;">No player stats recorded</p>';
+            }
+
             showScreen('match_end');
         }
 
         // Show pre-game matchup screen
         function showPreGame(opponent) {
             document.getElementById('preGameOpponent').textContent = `VS ${opponent.name.toUpperCase()}`;
+
+            // Calculate team offense score (QB, WRs, OL average)
+            const offensivePlayers = [];
+            const qb = getDepthChartPlayer('QB1');
+            if (qb) offensivePlayers.push(qb);
+            ['WR1', 'WR2', 'WR3'].forEach(slot => {
+                const p = getDepthChartPlayer(slot);
+                if (p) offensivePlayers.push(p);
+            });
+            managementState.team.depthChart.OL.forEach(id => {
+                const p = managementState.team.roster.find(r => r.id === id);
+                if (p) offensivePlayers.push(p);
+            });
+            const teamOffense = offensivePlayers.length > 0
+                ? Math.round(offensivePlayers.reduce((s, p) => s + p.overall, 0) / offensivePlayers.length)
+                : 60;
+
+            // Calculate team defense score (CBs, DL average)
+            const defensivePlayers = [];
+            ['CB1', 'CB2', 'CB3'].forEach(slot => {
+                const p = getDepthChartPlayer(slot);
+                if (p) defensivePlayers.push(p);
+            });
+            managementState.team.depthChart.DL.forEach(id => {
+                const p = managementState.team.roster.find(r => r.id === id);
+                if (p) defensivePlayers.push(p);
+            });
+            const teamDefense = defensivePlayers.length > 0
+                ? Math.round(defensivePlayers.reduce((s, p) => s + p.overall, 0) / defensivePlayers.length)
+                : 60;
+
+            // Get opponent roster players by position
+            const getOpponentPlayers = (position) => {
+                if (!opponent.roster) return [];
+                return opponent.roster.filter(p => p.position === position).sort((a, b) => b.overall - a.overall);
+            };
+            const oppCBs = getOpponentPlayers('CB');
+            const oppDL = getOpponentPlayers('DL');
+
+            // Show team scores
+            const teamScoresHtml = `
+                <div class="team-score-block">
+                    <div class="team-score-label">Your Offense</div>
+                    <div class="team-score-value yours">${teamOffense}</div>
+                </div>
+                <div class="team-score-vs">vs</div>
+                <div class="team-score-block">
+                    <div class="team-score-label">Their Defense</div>
+                    <div class="team-score-value theirs">${opponent.defenseRating}</div>
+                </div>
+            `;
+            document.getElementById('preGameTeamScores').innerHTML = teamScoresHtml;
+
+            // Show QB key stats
+            let qbScoresHtml = '';
+            if (qb) {
+                const throwStat = Math.floor(qb.stats.throwing || 0);
+                const accStat = Math.floor(qb.stats.acceleration || 0);
+                const focusStat = Math.floor(qb.stats.focus || 0);
+                const agiStat = Math.floor(qb.stats.agility || 0);
+                qbScoresHtml = `
+                    <div class="qb-stat-block">
+                        <div class="qb-stat-label">QB Overall</div>
+                        <div class="qb-stat-value">${qb.overall}</div>
+                    </div>
+                    <div class="qb-stat-block">
+                        <div class="qb-stat-label">Throw</div>
+                        <div class="qb-stat-value">${throwStat}</div>
+                    </div>
+                    <div class="qb-stat-block">
+                        <div class="qb-stat-label">Focus</div>
+                        <div class="qb-stat-value">${focusStat}</div>
+                    </div>
+                    <div class="qb-stat-block">
+                        <div class="qb-stat-label">Accel</div>
+                        <div class="qb-stat-value">${accStat}</div>
+                    </div>
+                `;
+            }
+            document.getElementById('preGameQBScores').innerHTML = qbScoresHtml;
 
             const matchupsContainer = document.getElementById('preGameMatchups');
             let html = '';
@@ -6701,8 +6983,7 @@
                 return 'even';
             };
 
-            // QB vs avg defense
-            const qb = getDepthChartPlayer('QB1');
+            // QB vs opponent defense average
             if (qb) {
                 html += `
                     <div class="matchup-section">
@@ -6710,25 +6991,24 @@
                         <div class="matchup-row">
                             <div class="matchup-player yours">
                                 ${qb.firstName} ${qb.lastName}
-                                <span class="matchup-ovr ${getAdvClass(qb.overall, opponent.ratings.defense)}">${qb.overall}</span>
+                                <span class="matchup-ovr ${getAdvClass(qb.overall, opponent.defenseRating)}">${qb.overall}</span>
                             </div>
                             <div class="matchup-vs">vs</div>
                             <div class="matchup-player theirs">
-                                <span class="matchup-ovr">${opponent.ratings.defense}</span>
+                                <span class="matchup-ovr">${opponent.defenseRating}</span>
                                 Defense
                             </div>
                         </div>
                     </div>`;
             }
 
-            // WRs vs CBs
+            // WRs vs opponent CBs
             const wrs = ['WR1', 'WR2', 'WR3'].map(s => getDepthChartPlayer(s)).filter(Boolean);
-            const cbs = ['CB1', 'CB2', 'CB3'].map(s => getDepthChartPlayer(s)).filter(Boolean);
             if (wrs.length > 0) {
                 html += `<div class="matchup-section"><div class="matchup-section-title">Receivers vs Corners</div>`;
                 wrs.forEach((wr, i) => {
-                    const cb = cbs[i];
-                    const cbOvr = cb ? cb.overall : opponent.ratings.defense;
+                    const cb = oppCBs[i];
+                    const cbOvr = cb ? cb.overall : opponent.defenseRating;
                     const cbName = cb ? `${cb.firstName} ${cb.lastName.charAt(0)}.` : 'CB';
                     html += `
                         <div class="matchup-row">
@@ -6746,21 +7026,18 @@
                 html += `</div>`;
             }
 
-            // O-Line vs D-Line (averages)
+            // O-Line vs opponent D-Line
             const olPlayers = managementState.team.depthChart.OL.map(id =>
                 managementState.team.roster.find(p => p.id === id)
             ).filter(Boolean);
-            const dlPlayers = managementState.team.depthChart.DL.map(id =>
-                managementState.team.roster.find(p => p.id === id)
-            ).filter(Boolean);
 
-            if (olPlayers.length > 0 || dlPlayers.length > 0) {
+            if (olPlayers.length > 0 || oppDL.length > 0) {
                 const olAvg = olPlayers.length > 0
                     ? Math.round(olPlayers.reduce((s, p) => s + p.overall, 0) / olPlayers.length)
                     : 60;
-                const dlAvg = dlPlayers.length > 0
-                    ? Math.round(dlPlayers.reduce((s, p) => s + p.overall, 0) / dlPlayers.length)
-                    : opponent.ratings.defense;
+                const dlAvg = oppDL.length > 0
+                    ? Math.round(oppDL.reduce((s, p) => s + p.overall, 0) / oppDL.length)
+                    : opponent.defenseRating;
 
                 html += `
                     <div class="matchup-section">
@@ -6773,7 +7050,7 @@
                             <div class="matchup-vs">vs</div>
                             <div class="matchup-player theirs">
                                 <span class="matchup-ovr">${dlAvg}</span>
-                                D-Line (${dlPlayers.length})
+                                D-Line (${oppDL.length})
                             </div>
                         </div>
                     </div>`;
