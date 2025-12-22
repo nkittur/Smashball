@@ -7620,12 +7620,9 @@
         function showEnemyDriveResult(result) {
             const game = managementState.season.schedule[managementState.season.week - 1];
             const plays = result.enemyResult.plays || []; // Array of detailed play objects
-            const delayPerPlay = plays.length > 0 ? 1800 : 500; // Faster if no detailed plays
+            const delayPerPlay = plays.length > 0 ? 1200 : 500; // Time between plays
 
             console.log('showEnemyDriveResult - plays count:', plays.length);
-            if (plays.length > 0) {
-                console.log('First play:', plays[0]);
-            }
 
             // Create overlay
             const overlay = document.createElement('div');
@@ -7647,17 +7644,15 @@
                 : 'Defensive Stop!';
 
             overlay.innerHTML = `
-                <div style="background: #1a1a2e; border: 2px solid #333; border-radius: 12px; padding: 24px; max-width: 700px; width: 95%; text-align: center; max-height: 90vh; overflow-y: auto;">
-                    <h2 style="color: #888; margin: 0 0 12px; font-size: 14px; text-transform: uppercase; letter-spacing: 1px;">
+                <div style="background: #1a1a2e; border: 2px solid #333; border-radius: 12px; padding: 20px; max-width: 700px; width: 95%; text-align: center; max-height: 90vh; display: flex; flex-direction: column;">
+                    <h2 style="color: #888; margin: 0 0 12px; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; flex-shrink: 0;">
                         ${game.opponent.name} Possession
                     </h2>
-                    <div id="playContainer" style="min-height: 180px;">
-                        <div id="currentPlay" style="text-align: left; padding: 12px; background: #252540; border-radius: 8px; margin-bottom: 12px;">
-                        </div>
-                        <div id="playHistory" style="text-align: left; font-size: 12px; color: #666; max-height: 100px; overflow-y: auto; padding: 0 8px;">
+                    <div id="playsScrollContainer" style="flex: 1; overflow-y: auto; min-height: 200px; max-height: 400px; padding: 8px; background: #151528; border-radius: 8px; margin-bottom: 12px;">
+                        <div id="playsContainer" style="text-align: left;">
                         </div>
                     </div>
-                    <div id="driveResult" style="display: none; margin-top: 16px;">
+                    <div id="driveResult" style="display: none; flex-shrink: 0;">
                         <div style="color: ${pointsColor}; font-size: 24px; font-weight: bold; margin-bottom: 12px;">
                             ${pointsText}
                         </div>
@@ -7680,43 +7675,43 @@
 
             document.body.appendChild(overlay);
 
-            const currentPlayDiv = document.getElementById('currentPlay');
-            const playHistoryDiv = document.getElementById('playHistory');
+            const playsContainer = document.getElementById('playsContainer');
+            const scrollContainer = document.getElementById('playsScrollContainer');
             let playIndex = 0;
 
             // Format a detailed play display
-            const formatPlayDetails = (play, isCurrent) => {
+            const formatPlayDetails = (play, playNum) => {
                 if (!play) return '<div style="color: #888;">Loading...</div>';
 
                 const opponent = result.enemyResult.opponent || game.opponent;
                 const teamShort = (opponent?.name || 'Enemy').split(' ')[0];
                 const qbName = play.qb ? getPlayerFullName(play.qb) : `${teamShort} QB`;
 
-                let html = '';
+                let html = `<div style="background: #252540; border-radius: 6px; padding: 10px; margin-bottom: 8px; border-left: 3px solid #444;">`;
 
-                // Down and distance header
+                // Play number and down/distance header
                 const downStr = getDownString(play.down);
                 const fieldPos = 100 - play.yardsFromGoal;
-                html += `<div style="color: #aaa; font-size: 13px; margin-bottom: 8px; display: flex; justify-content: space-between;">
-                    <span><span style="color: #fff; font-weight: bold;">${downStr}</span> & ${play.yardsToGo}</span>
-                    <span style="color: #666;">Ball at ${fieldPos > 50 ? 'OPP ' + (100 - fieldPos) : 'OWN ' + fieldPos}</span>
+                html += `<div style="color: #aaa; font-size: 12px; margin-bottom: 6px; display: flex; justify-content: space-between;">
+                    <span><span style="color: #666;">Play ${playNum}:</span> <span style="color: #fff; font-weight: bold;">${downStr}</span> & ${play.yardsToGo}</span>
+                    <span style="color: #555;">Ball at ${fieldPos > 50 ? 'OPP ' + (100 - fieldPos) : 'OWN ' + fieldPos}</span>
                 </div>`;
 
                 if (play.type === 'sack') {
                     // Sack play
                     const dlName = play.sackingPlayer ? getPlayerFullName(play.sackingPlayer) : 'Your DL';
                     html += createPressureBarHTML(play.pressureInfo);
-                    html += `<div style="margin-top: 8px;">`;
-                    html += `<div style="color: #4f4; font-size: 14px; font-weight: bold;">SACK! ${dlName} breaks through!</div>`;
-                    html += `<div style="color: #888; font-size: 11px; margin-top: 4px;">${qbName} taken down for ${Math.abs(play.yardsGained)} yard loss</div>`;
+                    html += `<div style="margin-top: 6px;">`;
+                    html += `<div style="color: #4f4; font-size: 13px; font-weight: bold;">SACK! ${dlName} breaks through!</div>`;
+                    html += `<div style="color: #888; font-size: 10px; margin-top: 2px;">${qbName} taken down for ${Math.abs(play.yardsGained)} yard loss</div>`;
 
                     // DL matchup details
-                    if (isCurrent && play.pressureInfo?.matchups) {
-                        html += `<div style="margin-top: 8px; padding: 8px; background: #1a1a2e; border-radius: 4px; font-size: 10px;">`;
-                        html += `<div style="color: #888; margin-bottom: 4px;">LINE MATCHUPS:</div>`;
+                    if (play.pressureInfo?.matchups) {
+                        html += `<div style="margin-top: 6px; padding: 6px; background: #1a1a2e; border-radius: 4px; font-size: 10px;">`;
+                        html += `<div style="color: #666; margin-bottom: 3px;">LINE MATCHUPS:</div>`;
                         play.pressureInfo.matchups.slice(0, 3).forEach(m => {
                             const resultColor = m.result === 'beaten badly' ? '#f44' : m.result === 'beaten' ? '#f84' : m.result === 'pressured' ? '#aa4' : '#4a4';
-                            html += `<div style="display: flex; justify-content: space-between; color: #aaa; margin: 2px 0;">
+                            html += `<div style="display: flex; justify-content: space-between; color: #888; margin: 1px 0;">
                                 <span>${getPlayerFullName(m.dl)} vs ${getPlayerFullName(m.ol)}</span>
                                 <span style="color: ${resultColor};">${m.dlRoll} vs ${m.olRoll} → ${m.result}</span>
                             </div>`;
@@ -7728,7 +7723,7 @@
                     // Field goal attempt
                     const distance = play.yardsFromGoal + 17;
                     const successColor = play.fieldGoalSuccess ? '#4f4' : '#f44';
-                    html += `<div style="color: ${successColor}; font-size: 14px; font-weight: bold;">`;
+                    html += `<div style="color: ${successColor}; font-size: 13px; font-weight: bold;">`;
                     html += play.fieldGoalSuccess ? `Field Goal GOOD from ${distance} yards!` : `Field Goal MISSED from ${distance} yards!`;
                     html += `</div>`;
                 } else {
@@ -7741,33 +7736,33 @@
                     html += createPressureBarHTML(play.pressureInfo);
 
                     // Target info
-                    html += `<div style="margin: 8px 0; font-size: 12px;">`;
+                    html += `<div style="margin: 6px 0; font-size: 11px;">`;
                     html += `<span style="color: #888;">Target:</span> <span style="color: #f94;">${wrName}</span>`;
-                    if (play.targetSlot) html += ` <span style="color: #666;">(${play.targetSlot})</span>`;
+                    if (play.targetSlot) html += ` <span style="color: #555;">(${play.targetSlot})</span>`;
                     html += ` <span style="color: #888;">vs</span> <span style="color: #4af;">${cbName}</span>`;
                     html += `</div>`;
 
-                    if (isCurrent && catchInfo) {
+                    if (catchInfo) {
                         // Matchup details box
-                        html += `<div style="background: #1a1a2e; border-radius: 4px; padding: 8px; margin: 8px 0; font-size: 11px;">`;
+                        html += `<div style="background: #1a1a2e; border-radius: 4px; padding: 6px; margin: 6px 0; font-size: 10px;">`;
 
                         // WR vs CB roll
                         const coverageColor = catchInfo.coverageMargin > 5 ? '#f44' : catchInfo.coverageMargin < -5 ? '#4f4' : '#aa4';
-                        html += `<div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-                            <span style="color: #888;">Coverage Matchup:</span>
+                        html += `<div style="display: flex; justify-content: space-between; margin-bottom: 3px;">
+                            <span style="color: #666;">Coverage:</span>
                             <span>WR <span style="color: #f94;">${catchInfo.wrRoll}</span> vs CB <span style="color: #4af;">${catchInfo.cbRoll}</span> = <span style="color: ${coverageColor};">${catchInfo.coverageMargin > 0 ? '+' : ''}${catchInfo.coverageMargin}</span></span>
                         </div>`;
 
                         // QB throw quality
                         const qbColor = catchInfo.throwGood ? '#4f4' : '#f44';
-                        html += `<div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-                            <span style="color: #888;">QB Throw (${catchInfo.qbBaseAccuracy} base - ${catchInfo.pressurePenalty} pressure):</span>
-                            <span style="color: ${qbColor};">Roll ${catchInfo.qbRoll} ${catchInfo.throwGood ? '≥' : '<'} ${catchInfo.qbThreshold} → ${catchInfo.throwGood ? 'ON TARGET' : 'OFF TARGET'}</span>
+                        html += `<div style="display: flex; justify-content: space-between; margin-bottom: 3px;">
+                            <span style="color: #666;">QB Throw (${catchInfo.qbBaseAccuracy}-${catchInfo.pressurePenalty} pressure):</span>
+                            <span style="color: ${qbColor};">${catchInfo.qbRoll} ${catchInfo.throwGood ? '≥' : '<'} ${catchInfo.qbThreshold} → ${catchInfo.throwGood ? 'GOOD' : 'BAD'}</span>
                         </div>`;
 
                         // Catch probability breakdown
-                        html += `<div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-                            <span style="color: #888;">Catch Prob (${catchInfo.baseCatch} + ${catchInfo.coverageMod} cov + ${catchInfo.focusMod} focus):</span>
+                        html += `<div style="display: flex; justify-content: space-between;">
+                            <span style="color: #666;">Catch (${catchInfo.baseCatch}${catchInfo.coverageMod >= 0 ? '+' : ''}${catchInfo.coverageMod} cov):</span>
                             <span style="color: #fff;">${catchInfo.catchProb}%</span>
                         </div>`;
 
@@ -7775,83 +7770,57 @@
                     }
 
                     // Result with catch bar
-                    html += `<div style="margin-top: 8px;">`;
+                    html += `<div style="margin-top: 6px;">`;
                     if (!catchInfo?.throwGood) {
-                        html += `<div style="color: #4f4; font-size: 13px;"><span style="color: #888;">${qbName}</span> throws it away under pressure!</div>`;
+                        html += `<div style="color: #4f4; font-size: 12px;"><span style="color: #888;">${qbName}</span> throws it away under pressure!</div>`;
                     } else if (play.type === 'complete') {
                         if (play.isTouchdown) {
-                            html += `<div style="color: #f44; font-size: 14px; font-weight: bold;">TOUCHDOWN! ${wrName} catches it for ${play.yardsGained} yards!</div>`;
+                            html += `<div style="color: #f44; font-size: 13px; font-weight: bold;">TOUCHDOWN! ${wrName} catches it for ${play.yardsGained} yards!</div>`;
                         } else {
-                            html += `<div style="color: #ccc; font-size: 13px;">${wrName} catches for <span style="color: #f94;">${play.yardsGained} yards</span></div>`;
+                            html += `<div style="color: #ccc; font-size: 12px;">${wrName} catches for <span style="color: #f94;">${play.yardsGained} yards</span></div>`;
                         }
-                        html += `<div style="margin-top: 6px;">${createCatchBarHTML(catchInfo)}</div>`;
+                        html += `<div style="margin-top: 4px;">${createCatchBarHTML(catchInfo, true)}</div>`;
                     } else {
-                        html += `<div style="color: #4f4; font-size: 13px;">Pass broken up by ${cbName}!</div>`;
-                        html += `<div style="margin-top: 6px;">${createCatchBarHTML(catchInfo)}</div>`;
+                        html += `<div style="color: #4f4; font-size: 12px;">Pass broken up by ${cbName}!</div>`;
+                        html += `<div style="margin-top: 4px;">${createCatchBarHTML(catchInfo, true)}</div>`;
                     }
                     html += `</div>`;
                 }
 
+                html += `</div>`;
                 return html;
             };
 
-            // Format a brief play summary for history
-            const formatPlaySummary = (play) => {
-                const opponent = result.enemyResult.opponent;
-                const teamShort = opponent.name.split(' ')[0];
-
-                if (play.type === 'sack') {
-                    return `<span style="color: #4f4;">SACK -${Math.abs(play.yardsGained)} yds</span>`;
-                } else if (play.fieldGoalAttempt) {
-                    return play.fieldGoalSuccess ? `<span style="color: #f44;">FG GOOD</span>` : `<span style="color: #4f4;">FG MISS</span>`;
-                } else if (play.type === 'complete') {
-                    if (play.isTouchdown) {
-                        return `<span style="color: #f44;">TD! +${play.yardsGained} yds</span>`;
-                    }
-                    return `<span style="color: #f94;">Complete +${play.yardsGained} yds</span>`;
-                } else {
-                    return `<span style="color: #4f4;">Incomplete</span>`;
-                }
-            };
-
-            // Show plays progressively
+            // Show plays progressively in scrolling container
             const showNextPlay = () => {
                 if (playIndex < plays.length) {
                     const play = plays[playIndex];
 
-                    // Move previous play to history
-                    if (playIndex > 0) {
-                        const prevPlay = plays[playIndex - 1];
-                        const historyEntry = document.createElement('div');
-                        historyEntry.style.cssText = 'padding: 2px 0; border-bottom: 1px solid #333;';
-                        historyEntry.innerHTML = `<span style="color: #555;">${getDownString(prevPlay.down)}&${prevPlay.yardsToGo}:</span> ${formatPlaySummary(prevPlay)}`;
-                        playHistoryDiv.insertBefore(historyEntry, playHistoryDiv.firstChild);
-                    }
+                    // Add play to container
+                    const playDiv = document.createElement('div');
+                    playDiv.innerHTML = formatPlayDetails(play, playIndex + 1);
+                    playDiv.style.opacity = '0';
+                    playDiv.style.transition = 'opacity 0.3s';
+                    playsContainer.appendChild(playDiv);
 
-                    // Show current play with details
-                    currentPlayDiv.innerHTML = formatPlayDetails(play, true);
-                    currentPlayDiv.style.opacity = '0';
-                    setTimeout(() => currentPlayDiv.style.opacity = '1', 50);
+                    // Fade in and scroll to show new play
+                    setTimeout(() => {
+                        playDiv.style.opacity = '1';
+                        scrollContainer.scrollTop = scrollContainer.scrollHeight;
+                    }, 50);
 
                     playIndex++;
                     setTimeout(showNextPlay, delayPerPlay);
                 } else {
-                    // All plays shown - add final play to history and show result
-                    if (plays.length > 0) {
-                        const finalPlay = plays[plays.length - 1];
-                        const historyEntry = document.createElement('div');
-                        historyEntry.style.cssText = 'padding: 2px 0; border-bottom: 1px solid #333;';
-                        historyEntry.innerHTML = `<span style="color: #555;">${getDownString(finalPlay.down)}&${finalPlay.yardsToGo}:</span> ${formatPlaySummary(finalPlay)}`;
-                        playHistoryDiv.insertBefore(historyEntry, playHistoryDiv.firstChild);
-                    }
-
-                    // Show final result
-                    currentPlayDiv.innerHTML = `<div style="text-align: center; padding: 20px; color: ${pointsColor}; font-size: 16px;">
-                        ${result.enemyResult.type === 'TD' ? 'TOUCHDOWN!' :
-                          result.enemyResult.type === 'FG' ? 'FIELD GOAL!' :
-                          result.enemyResult.type === 'PUNT' ? 'Forced to Punt!' :
-                          result.enemyResult.type === 'MISSED_FG' ? 'Field Goal Missed!' : 'Drive Stopped!'}
-                    </div>`;
+                    // All plays shown - add final result banner
+                    const resultBanner = document.createElement('div');
+                    resultBanner.style.cssText = `text-align: center; padding: 15px; color: ${pointsColor}; font-size: 16px; font-weight: bold; background: #252540; border-radius: 6px; border-left: 3px solid ${pointsColor};`;
+                    resultBanner.textContent = result.enemyResult.type === 'TD' ? 'TOUCHDOWN!' :
+                        result.enemyResult.type === 'FG' ? 'FIELD GOAL!' :
+                        result.enemyResult.type === 'PUNT' ? 'Forced to Punt!' :
+                        result.enemyResult.type === 'MISSED_FG' ? 'Field Goal Missed!' : 'Drive Stopped!';
+                    playsContainer.appendChild(resultBanner);
+                    scrollContainer.scrollTop = scrollContainer.scrollHeight;
 
                     setTimeout(() => {
                         document.getElementById('driveResult').style.display = 'block';
