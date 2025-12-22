@@ -2122,17 +2122,21 @@
                 let pressureContribution = 0;
                 let result = 'held';
 
-                if (margin > 10) {
-                    // Dominant DL win - potential sack
+                if (margin > 18) {
+                    // Dominant DL win - potential sack (rare, requires big mismatch)
                     pressureContribution = 35;
                     result = 'beaten badly';
-                    if (!sackingDL && Math.random() < 0.6) {
+                    if (!sackingDL && Math.random() < 0.25) {
                         sackingDL = dl;
                     }
-                } else if (margin > 5) {
-                    // Strong DL win - heavy pressure
-                    pressureContribution = 20;
+                } else if (margin > 10) {
+                    // Strong DL win - heavy pressure but no sack
+                    pressureContribution = 25;
                     result = 'beaten';
+                } else if (margin > 5) {
+                    // Moderate DL win - some pressure
+                    pressureContribution = 15;
+                    result = 'pressured';
                 } else if (margin > 2) {
                     // Slight DL win - some pressure
                     pressureContribution = 10;
