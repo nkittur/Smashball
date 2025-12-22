@@ -1066,19 +1066,24 @@
         }
 
         // Calculate salary from stats
-        function calculateSalary(stats) {
-            const total = Object.values(stats).reduce((sum, val) => sum + val, 0);
-            const avgStat = total / Object.keys(stats).length;
-            // Salary based on average stat, scaled
-            return Math.floor(avgStat * ECONOMY.SALARY_MULTIPLIER);
-        }
-
         // Calculate overall rating (average of primary stats for position)
         function calculateOverall(player) {
             const positionData = POSITIONS[player.position];
             const primaryStats = positionData.primaryStats;
             const total = primaryStats.reduce((sum, stat) => sum + (player.stats[stat] || 0), 0);
             return Math.round(total / primaryStats.length);
+        }
+
+        // Calculate salary based on overall rating (exponential scaling)
+        function calculateSalary(stats, position = 'WR') {
+            const positionData = POSITIONS[position];
+            const primaryStats = positionData.primaryStats;
+            const total = primaryStats.reduce((sum, stat) => sum + (stats[stat] || 0), 0);
+            const overall = Math.round(total / primaryStats.length);
+            // Exponential scaling: elite players cost much more
+            // 60 OVR = ~200, 75 OVR = ~500, 85 OVR = ~900, 95 OVR = ~1800
+            const base = Math.pow(overall / 50, 2.5) * 100;
+            return Math.floor(base);
         }
 
         // Generate a player
@@ -1101,7 +1106,7 @@
                 potentialGrade: rollPotential(age, tier),
                 yearsInLeague,
                 peakAge,
-                salaryCost: calculateSalary(stats),
+                salaryCost: calculateSalary(stats, position),
                 seasonStartStats: { ...stats },
                 // Season stats
                 gamesPlayed: 0,
@@ -1451,7 +1456,7 @@
             });
 
             // Recalculate derived values
-            player.salaryCost = calculateSalary(player.stats);
+            player.salaryCost = calculateSalary(player.stats, player.position);
             player.overall = calculateOverall(player);
 
             if (improvements.length === 0) {
@@ -1506,7 +1511,7 @@
             });
 
             // Recalculate derived values
-            player.salaryCost = calculateSalary(player.stats);
+            player.salaryCost = calculateSalary(player.stats, player.position);
             player.overall = calculateOverall(player);
 
             return declines;
