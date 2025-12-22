@@ -5242,10 +5242,16 @@
                     // Proximity factor: 1.0 at distance 0, 0.0 at max range
                     const proximityFactor = 1 - (dist / coverageRange);
 
-                    // Penalty formula: proximityFactor^3 * coverageStat * 0.4
-                    // At distance 0 with equal 75 stats: 75 * 0.4 = 30 penalty, catch = 45%
+                    // At distance 0, if coverage equals catching, apply 80% penalty
+                    // penalty = proximityFactor^3 * coverageStat * 0.8
                     // Cubed for steeper dropoff - separation is rewarded more
-                    let penalty = proximityFactor * proximityFactor * proximityFactor * coverageStat * 0.4;
+                    let penalty = proximityFactor * proximityFactor * proximityFactor * coverageStat * 0.8;
+
+                    // Very close defenders (0.6 or closer) have 50% more influence
+                    const CLOSE_DEFENDER_THRESHOLD = 0.6;
+                    if (dist <= CLOSE_DEFENDER_THRESHOLD) {
+                        penalty *= 1.5;
+                    }
 
                     // Check if ball is on opposite side from defender
                     // Only applies if defender isn't right on top of receiver (dist > 0.8)
