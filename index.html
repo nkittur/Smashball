@@ -2214,16 +2214,23 @@
             const coverageMargin = wrRoll - cbRoll;
 
             // Base catch chance from receiver catching stat
-            let baseCatch = receiver.stats.catching;
+            // Base catch starts at 40%, modified by receiver's catching skill
+            // A receiver with 85 catching gets +15, so base becomes 55%
+            let baseCatch = 40 + (receiver.stats.catching - 70) * 0.5;
 
-            // Coverage modifier: WR advantage increases catch %, CB advantage decreases
-            const coverageMod = coverageMargin * 0.5;
+            // Coverage modifier: WR vs CB matchup has significant impact
+            // Each point of margin = 1% swing (was 0.5%)
+            const coverageMod = coverageMargin * 1.0;
 
-            // Focus modifier under pressure
-            const focusMod = (receiver.stats.focus - 70) * 0.2;
+            // CB coverage stat directly reduces catch probability
+            // A CB with 80 coverage reduces catch by 10%
+            const cbCoveragePenalty = (cb.stats.coverage - 70) * 0.5;
+
+            // Focus modifier under pressure (smaller impact)
+            const focusMod = (receiver.stats.focus - 70) * 0.15;
 
             // Calculate catch probability before QB throw
-            let catchProb = Math.max(5, Math.min(95, baseCatch + coverageMod + focusMod));
+            let catchProb = Math.max(5, Math.min(85, baseCatch + coverageMod - cbCoveragePenalty + focusMod));
 
             // QB throw quality
             const qbBaseAccuracy = (qbStats.throwing + qbStats.awareness) / 2;
@@ -2249,6 +2256,7 @@
                 coverageMargin: Math.round(coverageMargin),
                 baseCatch: Math.round(baseCatch),
                 coverageMod: Math.round(coverageMod),
+                cbCoveragePenalty: Math.round(cbCoveragePenalty),
                 focusMod: Math.round(focusMod),
                 catchProb: Math.round(catchProb),
                 qbBaseAccuracy: Math.round(qbBaseAccuracy),
@@ -7755,6 +7763,21 @@
                     html += ` <span style="color: #888;">vs</span> <span style="color: #4af;">${cbName}</span>`;
                     html += `</div>`;
 
+                    // Show line matchups for pass plays too (not just sacks)
+                    if (play.pressureInfo?.matchups && play.pressureInfo.matchups.length > 0) {
+                        html += `<div style="margin-top: 6px; padding: 6px; background: #1a1a2e; border-radius: 4px; font-size: 10px;">`;
+                        html += `<div style="color: #666; margin-bottom: 3px;">LINE CLASHES:</div>`;
+                        play.pressureInfo.matchups.forEach(m => {
+                            const resultColor = m.result === 'beaten badly' ? '#f44' : m.result === 'beaten' ? '#f84' : m.result === 'pressured' ? '#fa4' : m.result === 'held' ? '#aa4' : '#4a4';
+                            html += `<div style="display: flex; justify-content: space-between; color: #888; margin: 1px 0;">
+                                <span style="color: #4af;">${getPlayerFullName(m.dl)}</span>
+                                <span><span style="color: #4af;">${m.dlRoll}</span> vs <span style="color: #f94;">${m.olRoll}</span> → <span style="color: ${resultColor};">${m.result}</span> (+${m.pressure})</span>
+                            </div>`;
+                        });
+                        html += `<div style="color: #888; margin-top: 3px; border-top: 1px solid #333; padding-top: 3px;">Total Pressure: <span style="color: #fff;">${play.pressureInfo.totalPressure}</span> (${play.pressureInfo.pressureLevel})</div>`;
+                        html += `</div>`;
+                    }
+
                     if (catchInfo) {
                         // Matchup details box
                         html += `<div style="background: #1a1a2e; border-radius: 4px; padding: 6px; margin: 6px 0; font-size: 10px;">`;
@@ -7773,9 +7796,11 @@
                             <span style="color: ${qbColor};">${catchInfo.qbRoll} ${catchInfo.throwGood ? '≥' : '<'} ${catchInfo.qbThreshold} → ${catchInfo.throwGood ? 'GOOD' : 'BAD'}</span>
                         </div>`;
 
-                        // Catch probability breakdown
+                        // Catch probability breakdown with new formula
+                        const cbPenStr = catchInfo.cbCoveragePenalty > 0 ? `-${catchInfo.cbCoveragePenalty} cov` : '';
+                        const covModStr = catchInfo.coverageMod >= 0 ? `+${catchInfo.coverageMod}` : `${catchInfo.coverageMod}`;
                         html += `<div style="display: flex; justify-content: space-between;">
-                            <span style="color: #666;">Catch (${catchInfo.baseCatch}${catchInfo.coverageMod >= 0 ? '+' : ''}${catchInfo.coverageMod} cov):</span>
+                            <span style="color: #666;">Catch (${catchInfo.baseCatch}${covModStr}${cbPenStr}):</span>
                             <span style="color: #fff;">${catchInfo.catchProb}%</span>
                         </div>`;
 
