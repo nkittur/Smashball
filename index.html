@@ -299,6 +299,7 @@
                 <div id="playerSeasonStats" class="player-season-stats"></div>
                 <div id="playerCareerGraph" class="player-career-graph"></div>
                 <div class="modal-actions">
+                    <button id="btnTradePlayer" class="mgmt-btn primary">TRADE FOR FAME</button>
                     <button id="btnCutPlayer" class="mgmt-btn danger">CUT PLAYER</button>
                 </div>
             </div>
@@ -1083,6 +1084,19 @@
             // Quadratic scaling: 60 OVR = 200, 80 OVR = 800, 95 OVR = 1512
             const base = 0.5 * Math.pow(overall - 40, 2);
             return Math.floor(base);
+        }
+
+        // Calculate trade value (fame received for trading a player)
+        function calculateTradeValue(player) {
+            const overall = player.overall;
+            if (overall < 80) return 0;
+            if (overall < 90) {
+                // 80-89: linear scaling, 0 to 150
+                return Math.floor((overall - 80) * 15);
+            }
+            // 90+: exponential scaling
+            // 90 = 150, 92 = 250, 95 = 775, 99 = 2175
+            return Math.floor(150 + Math.pow(overall - 90, 2) * 25);
         }
 
         // Generate a player
@@ -5954,14 +5968,29 @@
                 `<span class="season-change ${overallChangeClass}">${overallChange > 0 ? '+' : ''}${overallChange}</span>` : '';
 
             // Player info
+            const tradeValue = calculateTradeValue(player);
+            const tradeText = tradeValue > 0 ? `Trade Value: ${tradeValue}` : 'No Trade Value';
             const infoHtml = `
                 <div><span class="ovr-big">${player.overall}</span>${overallChangeText}</div>
                 <div style="margin-top:10px;">
                     ${POSITIONS[player.position].name} | Age ${player.age} | Peak ${player.peakAge}<br>
-                    Salary: ${formatSalary(player.salaryCost)} | Potential: ${'★'.repeat(player.potentialGrade + 1)}
+                    Salary: ${formatSalary(player.salaryCost)} | Potential: ${'★'.repeat(player.potentialGrade + 1)}<br>
+                    <span style="color:${tradeValue > 0 ? '#4f4' : '#888'}">${tradeText}</span>
                 </div>
             `;
             document.getElementById('playerInfo').innerHTML = infoHtml;
+
+            // Update trade button
+            const tradeBtn = document.getElementById('btnTradePlayer');
+            if (tradeValue > 0) {
+                tradeBtn.textContent = `TRADE (+${tradeValue} Fame)`;
+                tradeBtn.disabled = false;
+                tradeBtn.style.opacity = '1';
+            } else {
+                tradeBtn.textContent = 'NO TRADE VALUE';
+                tradeBtn.disabled = true;
+                tradeBtn.style.opacity = '0.5';
+            }
 
             // All stats with changes
             const allStats = [
@@ -6085,6 +6114,23 @@
             if (!managementState.selectedPlayerId) return;
             const result = cutPlayer(managementState.selectedPlayerId);
             if (result.success) {
+                closePlayerDetail();
+                refreshRosterScreen();
+            }
+        }
+
+        // Trade player for fame from detail view
+        function tradePlayerFromDetail() {
+            if (!managementState.selectedPlayerId) return;
+            const player = managementState.team.roster.find(p => p.id === managementState.selectedPlayerId);
+            if (!player) return;
+
+            const tradeValue = calculateTradeValue(player);
+            if (tradeValue <= 0) return;
+
+            if (confirm(`Trade ${player.firstName} ${player.lastName} for ${tradeValue} Fame?`)) {
+                managementState.team.fame += tradeValue;
+                cutPlayer(managementState.selectedPlayerId);
                 closePlayerDetail();
                 refreshRosterScreen();
             }
@@ -6395,6 +6441,7 @@
         // Player detail modal handlers
         document.getElementById('btnCloseDetail').addEventListener('click', closePlayerDetail);
         document.getElementById('btnCutPlayer').addEventListener('click', cutPlayerFromDetail);
+        document.getElementById('btnTradePlayer').addEventListener('click', tradePlayerFromDetail);
 
         // Show initial screen
         showScreen(managementState.currentScreen);
