@@ -4396,6 +4396,7 @@
 
             // Calculate available depth to end zone
             const depthToEndZone = END_ZONE_Z - startZ;
+            const isVeryNearGoalLine = depthToEndZone < 2;  // Within 2 yards - need sideways cuts
             const isNearGoalLine = depthToEndZone < 6;  // Within 6 yards of end zone
             const isOnSideline = Math.abs(startX) > 5;  // Near sideline
             const isInRedZone = depthToEndZone < 10;  // Inside the 10
@@ -4408,7 +4409,18 @@
             let routeType;
 
             // Select route type based on field position
-            if (isNearGoalLine) {
+            if (isVeryNearGoalLine) {
+                // Very close to goal line - routes must go into end zone then cut sideways
+                if (isOnSideline) {
+                    // Near sideline - cut toward middle of end zone
+                    const types = ['endzone_in', 'endzone_cross'];
+                    routeType = types[Math.floor(Math.random() * types.length)];
+                } else {
+                    // Middle of field - can cut either direction
+                    const types = ['endzone_out', 'endzone_cross', 'endzone_corner'];
+                    routeType = types[Math.floor(Math.random() * types.length)];
+                }
+            } else if (isNearGoalLine) {
                 // Goal line routes - short, quick, mostly crossing or corner fades
                 if (isOnSideline || forceCrossing) {
                     // Near sideline + goal line = must cross toward middle
@@ -4445,6 +4457,40 @@
 
             // Generate route points based on type
             switch(routeType) {
+                // === END ZONE ROUTES (very close to goal line) ===
+                case 'endzone_out':
+                    // Go into end zone 2-3 yards, then cut sharply toward sideline
+                    const ezOutDepth = Math.min(startZ + 2 + Math.random(), END_ZONE_BACK - 1);
+                    const ezOutX = Math.max(-7, Math.min(7, startX + towardSideline * (4 + Math.random() * 3)));
+                    route.push({ z: ezOutDepth, x: startX });  // Go forward into end zone
+                    route.push({ z: ezOutDepth + 0.5, x: ezOutX });  // Cut sharply sideways
+                    break;
+
+                case 'endzone_in':
+                    // Go into end zone 2-3 yards, then cut sharply toward middle
+                    const ezInDepth = Math.min(startZ + 2 + Math.random(), END_ZONE_BACK - 1);
+                    const ezInX = Math.max(-5, Math.min(5, startX + towardMiddle * (4 + Math.random() * 3)));
+                    route.push({ z: ezInDepth, x: startX });  // Go forward into end zone
+                    route.push({ z: ezInDepth + 0.5, x: ezInX });  // Cut sharply toward middle
+                    break;
+
+                case 'endzone_cross':
+                    // Go into end zone 2-3 yards, then run horizontally across
+                    const ezCrossDepth = Math.min(startZ + 2 + Math.random() * 1.5, END_ZONE_BACK - 1);
+                    const ezCrossX = Math.max(-6, Math.min(6, startX + towardMiddle * (6 + Math.random() * 4)));
+                    route.push({ z: ezCrossDepth, x: startX });  // Go forward into end zone
+                    route.push({ z: ezCrossDepth, x: (startX + ezCrossX) / 2 });  // Start crossing
+                    route.push({ z: ezCrossDepth + 0.5, x: ezCrossX });  // Continue across
+                    break;
+
+                case 'endzone_corner':
+                    // Go into end zone 2-3 yards, then angle to back corner
+                    const ezCornerDepth = Math.min(startZ + 2 + Math.random(), END_ZONE_Z + 2);
+                    const ezCornerX = Math.max(-7, Math.min(7, startX + towardSideline * (3 + Math.random() * 2)));
+                    route.push({ z: ezCornerDepth, x: startX + towardSideline * 0.5 });  // Slight angle in
+                    route.push({ z: Math.min(ezCornerDepth + 2, END_ZONE_BACK), x: ezCornerX });  // Break to corner
+                    break;
+
                 // === GOAL LINE ROUTES ===
                 case 'quick_slant':
                     // Quick slant toward middle - 2-3 yards then cut
@@ -5249,7 +5295,8 @@
 
             // Reset QB position (relative to line of scrimmage, randomized depth behind it)
             const qbDepthBehindLine = 2 + Math.random() * 2;  // 2-4 yards behind LOS
-            const qbZ = gameState.lineOfScrimmage - qbDepthBehindLine;
+            // Clamp QB Z position to stay on visible field (min -8 to stay within own end zone)
+            const qbZ = Math.max(-8, gameState.lineOfScrimmage - qbDepthBehindLine);
             gameState.qbStartZ = qbZ;
             scene.qb.position.x = 0;
             scene.qb.position.z = qbZ;
