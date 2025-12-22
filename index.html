@@ -1074,15 +1074,14 @@
             return Math.round(total / primaryStats.length);
         }
 
-        // Calculate salary based on overall rating (exponential scaling)
+        // Calculate salary based on overall rating (quadratic scaling)
         function calculateSalary(stats, position = 'WR') {
             const positionData = POSITIONS[position];
             const primaryStats = positionData.primaryStats;
             const total = primaryStats.reduce((sum, stat) => sum + (stats[stat] || 0), 0);
             const overall = Math.round(total / primaryStats.length);
-            // Exponential scaling: elite players cost much more
-            // 60 OVR = ~200, 75 OVR = ~500, 85 OVR = ~900, 95 OVR = ~1800
-            const base = Math.pow(overall / 50, 2.5) * 100;
+            // Quadratic scaling: 60 OVR = 200, 80 OVR = 800, 95 OVR = 1512
+            const base = 0.5 * Math.pow(overall - 40, 2);
             return Math.floor(base);
         }
 
