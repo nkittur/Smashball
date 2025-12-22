@@ -2239,21 +2239,27 @@
             // Calculate catch probability (same structure as player offense)
             let catchProb = Math.max(5, Math.min(95, baseCatch + focusMod - defenderPenalty));
 
-            // QB throw quality
-            const qbBaseAccuracy = (qbStats.throwing + qbStats.awareness) / 2;
-            // Pressure reduces QB accuracy
-            const qbPressurePenalty = pressureInfo.totalPressure * 0.4;
-            const qbAccuracy = Math.max(20, qbBaseAccuracy - qbPressurePenalty);
+            // QB throw quality using exponential distribution
+            // Better QB = lower rollMean = rolls cluster near 0 = easier catches
+            // Pressure increases rollMean = rolls spread higher = harder catches
+            const qbAccuracy = (qbStats.throwing + qbStats.awareness) / 2;
+            const pressure = pressureInfo.totalPressure;
 
-            // QB roll with variance
-            const qbRoll = qbAccuracy * (1 + (Math.random() - 0.5) * 0.4);
-            const qbThreshold = 45; // Need to roll above this for a catchable ball
+            // Formula tuned so that (at base 50% catch):
+            //   QB 95, no pressure: +34% bonus → 67% effective
+            //   QB 85, no pressure: +10% bonus → 55% effective
+            //   QB 75, no pressure: -6% penalty → 47% effective
+            //   QB 65, no pressure: -18% penalty → 41% effective
+            const rollMean = 79 + (75 - qbAccuracy) * 1.7 + pressure * 0.5;
 
-            const throwGood = qbRoll > qbThreshold;
+            // Exponential random: lower is better, need to roll under catchProb
+            const qbRoll = -rollMean * Math.log(Math.random());
 
-            // Final catch roll
-            const catchRoll = Math.random() * 100;
-            const catchSuccess = throwGood && catchRoll < catchProb;
+            // Effective catch % for display: P(roll < catchProb) = 1 - e^(-catchProb/rollMean)
+            const effectiveCatchPct = (1 - Math.exp(-catchProb / rollMean)) * 100;
+
+            // Success if QB roll is under the catch probability
+            const catchSuccess = qbRoll < catchProb;
 
             return {
                 receiver,
@@ -2267,13 +2273,11 @@
                 baseCatch: Math.round(baseCatch),
                 focusMod: Math.round(focusMod),
                 catchProb: Math.round(catchProb),
-                qbBaseAccuracy: Math.round(qbBaseAccuracy),
-                qbPressurePenalty: Math.round(qbPressurePenalty),
                 qbAccuracy: Math.round(qbAccuracy),
+                pressure: Math.round(pressure),
+                rollMean: Math.round(rollMean),
                 qbRoll: Math.round(qbRoll),
-                qbThreshold,
-                throwGood,
-                catchRoll: Math.round(catchRoll),
+                effectiveCatchPct: Math.round(effectiveCatchPct),
                 catchSuccess
             };
         }
@@ -7595,6 +7599,7 @@
         }
 
         // Helper to create catch probability bar HTML
+        // Shows QB roll vs catch window - lower roll is better (exponential distribution)
         function createCatchBarHTML(catchInfo, small = false) {
             if (!catchInfo) return '';
 
@@ -7602,20 +7607,20 @@
             const barHeight = small ? 10 : 14;
             const fontSize = small ? 10 : 12;
 
-            const baseCatch = Math.min(95, catchInfo.baseCatch + catchInfo.focusMod);
-            const penalty = Math.max(0, baseCatch - catchInfo.catchProb);
             const success = catchInfo.catchSuccess;
-            const roll = catchInfo.catchRoll;
+            const catchWindow = catchInfo.catchProb;
+            // Scale the roll position: catchProb is the threshold, show roll relative to it
+            // Bar shows 0-100 scale where catchWindow% is the "safe zone"
+            const rollPosition = Math.min(100, (catchInfo.qbRoll / Math.max(1, catchWindow)) * catchWindow);
 
             return `
                 <div style="display: inline-flex; align-items: center; gap: 6px; font-family: 'Courier New', monospace; font-size: ${fontSize}px;">
-                    <span style="color: ${success ? '#4f4' : '#f66'}; font-weight: bold;">${success ? 'CATCH!' : 'DROPPED'}</span>
+                    <span style="color: ${success ? '#4f4' : '#f66'}; font-weight: bold;">${success ? 'CATCH!' : 'INCOMPLETE'}</span>
                     <div style="position: relative; width: ${barWidth}px; height: ${barHeight}px; background: #222; border-radius: 2px; overflow: visible;">
-                        <div style="position: absolute; left: 0; top: 0; height: 100%; width: ${baseCatch}%; background: linear-gradient(90deg, #3a3, #4b4); border-radius: 2px;"></div>
-                        ${penalty > 0 ? `<div style="position: absolute; top: 0; height: 100%; left: ${catchInfo.catchProb}%; width: ${penalty}%; background: rgba(0,0,0,0.55); border-left: 1px solid #f55;"></div>` : ''}
-                        <div style="position: absolute; top: -1px; left: ${roll}%; transform: translateX(-50%); font-size: ${fontSize}px; font-weight: bold; text-shadow: 0 0 2px #000; color: ${success ? '#4f4' : '#f44'}; line-height: ${barHeight}px;">${success ? '✓' : '✗'}</div>
+                        <div style="position: absolute; left: 0; top: 0; height: 100%; width: ${catchWindow}%; background: linear-gradient(90deg, #3a3, #4b4); border-radius: 2px;"></div>
+                        <div style="position: absolute; top: -1px; left: ${Math.min(98, rollPosition)}%; transform: translateX(-50%); font-size: ${fontSize}px; font-weight: bold; text-shadow: 0 0 2px #000; color: ${success ? '#4f4' : '#f44'}; line-height: ${barHeight}px;">${success ? '✓' : '✗'}</div>
                     </div>
-                    <span style="color: #888; font-size: ${fontSize - 1}px;">${catchInfo.catchProb}%</span>
+                    <span style="color: #888; font-size: ${fontSize - 1}px;">${catchInfo.effectiveCatchPct}%</span>
                 </div>
             `;
         }
@@ -7807,18 +7812,24 @@
                             <span style="color: #f44;">-${catchInfo.defenderPenalty}</span>
                         </div>`;
 
-                        // QB throw quality
-                        const qbColor = catchInfo.throwGood ? '#4f4' : '#f44';
+                        // Catch window from WR/CB matchup
+                        const focusStr = catchInfo.focusMod !== 0 ? `+${catchInfo.focusMod}` : '';
                         html += `<div style="display: flex; justify-content: space-between; margin-bottom: 3px;">
-                            <span style="color: #666;">QB Throw (${catchInfo.qbBaseAccuracy}-${catchInfo.qbPressurePenalty} pressure):</span>
-                            <span style="color: ${qbColor};">${catchInfo.qbRoll} ${catchInfo.throwGood ? '≥' : '<'} ${catchInfo.qbThreshold} → ${catchInfo.throwGood ? 'GOOD' : 'BAD'}</span>
+                            <span style="color: #666;">Catch Window (${catchInfo.baseCatch}${focusStr}-${catchInfo.defenderPenalty}):</span>
+                            <span style="color: #fff;">${catchInfo.catchProb}%</span>
                         </div>`;
 
-                        // Catch probability breakdown
-                        const focusStr = catchInfo.focusMod !== 0 ? `+${catchInfo.focusMod} focus` : '';
+                        // QB throw quality with exponential distribution
+                        const qbColor = catchInfo.catchSuccess ? '#4f4' : '#f44';
+                        html += `<div style="display: flex; justify-content: space-between; margin-bottom: 3px;">
+                            <span style="color: #666;">QB (${catchInfo.qbAccuracy} acc, ${catchInfo.pressure} pres → μ=${catchInfo.rollMean}):</span>
+                            <span style="color: ${qbColor};">roll ${catchInfo.qbRoll} ${catchInfo.catchSuccess ? '<' : '≥'} ${catchInfo.catchProb}</span>
+                        </div>`;
+
+                        // Effective catch % after QB modifier
                         html += `<div style="display: flex; justify-content: space-between;">
-                            <span style="color: #666;">Catch (${catchInfo.baseCatch}${focusStr}-${catchInfo.defenderPenalty}):</span>
-                            <span style="color: #fff; font-weight: bold;">${catchInfo.catchProb}%</span>
+                            <span style="color: #666;">Effective Catch:</span>
+                            <span style="color: #fff; font-weight: bold;">${catchInfo.effectiveCatchPct}%</span>
                         </div>`;
 
                         html += `</div>`;
@@ -7826,9 +7837,7 @@
 
                     // Result with catch bar
                     html += `<div style="margin-top: 6px;">`;
-                    if (!catchInfo?.throwGood) {
-                        html += `<div style="color: #4f4; font-size: 12px;"><span style="color: #888;">${qbName}</span> throws it away under pressure!</div>`;
-                    } else if (play.type === 'complete') {
+                    if (play.type === 'complete') {
                         if (play.isTouchdown) {
                             html += `<div style="color: #f44; font-size: 13px; font-weight: bold;">TOUCHDOWN! ${wrName} catches it for ${play.yardsGained} yards!</div>`;
                         } else {
