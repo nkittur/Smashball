@@ -2111,6 +2111,8 @@
             // Match up DL vs OL (up to 4 matchups typically)
             const numMatchups = Math.min(playerOL.length, opponentDL.length);
 
+            console.log(`DL Pressure - ${numMatchups} matchups. OL count: ${playerOL.length}, DL count: ${opponentDL.length}`);
+
             for (let i = 0; i < numMatchups; i++) {
                 const ol = playerOL[i];
                 const dl = opponentDL[i];
@@ -2128,6 +2130,7 @@
                     result = 'beaten badly';
                     if (!sackingDL && Math.random() < 0.25) {
                         sackingDL = dl;
+                        console.log(`SACK triggered! DL ${dl.firstName} margin=${Math.round(margin)}`);
                     }
                 } else if (margin > 10) {
                     // Strong DL win - heavy pressure but no sack
@@ -2151,6 +2154,8 @@
                     result = 'stonewalled';
                 }
 
+                console.log(`  Matchup ${i+1}: ${getPlayerFullName(dl)} (DL ${Math.round(dlRoll)}) vs ${getPlayerFullName(ol)} (OL ${Math.round(olRoll)}) = margin ${Math.round(margin)} -> ${result}`);
+
                 totalPressure += pressureContribution;
 
                 matchups.push({
@@ -2166,6 +2171,8 @@
 
             // Cap total pressure at 100
             totalPressure = Math.min(100, totalPressure);
+
+            console.log(`  Total pressure: ${totalPressure}, sackingDL: ${sackingDL ? getPlayerFullName(sackingDL) : 'none'}`);
 
             return {
                 matchups,
