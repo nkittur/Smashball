@@ -2096,7 +2096,10 @@
 
         // Get player's full name
         function getPlayerFullName(player) {
-            return `${player.firstName} ${player.lastName.charAt(0)}.`;
+            if (!player) return 'Unknown';
+            const first = player.firstName || 'Player';
+            const last = player.lastName || '';
+            return `${first} ${last.charAt(0) || ''}.`.trim();
         }
 
         // Simulate DL vs OL pressure for the play
@@ -7677,8 +7680,10 @@
 
             // Format a detailed play display
             const formatPlayDetails = (play, isCurrent) => {
-                const opponent = result.enemyResult.opponent;
-                const teamShort = opponent.name.split(' ')[0];
+                if (!play) return '<div style="color: #888;">Loading...</div>';
+
+                const opponent = result.enemyResult.opponent || game.opponent;
+                const teamShort = (opponent?.name || 'Enemy').split(' ')[0];
                 const qbName = play.qb ? getPlayerFullName(play.qb) : `${teamShort} QB`;
 
                 let html = '';
@@ -7732,7 +7737,7 @@
                     // Target info
                     html += `<div style="margin: 8px 0; font-size: 12px;">`;
                     html += `<span style="color: #888;">Target:</span> <span style="color: #f94;">${wrName}</span>`;
-                    html += ` <span style="color: #666;">(${play.targetSlot})</span>`;
+                    if (play.targetSlot) html += ` <span style="color: #666;">(${play.targetSlot})</span>`;
                     html += ` <span style="color: #888;">vs</span> <span style="color: #4af;">${cbName}</span>`;
                     html += `</div>`;
 
