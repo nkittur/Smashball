@@ -2318,9 +2318,11 @@
             while (oppWRs.length < 3) oppWRs.push(generateWalkOn('WR'));
             while (oppOL.length < 4) oppOL.push(generateWalkOn('OL'));
 
-            // Sort DL and OL by overall so best faces best (minimizes mismatches)
+            // Sort by overall so best faces best (minimizes mismatches)
             playerDL.sort((a, b) => b.overall - a.overall);
             oppOL.sort((a, b) => b.overall - a.overall);
+            playerCBs.sort((a, b) => b.overall - a.overall);
+            oppWRs.sort((a, b) => b.overall - a.overall);
 
             // Step 1: Simulate DL pressure
             const pressureInfo = simulateDLPressure(oppOL, playerDL);
