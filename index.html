@@ -2214,23 +2214,16 @@
             const coverageMargin = wrRoll - cbRoll;
 
             // Base catch chance from receiver catching stat
-            // Base catch starts at 40%, modified by receiver's catching skill
-            // A receiver with 85 catching gets +15, so base becomes 55%
-            let baseCatch = 40 + (receiver.stats.catching - 70) * 0.5;
+            let baseCatch = receiver.stats.catching;
 
-            // Coverage modifier: WR vs CB matchup has significant impact
-            // Each point of margin = 1% swing (was 0.5%)
-            const coverageMod = coverageMargin * 1.0;
+            // Coverage modifier: WR advantage increases catch %, CB advantage decreases
+            const coverageMod = coverageMargin * 0.5;
 
-            // CB coverage stat directly reduces catch probability
-            // A CB with 80 coverage reduces catch by 10%
-            const cbCoveragePenalty = (cb.stats.coverage - 70) * 0.5;
-
-            // Focus modifier under pressure (smaller impact)
-            const focusMod = (receiver.stats.focus - 70) * 0.15;
+            // Focus modifier under pressure
+            const focusMod = (receiver.stats.focus - 70) * 0.2;
 
             // Calculate catch probability before QB throw
-            let catchProb = Math.max(5, Math.min(85, baseCatch + coverageMod - cbCoveragePenalty + focusMod));
+            let catchProb = Math.max(5, Math.min(95, baseCatch + coverageMod + focusMod));
 
             // QB throw quality
             const qbBaseAccuracy = (qbStats.throwing + qbStats.awareness) / 2;
@@ -2256,7 +2249,6 @@
                 coverageMargin: Math.round(coverageMargin),
                 baseCatch: Math.round(baseCatch),
                 coverageMod: Math.round(coverageMod),
-                cbCoveragePenalty: Math.round(cbCoveragePenalty),
                 focusMod: Math.round(focusMod),
                 catchProb: Math.round(catchProb),
                 qbBaseAccuracy: Math.round(qbBaseAccuracy),
@@ -7796,11 +7788,9 @@
                             <span style="color: ${qbColor};">${catchInfo.qbRoll} ${catchInfo.throwGood ? '≥' : '<'} ${catchInfo.qbThreshold} → ${catchInfo.throwGood ? 'GOOD' : 'BAD'}</span>
                         </div>`;
 
-                        // Catch probability breakdown with new formula
-                        const cbPenStr = catchInfo.cbCoveragePenalty > 0 ? `-${catchInfo.cbCoveragePenalty} cov` : '';
-                        const covModStr = catchInfo.coverageMod >= 0 ? `+${catchInfo.coverageMod}` : `${catchInfo.coverageMod}`;
+                        // Catch probability breakdown
                         html += `<div style="display: flex; justify-content: space-between;">
-                            <span style="color: #666;">Catch (${catchInfo.baseCatch}${covModStr}${cbPenStr}):</span>
+                            <span style="color: #666;">Catch (${catchInfo.baseCatch}${catchInfo.coverageMod >= 0 ? '+' : ''}${catchInfo.coverageMod} cov):</span>
                             <span style="color: #fff;">${catchInfo.catchProb}%</span>
                         </div>`;
 
