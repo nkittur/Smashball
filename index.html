@@ -2367,22 +2367,31 @@
             return configs;
         }
 
-        // Get defender configs from roster
+        // Get defender configs from opponent's roster
         function getDefenderConfigsFromRoster() {
-            if (!managementState.initialized || !managementState.team) {
+            // Get current opponent from the match
+            const game = managementState.season?.schedule?.[managementState.season.week - 1];
+            const opponent = game?.opponent;
+
+            if (!opponent || !opponent.roster) {
                 return null;  // Use defaults
             }
 
             const RECEIVER_START_Z = QB_START_Z + 2;
             const configs = [];
 
-            ['CB1', 'CB2', 'CB3', 'CB4'].forEach((slot, index) => {
-                let player = getDepthChartPlayer(slot);
+            // Get opponent's CBs sorted by overall
+            const oppCBs = opponent.roster
+                .filter(p => p.position === 'CB')
+                .sort((a, b) => b.overall - a.overall);
+
+            for (let i = 0; i < 4; i++) {
+                let player = oppCBs[i];
                 if (!player) {
                     player = generateWalkOn('CB');
                 }
-                configs.push(playerToDefenderConfig(player, index, RECEIVER_START_Z, index < 3 ? index : undefined));
-            });
+                configs.push(playerToDefenderConfig(player, i, RECEIVER_START_Z, i < 3 ? i : undefined));
+            }
 
             return configs;
         }
@@ -2412,27 +2421,36 @@
             return configs;
         }
 
-        // Get DL configs from roster
+        // Get DL configs from opponent's roster
         function getDLineConfigsFromRoster() {
-            if (!managementState.initialized || !managementState.team) {
+            // Get current opponent from the match
+            const game = managementState.season?.schedule?.[managementState.season.week - 1];
+            const opponent = game?.opponent;
+
+            if (!opponent || !opponent.roster) {
                 return null;
             }
 
             const configs = [];
             const posLabels = ['LDE', 'LDT', 'RDT', 'RDE'];
 
-            managementState.team.depthChart.DL.forEach((playerId, index) => {
-                let player = playerId ? managementState.team.roster.find(p => p.id === playerId) : null;
+            // Get opponent's DL sorted by overall
+            const oppDL = opponent.roster
+                .filter(p => p.position === 'DL')
+                .sort((a, b) => b.overall - a.overall);
+
+            for (let i = 0; i < 4; i++) {
+                let player = oppDL[i];
                 if (!player) {
                     player = generateWalkOn('DL');
                 }
                 configs.push({
                     name: `${player.firstName} ${player.lastName.charAt(0)}.`,
                     playerId: player.id,
-                    position_label: posLabels[index],
+                    position_label: posLabels[i],
                     stats: { ...player.stats }
                 });
-            });
+            }
 
             return configs;
         }
@@ -5224,16 +5242,10 @@
                     // Proximity factor: 1.0 at distance 0, 0.0 at max range
                     const proximityFactor = 1 - (dist / coverageRange);
 
-                    // At distance 0, if coverage equals catching, apply 80% penalty
-                    // penalty = proximityFactor^3 * coverageStat * 0.8
+                    // Penalty formula: proximityFactor^3 * coverageStat * 0.4
+                    // At distance 0 with equal 75 stats: 75 * 0.4 = 30 penalty, catch = 45%
                     // Cubed for steeper dropoff - separation is rewarded more
-                    let penalty = proximityFactor * proximityFactor * proximityFactor * coverageStat * 0.8;
-
-                    // Very close defenders (0.6 or closer) have 50% more influence
-                    const CLOSE_DEFENDER_THRESHOLD = 0.6;
-                    if (dist <= CLOSE_DEFENDER_THRESHOLD) {
-                        penalty *= 1.5;
-                    }
+                    let penalty = proximityFactor * proximityFactor * proximityFactor * coverageStat * 0.4;
 
                     // Check if ball is on opposite side from defender
                     // Only applies if defender isn't right on top of receiver (dist > 0.8)
@@ -7118,16 +7130,23 @@
                 }
             });
 
-            // Update Defenders (CBs)
-            ['CB1', 'CB2', 'CB3', 'CB4'].forEach((slot, index) => {
-                const player = getDepthChartPlayer(slot);
-                const defender = gameState.defenders[index];
-                if (player && defender) {
-                    defender.playerId = player.id;
-                    defender.displayName = `${player.firstName} ${player.lastName.charAt(0)}.`;
-                    defender.stats = { ...player.stats };
-                }
-            });
+            // Update Defenders from opponent's CBs
+            const game = managementState.season?.schedule?.[managementState.season.week - 1];
+            const opponent = game?.opponent;
+            if (opponent && opponent.roster) {
+                const oppCBs = opponent.roster
+                    .filter(p => p.position === 'CB')
+                    .sort((a, b) => b.overall - a.overall);
+
+                gameState.defenders.forEach((defender, index) => {
+                    const player = oppCBs[index];
+                    if (player && defender) {
+                        defender.playerId = player.id;
+                        defender.displayName = `${player.firstName} ${player.lastName.charAt(0)}.`;
+                        defender.stats = { ...player.stats };
+                    }
+                });
+            }
 
             // Update O-Line
             managementState.team.depthChart.OL.forEach((playerId, index) => {
@@ -7140,16 +7159,21 @@
                 }
             });
 
-            // Update D-Line
-            managementState.team.depthChart.DL.forEach((playerId, index) => {
-                const player = managementState.team.roster.find(p => p.id === playerId);
-                const dLineman = gameState.defensiveLine[index];
-                if (player && dLineman) {
-                    dLineman.playerId = player.id;
-                    dLineman.displayName = `${player.firstName} ${player.lastName.charAt(0)}.`;
-                    dLineman.stats = { ...player.stats };
-                }
-            });
+            // Update D-Line from opponent's roster
+            if (opponent && opponent.roster) {
+                const oppDL = opponent.roster
+                    .filter(p => p.position === 'DL')
+                    .sort((a, b) => b.overall - a.overall);
+
+                gameState.defensiveLine.forEach((dLineman, index) => {
+                    const player = oppDL[index];
+                    if (player && dLineman) {
+                        dLineman.playerId = player.id;
+                        dLineman.displayName = `${player.firstName} ${player.lastName.charAt(0)}.`;
+                        dLineman.stats = { ...player.stats };
+                    }
+                });
+            }
         }
 
         // Called when a drive/possession ends in the arcade game
