@@ -209,7 +209,7 @@
 
         <!-- Hub Screen -->
         <div id="hubScreen" class="mgmt-screen" style="display:none;">
-            <div class="hub-status" id="hubStatus">$10,000 | Week 1</div>
+            <div class="hub-status" id="hubStatus">Fame: 1,000 | Week 1</div>
             <h2>TEAM HUB</h2>
             <div class="hub-buttons">
                 <button id="btnPlayGame" class="mgmt-btn primary">PLAY GAME</button>
@@ -373,8 +373,8 @@
         .hub-status {
             position: absolute;
             top: 10px;
-            left: 0; right: 0;
-            text-align: center;
+            right: 15px;
+            text-align: right;
             color: #ffd700;
             font-size: 14px;
         }
@@ -834,23 +834,23 @@
 
         // Economy constants
         const ECONOMY = {
-            STARTING_CREDITS: 10000,
-            SALARY_CAP: 120000,  // Slightly higher than typical team salary (~115k)
-            SALARY_MULTIPLIER: 100,  // salary = sum(stats) * 100
+            STARTING_FAME: 1000,
+            SALARY_CAP: 12000,  // Slightly higher than typical team salary (~11.5k)
+            SALARY_MULTIPLIER: 10,  // salary = sum(stats) * 10
 
             // Revenue
-            HOME_GAME_BASE: 500,
-            HOME_GAME_STADIUM_BONUS: 300,  // per level
-            AWAY_GAME_REVENUE: 250,
+            HOME_GAME_BASE: 50,
+            HOME_GAME_STADIUM_BONUS: 30,  // per level
+            AWAY_GAME_REVENUE: 25,
             PLAYER_SALE_RATE: 0.5,  // get 50% of salary value
 
             // Facility costs by level (1->2, 2->3, etc)
-            STADIUM_UPGRADE_COSTS: [2000, 5000, 10000, 20000, 40000],
-            TRAINING_UPGRADE_COSTS: [1500, 4000, 8000, 15000, 30000],
+            STADIUM_UPGRADE_COSTS: [200, 500, 1000, 2000, 4000],
+            TRAINING_UPGRADE_COSTS: [150, 400, 800, 1500, 3000],
 
             // Other
-            BRIBE_COST: 10000,
-            BRIBE_CAP_BONUS: 5000
+            BRIBE_COST: 1000,
+            BRIBE_CAP_BONUS: 500
         };
 
         // Progression constants
@@ -909,9 +909,8 @@
         }
 
         // Format salary in millions (e.g., 5000 -> "$5M")
-        function formatSalaryM(amount) {
-            const millions = Math.round(amount / 1000);
-            return `$${millions}M`;
+        function formatSalary(amount) {
+            return amount.toLocaleString();
         }
 
         // Shuffle array (Fisher-Yates)
@@ -1200,7 +1199,7 @@
         function createNewTeam(name = 'Your Team') {
             const team = {
                 name,
-                credits: ECONOMY.STARTING_CREDITS,
+                fame: ECONOMY.STARTING_FAME,
                 salaryCap: ECONOMY.SALARY_CAP,
                 salaryCapModifier: 0,
                 roster: generateInitialRoster(),
@@ -1332,7 +1331,7 @@
             const player = managementState.team.roster[playerIndex];
             const payout = Math.floor(player.salaryCost * ECONOMY.PLAYER_SALE_RATE);
 
-            managementState.team.credits += payout;
+            managementState.team.fame += payout;
             managementState.team.roster.splice(playerIndex, 1);
 
             // Remove from depth chart
@@ -1361,7 +1360,7 @@
                 revenue = ECONOMY.AWAY_GAME_REVENUE;
             }
 
-            managementState.team.credits += revenue;
+            managementState.team.fame += revenue;
             return revenue;
         }
 
@@ -1379,11 +1378,11 @@
                 : ECONOMY.TRAINING_UPGRADE_COSTS;
             const cost = costs[facility.level - 1];
 
-            if (managementState.team.credits < cost) {
-                return { success: false, error: 'Insufficient credits' };
+            if (managementState.team.fame < cost) {
+                return { success: false, error: 'Insufficient fame' };
             }
 
-            managementState.team.credits -= cost;
+            managementState.team.fame -= cost;
             facility.level++;
 
             if (managementState.settings.autoSave) SaveSystem.save();
@@ -1393,11 +1392,11 @@
 
         // Bribe officials for more cap space
         function bribeOfficials() {
-            if (managementState.team.credits < ECONOMY.BRIBE_COST) {
-                return { success: false, error: 'Insufficient credits' };
+            if (managementState.team.fame < ECONOMY.BRIBE_COST) {
+                return { success: false, error: 'Insufficient fame' };
             }
 
-            managementState.team.credits -= ECONOMY.BRIBE_COST;
+            managementState.team.fame -= ECONOMY.BRIBE_COST;
             managementState.team.salaryCapModifier += ECONOMY.BRIBE_CAP_BONUS;
 
             if (managementState.settings.autoSave) SaveSystem.save();
@@ -5853,7 +5852,7 @@
         function refreshHubScreen() {
             if (!managementState.team) return;
             document.getElementById('hubStatus').textContent =
-                `$${managementState.team.credits.toLocaleString()} | Week ${managementState.season?.week || 1}`;
+                `Fame: ${managementState.team.fame.toLocaleString()} | Week ${managementState.season?.week || 1}`;
             document.getElementById('hubRecord').textContent =
                 `Record: ${managementState.team.record.wins}-${managementState.team.record.losses}`;
 
@@ -5906,18 +5905,18 @@
                 players.forEach(player => {
                     const seasonChange = calculateSeasonStatChange(player);
                     const changeClass = seasonChange > 0 ? 'positive' : seasonChange < 0 ? 'negative' : '';
-                    const changeText = seasonChange !== 0 ?
-                        `<span class="season-gain ${changeClass}">${seasonChange > 0 ? '+' : ''}${seasonChange}</span>` : '';
+                    const changeText = seasonChange > 0 ? `+${seasonChange}` : seasonChange < 0 ? `${seasonChange}` : '';
 
                     const item = document.createElement('div');
                     item.className = 'roster-item';
                     item.innerHTML = `
                         <div>
                             <div class="name">${player.firstName} ${player.lastName}</div>
-                            <div class="stats">Age ${player.age} | ${formatSalaryM(player.salaryCost)}</div>
+                            <div class="stats">Age ${player.age} | ${formatSalary(player.salaryCost)}</div>
                         </div>
-                        <div style="text-align:right;">
-                            <span class="ovr">${player.overall}</span>${changeText}
+                        <div style="display:flex;align-items:center;gap:8px;">
+                            <span class="season-gain ${changeClass}" style="min-width:28px;text-align:right;">${changeText}</span>
+                            <span class="ovr">${player.overall}</span>
                         </div>
                     `;
                     item.addEventListener('click', () => showPlayerDetail(player.id));
@@ -5955,7 +5954,7 @@
                 <div><span class="ovr-big">${player.overall}</span>${overallChangeText}</div>
                 <div style="margin-top:10px;">
                     ${POSITIONS[player.position].name} | Age ${player.age} | Peak ${player.peakAge}<br>
-                    Salary: ${formatSalaryM(player.salaryCost)} | Potential: ${'★'.repeat(player.potentialGrade + 1)}
+                    Salary: ${formatSalary(player.salaryCost)} | Potential: ${'★'.repeat(player.potentialGrade + 1)}
                 </div>
             `;
             document.getElementById('playerInfo').innerHTML = infoHtml;
@@ -6096,7 +6095,7 @@
 
             const salary = calculateTeamSalary(managementState.team);
             const cap = managementState.team.salaryCap + managementState.team.salaryCapModifier;
-            status.textContent = `Credits: ${formatSalaryM(managementState.team.credits)} | Cap Space: ${formatSalaryM(cap - salary)}`;
+            status.textContent = `Fame: ${formatSalary(managementState.team.fame)} | Cap: ${formatSalary(cap - salary)}`;
 
             if (managementState.freeAgents.length === 0) {
                 list.innerHTML = '<p style="color:#888;text-align:center;">No free agents available</p>';
@@ -6111,7 +6110,7 @@
                 item.innerHTML = `
                     <div>
                         <div class="name">${player.firstName} ${player.lastName} (${player.position})</div>
-                        <div class="stats">Age ${player.age} | Salary: ${formatSalaryM(player.salaryCost)}</div>
+                        <div class="stats">Age ${player.age} | Salary: ${formatSalary(player.salaryCost)}</div>
                     </div>
                     <div style="text-align:right;">
                         <div class="ovr">${player.overall}</div>
@@ -6191,7 +6190,7 @@
         function refreshFacilitiesScreen() {
             if (!managementState.team) return;
 
-            document.getElementById('facCredits').textContent = `Credits: $${managementState.team.credits.toLocaleString()}`;
+            document.getElementById('facCredits').textContent = `Fame: ${managementState.team.fame.toLocaleString()}`;
 
             const arena = managementState.team.facilities.stadium;
             const training = managementState.team.facilities.trainingCenter;
@@ -6203,10 +6202,10 @@
             const trainingCost = training.level < training.maxLevel ? ECONOMY.TRAINING_UPGRADE_COSTS[training.level - 1] : 0;
 
             document.getElementById('btnUpgradeArena').textContent = arena.level >= arena.maxLevel ? 'MAXED' : `UPGRADE ($${arenaCost.toLocaleString()})`;
-            document.getElementById('btnUpgradeArena').disabled = arena.level >= arena.maxLevel || managementState.team.credits < arenaCost;
+            document.getElementById('btnUpgradeArena').disabled = arena.level >= arena.maxLevel || managementState.team.fame < arenaCost;
 
             document.getElementById('btnUpgradeTraining').textContent = training.level >= training.maxLevel ? 'MAXED' : `UPGRADE ($${trainingCost.toLocaleString()})`;
-            document.getElementById('btnUpgradeTraining').disabled = training.level >= training.maxLevel || managementState.team.credits < trainingCost;
+            document.getElementById('btnUpgradeTraining').disabled = training.level >= training.maxLevel || managementState.team.fame < trainingCost;
         }
 
         // Show match end result
