@@ -2248,8 +2248,10 @@
 
         // Simulate a single enemy play
         function simulateEnemyPlay(opponent, playerTeam, down, yardsToGo, yardsFromGoal) {
-            // Get opponent offense
-            const oppQB = opponent.roster.find(p => p.position === 'QB');
+            // Get opponent offense - use walk-ons for missing players
+            let oppQB = opponent.roster.find(p => p.position === 'QB');
+            if (!oppQB) oppQB = generateWalkOn('QB');
+
             const oppWRs = opponent.roster.filter(p => p.position === 'WR').sort((a, b) => b.overall - a.overall);
             const oppOL = opponent.roster.filter(p => p.position === 'OL').sort((a, b) => b.overall - a.overall);
 
@@ -2267,7 +2269,7 @@
             });
 
             const playerDL = [];
-            dc.DL.forEach(id => {
+            (dc.DL || []).forEach(id => {
                 if (id) {
                     const player = roster.find(p => p.id === id);
                     if (player) playerDL.push(player);
@@ -2304,10 +2306,11 @@
 
             // Step 4: Match with corresponding CB
             const cbIndex = Math.min(oppWRs.indexOf(targetWR), playerCBs.length - 1);
-            const coveringCB = playerCBs[cbIndex];
+            const coveringCB = playerCBs[Math.max(0, cbIndex)];
 
             // Step 5: Simulate catch attempt
-            const catchInfo = simulateCatchAttempt(targetWR, coveringCB, oppQB.stats, pressureInfo);
+            const qbStats = oppQB.stats || { throwing: 50, awareness: 50 };
+            const catchInfo = simulateCatchAttempt(targetWR, coveringCB, qbStats, pressureInfo);
 
             // Calculate yards gained on catch
             let yardsGained = 0;
@@ -2437,18 +2440,33 @@
 
         // Simulate enemy possession using realistic simulation
         function simulateEnemyPossession(opponent) {
-            // Use the new realistic drive simulation
-            const driveResult = simulateRealisticEnemyDrive(opponent);
+            try {
+                // Use the new realistic drive simulation
+                const driveResult = simulateRealisticEnemyDrive(opponent);
 
-            // Map to legacy result format for compatibility
-            return {
-                points: driveResult.points,
-                type: driveResult.type,
-                plays: driveResult.plays,
-                opponent: driveResult.opponent,
-                // Legacy narrative for fallback
-                narrative: driveResult.plays.map(p => formatPlayNarrative(p, opponent))
-            };
+                // Map to legacy result format for compatibility
+                return {
+                    points: driveResult.points,
+                    type: driveResult.type,
+                    plays: driveResult.plays,
+                    opponent: driveResult.opponent,
+                    // Legacy narrative for fallback
+                    narrative: driveResult.plays.map(p => formatPlayNarrative(p, opponent))
+                };
+            } catch (error) {
+                console.error('Enemy drive simulation error:', error);
+                // Fallback to simple result on error
+                const roll = Math.random() * 100;
+                const points = roll < 50 ? 7 : roll < 70 ? 3 : 0;
+                const type = points === 7 ? 'TD' : points === 3 ? 'FG' : 'STOP';
+                return {
+                    points,
+                    type,
+                    plays: [],
+                    opponent,
+                    narrative: [type === 'TD' ? 'Touchdown!' : type === 'FG' ? 'Field goal!' : 'Defensive stop!']
+                };
+            }
         }
 
         // Format a play into narrative text
@@ -7502,6 +7520,14 @@
 
             const result = recordPossessionResult(points);
 
+            // Handle case where recordPossessionResult returns undefined
+            if (!result) {
+                console.error('recordPossessionResult returned undefined');
+                gameState.waitingForPossession = false;
+                resetPlay(gameState.scene);
+                return;
+            }
+
             if (!result.ongoing) {
                 showMatchEnd(result);
             } else {
@@ -7564,8 +7590,8 @@
         // Show enemy drive result overlay with detailed simulation info
         function showEnemyDriveResult(result) {
             const game = managementState.season.schedule[managementState.season.week - 1];
-            const plays = result.enemyResult.plays; // Array of detailed play objects
-            const delayPerPlay = 1800; // 1.8 seconds per play for detail viewing
+            const plays = result.enemyResult.plays || []; // Array of detailed play objects
+            const delayPerPlay = plays.length > 0 ? 1800 : 500; // Faster if no detailed plays
 
             // Create overlay
             const overlay = document.createElement('div');
