@@ -2205,31 +2205,43 @@
         }
 
         // Simulate WR vs CB matchup and catch probability
+        // Aligned with player offense catch calculation (calculateCatchProbability)
         function simulateCatchAttempt(receiver, cb, qbStats, pressureInfo) {
             // WR roll for separation/positioning
             const wrRoll = weightedStatRoll(receiver.stats, CLASH_WEIGHTS.separation.receiver);
             // CB roll for coverage
             const cbRoll = weightedStatRoll(cb.stats, CLASH_WEIGHTS.separation.defender);
 
-            const coverageMargin = wrRoll - cbRoll;
+            const separationMargin = wrRoll - cbRoll;
 
-            // Base catch chance from receiver catching stat
-            let baseCatch = receiver.stats.catching;
+            // Convert separation margin to "coverage closeness" (simulates physical proximity)
+            // CB wins by 20+ → closeness = 1.0 (smothered, like being right on top)
+            // Even matchup   → closeness = 0.5 (contested)
+            // WR wins by 20+ → closeness = 0.0 (wide open)
+            const coverageCloseness = Math.max(0, Math.min(1, 0.5 - (separationMargin / 40)));
 
-            // Coverage modifier: WR advantage increases catch %, CB advantage decreases
-            const coverageMod = coverageMargin * 0.5;
+            // Get CB's coverage stat (use average of man/zone if available, or overall proxy)
+            const cbCoverage = cb.stats.manCoverage || cb.stats.coverage ||
+                ((cb.stats.speed + cb.stats.awareness) / 2) || 70;
 
-            // Focus modifier under pressure
-            const focusMod = (receiver.stats.focus - 70) * 0.2;
+            // Calculate defender penalty using same formula as player offense:
+            // penalty = proximityFactor³ × coverageStat × 0.8
+            const defenderPenalty = Math.pow(coverageCloseness, 3) * cbCoverage * 0.8;
 
-            // Calculate catch probability before QB throw
-            let catchProb = Math.max(5, Math.min(95, baseCatch + coverageMod + focusMod));
+            // Base catch from receiver's catching stat
+            const baseCatch = receiver.stats.catching;
+
+            // Focus modifier - only applies when under pressure (closeness > 0.3)
+            const focusMod = coverageCloseness > 0.3 ? (receiver.stats.focus - 70) * 0.3 : 0;
+
+            // Calculate catch probability (same structure as player offense)
+            let catchProb = Math.max(5, Math.min(95, baseCatch + focusMod - defenderPenalty));
 
             // QB throw quality
             const qbBaseAccuracy = (qbStats.throwing + qbStats.awareness) / 2;
             // Pressure reduces QB accuracy
-            const pressurePenalty = pressureInfo.totalPressure * 0.4;
-            const qbAccuracy = Math.max(20, qbBaseAccuracy - pressurePenalty);
+            const qbPressurePenalty = pressureInfo.totalPressure * 0.4;
+            const qbAccuracy = Math.max(20, qbBaseAccuracy - qbPressurePenalty);
 
             // QB roll with variance
             const qbRoll = qbAccuracy * (1 + (Math.random() - 0.5) * 0.4);
@@ -2246,13 +2258,15 @@
                 cb,
                 wrRoll: Math.round(wrRoll),
                 cbRoll: Math.round(cbRoll),
-                coverageMargin: Math.round(coverageMargin),
+                separationMargin: Math.round(separationMargin),
+                coverageCloseness: Math.round(coverageCloseness * 100) / 100,
+                cbCoverage: Math.round(cbCoverage),
+                defenderPenalty: Math.round(defenderPenalty),
                 baseCatch: Math.round(baseCatch),
-                coverageMod: Math.round(coverageMod),
                 focusMod: Math.round(focusMod),
                 catchProb: Math.round(catchProb),
                 qbBaseAccuracy: Math.round(qbBaseAccuracy),
-                pressurePenalty: Math.round(pressurePenalty),
+                qbPressurePenalty: Math.round(qbPressurePenalty),
                 qbAccuracy: Math.round(qbAccuracy),
                 qbRoll: Math.round(qbRoll),
                 qbThreshold,
@@ -7771,27 +7785,38 @@
                     }
 
                     if (catchInfo) {
-                        // Matchup details box
+                        // Matchup details box - aligned with player offense formula
                         html += `<div style="background: #1a1a2e; border-radius: 4px; padding: 6px; margin: 6px 0; font-size: 10px;">`;
 
-                        // WR vs CB roll
-                        const coverageColor = catchInfo.coverageMargin > 5 ? '#f44' : catchInfo.coverageMargin < -5 ? '#4f4' : '#aa4';
+                        // WR vs CB separation roll
+                        const sepColor = catchInfo.separationMargin > 5 ? '#4f4' : catchInfo.separationMargin < -5 ? '#f44' : '#aa4';
+                        const sepLabel = catchInfo.coverageCloseness < 0.2 ? 'OPEN' :
+                                        catchInfo.coverageCloseness < 0.4 ? 'some space' :
+                                        catchInfo.coverageCloseness < 0.6 ? 'contested' :
+                                        catchInfo.coverageCloseness < 0.8 ? 'tight' : 'SMOTHERED';
                         html += `<div style="display: flex; justify-content: space-between; margin-bottom: 3px;">
-                            <span style="color: #666;">Coverage:</span>
-                            <span>WR <span style="color: #f94;">${catchInfo.wrRoll}</span> vs CB <span style="color: #4af;">${catchInfo.cbRoll}</span> = <span style="color: ${coverageColor};">${catchInfo.coverageMargin > 0 ? '+' : ''}${catchInfo.coverageMargin}</span></span>
+                            <span style="color: #666;">Separation:</span>
+                            <span>WR <span style="color: #f94;">${catchInfo.wrRoll}</span> vs CB <span style="color: #4af;">${catchInfo.cbRoll}</span> → <span style="color: ${sepColor};">${sepLabel}</span></span>
+                        </div>`;
+
+                        // Coverage penalty (like player offense defender proximity penalty)
+                        html += `<div style="display: flex; justify-content: space-between; margin-bottom: 3px;">
+                            <span style="color: #666;">CB Penalty (${catchInfo.coverageCloseness}³ × ${catchInfo.cbCoverage} × 0.8):</span>
+                            <span style="color: #f44;">-${catchInfo.defenderPenalty}</span>
                         </div>`;
 
                         // QB throw quality
                         const qbColor = catchInfo.throwGood ? '#4f4' : '#f44';
                         html += `<div style="display: flex; justify-content: space-between; margin-bottom: 3px;">
-                            <span style="color: #666;">QB Throw (${catchInfo.qbBaseAccuracy}-${catchInfo.pressurePenalty} pressure):</span>
+                            <span style="color: #666;">QB Throw (${catchInfo.qbBaseAccuracy}-${catchInfo.qbPressurePenalty} pressure):</span>
                             <span style="color: ${qbColor};">${catchInfo.qbRoll} ${catchInfo.throwGood ? '≥' : '<'} ${catchInfo.qbThreshold} → ${catchInfo.throwGood ? 'GOOD' : 'BAD'}</span>
                         </div>`;
 
                         // Catch probability breakdown
+                        const focusStr = catchInfo.focusMod !== 0 ? `+${catchInfo.focusMod} focus` : '';
                         html += `<div style="display: flex; justify-content: space-between;">
-                            <span style="color: #666;">Catch (${catchInfo.baseCatch}${catchInfo.coverageMod >= 0 ? '+' : ''}${catchInfo.coverageMod} cov):</span>
-                            <span style="color: #fff;">${catchInfo.catchProb}%</span>
+                            <span style="color: #666;">Catch (${catchInfo.baseCatch}${focusStr}-${catchInfo.defenderPenalty}):</span>
+                            <span style="color: #fff; font-weight: bold;">${catchInfo.catchProb}%</span>
                         </div>`;
 
                         html += `</div>`;
