@@ -2077,104 +2077,418 @@
             return count > 0 ? total / count : 50;
         }
 
-        // Simulate enemy possession (when player loses possession)
-        function simulateEnemyPossession(opponent) {
-            const defenseRating = calculateTeamDefenseRating();
-            const offenseRating = opponent.offenseRating;
+        // ========================================
+        // REALISTIC ENEMY DRIVE SIMULATION
+        // ========================================
 
-            // Differential affects probabilities
-            // With 80 defense: elite (95 off) should avg ~6.5 pts, easy (70 off) should avg ~4 pts
-            const differential = offenseRating - defenseRating;
-
-            // High base TD chance, scales strongly with differential
-            // At diff +15 (elite vs 80 def): 65 + 18 = 83% TD
-            // At diff -10 (easy vs 80 def): 65 - 12 = 53% TD
-            const tdChance = Math.max(30, Math.min(95, 65 + (differential * 1.2)));
-
-            // FG chance decreases slightly as offense gets better (they score TDs instead)
-            // At diff +15: 22 - 6 = 16% FG
-            // At diff -10: 22 + 4 = 26% FG
-            const fgChance = Math.max(5, Math.min(35, 22 - (differential * 0.4)));
-
-            const roll = Math.random() * 100;
-
-            // Generate narrative with key plays
-            const narrative = generateDriveNarrative(opponent, roll, tdChance, fgChance);
-
-            if (roll < tdChance) return { points: 7, type: 'TD', narrative };
-            if (roll < tdChance + fgChance) return { points: 3, type: 'FG', narrative };
-            return { points: 0, type: 'STOP', narrative };
+        // Weighted roll using stat weights (same formula as real game)
+        function weightedStatRoll(stats, weights) {
+            let weightedTotal = 0;
+            for (const stat in weights) {
+                const statValue = stats[stat] || 50;
+                weightedTotal += statValue * weights[stat];
+            }
+            // Add ±20% variance
+            const variance = 0.2;
+            const roll = weightedTotal * (1 + (Math.random() - 0.5) * 2 * variance);
+            return roll;
         }
 
-        // Generate narrative plays for enemy drive (returns array for progressive display)
-        function generateDriveNarrative(opponent, roll, tdChance, fgChance) {
-            // Get random player names from your roster for defensive mentions
-            const defenders = (managementState.team?.roster || []).filter(p =>
-                ['CB', 'S', 'LB', 'DL'].includes(p.position)
-            );
-            const getDefenderName = () => {
-                if (defenders.length === 0) return 'the defense';
-                const d = defenders[Math.floor(Math.random() * defenders.length)];
-                return `${d.firstName} ${d.lastName.charAt(0)}.`;
-            };
+        // Get player's full name
+        function getPlayerFullName(player) {
+            return `${player.firstName} ${player.lastName.charAt(0)}.`;
+        }
 
-            // Opponent player names (fictional based on team)
-            const teamShort = opponent.name.split(' ')[0];
-            const oppQB = `${teamShort} QB`;
-            const oppWR = `${teamShort} receiver`;
-            const oppRB = `${teamShort} runner`;
+        // Simulate DL vs OL pressure for the play
+        function simulateDLPressure(playerOL, opponentDL) {
+            const matchups = [];
+            let totalPressure = 0;
+            let sackingDL = null;
 
-            if (roll < tdChance) {
-                // TD drive - 4-5 plays
-                const plays = [
-                    `1st & 10: ${oppQB} hits ${oppWR} for 12 yards.`,
-                    `1st & 10: ${oppRB} bursts through for 8 yards.`,
-                    `2nd & 2: Play action! ${oppWR} gets behind ${getDefenderName()} for 25 yards!`,
-                    `1st & Goal: ${oppQB} rolls out...`,
-                    `TOUCHDOWN ${opponent.name}! ${oppQB} finds ${oppWR} in the corner of the end zone.`
-                ];
-                return plays;
-            } else if (roll < tdChance + fgChance) {
-                // FG drive - 4-5 plays
-                const plays = [
-                    `1st & 10: ${oppQB} throws short to ${oppWR} for 7 yards.`,
-                    `2nd & 3: ${oppRB} runs for 4 yards. First down.`,
-                    `1st & 10: ${getDefenderName()} with tight coverage! Incomplete.`,
-                    `2nd & 10: ${oppQB} scrambles for 5 yards.`,
-                    `3rd & 5: Pass broken up by ${getDefenderName()}! Field goal unit comes on.`,
-                    `Field goal is GOOD from 38 yards.`
-                ];
-                return plays;
-            } else {
-                // Defensive stop - 3-4 plays
-                const stopType = Math.floor(Math.random() * 4);
-                if (stopType === 0) {
-                    return [
-                        `1st & 10: ${oppQB} drops back...`,
-                        `${getDefenderName()} jumps the route!`,
-                        `INTERCEPTION! ${getDefenderName()} returns it 15 yards!`
-                    ];
-                } else if (stopType === 1) {
-                    return [
-                        `1st & 10: ${oppRB} stuffed at the line by ${getDefenderName()}.`,
-                        `2nd & 11: ${oppQB} sacked! ${getDefenderName()} with the pressure!`,
-                        `3rd & 18: Incomplete. ${opponent.name} forced to punt.`
-                    ];
-                } else if (stopType === 2) {
-                    return [
-                        `1st & 10: Short pass to ${oppWR} for 3 yards.`,
-                        `2nd & 7: ${oppRB} runs for 2 yards.`,
-                        `3rd & 5: ${getDefenderName()} with the pass breakup!`,
-                        `4th & 5: ${opponent.name} goes for it... Incomplete! Turnover on downs!`
-                    ];
+            // Match up DL vs OL (up to 4 matchups typically)
+            const numMatchups = Math.min(playerOL.length, opponentDL.length);
+
+            for (let i = 0; i < numMatchups; i++) {
+                const ol = playerOL[i];
+                const dl = opponentDL[i];
+
+                const olRoll = weightedStatRoll(ol.stats, CLASH_WEIGHTS.lineClash.offense);
+                const dlRoll = weightedStatRoll(dl.stats, CLASH_WEIGHTS.lineClash.defense);
+
+                const margin = dlRoll - olRoll;
+                let pressureContribution = 0;
+                let result = 'held';
+
+                if (margin > 10) {
+                    // Dominant DL win - potential sack
+                    pressureContribution = 35;
+                    result = 'beaten badly';
+                    if (!sackingDL && Math.random() < 0.6) {
+                        sackingDL = dl;
+                    }
+                } else if (margin > 5) {
+                    // Strong DL win - heavy pressure
+                    pressureContribution = 20;
+                    result = 'beaten';
+                } else if (margin > 2) {
+                    // Slight DL win - some pressure
+                    pressureContribution = 10;
+                    result = 'pressured';
+                } else if (margin > -2) {
+                    // Neutral - minimal pressure
+                    pressureContribution = 3;
+                    result = 'held';
                 } else {
-                    return [
-                        `1st & 10: ${oppQB} under pressure, throws it away.`,
-                        `2nd & 10: ${getDefenderName()} forces a fumble!`,
-                        `TURNOVER! Your ball!`
-                    ];
+                    // OL wins - no pressure
+                    pressureContribution = 0;
+                    result = 'stonewalled';
+                }
+
+                totalPressure += pressureContribution;
+
+                matchups.push({
+                    ol: ol,
+                    dl: dl,
+                    olRoll: Math.round(olRoll),
+                    dlRoll: Math.round(dlRoll),
+                    margin: Math.round(margin),
+                    result: result,
+                    pressure: pressureContribution
+                });
+            }
+
+            // Cap total pressure at 100
+            totalPressure = Math.min(100, totalPressure);
+
+            return {
+                matchups,
+                totalPressure,
+                sackingDL,
+                pressureLevel: totalPressure > 60 ? 'extreme' : totalPressure > 40 ? 'heavy' : totalPressure > 20 ? 'moderate' : 'light'
+            };
+        }
+
+        // Select receiver with weighting (WR1 50%, WR2 30%, WR3 20%)
+        function selectTargetReceiver(opponentWRs) {
+            const roll = Math.random() * 100;
+            let targetIndex;
+            if (roll < 50) {
+                targetIndex = 0; // WR1 - 50%
+            } else if (roll < 80) {
+                targetIndex = 1; // WR2 - 30%
+            } else {
+                targetIndex = 2; // WR3 - 20%
+            }
+            // Fallback if not enough WRs
+            targetIndex = Math.min(targetIndex, opponentWRs.length - 1);
+            return {
+                receiver: opponentWRs[targetIndex],
+                slot: `WR${targetIndex + 1}`,
+                targetRoll: Math.round(roll)
+            };
+        }
+
+        // Simulate WR vs CB matchup and catch probability
+        function simulateCatchAttempt(receiver, cb, qbStats, pressureInfo) {
+            // WR roll for separation/positioning
+            const wrRoll = weightedStatRoll(receiver.stats, CLASH_WEIGHTS.separation.receiver);
+            // CB roll for coverage
+            const cbRoll = weightedStatRoll(cb.stats, CLASH_WEIGHTS.separation.defender);
+
+            const coverageMargin = wrRoll - cbRoll;
+
+            // Base catch chance from receiver catching stat
+            let baseCatch = receiver.stats.catching;
+
+            // Coverage modifier: WR advantage increases catch %, CB advantage decreases
+            const coverageMod = coverageMargin * 0.5;
+
+            // Focus modifier under pressure
+            const focusMod = (receiver.stats.focus - 70) * 0.2;
+
+            // Calculate catch probability before QB throw
+            let catchProb = Math.max(5, Math.min(95, baseCatch + coverageMod + focusMod));
+
+            // QB throw quality
+            const qbBaseAccuracy = (qbStats.throwing + qbStats.awareness) / 2;
+            // Pressure reduces QB accuracy
+            const pressurePenalty = pressureInfo.totalPressure * 0.4;
+            const qbAccuracy = Math.max(20, qbBaseAccuracy - pressurePenalty);
+
+            // QB roll with variance
+            const qbRoll = qbAccuracy * (1 + (Math.random() - 0.5) * 0.4);
+            const qbThreshold = 45; // Need to roll above this for a catchable ball
+
+            const throwGood = qbRoll > qbThreshold;
+
+            // Final catch roll
+            const catchRoll = Math.random() * 100;
+            const catchSuccess = throwGood && catchRoll < catchProb;
+
+            return {
+                receiver,
+                cb,
+                wrRoll: Math.round(wrRoll),
+                cbRoll: Math.round(cbRoll),
+                coverageMargin: Math.round(coverageMargin),
+                baseCatch: Math.round(baseCatch),
+                coverageMod: Math.round(coverageMod),
+                focusMod: Math.round(focusMod),
+                catchProb: Math.round(catchProb),
+                qbBaseAccuracy: Math.round(qbBaseAccuracy),
+                pressurePenalty: Math.round(pressurePenalty),
+                qbAccuracy: Math.round(qbAccuracy),
+                qbRoll: Math.round(qbRoll),
+                qbThreshold,
+                throwGood,
+                catchRoll: Math.round(catchRoll),
+                catchSuccess
+            };
+        }
+
+        // Simulate a single enemy play
+        function simulateEnemyPlay(opponent, playerTeam, down, yardsToGo, yardsFromGoal) {
+            // Get opponent offense
+            const oppQB = opponent.roster.find(p => p.position === 'QB');
+            const oppWRs = opponent.roster.filter(p => p.position === 'WR').sort((a, b) => b.overall - a.overall);
+            const oppOL = opponent.roster.filter(p => p.position === 'OL').sort((a, b) => b.overall - a.overall);
+
+            // Get player defense from depth chart
+            const dc = playerTeam.depthChart;
+            const roster = playerTeam.roster;
+
+            const playerCBs = [];
+            ['CB1', 'CB2', 'CB3', 'CB4'].forEach(slot => {
+                const id = dc[slot];
+                if (id) {
+                    const player = roster.find(p => p.id === id);
+                    if (player) playerCBs.push(player);
+                }
+            });
+
+            const playerDL = [];
+            dc.DL.forEach(id => {
+                if (id) {
+                    const player = roster.find(p => p.id === id);
+                    if (player) playerDL.push(player);
+                }
+            });
+
+            // Fill in walk-ons if needed
+            while (playerCBs.length < 3) playerCBs.push(generateWalkOn('CB'));
+            while (playerDL.length < 4) playerDL.push(generateWalkOn('DL'));
+            while (oppWRs.length < 3) oppWRs.push(generateWalkOn('WR'));
+            while (oppOL.length < 4) oppOL.push(generateWalkOn('OL'));
+
+            // Step 1: Simulate DL pressure
+            const pressureInfo = simulateDLPressure(oppOL, playerDL);
+
+            // Step 2: Check for sack
+            if (pressureInfo.sackingDL) {
+                return {
+                    type: 'sack',
+                    down,
+                    yardsToGo,
+                    yardsFromGoal,
+                    yardsGained: -7,
+                    pressureInfo,
+                    sackingPlayer: pressureInfo.sackingDL,
+                    qb: oppQB
+                };
+            }
+
+            // Step 3: Select target receiver
+            const targetInfo = selectTargetReceiver(oppWRs);
+            const targetWR = targetInfo.receiver;
+            const targetSlot = targetInfo.slot;
+
+            // Step 4: Match with corresponding CB
+            const cbIndex = Math.min(oppWRs.indexOf(targetWR), playerCBs.length - 1);
+            const coveringCB = playerCBs[cbIndex];
+
+            // Step 5: Simulate catch attempt
+            const catchInfo = simulateCatchAttempt(targetWR, coveringCB, oppQB.stats, pressureInfo);
+
+            // Calculate yards gained on catch
+            let yardsGained = 0;
+            if (catchInfo.catchSuccess) {
+                // Base yards from coverage margin and receiver speed
+                const baseYards = 5 + (catchInfo.coverageMargin > 0 ? catchInfo.coverageMargin * 0.3 : 0);
+                yardsGained = Math.round(baseYards + Math.random() * 8);
+                // Big play potential on strong WR wins
+                if (catchInfo.coverageMargin > 15) {
+                    yardsGained += Math.round(Math.random() * 15);
+                }
+                // Cap at yards from goal for TD
+                yardsGained = Math.min(yardsGained, yardsFromGoal);
+            }
+
+            return {
+                type: catchInfo.catchSuccess ? 'complete' : 'incomplete',
+                down,
+                yardsToGo,
+                yardsFromGoal,
+                yardsGained,
+                pressureInfo,
+                targetInfo,
+                targetSlot,
+                catchInfo,
+                qb: oppQB
+            };
+        }
+
+        // Simulate full enemy drive with realistic play-by-play
+        function simulateRealisticEnemyDrive(opponent) {
+            const playerTeam = managementState.team;
+            const plays = [];
+            let yardsFromGoal = 75; // Start at own 25
+            let down = 1;
+            let yardsToGo = 10;
+            let driveResult = null;
+
+            // Maximum plays in a drive
+            const maxPlays = 12;
+
+            for (let playNum = 0; playNum < maxPlays && !driveResult; playNum++) {
+                const play = simulateEnemyPlay(opponent, playerTeam, down, yardsToGo, yardsFromGoal);
+                plays.push(play);
+
+                if (play.type === 'sack') {
+                    yardsFromGoal += 7;
+                    yardsToGo += 7;
+                    down++;
+
+                    // Record sack stat
+                    if (play.sackingPlayer && play.sackingPlayer.id) {
+                        const player = playerTeam.roster.find(p => p.id === play.sackingPlayer.id);
+                        if (player) {
+                            if (player.seasonSacks === undefined) player.seasonSacks = 0;
+                            player.seasonSacks++;
+                        }
+                    }
+                } else if (play.type === 'complete') {
+                    yardsFromGoal -= play.yardsGained;
+                    yardsToGo -= play.yardsGained;
+
+                    // Touchdown check
+                    if (yardsFromGoal <= 0) {
+                        driveResult = { points: 7, type: 'TD' };
+                        play.isTouchdown = true;
+                    }
+
+                    // First down check
+                    if (yardsToGo <= 0) {
+                        down = 1;
+                        yardsToGo = 10;
+                    } else {
+                        down++;
+                    }
+                } else {
+                    // Incomplete
+                    down++;
+
+                    // Record pass defended stat
+                    if (play.catchInfo && play.catchInfo.cb && play.catchInfo.cb.id) {
+                        const player = playerTeam.roster.find(p => p.id === play.catchInfo.cb.id);
+                        if (player) {
+                            if (player.seasonPassesDefended === undefined) player.seasonPassesDefended = 0;
+                            player.seasonPassesDefended++;
+                        }
+                    }
+                }
+
+                // Fourth down - punt or FG attempt
+                if (down > 4 && !driveResult) {
+                    if (yardsFromGoal <= 40) {
+                        // Field goal range - attempt
+                        const fgSuccess = Math.random() < (0.9 - yardsFromGoal * 0.01);
+                        if (fgSuccess) {
+                            driveResult = { points: 3, type: 'FG' };
+                            play.fieldGoalAttempt = true;
+                            play.fieldGoalSuccess = true;
+                        } else {
+                            driveResult = { points: 0, type: 'MISSED_FG' };
+                            play.fieldGoalAttempt = true;
+                            play.fieldGoalSuccess = false;
+                        }
+                    } else {
+                        // Punt - drive over
+                        driveResult = { points: 0, type: 'PUNT' };
+                    }
+                }
+
+                // Update play with current field position
+                play.newYardsFromGoal = yardsFromGoal;
+                play.newDown = down;
+                play.newYardsToGo = yardsToGo;
+            }
+
+            // If we hit max plays without resolution, punt
+            if (!driveResult) {
+                driveResult = { points: 0, type: 'PUNT' };
+            }
+
+            return {
+                ...driveResult,
+                plays,
+                opponent
+            };
+        }
+
+        // Simulate enemy possession using realistic simulation
+        function simulateEnemyPossession(opponent) {
+            // Use the new realistic drive simulation
+            const driveResult = simulateRealisticEnemyDrive(opponent);
+
+            // Map to legacy result format for compatibility
+            return {
+                points: driveResult.points,
+                type: driveResult.type,
+                plays: driveResult.plays,
+                opponent: driveResult.opponent,
+                // Legacy narrative for fallback
+                narrative: driveResult.plays.map(p => formatPlayNarrative(p, opponent))
+            };
+        }
+
+        // Format a play into narrative text
+        function formatPlayNarrative(play, opponent) {
+            const teamShort = opponent.name.split(' ')[0];
+            const qbName = play.qb ? getPlayerFullName(play.qb) : `${teamShort} QB`;
+
+            if (play.type === 'sack') {
+                const dlName = play.sackingPlayer ? getPlayerFullName(play.sackingPlayer) : 'Your defense';
+                return `${getDownString(play.down)} & ${play.yardsToGo}: ${dlName} breaks through! SACK for ${Math.abs(play.yardsGained)} yard loss!`;
+            }
+
+            if (play.fieldGoalAttempt) {
+                const distance = play.yardsFromGoal + 17; // Add end zone
+                if (play.fieldGoalSuccess) {
+                    return `Field goal attempt from ${distance} yards... GOOD!`;
+                } else {
+                    return `Field goal attempt from ${distance} yards... NO GOOD!`;
                 }
             }
+
+            const wrName = play.catchInfo?.receiver ? getPlayerFullName(play.catchInfo.receiver) : `${teamShort} WR`;
+            const cbName = play.catchInfo?.cb ? getPlayerFullName(play.catchInfo.cb) : 'Your CB';
+
+            if (play.type === 'complete') {
+                if (play.isTouchdown) {
+                    return `${getDownString(play.down)} & ${play.yardsToGo}: ${qbName} finds ${wrName}... TOUCHDOWN ${opponent.name}!`;
+                }
+                return `${getDownString(play.down)} & ${play.yardsToGo}: ${qbName} hits ${wrName} for ${play.yardsGained} yards.`;
+            } else {
+                if (!play.catchInfo?.throwGood) {
+                    return `${getDownString(play.down)} & ${play.yardsToGo}: ${qbName} under pressure, throws it away!`;
+                }
+                return `${getDownString(play.down)} & ${play.yardsToGo}: Pass to ${wrName} broken up by ${cbName}!`;
+            }
+        }
+
+        function getDownString(down) {
+            const ordinals = ['1st', '2nd', '3rd', '4th'];
+            return ordinals[down - 1] || `${down}th`;
         }
 
         // Start a match
@@ -7196,12 +7510,62 @@
             }
         }
 
-        // Show enemy drive result overlay between possessions with progressive play-by-play
+        // Helper to create catch probability bar HTML
+        function createCatchBarHTML(catchInfo, small = false) {
+            if (!catchInfo) return '';
+
+            const barWidth = small ? 80 : 100;
+            const barHeight = small ? 10 : 14;
+            const fontSize = small ? 10 : 12;
+
+            const baseCatch = Math.min(95, catchInfo.baseCatch + catchInfo.focusMod);
+            const penalty = Math.max(0, baseCatch - catchInfo.catchProb);
+            const success = catchInfo.catchSuccess;
+            const roll = catchInfo.catchRoll;
+
+            return `
+                <div style="display: inline-flex; align-items: center; gap: 6px; font-family: 'Courier New', monospace; font-size: ${fontSize}px;">
+                    <span style="color: ${success ? '#4f4' : '#f66'}; font-weight: bold;">${success ? 'CATCH!' : 'DROPPED'}</span>
+                    <div style="position: relative; width: ${barWidth}px; height: ${barHeight}px; background: #222; border-radius: 2px; overflow: visible;">
+                        <div style="position: absolute; left: 0; top: 0; height: 100%; width: ${baseCatch}%; background: linear-gradient(90deg, #3a3, #4b4); border-radius: 2px;"></div>
+                        ${penalty > 0 ? `<div style="position: absolute; top: 0; height: 100%; left: ${catchInfo.catchProb}%; width: ${penalty}%; background: rgba(0,0,0,0.55); border-left: 1px solid #f55;"></div>` : ''}
+                        <div style="position: absolute; top: -1px; left: ${roll}%; transform: translateX(-50%); font-size: ${fontSize}px; font-weight: bold; text-shadow: 0 0 2px #000; color: ${success ? '#4f4' : '#f44'}; line-height: ${barHeight}px;">${success ? '✓' : '✗'}</div>
+                    </div>
+                    <span style="color: #888; font-size: ${fontSize - 1}px;">${catchInfo.catchProb}%</span>
+                </div>
+            `;
+        }
+
+        // Helper to create pressure bar HTML
+        function createPressureBarHTML(pressureInfo) {
+            if (!pressureInfo) return '';
+
+            const pressure = pressureInfo.totalPressure;
+            const level = pressureInfo.pressureLevel;
+            const colors = {
+                'light': '#4a4',
+                'moderate': '#aa4',
+                'heavy': '#f84',
+                'extreme': '#f44'
+            };
+            const color = colors[level] || '#888';
+
+            return `
+                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                    <span style="color: #888; font-size: 11px; width: 60px;">PRESSURE</span>
+                    <div style="position: relative; width: 80px; height: 8px; background: #222; border-radius: 2px;">
+                        <div style="position: absolute; left: 0; top: 0; height: 100%; width: ${pressure}%; background: ${color}; border-radius: 2px; transition: width 0.3s;"></div>
+                    </div>
+                    <span style="color: ${color}; font-size: 10px; text-transform: uppercase;">${level}</span>
+                </div>
+            `;
+        }
+
+        // Show enemy drive result overlay with detailed simulation info
         function showEnemyDriveResult(result) {
             const game = managementState.season.schedule[managementState.season.week - 1];
-            const plays = result.enemyResult.narrative; // Array of play descriptions
-            const totalDuration = 3500; // 3.5 seconds total
-            const delayPerPlay = Math.floor(totalDuration / plays.length);
+            const plays = result.enemyResult.plays; // Array of detailed play objects
+            const delayPerPlay = 1800; // 1.8 seconds per play for detail viewing
 
             // Create overlay
             const overlay = document.createElement('div');
@@ -7209,41 +7573,46 @@
             overlay.style.cssText = `
                 position: fixed;
                 top: 0; left: 0; right: 0; bottom: 0;
-                background: rgba(0,0,0,0.85);
+                background: rgba(0,0,0,0.9);
                 display: flex;
                 align-items: center;
                 justify-content: center;
                 z-index: 2000;
+                font-family: 'Courier New', monospace;
             `;
 
             const pointsColor = result.enemyResult.points > 0 ? '#f44' : '#4f4';
             const pointsText = result.enemyResult.points > 0
                 ? `+${result.enemyResult.points} points`
-                : 'No score!';
+                : 'Defensive Stop!';
 
             overlay.innerHTML = `
-                <div style="background: #1a1a2e; border: 2px solid #333; border-radius: 12px; padding: 30px; max-width: 550px; text-align: center; min-height: 280px;">
-                    <h2 style="color: #888; margin: 0 0 15px; font-size: 14px; text-transform: uppercase;">
+                <div style="background: #1a1a2e; border: 2px solid #333; border-radius: 12px; padding: 24px; max-width: 700px; width: 95%; text-align: center; max-height: 90vh; overflow-y: auto;">
+                    <h2 style="color: #888; margin: 0 0 12px; font-size: 14px; text-transform: uppercase; letter-spacing: 1px;">
                         ${game.opponent.name} Possession
                     </h2>
-                    <div id="playByPlay" style="color: #ccc; margin: 0 0 15px; font-size: 15px; line-height: 1.6; min-height: 120px; text-align: left; padding: 0 10px;">
+                    <div id="playContainer" style="min-height: 180px;">
+                        <div id="currentPlay" style="text-align: left; padding: 12px; background: #252540; border-radius: 8px; margin-bottom: 12px;">
+                        </div>
+                        <div id="playHistory" style="text-align: left; font-size: 12px; color: #666; max-height: 100px; overflow-y: auto; padding: 0 8px;">
+                        </div>
                     </div>
-                    <div id="driveResult" style="display: none;">
-                        <div style="color: ${pointsColor}; font-size: 24px; font-weight: bold; margin-bottom: 15px;">
+                    <div id="driveResult" style="display: none; margin-top: 16px;">
+                        <div style="color: ${pointsColor}; font-size: 24px; font-weight: bold; margin-bottom: 12px;">
                             ${pointsText}
                         </div>
-                        <div style="color: #aaa; margin-bottom: 15px;">
+                        <div style="color: #aaa; margin-bottom: 12px;">
                             <span style="color: #4af;">You: ${result.score.player}</span>
                             &nbsp;-&nbsp;
                             <span style="color: #f44;">${game.opponent.name}: ${result.score.opponent}</span>
                         </div>
-                        <div style="color: #666; margin-bottom: 12px;">
+                        <div style="color: #666; margin-bottom: 12px; font-size: 12px;">
                             Possession ${result.possession + 1} of ${SEASON.POSSESSIONS_PER_GAME}
                         </div>
                         <button id="btnContinueDrive" style="
                             background: #4a4; color: white; border: none;
                             padding: 12px 30px; border-radius: 6px; cursor: pointer;
-                            font-size: 16px;
+                            font-size: 16px; transition: background 0.2s;
                         ">Continue</button>
                     </div>
                 </div>
@@ -7251,37 +7620,181 @@
 
             document.body.appendChild(overlay);
 
-            const playByPlayDiv = document.getElementById('playByPlay');
+            const currentPlayDiv = document.getElementById('currentPlay');
+            const playHistoryDiv = document.getElementById('playHistory');
             let playIndex = 0;
+
+            // Format a detailed play display
+            const formatPlayDetails = (play, isCurrent) => {
+                const opponent = result.enemyResult.opponent;
+                const teamShort = opponent.name.split(' ')[0];
+                const qbName = play.qb ? getPlayerFullName(play.qb) : `${teamShort} QB`;
+
+                let html = '';
+
+                // Down and distance header
+                const downStr = getDownString(play.down);
+                const fieldPos = 100 - play.yardsFromGoal;
+                html += `<div style="color: #aaa; font-size: 13px; margin-bottom: 8px; display: flex; justify-content: space-between;">
+                    <span><span style="color: #fff; font-weight: bold;">${downStr}</span> & ${play.yardsToGo}</span>
+                    <span style="color: #666;">Ball at ${fieldPos > 50 ? 'OPP ' + (100 - fieldPos) : 'OWN ' + fieldPos}</span>
+                </div>`;
+
+                if (play.type === 'sack') {
+                    // Sack play
+                    const dlName = play.sackingPlayer ? getPlayerFullName(play.sackingPlayer) : 'Your DL';
+                    html += createPressureBarHTML(play.pressureInfo);
+                    html += `<div style="margin-top: 8px;">`;
+                    html += `<div style="color: #4f4; font-size: 14px; font-weight: bold;">SACK! ${dlName} breaks through!</div>`;
+                    html += `<div style="color: #888; font-size: 11px; margin-top: 4px;">${qbName} taken down for ${Math.abs(play.yardsGained)} yard loss</div>`;
+
+                    // DL matchup details
+                    if (isCurrent && play.pressureInfo?.matchups) {
+                        html += `<div style="margin-top: 8px; padding: 8px; background: #1a1a2e; border-radius: 4px; font-size: 10px;">`;
+                        html += `<div style="color: #888; margin-bottom: 4px;">LINE MATCHUPS:</div>`;
+                        play.pressureInfo.matchups.slice(0, 3).forEach(m => {
+                            const resultColor = m.result === 'beaten badly' ? '#f44' : m.result === 'beaten' ? '#f84' : m.result === 'pressured' ? '#aa4' : '#4a4';
+                            html += `<div style="display: flex; justify-content: space-between; color: #aaa; margin: 2px 0;">
+                                <span>${getPlayerFullName(m.dl)} vs ${getPlayerFullName(m.ol)}</span>
+                                <span style="color: ${resultColor};">${m.dlRoll} vs ${m.olRoll} → ${m.result}</span>
+                            </div>`;
+                        });
+                        html += `</div>`;
+                    }
+                    html += `</div>`;
+                } else if (play.fieldGoalAttempt) {
+                    // Field goal attempt
+                    const distance = play.yardsFromGoal + 17;
+                    const successColor = play.fieldGoalSuccess ? '#4f4' : '#f44';
+                    html += `<div style="color: ${successColor}; font-size: 14px; font-weight: bold;">`;
+                    html += play.fieldGoalSuccess ? `Field Goal GOOD from ${distance} yards!` : `Field Goal MISSED from ${distance} yards!`;
+                    html += `</div>`;
+                } else {
+                    // Pass play
+                    const catchInfo = play.catchInfo;
+                    const wrName = catchInfo?.receiver ? getPlayerFullName(catchInfo.receiver) : `${teamShort} WR`;
+                    const cbName = catchInfo?.cb ? getPlayerFullName(catchInfo.cb) : 'Your CB';
+
+                    // Pressure bar
+                    html += createPressureBarHTML(play.pressureInfo);
+
+                    // Target info
+                    html += `<div style="margin: 8px 0; font-size: 12px;">`;
+                    html += `<span style="color: #888;">Target:</span> <span style="color: #f94;">${wrName}</span>`;
+                    html += ` <span style="color: #666;">(${play.targetSlot})</span>`;
+                    html += ` <span style="color: #888;">vs</span> <span style="color: #4af;">${cbName}</span>`;
+                    html += `</div>`;
+
+                    if (isCurrent && catchInfo) {
+                        // Matchup details box
+                        html += `<div style="background: #1a1a2e; border-radius: 4px; padding: 8px; margin: 8px 0; font-size: 11px;">`;
+
+                        // WR vs CB roll
+                        const coverageColor = catchInfo.coverageMargin > 5 ? '#f44' : catchInfo.coverageMargin < -5 ? '#4f4' : '#aa4';
+                        html += `<div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                            <span style="color: #888;">Coverage Matchup:</span>
+                            <span>WR <span style="color: #f94;">${catchInfo.wrRoll}</span> vs CB <span style="color: #4af;">${catchInfo.cbRoll}</span> = <span style="color: ${coverageColor};">${catchInfo.coverageMargin > 0 ? '+' : ''}${catchInfo.coverageMargin}</span></span>
+                        </div>`;
+
+                        // QB throw quality
+                        const qbColor = catchInfo.throwGood ? '#4f4' : '#f44';
+                        html += `<div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                            <span style="color: #888;">QB Throw (${catchInfo.qbBaseAccuracy} base - ${catchInfo.pressurePenalty} pressure):</span>
+                            <span style="color: ${qbColor};">Roll ${catchInfo.qbRoll} ${catchInfo.throwGood ? '≥' : '<'} ${catchInfo.qbThreshold} → ${catchInfo.throwGood ? 'ON TARGET' : 'OFF TARGET'}</span>
+                        </div>`;
+
+                        // Catch probability breakdown
+                        html += `<div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                            <span style="color: #888;">Catch Prob (${catchInfo.baseCatch} + ${catchInfo.coverageMod} cov + ${catchInfo.focusMod} focus):</span>
+                            <span style="color: #fff;">${catchInfo.catchProb}%</span>
+                        </div>`;
+
+                        html += `</div>`;
+                    }
+
+                    // Result with catch bar
+                    html += `<div style="margin-top: 8px;">`;
+                    if (!catchInfo?.throwGood) {
+                        html += `<div style="color: #4f4; font-size: 13px;"><span style="color: #888;">${qbName}</span> throws it away under pressure!</div>`;
+                    } else if (play.type === 'complete') {
+                        if (play.isTouchdown) {
+                            html += `<div style="color: #f44; font-size: 14px; font-weight: bold;">TOUCHDOWN! ${wrName} catches it for ${play.yardsGained} yards!</div>`;
+                        } else {
+                            html += `<div style="color: #ccc; font-size: 13px;">${wrName} catches for <span style="color: #f94;">${play.yardsGained} yards</span></div>`;
+                        }
+                        html += `<div style="margin-top: 6px;">${createCatchBarHTML(catchInfo)}</div>`;
+                    } else {
+                        html += `<div style="color: #4f4; font-size: 13px;">Pass broken up by ${cbName}!</div>`;
+                        html += `<div style="margin-top: 6px;">${createCatchBarHTML(catchInfo)}</div>`;
+                    }
+                    html += `</div>`;
+                }
+
+                return html;
+            };
+
+            // Format a brief play summary for history
+            const formatPlaySummary = (play) => {
+                const opponent = result.enemyResult.opponent;
+                const teamShort = opponent.name.split(' ')[0];
+
+                if (play.type === 'sack') {
+                    return `<span style="color: #4f4;">SACK -${Math.abs(play.yardsGained)} yds</span>`;
+                } else if (play.fieldGoalAttempt) {
+                    return play.fieldGoalSuccess ? `<span style="color: #f44;">FG GOOD</span>` : `<span style="color: #4f4;">FG MISS</span>`;
+                } else if (play.type === 'complete') {
+                    if (play.isTouchdown) {
+                        return `<span style="color: #f44;">TD! +${play.yardsGained} yds</span>`;
+                    }
+                    return `<span style="color: #f94;">Complete +${play.yardsGained} yds</span>`;
+                } else {
+                    return `<span style="color: #4f4;">Incomplete</span>`;
+                }
+            };
 
             // Show plays progressively
             const showNextPlay = () => {
                 if (playIndex < plays.length) {
-                    const playText = document.createElement('div');
-                    playText.style.cssText = 'margin-bottom: 8px; opacity: 0; transition: opacity 0.2s;';
+                    const play = plays[playIndex];
 
-                    // Highlight final play differently
-                    const isFinalPlay = playIndex === plays.length - 1;
-                    if (isFinalPlay) {
-                        playText.style.color = pointsColor;
-                        playText.style.fontWeight = 'bold';
+                    // Move previous play to history
+                    if (playIndex > 0) {
+                        const prevPlay = plays[playIndex - 1];
+                        const historyEntry = document.createElement('div');
+                        historyEntry.style.cssText = 'padding: 2px 0; border-bottom: 1px solid #333;';
+                        historyEntry.innerHTML = `<span style="color: #555;">${getDownString(prevPlay.down)}&${prevPlay.yardsToGo}:</span> ${formatPlaySummary(prevPlay)}`;
+                        playHistoryDiv.insertBefore(historyEntry, playHistoryDiv.firstChild);
                     }
 
-                    playText.textContent = plays[playIndex];
-                    playByPlayDiv.appendChild(playText);
-
-                    // Fade in
-                    setTimeout(() => playText.style.opacity = '1', 50);
+                    // Show current play with details
+                    currentPlayDiv.innerHTML = formatPlayDetails(play, true);
+                    currentPlayDiv.style.opacity = '0';
+                    setTimeout(() => currentPlayDiv.style.opacity = '1', 50);
 
                     playIndex++;
                     setTimeout(showNextPlay, delayPerPlay);
                 } else {
-                    // All plays shown, reveal result and button
+                    // All plays shown - add final play to history and show result
+                    if (plays.length > 0) {
+                        const finalPlay = plays[plays.length - 1];
+                        const historyEntry = document.createElement('div');
+                        historyEntry.style.cssText = 'padding: 2px 0; border-bottom: 1px solid #333;';
+                        historyEntry.innerHTML = `<span style="color: #555;">${getDownString(finalPlay.down)}&${finalPlay.yardsToGo}:</span> ${formatPlaySummary(finalPlay)}`;
+                        playHistoryDiv.insertBefore(historyEntry, playHistoryDiv.firstChild);
+                    }
+
+                    // Show final result
+                    currentPlayDiv.innerHTML = `<div style="text-align: center; padding: 20px; color: ${pointsColor}; font-size: 16px;">
+                        ${result.enemyResult.type === 'TD' ? 'TOUCHDOWN!' :
+                          result.enemyResult.type === 'FG' ? 'FIELD GOAL!' :
+                          result.enemyResult.type === 'PUNT' ? 'Forced to Punt!' :
+                          result.enemyResult.type === 'MISSED_FG' ? 'Field Goal Missed!' : 'Drive Stopped!'}
+                    </div>`;
+
                     setTimeout(() => {
                         document.getElementById('driveResult').style.display = 'block';
                         document.getElementById('btnContinueDrive').addEventListener('click', () => {
                             overlay.remove();
-                            // Clear waiting flag and reset play for next possession
                             gameState.waitingForPossession = false;
                             resetPlay(gameState.scene);
                         });
