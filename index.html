@@ -2347,6 +2347,12 @@
         function simulateRealisticEnemyDrive(opponent) {
             const playerTeam = managementState.team;
 
+            // Generate roster if missing (can happen with older saves)
+            if (opponent && !opponent.roster) {
+                console.log('Generating missing roster for opponent:', opponent.name);
+                opponent.roster = generateOpponentRoster(opponent.difficulty || 'medium');
+            }
+
             // Validate required data exists
             if (!opponent || !opponent.roster || !playerTeam || !playerTeam.depthChart) {
                 console.error('Missing required data for enemy drive simulation:', {
