@@ -197,6 +197,53 @@
     </div>
     <div id="debugInfo"></div>
 
+    <!-- Training Mode UI -->
+    <div id="trainingModeUI" style="display: none;">
+        <button id="btnExitTraining" style="
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            background: #633;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-family: 'Courier New', monospace;
+            z-index: 1000;
+        ">← MAIN MENU</button>
+        <div id="trainingTitle" style="
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #4a4;
+            font-size: 18px;
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+            z-index: 1000;
+        ">TRAINING MODE</div>
+        <div id="throwRating" style="
+            position: fixed;
+            bottom: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.85);
+            padding: 15px 30px;
+            border-radius: 10px;
+            color: white;
+            font-family: 'Courier New', monospace;
+            text-align: center;
+            z-index: 1000;
+            display: none;
+        ">
+            <div id="throwGrade" style="font-size: 48px; font-weight: bold; color: #4f4;"></div>
+            <div id="throwDetails" style="font-size: 14px; color: #aaa; margin-top: 5px;"></div>
+        </div>
+    </div>
+
     <!-- Management UI Overlay -->
     <div id="managementOverlay">
         <!-- Main Menu -->
@@ -205,6 +252,7 @@
             <p class="subtitle">Medieval Football Management</p>
             <button id="btnNewGame" class="mgmt-btn">NEW GAME</button>
             <button id="btnContinue" class="mgmt-btn">CONTINUE</button>
+            <button id="btnTrainingMode" class="mgmt-btn" style="margin-top: 30px; background: #2a4a2a;">TRAINING MODE</button>
         </div>
 
         <!-- Hub Screen -->
@@ -845,7 +893,10 @@
             yardsToGo: 10,          // Yards needed for first down
             lineOfScrimmage: -5,    // Current field position (Z coordinate) - own 30
             firstDownMarker: 5,     // Z position where first down is achieved
-            startingLineOfScrimmage: -5  // Where drive started - own 30 yard line
+            startingLineOfScrimmage: -5,  // Where drive started - own 30 yard line
+            // Training mode
+            trainingMode: false,    // Training mode: no defenders, throw ratings
+            lastThrowRating: null   // Last throw rating for display
         };
 
         // Per-game stats tracking (reset each match)
@@ -3276,9 +3327,9 @@
                 gameState.receiversStartZ.push(config.start.z);
             });
 
-            // Create Defenders
+            // Create Defenders (skip in training mode)
             // Line of scrimmage is at RECEIVER_START_Z - defenders spawn above it
-            defenderConfigs.forEach((config, i) => {
+            if (!gameState.trainingMode) defenderConfigs.forEach((config, i) => {
                 // Calculate starting position - defenders start ABOVE line of scrimmage
                 let startPos;
                 if (config.aiType === 'man' && config.assignedReceiver !== undefined) {
@@ -3373,7 +3424,8 @@
                 gameState.defenders.push(defender);
             });
 
-            // Offensive Line configurations (5 players) - try roster first
+            // Offensive Line configurations (5 players) - skip in training mode
+            if (!gameState.trainingMode) {
             const LINE_OF_SCRIMMAGE_Z = RECEIVER_START_Z;  // Same as receivers start
             const rosterOLineConfigs = getOLineConfigsFromRoster();
             const defaultOLineConfigs = [
@@ -3501,6 +3553,7 @@
 
                 gameState.defensiveLine.push(dLineman);
             });
+            } // End of training mode skip for OL/DL
 
             // Create GUI for player name labels
             const advancedTexture = BABYLON.GUI.AdvancedDynamicTexture.CreateFullscreenUI('UI', true, scene);
@@ -5571,6 +5624,32 @@
                     }
                 }
 
+                // In training mode, show throw rating
+                if (gameState.trainingMode) {
+                    const throwRating = calculateThrowRating(potentialCatcher, ballPosition, gameState.gameTime);
+                    gameState.lastThrowRating = throwRating;
+
+                    // Update throw rating UI
+                    const ratingEl = document.getElementById('throwRating');
+                    const gradeEl = document.getElementById('throwGrade');
+                    const detailsEl = document.getElementById('throwDetails');
+
+                    const gradeColors = {
+                        'A+': '#0f0', 'A': '#4f4', 'B': '#af4',
+                        'C': '#ff4', 'D': '#f84', 'F': '#f44'
+                    };
+
+                    gradeEl.textContent = throwRating.grade;
+                    gradeEl.style.color = gradeColors[throwRating.grade] || '#fff';
+                    detailsEl.textContent = throwRating.details;
+                    ratingEl.style.display = 'block';
+
+                    // Hide after 3 seconds
+                    setTimeout(() => {
+                        ratingEl.style.display = 'none';
+                    }, 3000);
+                }
+
                 if (success) {
                     // Successful catch! Set up ball carrier
                     gameState.catches++;
@@ -7580,6 +7659,126 @@
             updateGamePlayersFromRoster();
         }
 
+        // Start training mode (no defenders, throw ratings)
+        function startTrainingMode() {
+            gameState.trainingMode = true;
+            gameState.lastThrowRating = null;
+
+            // Hide management overlay and show game
+            document.getElementById('managementOverlay').style.display = 'none';
+            document.getElementById('gameContainer').style.display = 'block';
+            document.getElementById('trainingModeUI').style.display = 'block';
+
+            // Reset game state
+            gameState.down = 1;
+            gameState.yardsToGo = 10;
+            gameState.catches = 0;
+            gameState.attempts = 0;
+            gameState.touchdowns = 0;
+
+            // Reinitialize scene without defenders
+            if (gameState.scene) {
+                gameState.scene.dispose();
+                gameState.scene = null;
+                gameState.receivers = [];
+                gameState.defenders = [];
+                gameState.offensiveLine = [];
+                gameState.defensiveLine = [];
+            }
+            initBabylonScene();
+        }
+
+        // Exit training mode and return to main menu
+        function exitTrainingMode() {
+            gameState.trainingMode = false;
+            document.getElementById('trainingModeUI').style.display = 'none';
+            document.getElementById('gameContainer').style.display = 'none';
+            document.getElementById('managementOverlay').style.display = 'flex';
+            document.getElementById('mainMenuScreen').style.display = 'block';
+
+            // Hide other screens
+            document.querySelectorAll('.mgmt-screen').forEach(s => s.style.display = 'none');
+            document.getElementById('mainMenuScreen').style.display = 'block';
+        }
+
+        // Calculate throw rating based on route proximity and leading
+        function calculateThrowRating(receiver, ballLandingPos, catchTime) {
+            // Get the receiver's route waypoints
+            const route = receiver.route || [];
+            if (route.length === 0) return { grade: 'C', score: 50, details: 'No route data' };
+
+            // Find the closest point on the route to where the ball landed
+            let minDist = Infinity;
+            let closestRoutePoint = null;
+
+            // Check distance to each route waypoint
+            route.forEach(waypoint => {
+                const dist = Math.sqrt(
+                    Math.pow(ballLandingPos.x - waypoint.x, 2) +
+                    Math.pow(ballLandingPos.z - waypoint.z, 2)
+                );
+                if (dist < minDist) {
+                    minDist = dist;
+                    closestRoutePoint = waypoint;
+                }
+            });
+
+            // Also check current receiver position at catch time
+            const receiverPos = receiver.position;
+            const distToReceiver = Math.sqrt(
+                Math.pow(ballLandingPos.x - receiverPos.x, 2) +
+                Math.pow(ballLandingPos.z - receiverPos.z, 2)
+            );
+
+            // Calculate lead accuracy: was the ball thrown ahead of the receiver?
+            // Positive lead = thrown ahead (good), negative = thrown behind (bad)
+            const receiverVelocity = receiver.velocity || new BABYLON.Vector3(0, 0, 0);
+            const leadVector = new BABYLON.Vector3(
+                ballLandingPos.x - receiverPos.x,
+                0,
+                ballLandingPos.z - receiverPos.z
+            );
+
+            // Dot product with velocity direction (positive = leading, negative = behind)
+            const velocityMagnitude = Math.sqrt(receiverVelocity.x * receiverVelocity.x + receiverVelocity.z * receiverVelocity.z);
+            let leadScore = 50; // Default neutral
+            if (velocityMagnitude > 0.001) {
+                const leadDot = (leadVector.x * receiverVelocity.x + leadVector.z * receiverVelocity.z) / velocityMagnitude;
+                // Good lead is 0.5-2 units ahead
+                if (leadDot > 0 && leadDot < 3) {
+                    leadScore = 100 - Math.abs(leadDot - 1) * 20; // Best at 1 unit lead
+                } else if (leadDot < 0) {
+                    leadScore = Math.max(0, 50 + leadDot * 20); // Penalty for behind
+                } else {
+                    leadScore = Math.max(30, 100 - leadDot * 15); // Too far ahead
+                }
+            }
+
+            // Route accuracy score (how close to the route)
+            const routeScore = Math.max(0, 100 - minDist * 30);
+
+            // Combine scores
+            const totalScore = Math.round(routeScore * 0.5 + leadScore * 0.5);
+
+            // Determine grade
+            let grade;
+            if (totalScore >= 90) grade = 'A+';
+            else if (totalScore >= 80) grade = 'A';
+            else if (totalScore >= 70) grade = 'B';
+            else if (totalScore >= 60) grade = 'C';
+            else if (totalScore >= 50) grade = 'D';
+            else grade = 'F';
+
+            return {
+                grade,
+                score: totalScore,
+                routeScore: Math.round(routeScore),
+                leadScore: Math.round(leadScore),
+                distToRoute: minDist.toFixed(1),
+                details: `Route: ${Math.round(routeScore)} | Lead: ${Math.round(leadScore)}`
+            };
+        }
+
         // Update game player meshes with roster data
         function updateGamePlayersFromRoster() {
             if (!managementState.initialized || !managementState.team) return;
@@ -8026,6 +8225,12 @@
         });
         document.getElementById('btnContinue').addEventListener('click', () => {
             if (managementState.initialized) showScreen('hub');
+        });
+        document.getElementById('btnTrainingMode').addEventListener('click', () => {
+            startTrainingMode();
+        });
+        document.getElementById('btnExitTraining').addEventListener('click', () => {
+            exitTrainingMode();
         });
         document.getElementById('btnPlayGame').addEventListener('click', () => {
             if (!managementState.season || managementState.season.week > SEASON.WEEKS) return;
