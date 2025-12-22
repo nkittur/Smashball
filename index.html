@@ -2215,10 +2215,12 @@
             const separationMargin = wrRoll - cbRoll;
 
             // Convert separation margin to "coverage closeness" (simulates physical proximity)
-            // CB wins by 20+ → closeness = 1.0 (smothered, like being right on top)
-            // Even matchup   → closeness = 0.5 (contested)
-            // WR wins by 20+ → closeness = 0.0 (wide open)
-            const coverageCloseness = Math.max(0, Math.min(1, 0.5 - (separationMargin / 40)));
+            // Scaled so that (with ~80 catching, ~80 CB coverage):
+            //   CB wins by 10  → closeness ≈ 0.95 → ~25% catch
+            //   Even matchup   → closeness ≈ 0.78 → ~50% catch
+            //   WR wins by 20  → closeness ≈ 0.45 → ~75% catch
+            //   WR wins by 45+ → closeness → 0    → ~80%+ catch (wide open)
+            const coverageCloseness = Math.max(0, Math.min(1, 0.78 - (separationMargin / 60)));
 
             // Get CB's coverage stat (use average of man/zone if available, or overall proxy)
             const cbCoverage = cb.stats.manCoverage || cb.stats.coverage ||
