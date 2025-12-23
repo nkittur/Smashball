@@ -1034,6 +1034,7 @@
         // ROUTE TEMPLATES FOR SIMULATION
         // ========================================
         // Each route has per-round depth (yards from LOS) and crossing (direction change)
+        // When crossing = true, receiver moves horizontally so depth stays same or gains minimally
         // breakRound is when the route "breaks" - creates separation opportunity
         const ROUTE_TEMPLATES = {
             standard: {
@@ -1051,41 +1052,41 @@
                 slant: {
                     name: 'slant',
                     rounds: [
-                        { depth: 3, crossing: true },
-                        { depth: 6, crossing: false },
-                        { depth: 8, crossing: false },
-                        { depth: 8, crossing: false },
-                        { depth: 8, crossing: false }
+                        { depth: 4, crossing: true },   // Diagonal cross - gains some depth
+                        { depth: 7, crossing: false },
+                        { depth: 9, crossing: false },
+                        { depth: 9, crossing: false },
+                        { depth: 9, crossing: false }
                     ],
                     breakRound: 1
                 },
                 out: {
                     name: 'out',
                     rounds: [
-                        { depth: 4, crossing: false },
-                        { depth: 8, crossing: true },
-                        { depth: 10, crossing: false },
-                        { depth: 10, crossing: false },
-                        { depth: 10, crossing: false }
+                        { depth: 6, crossing: false },
+                        { depth: 6, crossing: true },   // Breaking out - no depth gain
+                        { depth: 7, crossing: false },
+                        { depth: 7, crossing: false },
+                        { depth: 7, crossing: false }
                     ],
                     breakRound: 2
                 },
                 in: {
                     name: 'in',
                     rounds: [
-                        { depth: 4, crossing: false },
-                        { depth: 8, crossing: true },
-                        { depth: 10, crossing: false },
-                        { depth: 10, crossing: false },
-                        { depth: 10, crossing: false }
+                        { depth: 6, crossing: false },
+                        { depth: 6, crossing: true },   // Breaking in - no depth gain
+                        { depth: 8, crossing: false },
+                        { depth: 8, crossing: false },
+                        { depth: 8, crossing: false }
                     ],
                     breakRound: 2
                 },
                 post: {
                     name: 'post',
                     rounds: [
-                        { depth: 5, crossing: false },
-                        { depth: 10, crossing: true },
+                        { depth: 8, crossing: false },
+                        { depth: 10, crossing: true },  // Breaking post - slight diagonal
                         { depth: 18, crossing: false },
                         { depth: 25, crossing: false },
                         { depth: 30, crossing: false }
@@ -1095,8 +1096,8 @@
                 corner: {
                     name: 'corner',
                     rounds: [
-                        { depth: 5, crossing: false },
-                        { depth: 10, crossing: true },
+                        { depth: 8, crossing: false },
+                        { depth: 10, crossing: true },  // Breaking corner - slight diagonal
                         { depth: 18, crossing: false },
                         { depth: 25, crossing: false },
                         { depth: 30, crossing: false }
@@ -1106,33 +1107,33 @@
                 curl: {
                     name: 'curl',
                     rounds: [
-                        { depth: 5, crossing: false },
+                        { depth: 6, crossing: false },
+                        { depth: 12, crossing: false },
+                        { depth: 10, crossing: true },  // Coming back - loses depth
                         { depth: 10, crossing: false },
-                        { depth: 8, crossing: true },
-                        { depth: 8, crossing: false },
-                        { depth: 8, crossing: false }
+                        { depth: 10, crossing: false }
                     ],
                     breakRound: 3
                 },
                 comeback: {
                     name: 'comeback',
                     rounds: [
-                        { depth: 5, crossing: false },
+                        { depth: 6, crossing: false },
+                        { depth: 14, crossing: false },
+                        { depth: 12, crossing: true },  // Coming back - loses depth
                         { depth: 12, crossing: false },
-                        { depth: 10, crossing: true },
-                        { depth: 10, crossing: false },
-                        { depth: 10, crossing: false }
+                        { depth: 12, crossing: false }
                     ],
                     breakRound: 3
                 },
                 dig: {
                     name: 'dig',
                     rounds: [
-                        { depth: 4, crossing: false },
-                        { depth: 8, crossing: false },
-                        { depth: 10, crossing: true },
+                        { depth: 5, crossing: false },
                         { depth: 12, crossing: false },
-                        { depth: 12, crossing: false }
+                        { depth: 12, crossing: true },  // Crossing - no depth gain
+                        { depth: 14, crossing: false },
+                        { depth: 14, crossing: false }
                     ],
                     breakRound: 3
                 },
@@ -1150,33 +1151,33 @@
                 flat: {
                     name: 'flat',
                     rounds: [
-                        { depth: 2, crossing: true },
-                        { depth: 3, crossing: false },
-                        { depth: 3, crossing: false },
-                        { depth: 3, crossing: false },
-                        { depth: 3, crossing: false }
+                        { depth: 1, crossing: true },   // Pure horizontal - minimal depth
+                        { depth: 2, crossing: false },
+                        { depth: 2, crossing: false },
+                        { depth: 2, crossing: false },
+                        { depth: 2, crossing: false }
                     ],
                     breakRound: 1
                 },
                 wheel: {
                     name: 'wheel',
                     rounds: [
-                        { depth: 2, crossing: true },
-                        { depth: 5, crossing: false },
-                        { depth: 10, crossing: false },
-                        { depth: 16, crossing: false },
-                        { depth: 22, crossing: false }
+                        { depth: 1, crossing: true },   // Start horizontal
+                        { depth: 5, crossing: false },  // Turn upfield
+                        { depth: 12, crossing: false },
+                        { depth: 18, crossing: false },
+                        { depth: 24, crossing: false }
                     ],
                     breakRound: 1
                 },
                 hitch: {
                     name: 'hitch',
                     rounds: [
-                        { depth: 4, crossing: false },
-                        { depth: 4, crossing: false },
-                        { depth: 4, crossing: false },
-                        { depth: 4, crossing: false },
-                        { depth: 4, crossing: false }
+                        { depth: 5, crossing: false },
+                        { depth: 5, crossing: false },  // Stop and wait
+                        { depth: 5, crossing: false },
+                        { depth: 5, crossing: false },
+                        { depth: 5, crossing: false }
                     ],
                     breakRound: 1
                 }
@@ -1197,18 +1198,18 @@
                     name: 'back_shoulder',
                     rounds: [
                         { depth: 5, crossing: false },
+                        { depth: 9, crossing: false },
+                        { depth: 8, crossing: true },   // Fading back - loses depth
                         { depth: 8, crossing: false },
-                        { depth: 7, crossing: true },
-                        { depth: 7, crossing: false },
-                        { depth: 7, crossing: false }
+                        { depth: 8, crossing: false }
                     ],
                     breakRound: 3
                 },
                 corner_fade: {
                     name: 'corner_fade',
                     rounds: [
-                        { depth: 3, crossing: false },
-                        { depth: 6, crossing: true },
+                        { depth: 4, crossing: false },
+                        { depth: 5, crossing: true },   // Breaking corner - minimal gain
                         { depth: 10, crossing: false },
                         { depth: 12, crossing: false },
                         { depth: 12, crossing: false }
@@ -1218,7 +1219,7 @@
                 quick_slant: {
                     name: 'quick_slant',
                     rounds: [
-                        { depth: 2, crossing: true },
+                        { depth: 3, crossing: true },   // Diagonal slant
                         { depth: 5, crossing: false },
                         { depth: 6, crossing: false },
                         { depth: 6, crossing: false },
@@ -1229,8 +1230,8 @@
                 out_quick: {
                     name: 'out_quick',
                     rounds: [
-                        { depth: 3, crossing: false },
-                        { depth: 5, crossing: true },
+                        { depth: 4, crossing: false },
+                        { depth: 4, crossing: true },   // Breaking out - no depth gain
                         { depth: 5, crossing: false },
                         { depth: 5, crossing: false },
                         { depth: 5, crossing: false }
@@ -1253,7 +1254,7 @@
                 endzone_slant: {
                     name: 'endzone_slant',
                     rounds: [
-                        { depth: 2, crossing: true },
+                        { depth: 2, crossing: true },   // Diagonal into endzone
                         { depth: 4, crossing: false },
                         { depth: 5, crossing: false },
                         { depth: 5, crossing: false },
@@ -1264,8 +1265,8 @@
                 endzone_out: {
                     name: 'endzone_out',
                     rounds: [
-                        { depth: 2, crossing: false },
-                        { depth: 3, crossing: true },
+                        { depth: 3, crossing: false },
+                        { depth: 3, crossing: true },   // Breaking out - no depth gain
                         { depth: 4, crossing: false },
                         { depth: 4, crossing: false },
                         { depth: 4, crossing: false }
@@ -1275,11 +1276,11 @@
                 endzone_flat: {
                     name: 'endzone_flat',
                     rounds: [
-                        { depth: 1, crossing: true },
-                        { depth: 2, crossing: false },
-                        { depth: 2, crossing: false },
-                        { depth: 2, crossing: false },
-                        { depth: 2, crossing: false }
+                        { depth: 0, crossing: true },   // Pure horizontal at LOS
+                        { depth: 1, crossing: false },
+                        { depth: 1, crossing: false },
+                        { depth: 1, crossing: false },
+                        { depth: 1, crossing: false }
                     ],
                     breakRound: 1
                 }
