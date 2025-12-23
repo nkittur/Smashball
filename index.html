@@ -7669,9 +7669,10 @@
             gameState.trainingMode = true;
             gameState.lastThrowRating = null;
 
-            // Hide management overlay and show game
-            document.getElementById('managementOverlay').style.display = 'none';
-            document.getElementById('gameContainer').style.display = 'block';
+            // Hide management overlay and show game elements
+            document.getElementById('managementOverlay').classList.add('hidden');
+            document.getElementById('topBar').style.display = 'flex';
+            document.getElementById('viewButtons').style.display = 'flex';
             document.getElementById('trainingModeUI').style.display = 'block';
 
             // Reset game state
@@ -7680,6 +7681,9 @@
             gameState.catches = 0;
             gameState.attempts = 0;
             gameState.touchdowns = 0;
+            gameState.playFrozen = true;
+            gameState.ballInFlight = false;
+            gameState.canThrow = true;
 
             // Reinitialize scene without defenders
             if (gameState.scene) {
@@ -7697,13 +7701,18 @@
         function exitTrainingMode() {
             gameState.trainingMode = false;
             document.getElementById('trainingModeUI').style.display = 'none';
-            document.getElementById('gameContainer').style.display = 'none';
-            document.getElementById('managementOverlay').style.display = 'flex';
-            document.getElementById('mainMenuScreen').style.display = 'block';
+            document.getElementById('topBar').style.display = 'none';
+            document.getElementById('viewButtons').style.display = 'none';
+            document.getElementById('managementOverlay').classList.remove('hidden');
 
-            // Hide other screens
+            // Hide other screens and show hub (or main menu if not initialized)
             document.querySelectorAll('.mgmt-screen').forEach(s => s.style.display = 'none');
-            document.getElementById('mainMenuScreen').style.display = 'block';
+            if (managementState.initialized) {
+                document.getElementById('hubScreen').style.display = 'block';
+                refreshHubScreen();
+            } else {
+                document.getElementById('mainMenuScreen').style.display = 'block';
+            }
         }
 
         // Calculate throw rating based on route proximity and leading
