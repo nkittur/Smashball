@@ -893,6 +893,7 @@
             canThrow: true,
             dragStart: null,
             dragCurrent: null,
+            activePointerId: null,  // Track which pointer is dragging
             ballInFlight: false,
             receivers: [],
             receiversStartZ: [],
@@ -6181,6 +6182,13 @@
                 scene.trajectoryDots = null;
             }
             gameState.ballInFlight = false;
+
+            // Reset pointer/drag state to prevent desync issues
+            gameState.isDragging = false;
+            gameState.dragStart = null;
+            gameState.dragCurrent = null;
+            gameState.activePointerId = null;
+            gameState.canThrow = true;
 
             // Reset play state flags
             gameState.ballCarrier = null;
