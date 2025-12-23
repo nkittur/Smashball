@@ -7674,7 +7674,7 @@
             // Hide management overlay and show game elements
             document.getElementById('managementOverlay').classList.add('hidden');
             document.getElementById('topBar').style.display = 'flex';
-            document.getElementById('viewButtons').style.display = 'flex';
+            document.getElementById('viewButtons').style.display = 'none'; // Hide view buttons in training
             document.getElementById('trainingModeUI').style.display = 'block';
 
             // Reset game state
@@ -7683,29 +7683,47 @@
             gameState.catches = 0;
             gameState.attempts = 0;
             gameState.touchdowns = 0;
-            gameState.playFrozen = true;
-            gameState.ballInFlight = false;
-            gameState.canThrow = true;
+            gameState.lineOfScrimmage = -5;
+            gameState.firstDownMarker = 5;
 
-            // Reinitialize scene without defenders
+            // Hide defenders in training mode
+            gameState.defenders.forEach(defender => {
+                defender.setEnabled(false);
+                if (defender.zoneRing) defender.zoneRing.setEnabled(false);
+                if (defender.zoneFill) defender.zoneFill.setEnabled(false);
+            });
+
+            // Hide offensive and defensive lines
+            gameState.offensiveLine.forEach(lineman => lineman.setEnabled(false));
+            gameState.defensiveLine.forEach(lineman => lineman.setEnabled(false));
+
+            // Reset play
             if (gameState.scene) {
-                gameState.scene.dispose();
-                gameState.scene = null;
-                gameState.receivers = [];
-                gameState.defenders = [];
-                gameState.offensiveLine = [];
-                gameState.defensiveLine = [];
+                resetPlay(gameState.scene);
             }
-            initBabylonScene();
+
+            // Update UI
+            updateDownDisplay();
         }
 
-        // Exit training mode and return to main menu
+        // Exit training mode and return to hub
         function exitTrainingMode() {
             gameState.trainingMode = false;
             document.getElementById('trainingModeUI').style.display = 'none';
             document.getElementById('topBar').style.display = 'none';
             document.getElementById('viewButtons').style.display = 'none';
             document.getElementById('managementOverlay').classList.remove('hidden');
+
+            // Show defenders again
+            gameState.defenders.forEach(defender => {
+                defender.setEnabled(true);
+                if (defender.zoneRing) defender.zoneRing.setEnabled(FEATURE_FLAGS.showDefenderZones);
+                if (defender.zoneFill) defender.zoneFill.setEnabled(FEATURE_FLAGS.showDefenderZones);
+            });
+
+            // Show offensive and defensive lines again
+            gameState.offensiveLine.forEach(lineman => lineman.setEnabled(true));
+            gameState.defensiveLine.forEach(lineman => lineman.setEnabled(true));
 
             // Hide other screens and show hub (or main menu if not initialized)
             document.querySelectorAll('.mgmt-screen').forEach(s => s.style.display = 'none');
