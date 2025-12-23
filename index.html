@@ -168,6 +168,11 @@
             font-size: 10px;
             color: #f99;
         }
+        #catchDisplay .throw-rating-info {
+            font-size: 10px;
+            color: #9cf;
+            margin-top: 2px;
+        }
     </style>
 </head>
 <body>
@@ -185,9 +190,10 @@
             <div class="catch-bar">
                 <div class="catch-bar-base"></div>
                 <div class="catch-bar-penalty"></div>
-                <div class="catch-bar-roll">✓</div>
+                <div class="catch-bar-roll">🏈</div>
             </div>
             <div class="defender-info"></div>
+            <div class="throw-rating-info"></div>
         </div>
     </div>
     <div id="viewButtons">
@@ -197,6 +203,65 @@
     </div>
     <div id="debugInfo"></div>
 
+    <!-- Training Mode UI -->
+    <div id="trainingModeUI" style="display: none;">
+        <button id="btnExitTraining" style="
+            position: fixed;
+            top: 46px;
+            left: 10px;
+            width: 36px;
+            height: 36px;
+            padding: 0;
+            font-size: 20px;
+            line-height: 36px;
+            text-align: center;
+            border-radius: 50%;
+            background: rgba(40, 40, 60, 0.8);
+            color: #ccc;
+            border: 1px solid #444;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+            z-index: 1001;
+        ">←</button>
+        <div id="trainingTitle" style="
+            position: fixed;
+            top: 50px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #4a4;
+            font-size: 18px;
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+            z-index: 1001;
+        ">TRAINING MODE</div>
+        <div id="throwRating" style="
+            position: fixed;
+            bottom: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.85);
+            padding: 15px 30px;
+            border-radius: 10px;
+            color: white;
+            font-family: 'Courier New', monospace;
+            text-align: center;
+            z-index: 1000;
+            display: none;
+        ">
+            <div id="throwGrade" style="font-size: 48px; font-weight: bold; color: #4f4;"></div>
+            <div id="throwDetails" style="font-size: 14px; color: #aaa; margin-top: 5px;"></div>
+            <div id="throwCatchInfo" style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #444;">
+                <div id="popupCatchHeader" style="font-size: 14px; font-weight: bold; margin-bottom: 6px;">CATCH</div>
+                <div id="popupCatchBar" style="position: relative; width: 150px; height: 16px; background: #222; border-radius: 3px; margin: 0 auto; overflow: visible;">
+                    <div id="popupCatchBase" style="position: absolute; left: 0; top: 0; height: 100%; background: linear-gradient(90deg, #3a3, #4b4); border-radius: 3px;"></div>
+                    <div id="popupCatchPenalty" style="position: absolute; top: 0; height: 100%; background: rgba(0, 0, 0, 0.55); border-left: 1px solid #f55;"></div>
+                    <div id="popupCatchRoll" style="position: absolute; top: -2px; font-size: 14px; font-weight: bold; transform: translateX(-50%); line-height: 16px;">🏈</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Management UI Overlay -->
     <div id="managementOverlay">
         <!-- Main Menu -->
@@ -205,6 +270,7 @@
             <p class="subtitle">Medieval Football Management</p>
             <button id="btnNewGame" class="mgmt-btn">NEW GAME</button>
             <button id="btnContinue" class="mgmt-btn">CONTINUE</button>
+            <button id="btnTrainingMode" class="mgmt-btn" style="margin-top: 30px; background: #2a4a2a;">TRAINING MODE</button>
         </div>
 
         <!-- Hub Screen -->
@@ -217,6 +283,7 @@
                 <button id="btnFreeAgency" class="mgmt-btn">FREE AGENCY</button>
                 <button id="btnSchedule" class="mgmt-btn">SCHEDULE</button>
                 <button id="btnFacilities" class="mgmt-btn">FACILITIES</button>
+                <button id="btnHubTraining" class="mgmt-btn" style="background: #2a4a2a;">TRAINING</button>
             </div>
             <p id="hubRecord" class="hub-record">Record: 0-0</p>
             <p id="hubNextGame" class="hub-next"></p>
@@ -325,6 +392,8 @@
             display: flex;
             justify-content: center;
             align-items: center;
+            overflow-y: auto;
+            padding: 20px 0;
         }
         #managementOverlay.hidden { display: none; }
         .mgmt-screen {
@@ -824,6 +893,7 @@
             canThrow: true,
             dragStart: null,
             dragCurrent: null,
+            activePointerId: null,  // Track which pointer is dragging
             ballInFlight: false,
             receivers: [],
             receiversStartZ: [],
@@ -845,7 +915,10 @@
             yardsToGo: 10,          // Yards needed for first down
             lineOfScrimmage: -5,    // Current field position (Z coordinate) - own 30
             firstDownMarker: 5,     // Z position where first down is achieved
-            startingLineOfScrimmage: -5  // Where drive started - own 30 yard line
+            startingLineOfScrimmage: -5,  // Where drive started - own 30 yard line
+            // Training mode
+            trainingMode: false,    // Training mode: no defenders, throw ratings
+            lastThrowRating: null   // Last throw rating for display
         };
 
         // Per-game stats tracking (reset each match)
@@ -1099,7 +1172,7 @@
         // Season constants
         const SEASON = {
             WEEKS: 16,
-            POSSESSIONS_PER_GAME: 5
+            POSSESSIONS_PER_GAME: 4  // 4 quarters, with possible 2-minute drill and overtime
         };
 
         // ========================================
@@ -1480,11 +1553,13 @@
             roster.push(generatePlayer('CB', tiers.good));
             roster.push(generatePlayer('CB', tiers.mid));
             roster.push(generatePlayer('CB', tiers.low));
-            // OL: 3
+            // OL: 4 (to match 4 DL matchups in simulation)
+            roster.push(generatePlayer('OL', tiers.good));
             roster.push(generatePlayer('OL', tiers.mid));
             roster.push(generatePlayer('OL', tiers.low));
             roster.push(generatePlayer('OL', tiers.low));
-            // DL: 3
+            // DL: 4
+            roster.push(generatePlayer('DL', tiers.good));
             roster.push(generatePlayer('DL', tiers.mid));
             roster.push(generatePlayer('DL', tiers.low));
             roster.push(generatePlayer('DL', tiers.low));
@@ -2077,103 +2152,519 @@
             return count > 0 ? total / count : 50;
         }
 
-        // Simulate enemy possession (when player loses possession)
-        function simulateEnemyPossession(opponent) {
-            const defenseRating = calculateTeamDefenseRating();
-            const offenseRating = opponent.offenseRating;
+        // ========================================
+        // REALISTIC ENEMY DRIVE SIMULATION
+        // ========================================
 
-            // Differential affects probabilities
-            // With 80 defense: elite (95 off) should avg ~6.5 pts, easy (70 off) should avg ~4 pts
-            const differential = offenseRating - defenseRating;
-
-            // High base TD chance, scales strongly with differential
-            // At diff +15 (elite vs 80 def): 65 + 18 = 83% TD
-            // At diff -10 (easy vs 80 def): 65 - 12 = 53% TD
-            const tdChance = Math.max(30, Math.min(95, 65 + (differential * 1.2)));
-
-            // FG chance decreases slightly as offense gets better (they score TDs instead)
-            // At diff +15: 22 - 6 = 16% FG
-            // At diff -10: 22 + 4 = 26% FG
-            const fgChance = Math.max(5, Math.min(35, 22 - (differential * 0.4)));
-
-            const roll = Math.random() * 100;
-
-            // Generate narrative with key plays
-            const narrative = generateDriveNarrative(opponent, roll, tdChance, fgChance);
-
-            if (roll < tdChance) return { points: 7, type: 'TD', narrative };
-            if (roll < tdChance + fgChance) return { points: 3, type: 'FG', narrative };
-            return { points: 0, type: 'STOP', narrative };
+        // Weighted roll using stat weights (same formula as real game)
+        function weightedStatRoll(stats, weights) {
+            let weightedTotal = 0;
+            for (const stat in weights) {
+                const statValue = stats[stat] || 50;
+                weightedTotal += statValue * weights[stat];
+            }
+            // Add ±20% variance
+            const variance = 0.2;
+            const roll = weightedTotal * (1 + (Math.random() - 0.5) * 2 * variance);
+            return roll;
         }
 
-        // Generate narrative plays for enemy drive (returns array for progressive display)
-        function generateDriveNarrative(opponent, roll, tdChance, fgChance) {
-            // Get random player names from your roster for defensive mentions
-            const defenders = (managementState.team?.roster || []).filter(p =>
-                ['CB', 'S', 'LB', 'DL'].includes(p.position)
-            );
-            const getDefenderName = () => {
-                if (defenders.length === 0) return 'the defense';
-                const d = defenders[Math.floor(Math.random() * defenders.length)];
-                return `${d.firstName} ${d.lastName.charAt(0)}.`;
-            };
+        // Get player's full name
+        function getPlayerFullName(player) {
+            if (!player) return 'Unknown';
+            const first = player.firstName || 'Player';
+            const last = player.lastName || '';
+            return `${first} ${last.charAt(0) || ''}.`.trim();
+        }
 
-            // Opponent player names (fictional based on team)
-            const teamShort = opponent.name.split(' ')[0];
-            const oppQB = `${teamShort} QB`;
-            const oppWR = `${teamShort} receiver`;
-            const oppRB = `${teamShort} runner`;
+        // Simulate DL vs OL pressure for the play
+        function simulateDLPressure(playerOL, opponentDL) {
+            const matchups = [];
+            let totalPressure = 0;
+            let sackingDL = null;
 
-            if (roll < tdChance) {
-                // TD drive - 4-5 plays
-                const plays = [
-                    `1st & 10: ${oppQB} hits ${oppWR} for 12 yards.`,
-                    `1st & 10: ${oppRB} bursts through for 8 yards.`,
-                    `2nd & 2: Play action! ${oppWR} gets behind ${getDefenderName()} for 25 yards!`,
-                    `1st & Goal: ${oppQB} rolls out...`,
-                    `TOUCHDOWN ${opponent.name}! ${oppQB} finds ${oppWR} in the corner of the end zone.`
-                ];
-                return plays;
-            } else if (roll < tdChance + fgChance) {
-                // FG drive - 4-5 plays
-                const plays = [
-                    `1st & 10: ${oppQB} throws short to ${oppWR} for 7 yards.`,
-                    `2nd & 3: ${oppRB} runs for 4 yards. First down.`,
-                    `1st & 10: ${getDefenderName()} with tight coverage! Incomplete.`,
-                    `2nd & 10: ${oppQB} scrambles for 5 yards.`,
-                    `3rd & 5: Pass broken up by ${getDefenderName()}! Field goal unit comes on.`,
-                    `Field goal is GOOD from 38 yards.`
-                ];
-                return plays;
-            } else {
-                // Defensive stop - 3-4 plays
-                const stopType = Math.floor(Math.random() * 4);
-                if (stopType === 0) {
-                    return [
-                        `1st & 10: ${oppQB} drops back...`,
-                        `${getDefenderName()} jumps the route!`,
-                        `INTERCEPTION! ${getDefenderName()} returns it 15 yards!`
-                    ];
-                } else if (stopType === 1) {
-                    return [
-                        `1st & 10: ${oppRB} stuffed at the line by ${getDefenderName()}.`,
-                        `2nd & 11: ${oppQB} sacked! ${getDefenderName()} with the pressure!`,
-                        `3rd & 18: Incomplete. ${opponent.name} forced to punt.`
-                    ];
-                } else if (stopType === 2) {
-                    return [
-                        `1st & 10: Short pass to ${oppWR} for 3 yards.`,
-                        `2nd & 7: ${oppRB} runs for 2 yards.`,
-                        `3rd & 5: ${getDefenderName()} with the pass breakup!`,
-                        `4th & 5: ${opponent.name} goes for it... Incomplete! Turnover on downs!`
-                    ];
+            // Match up DL vs OL (up to 4 matchups typically)
+            const numMatchups = Math.min(playerOL.length, opponentDL.length);
+
+            console.log(`DL Pressure - ${numMatchups} matchups. OL count: ${playerOL.length}, DL count: ${opponentDL.length}`);
+
+            for (let i = 0; i < numMatchups; i++) {
+                const ol = playerOL[i];
+                const dl = opponentDL[i];
+
+                const olRoll = weightedStatRoll(ol.stats, CLASH_WEIGHTS.lineClash.offense);
+                const dlRoll = weightedStatRoll(dl.stats, CLASH_WEIGHTS.lineClash.defense);
+
+                const margin = dlRoll - olRoll;
+                let pressureContribution = 0;
+                let result = 'held';
+
+                if (margin > 18) {
+                    // Dominant DL win - potential sack (rare, requires big mismatch)
+                    pressureContribution = 35;
+                    result = 'beaten badly';
+                    if (!sackingDL && Math.random() < 0.25) {
+                        sackingDL = dl;
+                        console.log(`SACK triggered! DL ${dl.firstName} margin=${Math.round(margin)}`);
+                    }
+                } else if (margin > 10) {
+                    // Strong DL win - heavy pressure but no sack
+                    pressureContribution = 25;
+                    result = 'beaten';
+                } else if (margin > 5) {
+                    // Moderate DL win - some pressure
+                    pressureContribution = 15;
+                    result = 'pressured';
+                } else if (margin > 2) {
+                    // Slight DL win - some pressure
+                    pressureContribution = 10;
+                    result = 'pressured';
+                } else if (margin > -2) {
+                    // Neutral - minimal pressure
+                    pressureContribution = 3;
+                    result = 'held';
                 } else {
-                    return [
-                        `1st & 10: ${oppQB} under pressure, throws it away.`,
-                        `2nd & 10: ${getDefenderName()} forces a fumble!`,
-                        `TURNOVER! Your ball!`
-                    ];
+                    // OL wins - no pressure
+                    pressureContribution = 0;
+                    result = 'stonewalled';
                 }
+
+                console.log(`  Matchup ${i+1}: ${getPlayerFullName(dl)} (DL ${Math.round(dlRoll)}) vs ${getPlayerFullName(ol)} (OL ${Math.round(olRoll)}) = margin ${Math.round(margin)} -> ${result}`);
+
+                totalPressure += pressureContribution;
+
+                matchups.push({
+                    ol: ol,
+                    dl: dl,
+                    olRoll: Math.round(olRoll),
+                    dlRoll: Math.round(dlRoll),
+                    margin: Math.round(margin),
+                    result: result,
+                    pressure: pressureContribution
+                });
+            }
+
+            // Cap total pressure at 100
+            totalPressure = Math.min(100, totalPressure);
+
+            console.log(`  Total pressure: ${totalPressure}, sackingDL: ${sackingDL ? getPlayerFullName(sackingDL) : 'none'}`);
+
+            return {
+                matchups,
+                totalPressure,
+                sackingDL,
+                pressureLevel: totalPressure > 60 ? 'extreme' : totalPressure > 40 ? 'heavy' : totalPressure > 20 ? 'moderate' : 'light'
+            };
+        }
+
+        // Select receiver with weighting (WR1 50%, WR2 30%, WR3 20%)
+        function selectTargetReceiver(opponentWRs) {
+            const roll = Math.random() * 100;
+            let targetIndex;
+            if (roll < 50) {
+                targetIndex = 0; // WR1 - 50%
+            } else if (roll < 80) {
+                targetIndex = 1; // WR2 - 30%
+            } else {
+                targetIndex = 2; // WR3 - 20%
+            }
+            // Fallback if not enough WRs
+            targetIndex = Math.min(targetIndex, opponentWRs.length - 1);
+            return {
+                receiver: opponentWRs[targetIndex],
+                slot: `WR${targetIndex + 1}`,
+                targetRoll: Math.round(roll)
+            };
+        }
+
+        // Simulate WR vs CB matchup and catch probability
+        // Aligned with player offense catch calculation (calculateCatchProbability)
+        function simulateCatchAttempt(receiver, cb, qbStats, pressureInfo) {
+            // WR roll for separation/positioning
+            const wrRoll = weightedStatRoll(receiver.stats, CLASH_WEIGHTS.separation.receiver);
+            // CB roll for coverage
+            const cbRoll = weightedStatRoll(cb.stats, CLASH_WEIGHTS.separation.defender);
+
+            const separationMargin = wrRoll - cbRoll;
+
+            // Convert separation margin to "coverage closeness" (simulates physical proximity)
+            // Scaled so that (with ~80 catching, ~80 CB coverage):
+            //   CB wins by 10  → closeness ≈ 0.95 → ~25% catch
+            //   Even matchup   → closeness ≈ 0.78 → ~50% catch
+            //   WR wins by 20  → closeness ≈ 0.45 → ~75% catch
+            //   WR wins by 45+ → closeness → 0    → ~80%+ catch (wide open)
+            const coverageCloseness = Math.max(0, Math.min(1, 0.78 - (separationMargin / 60)));
+
+            // Get CB's coverage stat (use average of man/zone if available, or overall proxy)
+            const cbCoverage = cb.stats.manCoverage || cb.stats.coverage ||
+                ((cb.stats.speed + cb.stats.awareness) / 2) || 70;
+
+            // Calculate defender penalty using same formula as player offense:
+            // penalty = proximityFactor³ × coverageStat × 0.8
+            const defenderPenalty = Math.pow(coverageCloseness, 3) * cbCoverage * 0.8;
+
+            // Base catch from receiver's catching stat
+            const baseCatch = receiver.stats.catching;
+
+            // Focus modifier - only applies when under pressure (closeness > 0.3)
+            const focusMod = coverageCloseness > 0.3 ? (receiver.stats.focus - 70) * 0.3 : 0;
+
+            // Calculate catch probability (same structure as player offense)
+            let catchProb = Math.max(5, Math.min(95, baseCatch + focusMod - defenderPenalty));
+
+            // QB throw quality using exponential distribution
+            // Better QB = lower rollMean = rolls cluster near 0 = easier catches
+            // Pressure increases rollMean = rolls spread higher = harder catches
+            const qbAccuracy = (qbStats.throwing + qbStats.awareness) / 2;
+            const pressure = pressureInfo.totalPressure;
+
+            // Formula tuned so that (at base 50% catch):
+            //   QB 95, no pressure: +34% bonus → 67% effective
+            //   QB 85, no pressure: +10% bonus → 55% effective
+            //   QB 75, no pressure: -6% penalty → 47% effective
+            //   QB 65, no pressure: -18% penalty → 41% effective
+            const rollMean = 79 + (75 - qbAccuracy) * 1.7 + pressure * 0.5;
+
+            // Exponential random: lower is better, need to roll under catchProb
+            const qbRoll = -rollMean * Math.log(Math.random());
+
+            // Effective catch % for display: P(roll < catchProb) = 1 - e^(-catchProb/rollMean)
+            const effectiveCatchPct = (1 - Math.exp(-catchProb / rollMean)) * 100;
+
+            // Success if QB roll is under the catch probability
+            const catchSuccess = qbRoll < catchProb;
+
+            return {
+                receiver,
+                cb,
+                wrRoll: Math.round(wrRoll),
+                cbRoll: Math.round(cbRoll),
+                separationMargin: Math.round(separationMargin),
+                coverageCloseness: Math.round(coverageCloseness * 100) / 100,
+                cbCoverage: Math.round(cbCoverage),
+                defenderPenalty: Math.round(defenderPenalty),
+                baseCatch: Math.round(baseCatch),
+                focusMod: Math.round(focusMod),
+                catchProb: Math.round(catchProb),
+                qbAccuracy: Math.round(qbAccuracy),
+                pressure: Math.round(pressure),
+                rollMean: Math.round(rollMean),
+                qbRoll: Math.round(qbRoll),
+                effectiveCatchPct: Math.round(effectiveCatchPct),
+                catchSuccess
+            };
+        }
+
+        // Simulate a single enemy play
+        function simulateEnemyPlay(opponent, playerTeam, down, yardsToGo, yardsFromGoal) {
+            // Get opponent offense - use walk-ons for missing players
+            let oppQB = opponent.roster.find(p => p.position === 'QB');
+            if (!oppQB) oppQB = generateWalkOn('QB');
+
+            const oppWRs = opponent.roster.filter(p => p.position === 'WR').sort((a, b) => b.overall - a.overall);
+            const oppOL = opponent.roster.filter(p => p.position === 'OL').sort((a, b) => b.overall - a.overall);
+
+            // Get player defense from depth chart
+            const dc = playerTeam.depthChart;
+            const roster = playerTeam.roster;
+
+            const playerCBs = [];
+            ['CB1', 'CB2', 'CB3', 'CB4'].forEach(slot => {
+                const id = dc[slot];
+                if (id) {
+                    const player = roster.find(p => p.id === id);
+                    if (player) playerCBs.push(player);
+                }
+            });
+
+            const playerDL = [];
+            (dc.DL || []).forEach(id => {
+                if (id) {
+                    const player = roster.find(p => p.id === id);
+                    if (player) playerDL.push(player);
+                }
+            });
+
+            // Fill in walk-ons if needed
+            while (playerCBs.length < 3) playerCBs.push(generateWalkOn('CB'));
+            while (playerDL.length < 4) playerDL.push(generateWalkOn('DL'));
+            while (oppWRs.length < 3) oppWRs.push(generateWalkOn('WR'));
+            while (oppOL.length < 4) oppOL.push(generateWalkOn('OL'));
+
+            // Sort by overall so best faces best (minimizes mismatches)
+            playerDL.sort((a, b) => b.overall - a.overall);
+            oppOL.sort((a, b) => b.overall - a.overall);
+            playerCBs.sort((a, b) => b.overall - a.overall);
+            oppWRs.sort((a, b) => b.overall - a.overall);
+
+            // Step 1: Simulate DL pressure
+            const pressureInfo = simulateDLPressure(oppOL, playerDL);
+
+            // Step 2: Check for sack
+            if (pressureInfo.sackingDL) {
+                return {
+                    type: 'sack',
+                    down,
+                    yardsToGo,
+                    yardsFromGoal,
+                    yardsGained: -7,
+                    pressureInfo,
+                    sackingPlayer: pressureInfo.sackingDL,
+                    qb: oppQB
+                };
+            }
+
+            // Step 3: Select target receiver
+            const targetInfo = selectTargetReceiver(oppWRs);
+            const targetWR = targetInfo.receiver;
+            const targetSlot = targetInfo.slot;
+
+            // Step 4: Match with corresponding CB
+            const cbIndex = Math.min(oppWRs.indexOf(targetWR), playerCBs.length - 1);
+            const coveringCB = playerCBs[Math.max(0, cbIndex)];
+
+            // Step 5: Simulate catch attempt
+            const qbStats = oppQB.stats || { throwing: 50, awareness: 50 };
+            const catchInfo = simulateCatchAttempt(targetWR, coveringCB, qbStats, pressureInfo);
+
+            // Calculate yards gained on catch
+            let yardsGained = 0;
+            if (catchInfo.catchSuccess) {
+                // Base yards from coverage margin and receiver speed
+                const baseYards = 5 + (catchInfo.coverageMargin > 0 ? catchInfo.coverageMargin * 0.3 : 0);
+                yardsGained = Math.round(baseYards + Math.random() * 8);
+                // Big play potential on strong WR wins
+                if (catchInfo.coverageMargin > 15) {
+                    yardsGained += Math.round(Math.random() * 15);
+                }
+                // Cap at yards from goal for TD
+                yardsGained = Math.min(yardsGained, yardsFromGoal);
+            }
+
+            return {
+                type: catchInfo.catchSuccess ? 'complete' : 'incomplete',
+                down,
+                yardsToGo,
+                yardsFromGoal,
+                yardsGained,
+                pressureInfo,
+                targetInfo,
+                targetSlot,
+                catchInfo,
+                qb: oppQB
+            };
+        }
+
+        // Simulate full enemy drive with realistic play-by-play
+        function simulateRealisticEnemyDrive(opponent) {
+            const playerTeam = managementState.team;
+
+            // Generate roster if missing (can happen with older saves)
+            if (opponent && !opponent.roster) {
+                console.log('Generating missing roster for opponent:', opponent.name);
+                opponent.roster = generateOpponentRoster(opponent.difficulty || 'medium');
+            }
+
+            // Validate required data exists
+            if (!opponent || !opponent.roster || !playerTeam || !playerTeam.depthChart) {
+                console.error('Missing required data for enemy drive simulation:', {
+                    hasOpponent: !!opponent,
+                    hasOpponentRoster: !!(opponent && opponent.roster),
+                    hasPlayerTeam: !!playerTeam,
+                    hasDepthChart: !!(playerTeam && playerTeam.depthChart)
+                });
+                throw new Error('Missing required simulation data');
+            }
+
+            const plays = [];
+            let yardsFromGoal = 75; // Start at own 25
+            let down = 1;
+            let yardsToGo = 10;
+            let driveResult = null;
+
+            // Maximum plays in a drive
+            const maxPlays = 12;
+
+            for (let playNum = 0; playNum < maxPlays && !driveResult; playNum++) {
+                const play = simulateEnemyPlay(opponent, playerTeam, down, yardsToGo, yardsFromGoal);
+                plays.push(play);
+
+                if (play.type === 'sack') {
+                    yardsFromGoal += 7;
+                    yardsToGo += 7;
+                    down++;
+
+                    // Record sack stat
+                    if (play.sackingPlayer && play.sackingPlayer.id) {
+                        const player = playerTeam.roster.find(p => p.id === play.sackingPlayer.id);
+                        if (player) {
+                            if (player.seasonSacks === undefined) player.seasonSacks = 0;
+                            player.seasonSacks++;
+                        }
+                    }
+                } else if (play.type === 'complete') {
+                    yardsFromGoal -= play.yardsGained;
+                    yardsToGo -= play.yardsGained;
+
+                    // Touchdown check
+                    if (yardsFromGoal <= 0) {
+                        driveResult = { points: 7, type: 'TD' };
+                        play.isTouchdown = true;
+                    }
+
+                    // First down check
+                    if (yardsToGo <= 0) {
+                        down = 1;
+                        yardsToGo = 10;
+                    } else {
+                        down++;
+                    }
+                } else {
+                    // Incomplete
+                    down++;
+
+                    // Record pass defended stat
+                    if (play.catchInfo && play.catchInfo.cb && play.catchInfo.cb.id) {
+                        const player = playerTeam.roster.find(p => p.id === play.catchInfo.cb.id);
+                        if (player) {
+                            if (player.seasonPassesDefended === undefined) player.seasonPassesDefended = 0;
+                            player.seasonPassesDefended++;
+                        }
+                    }
+                }
+
+                // Fourth down - punt or FG attempt
+                if (down > 4 && !driveResult) {
+                    if (yardsFromGoal <= 40) {
+                        // Field goal range - attempt
+                        const fgSuccess = Math.random() < (0.9 - yardsFromGoal * 0.01);
+                        if (fgSuccess) {
+                            driveResult = { points: 3, type: 'FG' };
+                            play.fieldGoalAttempt = true;
+                            play.fieldGoalSuccess = true;
+                        } else {
+                            driveResult = { points: 0, type: 'MISSED_FG' };
+                            play.fieldGoalAttempt = true;
+                            play.fieldGoalSuccess = false;
+                        }
+                    } else {
+                        // Punt - drive over
+                        driveResult = { points: 0, type: 'PUNT' };
+                    }
+                }
+
+                // Update play with current field position
+                play.newYardsFromGoal = yardsFromGoal;
+                play.newDown = down;
+                play.newYardsToGo = yardsToGo;
+            }
+
+            // If we hit max plays without resolution, punt
+            if (!driveResult) {
+                driveResult = { points: 0, type: 'PUNT' };
+            }
+
+            return {
+                ...driveResult,
+                plays,
+                opponent
+            };
+        }
+
+        // Simulate enemy possession using realistic simulation
+        function simulateEnemyPossession(opponent) {
+            try {
+                console.log('Starting enemy drive simulation for:', opponent?.name);
+                console.log('Opponent roster size:', opponent?.roster?.length);
+                console.log('Player team exists:', !!managementState.team);
+                console.log('Player depthChart exists:', !!managementState.team?.depthChart);
+
+                // Use the new realistic drive simulation
+                const driveResult = simulateRealisticEnemyDrive(opponent);
+
+                console.log('Drive result:', driveResult.type, 'with', driveResult.plays?.length, 'plays');
+
+                // Map to legacy result format for compatibility
+                return {
+                    points: driveResult.points,
+                    type: driveResult.type,
+                    plays: driveResult.plays,
+                    opponent: driveResult.opponent,
+                    // Legacy narrative for fallback
+                    narrative: driveResult.plays.map(p => formatPlayNarrative(p, opponent))
+                };
+            } catch (error) {
+                console.error('Enemy drive simulation error:', error);
+                console.error('Error stack:', error.stack);
+                // Fallback to simple result on error
+                const roll = Math.random() * 100;
+                const points = roll < 50 ? 7 : roll < 70 ? 3 : 0;
+                const type = points === 7 ? 'TD' : points === 3 ? 'FG' : 'STOP';
+                return {
+                    points,
+                    type,
+                    plays: [],
+                    opponent,
+                    narrative: [type === 'TD' ? 'Touchdown!' : type === 'FG' ? 'Field goal!' : 'Defensive stop!']
+                };
+            }
+        }
+
+        // Format a play into narrative text
+        function formatPlayNarrative(play, opponent) {
+            const teamShort = opponent.name.split(' ')[0];
+            const qbName = play.qb ? getPlayerFullName(play.qb) : `${teamShort} QB`;
+
+            if (play.type === 'sack') {
+                const dlName = play.sackingPlayer ? getPlayerFullName(play.sackingPlayer) : 'Your defense';
+                return `${getDownString(play.down)} & ${play.yardsToGo}: ${dlName} breaks through! SACK for ${Math.abs(play.yardsGained)} yard loss!`;
+            }
+
+            if (play.fieldGoalAttempt) {
+                const distance = play.yardsFromGoal + 17; // Add end zone
+                if (play.fieldGoalSuccess) {
+                    return `Field goal attempt from ${distance} yards... GOOD!`;
+                } else {
+                    return `Field goal attempt from ${distance} yards... NO GOOD!`;
+                }
+            }
+
+            const wrName = play.catchInfo?.receiver ? getPlayerFullName(play.catchInfo.receiver) : `${teamShort} WR`;
+            const cbName = play.catchInfo?.cb ? getPlayerFullName(play.catchInfo.cb) : 'Your CB';
+
+            if (play.type === 'complete') {
+                if (play.isTouchdown) {
+                    return `${getDownString(play.down)} & ${play.yardsToGo}: ${qbName} finds ${wrName}... TOUCHDOWN ${opponent.name}!`;
+                }
+                return `${getDownString(play.down)} & ${play.yardsToGo}: ${qbName} hits ${wrName} for ${play.yardsGained} yards.`;
+            } else {
+                if (!play.catchInfo?.throwGood) {
+                    return `${getDownString(play.down)} & ${play.yardsToGo}: ${qbName} under pressure, throws it away!`;
+                }
+                return `${getDownString(play.down)} & ${play.yardsToGo}: Pass to ${wrName} broken up by ${cbName}!`;
+            }
+        }
+
+        function getDownString(down) {
+            const ordinals = ['1st', '2nd', '3rd', '4th'];
+            return ordinals[down - 1] || `${down}th`;
+        }
+
+        // Get display text for current game phase
+        function getGamePhaseDisplay(result) {
+            const phase = result.gamePhase || managementState.gamePhase || 'regulation';
+            const possession = result.possession + 1;
+
+            if (phase === 'overtime') {
+                const otPossession = managementState.overtimePossession || 1;
+                return `OVERTIME - Possession ${otPossession}`;
+            } else if (phase === 'twoMinuteDrill') {
+                return '2-MINUTE DRILL';
+            } else {
+                // Regulation - show as quarters
+                const quarter = Math.min(possession, 4);
+                const quarterNames = ['1st Quarter', '2nd Quarter', '3rd Quarter', '4th Quarter'];
+                return quarterNames[quarter - 1] || `Quarter ${quarter}`;
             }
         }
 
@@ -2192,6 +2683,8 @@
             managementState.currentPossession = 0;
             managementState.matchScore = { player: 0, opponent: 0 };
             managementState.currentScreen = 'game';
+            managementState.gamePhase = 'regulation';  // regulation, twoMinuteDrill, overtime
+            managementState.overtimePossession = 0;
 
             return { success: true, opponent: game.opponent, isHome: game.isHome };
         }
@@ -2209,16 +2702,84 @@
 
             managementState.currentPossession++;
 
-            // Check if match is over
-            if (managementState.currentPossession >= SEASON.POSSESSIONS_PER_GAME) {
-                return endMatch();
+            const playerScore = managementState.matchScore.player;
+            const oppScore = managementState.matchScore.opponent;
+            const scoreDiff = playerScore - oppScore;
+
+            // Check game state based on phase
+            if (managementState.gamePhase === 'regulation') {
+                if (managementState.currentPossession >= SEASON.POSSESSIONS_PER_GAME) {
+                    // End of 4 quarters
+                    if (scoreDiff === 0) {
+                        // Tied - go to overtime
+                        managementState.gamePhase = 'overtime';
+                        managementState.overtimePossession = 0;
+                        return {
+                            ongoing: true,
+                            possession: managementState.currentPossession,
+                            score: managementState.matchScore,
+                            enemyResult,
+                            gamePhase: 'overtime',
+                            message: 'Tied game! Heading to overtime!'
+                        };
+                    } else if (scoreDiff < 0 && scoreDiff >= -7) {
+                        // Losing by 7 or less - 2 minute drill
+                        managementState.gamePhase = 'twoMinuteDrill';
+                        return {
+                            ongoing: true,
+                            possession: managementState.currentPossession,
+                            score: managementState.matchScore,
+                            enemyResult,
+                            gamePhase: 'twoMinuteDrill',
+                            message: `Down by ${Math.abs(scoreDiff)}! 2-minute drill to tie or win!`
+                        };
+                    } else {
+                        // Game over (winning or losing by more than 7)
+                        return endMatch();
+                    }
+                }
+            } else if (managementState.gamePhase === 'twoMinuteDrill') {
+                // After 2-minute drill possession
+                if (scoreDiff === 0) {
+                    // Tied - go to overtime
+                    managementState.gamePhase = 'overtime';
+                    managementState.overtimePossession = 0;
+                    return {
+                        ongoing: true,
+                        possession: managementState.currentPossession,
+                        score: managementState.matchScore,
+                        enemyResult,
+                        gamePhase: 'overtime',
+                        message: 'Tied game! Heading to overtime!'
+                    };
+                } else {
+                    // Game over (win or loss)
+                    return endMatch();
+                }
+            } else if (managementState.gamePhase === 'overtime') {
+                managementState.overtimePossession++;
+                // In overtime, check after each possession pair
+                if (scoreDiff !== 0) {
+                    // Someone is ahead - game over
+                    return endMatch();
+                }
+                // Still tied - continue overtime
+                return {
+                    ongoing: true,
+                    possession: managementState.currentPossession,
+                    score: managementState.matchScore,
+                    enemyResult,
+                    gamePhase: 'overtime',
+                    message: `Overtime continues! Still tied ${playerScore}-${oppScore}`
+                };
             }
 
             return {
                 ongoing: true,
                 possession: managementState.currentPossession,
                 score: managementState.matchScore,
-                enemyResult
+                enemyResult,
+                gamePhase: managementState.gamePhase
             };
         }
 
@@ -2295,12 +2856,12 @@
             return managementState.team.roster.find(p => p.id === playerId);
         }
 
-        // Generate walk-on player (very low stats) for empty slots
+        // Generate walk-on player (lower stats but not terrible) for empty slots
         function generateWalkOn(position) {
-            const player = generatePlayer(position, 'rookie');
-            // Reduce all stats significantly
+            const player = generatePlayer(position, 'average');
+            // Reduce stats moderately - walk-ons should be below average but not terrible
             Object.keys(player.stats).forEach(stat => {
-                player.stats[stat] = Math.max(20, player.stats[stat] - 30);
+                player.stats[stat] = Math.max(55, player.stats[stat] - 10);
             });
             player.firstName = 'Recruit';
             player.lastName = position;
@@ -2788,8 +3349,9 @@
                 gameState.receiversStartZ.push(config.start.z);
             });
 
-            // Create Defenders
+            // Create Defenders (skip in training mode)
             // Line of scrimmage is at RECEIVER_START_Z - defenders spawn above it
+            if (!gameState.trainingMode) {
             defenderConfigs.forEach((config, i) => {
                 // Calculate starting position - defenders start ABOVE line of scrimmage
                 let startPos;
@@ -2884,8 +3446,10 @@
 
                 gameState.defenders.push(defender);
             });
+            } // End of training mode skip for defenders
 
-            // Offensive Line configurations (5 players) - try roster first
+            // Offensive Line configurations (5 players) - skip in training mode
+            if (!gameState.trainingMode) {
             const LINE_OF_SCRIMMAGE_Z = RECEIVER_START_Z;  // Same as receivers start
             const rosterOLineConfigs = getOLineConfigsFromRoster();
             const defaultOLineConfigs = [
@@ -3013,6 +3577,7 @@
 
                 gameState.defensiveLine.push(dLineman);
             });
+            } // End of training mode skip for OL/DL
 
             // Create GUI for player name labels
             const advancedTexture = BABYLON.GUI.AdvancedDynamicTexture.CreateFullscreenUI('UI', true, scene);
@@ -3544,6 +4109,7 @@
         // Move receiver along their route
         const moveReceiverAlongRoute = (receiver, runSpeed) => {
             if (!receiver.route || receiver.routeIndex >= receiver.route.length) {
+                receiver.velocity = new BABYLON.Vector3(0, 0, 0); // Stopped
                 return false; // Route complete
             }
 
@@ -3557,6 +4123,7 @@
                 // Reached waypoint, move to next
                 receiver.routeIndex++;
                 if (receiver.routeIndex >= receiver.route.length) {
+                    receiver.velocity = new BABYLON.Vector3(0, 0, 0); // Stopped
                     return false; // Route complete
                 }
                 // Continue toward new waypoint this frame (don't skip a frame)
@@ -3567,10 +4134,17 @@
             }
 
             if (dist > 0.1) {
+                // Calculate and store velocity
+                const vx = (dx / dist) * runSpeed;
+                const vz = (dz / dist) * runSpeed;
+                receiver.velocity = new BABYLON.Vector3(vx, 0, vz);
+
                 // Move toward target
-                receiver.position.x += (dx / dist) * runSpeed;
-                receiver.position.z += (dz / dist) * runSpeed;
+                receiver.position.x += vx;
+                receiver.position.z += vz;
                 receiver.rotation.y = Math.atan2(dx, dz);
+            } else {
+                receiver.velocity = new BABYLON.Vector3(0, 0, 0);
             }
             return true;
         };
@@ -4006,6 +4580,9 @@
             // Don't move if play has ended or ball is being thrown
             if (gameState.playEnded || gameState.ballInFlight) return;
 
+            // Skip QB movement/sack logic in training mode
+            if (gameState.trainingMode) return;
+
             // Find closest threat (D-lineman)
             let closestThreat = null;
             let closestThreatDist = Infinity;
@@ -4191,13 +4768,13 @@
 
             const margin = tackleRoll - evasionRoll;
 
-            // Tackling is meant to be fairly easy on equal stats
-            // So a small positive margin should result in a tackle
-            if (margin > -5) {
+            // Tackling favors the defender - receiver needs to significantly outroll
+            // to break a tackle (margin must be < -12, meaning receiver wins by 12+)
+            if (margin > -12) {
                 // Tackle successful!
                 handleTackle(receiver, defender);
             } else {
-                // Broken tackle!
+                // Broken tackle! (rare - requires big evasion win)
                 handleBrokenTackle(receiver, defender);
             }
         };
@@ -4590,9 +5167,9 @@
             // Calculate available depth to end zone
             const depthToEndZone = END_ZONE_Z - startZ;
             const isVeryNearGoalLine = depthToEndZone < 2;  // Within 2 yards - need sideways cuts
-            const isNearGoalLine = depthToEndZone < 6;  // Within 6 yards of end zone
+            const isNearGoalLine = depthToEndZone < 8;  // Within 8 yards of end zone - use goal line routes
             const isOnSideline = Math.abs(startX) > 5;  // Near sideline
-            const isInRedZone = depthToEndZone < 10;  // Inside the 10
+            const isInRedZone = depthToEndZone < 12;  // Inside the ~12 yard line
 
             // Determine lateral directions
             const towardMiddle = startX > 0 ? -1 : 1;
@@ -4617,11 +5194,11 @@
                 // Goal line routes - short, quick, mostly crossing or corner fades
                 if (isOnSideline || forceCrossing) {
                     // Near sideline + goal line = must cross toward middle
-                    const types = ['quick_slant', 'corner_fade', 'flat_cross'];
+                    const types = ['quick_slant', 'corner_fade', 'flat_cross', 'flat_cross'];
                     routeType = types[Math.floor(Math.random() * types.length)];
                 } else {
-                    // Middle of field near goal line
-                    const types = ['quick_slant', 'fade', 'back_shoulder', 'out_and_up'];
+                    // Middle of field near goal line - favor crossing routes
+                    const types = ['quick_slant', 'flat_cross', 'back_shoulder', 'quick_slant', 'flat_cross'];
                     routeType = types[Math.floor(Math.random() * types.length)];
                 }
             } else if (isInRedZone) {
@@ -4854,6 +5431,12 @@
             gameState.canThrow = false;
             updateMessage('');
 
+            // Capture receiver velocities at throw time for rating calculation
+            gameState.receiverVelocitiesAtThrow = {};
+            gameState.receivers.forEach(receiver => {
+                gameState.receiverVelocitiesAtThrow[receiver.name] = receiver.velocity ? receiver.velocity.clone() : new BABYLON.Vector3(0, 0, 0);
+            });
+
             // Record throw attempt for QB
             if (scene.qb && scene.qb.playerId) {
                 const qbStats = gameStats.getPlayer(scene.qb.playerId, scene.qb.displayName || 'QB');
@@ -4878,6 +5461,15 @@
             const animationSpeed = 2.0 - (throwParams.power * 1.2);
             let accumulator = 0;
             const time = { value: 0 };
+
+            // Create trail effect for ball
+            const trailParticles = [];
+            const trailMaterial = new BABYLON.StandardMaterial('trailMat', scene);
+            trailMaterial.diffuseColor = new BABYLON.Color3(1, 0.8, 0.3);
+            trailMaterial.emissiveColor = new BABYLON.Color3(1, 0.6, 0.2);
+            trailMaterial.alpha = 0.8;
+            let lastTrailPos = null;
+            const trailSpacing = 0.3; // Distance between trail particles
 
             const ballAnimation = scene.onBeforeRenderObservable.add(() => {
                 const dt = scene.getEngine().getDeltaTime() * 0.001;
@@ -4905,6 +5497,28 @@
 
                     // Spin animation
                     football.rotation.z += 0.2;
+
+                    // Add trail particles
+                    const currentPos = football.position.clone();
+                    if (!lastTrailPos || BABYLON.Vector3.Distance(currentPos, lastTrailPos) > trailSpacing) {
+                        const trailSphere = BABYLON.MeshBuilder.CreateSphere('trail', { diameter: 0.15, segments: 4 }, scene);
+                        trailSphere.position = currentPos.clone();
+                        trailSphere.material = trailMaterial;
+                        trailParticles.push({ mesh: trailSphere, alpha: 0.8, createdAt: time.value });
+                        lastTrailPos = currentPos.clone();
+                    }
+
+                    // Fade and remove old trail particles
+                    for (let i = trailParticles.length - 1; i >= 0; i--) {
+                        const particle = trailParticles[i];
+                        const age = time.value - particle.createdAt;
+                        particle.alpha = Math.max(0, 0.8 - age * 2);
+                        particle.mesh.visibility = particle.alpha;
+                        if (particle.alpha <= 0) {
+                            particle.mesh.dispose();
+                            trailParticles.splice(i, 1);
+                        }
+                    }
 
                     // Track game time for clash system (use consistent time source)
                     gameState.gameTime = performance.now() * 0.001;
@@ -5019,6 +5633,10 @@
                 // Check if ball has landed
                 if (frameIndex >= path.length - 1) {
                     scene.onBeforeRenderObservable.remove(ballAnimation);
+                    // Clean up trail particles
+                    trailParticles.forEach(p => p.mesh.dispose());
+                    trailParticles.length = 0;
+                    trailMaterial.dispose();
                     checkCatch(scene, football.position, null);
                 }
             });
@@ -5059,8 +5677,11 @@
                 // Record target for roster player
                 recordPlayerStat(potentialCatcher, 'seasonTargets');
 
-                // Show the catch probability display
-                showCatchDisplay(catchInfo, catchRoll, success);
+                // Calculate throw rating (always, for display purposes)
+                const throwRating = calculateThrowRating(potentialCatcher, ballPosition, gameState.gameTime);
+
+                // Show the catch probability display with throw rating
+                showCatchDisplay(catchInfo, catchRoll, success, throwRating);
 
                 // Record per-game catch stats
                 if (potentialCatcher.playerId) {
@@ -5081,6 +5702,58 @@
                     } else {
                         qbStats.incompletions++;
                     }
+                }
+
+                // In training mode, show throw rating
+                if (gameState.trainingMode) {
+                    gameState.lastThrowRating = throwRating;
+
+                    // Update throw rating UI
+                    const ratingEl = document.getElementById('throwRating');
+                    const gradeEl = document.getElementById('throwGrade');
+                    const detailsEl = document.getElementById('throwDetails');
+
+                    const gradeColors = {
+                        'A+': '#0f0', 'A': '#4f4', 'B': '#af4',
+                        'C': '#ff4', 'D': '#f84', 'F': '#f44'
+                    };
+
+                    gradeEl.textContent = throwRating.grade;
+                    gradeEl.style.color = gradeColors[throwRating.grade] || '#fff';
+                    detailsEl.textContent = throwRating.details;
+
+                    // Update visual catch bar in popup
+                    const popupHeader = document.getElementById('popupCatchHeader');
+                    const popupBase = document.getElementById('popupCatchBase');
+                    const popupPenalty = document.getElementById('popupCatchPenalty');
+                    const popupRoll = document.getElementById('popupCatchRoll');
+
+                    popupHeader.textContent = success ? 'CATCH!' : 'DROPPED';
+                    popupHeader.style.color = success ? '#4f4' : '#f66';
+
+                    const rawCatch = Math.min(95, catchInfo.baseCatch + catchInfo.focusMod);
+                    const penaltyWidth = Math.min(catchInfo.defenderPenalty, rawCatch);
+
+                    popupBase.style.width = `${rawCatch}%`;
+
+                    if (penaltyWidth > 0) {
+                        popupPenalty.style.display = 'block';
+                        popupPenalty.style.left = `${catchInfo.probability}%`;
+                        popupPenalty.style.width = `${penaltyWidth}%`;
+                    } else {
+                        popupPenalty.style.display = 'none';
+                    }
+
+                    popupRoll.textContent = '🏈';
+                    popupRoll.style.filter = success ? 'none' : 'grayscale(100%)';
+                    popupRoll.style.left = `${catchRoll}%`;
+
+                    ratingEl.style.display = 'block';
+
+                    // Hide after 3 seconds
+                    setTimeout(() => {
+                        ratingEl.style.display = 'none';
+                    }, 3000);
                 }
 
                 if (success) {
@@ -5140,6 +5813,32 @@
                 // No receiver nearby - incomplete pass
                 handleIncomplete();
                 updateMessage('Incomplete...');
+
+                // In training mode, show incomplete grade
+                if (gameState.trainingMode) {
+                    const ratingEl = document.getElementById('throwRating');
+                    const gradeEl = document.getElementById('throwGrade');
+                    const detailsEl = document.getElementById('throwDetails');
+                    const popupHeader = document.getElementById('popupCatchHeader');
+                    const popupBar = document.getElementById('popupCatchBar');
+
+                    gradeEl.textContent = 'INCOMPLETE';
+                    gradeEl.style.color = '#f66';
+                    gradeEl.style.fontSize = '32px';
+                    detailsEl.textContent = 'No receiver in range';
+
+                    popupHeader.textContent = '';
+                    popupBar.style.display = 'none';
+
+                    ratingEl.style.display = 'block';
+
+                    setTimeout(() => {
+                        ratingEl.style.display = 'none';
+                        gradeEl.style.fontSize = '48px'; // Reset font size
+                        popupBar.style.display = 'block'; // Reset bar visibility
+                    }, 3000);
+                }
+
                 // Ball bounces and rolls
                 bounceBall(scene, ballPosition);
             }
@@ -5312,13 +6011,17 @@
         };
 
         // Show catch probability display
-        const showCatchDisplay = (catchInfo, roll, success) => {
+        const showCatchDisplay = (catchInfo, roll, success, throwRating = null) => {
+            // Skip showing in training mode (catch info is in the popup instead)
+            if (gameState.trainingMode) return;
+
             const display = document.getElementById('catchDisplay');
             const header = display.querySelector('.catch-header');
             const barBase = display.querySelector('.catch-bar-base');
             const barPenalty = display.querySelector('.catch-bar-penalty');
             const barRoll = display.querySelector('.catch-bar-roll');
             const defenderInfo = display.querySelector('.defender-info');
+            const throwRatingInfo = display.querySelector('.throw-rating-info');
 
             // Set header
             header.textContent = success ? 'CATCH!' : 'DROPPED';
@@ -5340,9 +6043,10 @@
                 barPenalty.style.display = 'none';
             }
 
-            // Roll marker with tick/cross
-            barRoll.textContent = success ? '✓' : '✗';
+            // Roll marker with football icon
+            barRoll.textContent = '🏈';
             barRoll.className = 'catch-bar-roll ' + (success ? 'success' : 'fail');
+            barRoll.style.filter = success ? 'none' : 'grayscale(100%)';
             barRoll.style.left = `${roll}%`;
 
             // Show defender distances only
@@ -5354,6 +6058,13 @@
                 defenderInfo.textContent = distances ? distances + 'yd' : '';
             } else {
                 defenderInfo.textContent = '';
+            }
+
+            // Show throw rating info if available
+            if (throwRating) {
+                throwRatingInfo.textContent = `${throwRating.grade} | Route: ${throwRating.distToRoute}yd off | Lead: ${throwRating.leadText || ''}`;
+            } else {
+                throwRatingInfo.textContent = '';
             }
 
             // Show display
@@ -5471,6 +6182,13 @@
                 scene.trajectoryDots = null;
             }
             gameState.ballInFlight = false;
+
+            // Reset pointer/drag state to prevent desync issues
+            gameState.isDragging = false;
+            gameState.dragStart = null;
+            gameState.dragCurrent = null;
+            gameState.activePointerId = null;
+            gameState.canThrow = true;
 
             // Reset play state flags
             gameState.ballCarrier = null;
@@ -7092,6 +7810,163 @@
             updateGamePlayersFromRoster();
         }
 
+        // Start training mode (no defenders, throw ratings)
+        function startTrainingMode() {
+            gameState.trainingMode = true;
+            gameState.lastThrowRating = null;
+
+            // Hide management overlay and show game elements
+            document.getElementById('managementOverlay').classList.add('hidden');
+            document.getElementById('topBar').style.display = 'flex';
+            document.getElementById('viewButtons').style.display = 'none'; // Hide view buttons in training
+            document.getElementById('trainingModeUI').style.display = 'block';
+            document.getElementById('catchDisplay').style.display = 'none'; // Hide top-right catch display in training
+            gameSceneActive = true; // Enable game input
+
+            // Reset game state
+            gameState.down = 1;
+            gameState.yardsToGo = 10;
+            gameState.catches = 0;
+            gameState.attempts = 0;
+            gameState.touchdowns = 0;
+            gameState.lineOfScrimmage = -5;
+            gameState.firstDownMarker = 5;
+
+            // Keep defensive backs visible but hide offensive and defensive lines
+            gameState.offensiveLine.forEach(lineman => lineman.setEnabled(false));
+            gameState.defensiveLine.forEach(lineman => lineman.setEnabled(false));
+
+            // Reset play
+            if (gameState.scene) {
+                resetPlay(gameState.scene);
+            }
+
+            // Update UI
+            updateDownDisplay();
+        }
+
+        // Exit training mode and return to hub
+        function exitTrainingMode() {
+            gameState.trainingMode = false;
+            gameSceneActive = false; // Disable game input
+            document.getElementById('trainingModeUI').style.display = 'none';
+            document.getElementById('topBar').style.display = 'none';
+            document.getElementById('viewButtons').style.display = 'none';
+            document.getElementById('catchDisplay').style.display = ''; // Restore catch display
+            document.getElementById('managementOverlay').classList.remove('hidden');
+
+            // Show offensive and defensive lines again
+            gameState.offensiveLine.forEach(lineman => lineman.setEnabled(true));
+            gameState.defensiveLine.forEach(lineman => lineman.setEnabled(true));
+
+            // Hide other screens and show hub (or main menu if not initialized)
+            document.querySelectorAll('.mgmt-screen').forEach(s => s.style.display = 'none');
+            if (managementState.initialized) {
+                document.getElementById('hubScreen').style.display = 'block';
+                refreshHubScreen();
+            } else {
+                document.getElementById('mainMenuScreen').style.display = 'block';
+            }
+        }
+
+        // Calculate throw rating based on route proximity and leading
+        function calculateThrowRating(receiver, ballLandingPos, catchTime) {
+            // Get the receiver's route waypoints
+            const route = receiver.route || [];
+            if (route.length === 0) return { grade: 'C', score: 50, details: 'No route data' };
+
+            // Find the closest point on the route to where the ball landed
+            let minDist = Infinity;
+            let closestRoutePoint = null;
+
+            // Check distance to each route waypoint
+            route.forEach(waypoint => {
+                const dist = Math.sqrt(
+                    Math.pow(ballLandingPos.x - waypoint.x, 2) +
+                    Math.pow(ballLandingPos.z - waypoint.z, 2)
+                );
+                if (dist < minDist) {
+                    minDist = dist;
+                    closestRoutePoint = waypoint;
+                }
+            });
+
+            // Also check current receiver position at catch time
+            const receiverPos = receiver.position;
+            const distToReceiver = Math.sqrt(
+                Math.pow(ballLandingPos.x - receiverPos.x, 2) +
+                Math.pow(ballLandingPos.z - receiverPos.z, 2)
+            );
+
+            // Calculate lead accuracy: was the ball thrown ahead of the receiver?
+            // Positive lead = thrown ahead (good), negative = thrown behind (bad)
+            // Use velocity captured at throw time, not current velocity (receiver may have stopped)
+            const storedVelocity = gameState.receiverVelocitiesAtThrow && gameState.receiverVelocitiesAtThrow[receiver.name];
+            const receiverVelocity = storedVelocity || receiver.velocity || new BABYLON.Vector3(0, 0, 0);
+            const leadVector = new BABYLON.Vector3(
+                ballLandingPos.x - receiverPos.x,
+                0,
+                ballLandingPos.z - receiverPos.z
+            );
+
+            // Dot product with velocity direction (positive = leading, negative = behind)
+            const velocityMagnitude = Math.sqrt(receiverVelocity.x * receiverVelocity.x + receiverVelocity.z * receiverVelocity.z);
+            let leadScore = 50; // Default neutral
+            let leadDistance = 0; // Actual lead distance (positive = ahead, negative = behind)
+            const idealLead = 1.0; // Ideal lead distance in units
+
+            if (velocityMagnitude > 0.001) {
+                const leadDot = (leadVector.x * receiverVelocity.x + leadVector.z * receiverVelocity.z) / velocityMagnitude;
+                leadDistance = leadDot;
+                // Good lead is 0.5-2 units ahead
+                if (leadDot > 0 && leadDot < 3) {
+                    leadScore = 100 - Math.abs(leadDot - idealLead) * 20; // Best at 1 unit lead
+                } else if (leadDot < 0) {
+                    leadScore = Math.max(0, 50 + leadDot * 20); // Penalty for behind
+                } else {
+                    leadScore = Math.max(30, 100 - leadDot * 15); // Too far ahead
+                }
+            }
+
+            // Route accuracy score (how close to the route) - less strict
+            const routeScore = Math.max(0, 100 - minDist * 20);
+
+            // Combine scores (lead accuracy weighted more heavily)
+            const totalScore = Math.round(routeScore * 0.3 + leadScore * 0.7);
+
+            // Determine grade (minimum C, no D or F)
+            let grade;
+            if (totalScore >= 90) grade = 'A+';
+            else if (totalScore >= 80) grade = 'A';
+            else if (totalScore >= 65) grade = 'B';
+            else grade = 'C';
+
+            // Format lead deviation from ideal
+            const leadDeviation = leadDistance - idealLead;
+            let leadText;
+            if (Math.abs(leadDistance) < 0.1 && velocityMagnitude < 0.001) {
+                leadText = 'stationary';
+            } else if (leadDeviation > 0.1) {
+                leadText = `+${leadDeviation.toFixed(1)} (too far ahead)`;
+            } else if (leadDeviation < -0.1 && leadDistance >= 0) {
+                leadText = `${leadDeviation.toFixed(1)} (short lead)`;
+            } else if (leadDistance < 0) {
+                leadText = `${leadDistance.toFixed(1)} (behind)`;
+            } else {
+                leadText = `${leadDeviation.toFixed(1)} (good)`;
+            }
+
+            return {
+                grade,
+                score: totalScore,
+                routeScore: Math.round(routeScore),
+                leadScore: Math.round(leadScore),
+                distToRoute: minDist.toFixed(1),
+                leadText: leadText,
+                details: `Route: ${minDist.toFixed(1)} yds off | Lead: ${leadText}`
+            };
+        }
+
         // Update game player meshes with roster data
         function updateGamePlayersFromRoster() {
             if (!managementState.initialized || !managementState.team) return;
@@ -7188,6 +8063,14 @@
 
             const result = recordPossessionResult(points);
 
+            // Handle case where recordPossessionResult returns undefined
+            if (!result) {
+                console.error('recordPossessionResult returned undefined');
+                gameState.waitingForPossession = false;
+                resetPlay(gameState.scene);
+                return;
+            }
+
             if (!result.ongoing) {
                 showMatchEnd(result);
             } else {
@@ -7196,12 +8079,65 @@
             }
         }
 
-        // Show enemy drive result overlay between possessions with progressive play-by-play
+        // Helper to create catch probability bar HTML
+        // Shows QB roll vs catch window - lower roll is better (exponential distribution)
+        function createCatchBarHTML(catchInfo, small = false) {
+            if (!catchInfo) return '';
+
+            const barWidth = small ? 80 : 100;
+            const barHeight = small ? 10 : 14;
+            const fontSize = small ? 10 : 12;
+
+            const success = catchInfo.catchSuccess;
+            const catchWindow = catchInfo.catchProb;
+            // Scale the roll position: catchProb is the threshold, show roll relative to it
+            // Bar shows 0-100 scale where catchWindow% is the "safe zone"
+            const rollPosition = Math.min(100, (catchInfo.qbRoll / Math.max(1, catchWindow)) * catchWindow);
+
+            return `
+                <div style="display: inline-flex; align-items: center; gap: 6px; font-family: 'Courier New', monospace; font-size: ${fontSize}px;">
+                    <span style="color: ${success ? '#4f4' : '#f66'}; font-weight: bold;">${success ? 'CATCH!' : 'INCOMPLETE'}</span>
+                    <div style="position: relative; width: ${barWidth}px; height: ${barHeight}px; background: #222; border-radius: 2px; overflow: visible;">
+                        <div style="position: absolute; left: 0; top: 0; height: 100%; width: ${catchWindow}%; background: linear-gradient(90deg, #3a3, #4b4); border-radius: 2px;"></div>
+                        <div style="position: absolute; top: -1px; left: ${Math.min(98, rollPosition)}%; transform: translateX(-50%); font-size: ${fontSize}px; font-weight: bold; text-shadow: 0 0 2px #000; color: ${success ? '#4f4' : '#f44'}; line-height: ${barHeight}px;">${success ? '✓' : '✗'}</div>
+                    </div>
+                    <span style="color: #888; font-size: ${fontSize - 1}px;">${catchInfo.effectiveCatchPct}%</span>
+                </div>
+            `;
+        }
+
+        // Helper to create pressure bar HTML
+        function createPressureBarHTML(pressureInfo) {
+            if (!pressureInfo) return '';
+
+            const pressure = pressureInfo.totalPressure;
+            const level = pressureInfo.pressureLevel;
+            const colors = {
+                'light': '#4a4',
+                'moderate': '#aa4',
+                'heavy': '#f84',
+                'extreme': '#f44'
+            };
+            const color = colors[level] || '#888';
+
+            return `
+                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                    <span style="color: #888; font-size: 11px; width: 60px;">PRESSURE</span>
+                    <div style="position: relative; width: 80px; height: 8px; background: #222; border-radius: 2px;">
+                        <div style="position: absolute; left: 0; top: 0; height: 100%; width: ${pressure}%; background: ${color}; border-radius: 2px; transition: width 0.3s;"></div>
+                    </div>
+                    <span style="color: ${color}; font-size: 10px; text-transform: uppercase;">${level}</span>
+                </div>
+            `;
+        }
+
+        // Show enemy drive result overlay with detailed simulation info
         function showEnemyDriveResult(result) {
             const game = managementState.season.schedule[managementState.season.week - 1];
-            const plays = result.enemyResult.narrative; // Array of play descriptions
-            const totalDuration = 3500; // 3.5 seconds total
-            const delayPerPlay = Math.floor(totalDuration / plays.length);
+            const plays = result.enemyResult.plays || []; // Array of detailed play objects
+            const delayPerPlay = plays.length > 0 ? 1200 : 500; // Time between plays
+
+            console.log('showEnemyDriveResult - plays count:', plays.length);
 
             // Create overlay
             const overlay = document.createElement('div');
@@ -7209,41 +8145,45 @@
             overlay.style.cssText = `
                 position: fixed;
                 top: 0; left: 0; right: 0; bottom: 0;
-                background: rgba(0,0,0,0.85);
+                background: rgba(0,0,0,0.9);
                 display: flex;
                 align-items: center;
                 justify-content: center;
                 z-index: 2000;
+                font-family: 'Courier New', monospace;
             `;
 
             const pointsColor = result.enemyResult.points > 0 ? '#f44' : '#4f4';
             const pointsText = result.enemyResult.points > 0
                 ? `+${result.enemyResult.points} points`
-                : 'No score!';
+                : 'Defensive Stop!';
 
             overlay.innerHTML = `
-                <div style="background: #1a1a2e; border: 2px solid #333; border-radius: 12px; padding: 30px; max-width: 550px; text-align: center; min-height: 280px;">
-                    <h2 style="color: #888; margin: 0 0 15px; font-size: 14px; text-transform: uppercase;">
+                <div style="background: #1a1a2e; border: 2px solid #333; border-radius: 12px; padding: 20px; max-width: 700px; width: 95%; text-align: center; max-height: 90vh; display: flex; flex-direction: column;">
+                    <h2 style="color: #888; margin: 0 0 12px; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; flex-shrink: 0;">
                         ${game.opponent.name} Possession
                     </h2>
-                    <div id="playByPlay" style="color: #ccc; margin: 0 0 15px; font-size: 15px; line-height: 1.6; min-height: 120px; text-align: left; padding: 0 10px;">
+                    <div id="playsScrollContainer" style="flex: 1; overflow-y: auto; min-height: 200px; max-height: 400px; padding: 8px; background: #151528; border-radius: 8px; margin-bottom: 12px;">
+                        <div id="playsContainer" style="text-align: left;">
+                        </div>
                     </div>
-                    <div id="driveResult" style="display: none;">
-                        <div style="color: ${pointsColor}; font-size: 24px; font-weight: bold; margin-bottom: 15px;">
+                    <div id="driveResult" style="display: none; flex-shrink: 0;">
+                        <div style="color: ${pointsColor}; font-size: 24px; font-weight: bold; margin-bottom: 12px;">
                             ${pointsText}
                         </div>
-                        <div style="color: #aaa; margin-bottom: 15px;">
+                        <div style="color: #aaa; margin-bottom: 12px;">
                             <span style="color: #4af;">You: ${result.score.player}</span>
                             &nbsp;-&nbsp;
                             <span style="color: #f44;">${game.opponent.name}: ${result.score.opponent}</span>
                         </div>
-                        <div style="color: #666; margin-bottom: 12px;">
-                            Possession ${result.possession + 1} of ${SEASON.POSSESSIONS_PER_GAME}
+                        <div style="color: #666; margin-bottom: 12px; font-size: 12px;">
+                            ${getGamePhaseDisplay(result)}
                         </div>
+                        ${result.message ? `<div style="color: #fa4; margin-bottom: 12px; font-size: 14px; font-weight: bold;">${result.message}</div>` : ''}
                         <button id="btnContinueDrive" style="
                             background: #4a4; color: white; border: none;
                             padding: 12px 30px; border-radius: 6px; cursor: pointer;
-                            font-size: 16px;
+                            font-size: 16px; transition: background 0.2s;
                         ">Continue</button>
                     </div>
                 </div>
@@ -7251,37 +8191,187 @@
 
             document.body.appendChild(overlay);
 
-            const playByPlayDiv = document.getElementById('playByPlay');
+            const playsContainer = document.getElementById('playsContainer');
+            const scrollContainer = document.getElementById('playsScrollContainer');
             let playIndex = 0;
 
-            // Show plays progressively
-            const showNextPlay = () => {
-                if (playIndex < plays.length) {
-                    const playText = document.createElement('div');
-                    playText.style.cssText = 'margin-bottom: 8px; opacity: 0; transition: opacity 0.2s;';
+            // Format a detailed play display
+            const formatPlayDetails = (play, playNum) => {
+                if (!play) return '<div style="color: #888;">Loading...</div>';
 
-                    // Highlight final play differently
-                    const isFinalPlay = playIndex === plays.length - 1;
-                    if (isFinalPlay) {
-                        playText.style.color = pointsColor;
-                        playText.style.fontWeight = 'bold';
+                const opponent = result.enemyResult.opponent || game.opponent;
+                const teamShort = (opponent?.name || 'Enemy').split(' ')[0];
+                const qbName = play.qb ? getPlayerFullName(play.qb) : `${teamShort} QB`;
+
+                let html = `<div style="background: #252540; border-radius: 6px; padding: 10px; margin-bottom: 8px; border-left: 3px solid #444;">`;
+
+                // Play number and down/distance header
+                const downStr = getDownString(play.down);
+                const fieldPos = 100 - play.yardsFromGoal;
+                html += `<div style="color: #aaa; font-size: 12px; margin-bottom: 6px; display: flex; justify-content: space-between;">
+                    <span><span style="color: #666;">Play ${playNum}:</span> <span style="color: #fff; font-weight: bold;">${downStr}</span> & ${play.yardsToGo}</span>
+                    <span style="color: #555;">Ball at ${fieldPos > 50 ? 'OPP ' + (100 - fieldPos) : 'OWN ' + fieldPos}</span>
+                </div>`;
+
+                if (play.type === 'sack') {
+                    // Sack play
+                    const dlName = play.sackingPlayer ? getPlayerFullName(play.sackingPlayer) : 'Your DL';
+                    html += createPressureBarHTML(play.pressureInfo);
+                    html += `<div style="margin-top: 6px;">`;
+                    html += `<div style="color: #4f4; font-size: 13px; font-weight: bold;">SACK! ${dlName} breaks through!</div>`;
+                    html += `<div style="color: #888; font-size: 10px; margin-top: 2px;">${qbName} taken down for ${Math.abs(play.yardsGained)} yard loss</div>`;
+
+                    // DL matchup details
+                    if (play.pressureInfo?.matchups) {
+                        html += `<div style="margin-top: 6px; padding: 6px; background: #1a1a2e; border-radius: 4px; font-size: 10px;">`;
+                        html += `<div style="color: #666; margin-bottom: 3px;">LINE MATCHUPS:</div>`;
+                        play.pressureInfo.matchups.slice(0, 3).forEach(m => {
+                            const resultColor = m.result === 'beaten badly' ? '#f44' : m.result === 'beaten' ? '#f84' : m.result === 'pressured' ? '#aa4' : '#4a4';
+                            html += `<div style="display: flex; justify-content: space-between; color: #888; margin: 1px 0;">
+                                <span>${getPlayerFullName(m.dl)} vs ${getPlayerFullName(m.ol)}</span>
+                                <span style="color: ${resultColor};">${m.dlRoll} vs ${m.olRoll} → ${m.result}</span>
+                            </div>`;
+                        });
+                        html += `</div>`;
+                    }
+                    html += `</div>`;
+                } else if (play.fieldGoalAttempt) {
+                    // Field goal attempt
+                    const distance = play.yardsFromGoal + 17;
+                    const successColor = play.fieldGoalSuccess ? '#4f4' : '#f44';
+                    html += `<div style="color: ${successColor}; font-size: 13px; font-weight: bold;">`;
+                    html += play.fieldGoalSuccess ? `Field Goal GOOD from ${distance} yards!` : `Field Goal MISSED from ${distance} yards!`;
+                    html += `</div>`;
+                } else {
+                    // Pass play
+                    const catchInfo = play.catchInfo;
+                    const wrName = catchInfo?.receiver ? getPlayerFullName(catchInfo.receiver) : `${teamShort} WR`;
+                    const cbName = catchInfo?.cb ? getPlayerFullName(catchInfo.cb) : 'Your CB';
+
+                    // Pressure bar
+                    html += createPressureBarHTML(play.pressureInfo);
+
+                    // Target info
+                    html += `<div style="margin: 6px 0; font-size: 11px;">`;
+                    html += `<span style="color: #888;">Target:</span> <span style="color: #f94;">${wrName}</span>`;
+                    if (play.targetSlot) html += ` <span style="color: #555;">(${play.targetSlot})</span>`;
+                    html += ` <span style="color: #888;">vs</span> <span style="color: #4af;">${cbName}</span>`;
+                    html += `</div>`;
+
+                    // Show line matchups for pass plays too (not just sacks)
+                    if (play.pressureInfo?.matchups && play.pressureInfo.matchups.length > 0) {
+                        html += `<div style="margin-top: 6px; padding: 6px; background: #1a1a2e; border-radius: 4px; font-size: 10px;">`;
+                        html += `<div style="color: #666; margin-bottom: 3px;">LINE CLASHES:</div>`;
+                        play.pressureInfo.matchups.forEach(m => {
+                            const resultColor = m.result === 'beaten badly' ? '#f44' : m.result === 'beaten' ? '#f84' : m.result === 'pressured' ? '#fa4' : m.result === 'held' ? '#aa4' : '#4a4';
+                            html += `<div style="display: flex; justify-content: space-between; color: #888; margin: 1px 0;">
+                                <span style="color: #4af;">${getPlayerFullName(m.dl)}</span>
+                                <span><span style="color: #4af;">${m.dlRoll}</span> vs <span style="color: #f94;">${m.olRoll}</span> → <span style="color: ${resultColor};">${m.result}</span> (+${m.pressure})</span>
+                            </div>`;
+                        });
+                        html += `<div style="color: #888; margin-top: 3px; border-top: 1px solid #333; padding-top: 3px;">Total Pressure: <span style="color: #fff;">${play.pressureInfo.totalPressure}</span> (${play.pressureInfo.pressureLevel})</div>`;
+                        html += `</div>`;
                     }
 
-                    playText.textContent = plays[playIndex];
-                    playByPlayDiv.appendChild(playText);
+                    if (catchInfo) {
+                        // Matchup details box - aligned with player offense formula
+                        html += `<div style="background: #1a1a2e; border-radius: 4px; padding: 6px; margin: 6px 0; font-size: 10px;">`;
 
-                    // Fade in
-                    setTimeout(() => playText.style.opacity = '1', 50);
+                        // WR vs CB separation roll
+                        const sepColor = catchInfo.separationMargin > 5 ? '#4f4' : catchInfo.separationMargin < -5 ? '#f44' : '#aa4';
+                        const sepLabel = catchInfo.coverageCloseness < 0.2 ? 'OPEN' :
+                                        catchInfo.coverageCloseness < 0.4 ? 'some space' :
+                                        catchInfo.coverageCloseness < 0.6 ? 'contested' :
+                                        catchInfo.coverageCloseness < 0.8 ? 'tight' : 'SMOTHERED';
+                        html += `<div style="display: flex; justify-content: space-between; margin-bottom: 3px;">
+                            <span style="color: #666;">Separation:</span>
+                            <span>WR <span style="color: #f94;">${catchInfo.wrRoll}</span> vs CB <span style="color: #4af;">${catchInfo.cbRoll}</span> → <span style="color: ${sepColor};">${sepLabel}</span></span>
+                        </div>`;
+
+                        // Coverage penalty (like player offense defender proximity penalty)
+                        html += `<div style="display: flex; justify-content: space-between; margin-bottom: 3px;">
+                            <span style="color: #666;">CB Penalty (${catchInfo.coverageCloseness}³ × ${catchInfo.cbCoverage} × 0.8):</span>
+                            <span style="color: #f44;">-${catchInfo.defenderPenalty}</span>
+                        </div>`;
+
+                        // Catch window from WR/CB matchup
+                        const focusStr = catchInfo.focusMod !== 0 ? `+${catchInfo.focusMod}` : '';
+                        html += `<div style="display: flex; justify-content: space-between; margin-bottom: 3px;">
+                            <span style="color: #666;">Catch Window (${catchInfo.baseCatch}${focusStr}-${catchInfo.defenderPenalty}):</span>
+                            <span style="color: #fff;">${catchInfo.catchProb}%</span>
+                        </div>`;
+
+                        // QB throw quality with exponential distribution
+                        const qbColor = catchInfo.catchSuccess ? '#4f4' : '#f44';
+                        html += `<div style="display: flex; justify-content: space-between; margin-bottom: 3px;">
+                            <span style="color: #666;">QB (${catchInfo.qbAccuracy} acc, ${catchInfo.pressure} pres → μ=${catchInfo.rollMean}):</span>
+                            <span style="color: ${qbColor};">roll ${catchInfo.qbRoll} ${catchInfo.catchSuccess ? '<' : '≥'} ${catchInfo.catchProb}</span>
+                        </div>`;
+
+                        // Effective catch % after QB modifier
+                        html += `<div style="display: flex; justify-content: space-between;">
+                            <span style="color: #666;">Effective Catch:</span>
+                            <span style="color: #fff; font-weight: bold;">${catchInfo.effectiveCatchPct}%</span>
+                        </div>`;
+
+                        html += `</div>`;
+                    }
+
+                    // Result with catch bar
+                    html += `<div style="margin-top: 6px;">`;
+                    if (play.type === 'complete') {
+                        if (play.isTouchdown) {
+                            html += `<div style="color: #f44; font-size: 13px; font-weight: bold;">TOUCHDOWN! ${wrName} catches it for ${play.yardsGained} yards!</div>`;
+                        } else {
+                            html += `<div style="color: #ccc; font-size: 12px;">${wrName} catches for <span style="color: #f94;">${play.yardsGained} yards</span></div>`;
+                        }
+                        html += `<div style="margin-top: 4px;">${createCatchBarHTML(catchInfo, true)}</div>`;
+                    } else {
+                        html += `<div style="color: #4f4; font-size: 12px;">Pass broken up by ${cbName}!</div>`;
+                        html += `<div style="margin-top: 4px;">${createCatchBarHTML(catchInfo, true)}</div>`;
+                    }
+                    html += `</div>`;
+                }
+
+                html += `</div>`;
+                return html;
+            };
+
+            // Show plays progressively in scrolling container
+            const showNextPlay = () => {
+                if (playIndex < plays.length) {
+                    const play = plays[playIndex];
+
+                    // Add play to container
+                    const playDiv = document.createElement('div');
+                    playDiv.innerHTML = formatPlayDetails(play, playIndex + 1);
+                    playDiv.style.opacity = '0';
+                    playDiv.style.transition = 'opacity 0.3s';
+                    playsContainer.appendChild(playDiv);
+
+                    // Fade in and scroll to show new play
+                    setTimeout(() => {
+                        playDiv.style.opacity = '1';
+                        scrollContainer.scrollTop = scrollContainer.scrollHeight;
+                    }, 50);
 
                     playIndex++;
                     setTimeout(showNextPlay, delayPerPlay);
                 } else {
-                    // All plays shown, reveal result and button
+                    // All plays shown - add final result banner
+                    const resultBanner = document.createElement('div');
+                    resultBanner.style.cssText = `text-align: center; padding: 15px; color: ${pointsColor}; font-size: 16px; font-weight: bold; background: #252540; border-radius: 6px; border-left: 3px solid ${pointsColor};`;
+                    resultBanner.textContent = result.enemyResult.type === 'TD' ? 'TOUCHDOWN!' :
+                        result.enemyResult.type === 'FG' ? 'FIELD GOAL!' :
+                        result.enemyResult.type === 'PUNT' ? 'Forced to Punt!' :
+                        result.enemyResult.type === 'MISSED_FG' ? 'Field Goal Missed!' : 'Drive Stopped!';
+                    playsContainer.appendChild(resultBanner);
+                    scrollContainer.scrollTop = scrollContainer.scrollHeight;
+
                     setTimeout(() => {
                         document.getElementById('driveResult').style.display = 'block';
                         document.getElementById('btnContinueDrive').addEventListener('click', () => {
                             overlay.remove();
-                            // Clear waiting flag and reset play for next possession
                             gameState.waitingForPossession = false;
                             resetPlay(gameState.scene);
                         });
@@ -7298,6 +8388,21 @@
         setupInput(scene);
         setupIdleAnimations(scene);
 
+        // Handle visibility changes (app switching) - clear stale pointer state
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                // App is being hidden - clear any in-progress drag
+                gameState.isDragging = false;
+                gameState.activePointerId = null;
+                gameState.dragStart = null;
+                gameState.dragCurrent = null;
+                if (scene.trajectoryDots) {
+                    scene.trajectoryDots.forEach(dot => dot.dispose());
+                    scene.trajectoryDots = null;
+                }
+            }
+        });
+
         // Initialize management system
         initializeManagement();
 
@@ -7308,6 +8413,12 @@
         });
         document.getElementById('btnContinue').addEventListener('click', () => {
             if (managementState.initialized) showScreen('hub');
+        });
+        document.getElementById('btnTrainingMode').addEventListener('click', () => {
+            startTrainingMode();
+        });
+        document.getElementById('btnExitTraining').addEventListener('click', () => {
+            exitTrainingMode();
         });
         document.getElementById('btnPlayGame').addEventListener('click', () => {
             if (!managementState.season || managementState.season.week > SEASON.WEEKS) return;
@@ -7323,6 +8434,7 @@
         document.getElementById('btnFreeAgency').addEventListener('click', () => showScreen('free_agency'));
         document.getElementById('btnSchedule').addEventListener('click', () => showScreen('schedule'));
         document.getElementById('btnFacilities').addEventListener('click', () => showScreen('facilities'));
+        document.getElementById('btnHubTraining').addEventListener('click', () => startTrainingMode());
         document.getElementById('btnHubNewGame').addEventListener('click', () => {
             if (confirm("Start a new game? All progress will be lost!")) {
                 SaveSystem.clear();
