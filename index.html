@@ -267,6 +267,7 @@
                 <button id="btnFreeAgency" class="mgmt-btn">FREE AGENCY</button>
                 <button id="btnSchedule" class="mgmt-btn">SCHEDULE</button>
                 <button id="btnFacilities" class="mgmt-btn">FACILITIES</button>
+                <button id="btnHubTraining" class="mgmt-btn" style="background: #2a4a2a;">TRAINING</button>
             </div>
             <p id="hubRecord" class="hub-record">Record: 0-0</p>
             <p id="hubNextGame" class="hub-next"></p>
@@ -8250,6 +8251,7 @@
         document.getElementById('btnFreeAgency').addEventListener('click', () => showScreen('free_agency'));
         document.getElementById('btnSchedule').addEventListener('click', () => showScreen('schedule'));
         document.getElementById('btnFacilities').addEventListener('click', () => showScreen('facilities'));
+        document.getElementById('btnHubTraining').addEventListener('click', () => startTrainingMode());
         document.getElementById('btnHubNewGame').addEventListener('click', () => {
             if (confirm("Start a new game? All progress will be lost!")) {
                 SaveSystem.clear();
