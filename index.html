@@ -2573,7 +2573,10 @@
                     separation: 0,
                     catchProbability: 0,
                     effectiveCatchPct: 0,
-                    rollMean: 79
+                    rollMean: 79,
+                    // Momentum tracking
+                    lastDirection: 'vertical',  // 'vertical' or 'horizontal'
+                    momentum: 0                  // Built up over consecutive same-direction rounds
                 })),
 
                 // Defender states (DBs)
@@ -2581,7 +2584,10 @@
                     id: db.id || index,
                     player: db,
                     stats: db.stats,
-                    position: db.position || 'CB'
+                    position: db.position || 'CB',
+                    // Momentum tracking for defenders
+                    lastDirection: 'vertical',
+                    momentum: 0
                 })),
 
                 // O-Line states
@@ -2690,47 +2696,121 @@
         }
 
         // Process WR/DB separation clashes for a single round
+        // Incorporates momentum mechanics - players have inertia that makes direction changes harder
         function processReceiverClashesRound(state) {
-            for (const receiver of state.receivers) {
+            for (let i = 0; i < state.receivers.length; i++) {
+                const receiver = state.receivers[i];
                 const routeRound = receiver.route.rounds[state.round - 1];
                 const isCrossing = routeRound.crossing;
                 const isBreakRound = receiver.route.breakRound === state.round;
 
+                // Determine current direction
+                const currentDirection = isCrossing ? 'horizontal' : 'vertical';
+                const directionChanged = currentDirection !== receiver.lastDirection;
+
                 // Update receiver depth
                 receiver.currentDepth = routeRound.depth;
 
-                // Find covering defender (simple 1:1 matching for now)
-                const defenderIndex = state.receivers.indexOf(receiver);
-                const defender = state.defenders[defenderIndex] || state.defenders[0];
+                // Find covering defender
+                const defender = state.defenders[i] || state.defenders[0];
 
                 if (!defender) {
                     receiver.separation = 30;  // Wide open
+                    // Update receiver momentum
+                    receiver.momentum = directionChanged ? 1 : Math.min(receiver.momentum + 1, 3);
+                    receiver.lastDirection = currentDirection;
                     continue;
                 }
 
-                // WR roll for separation
+                // ========================================
+                // MOMENTUM MECHANICS
+                // ========================================
+                // When a player changes direction, their momentum works against them
+                // But receivers KNOW when they're going to cut, defenders have to REACT
+
+                // Calculate receiver's direction change efficiency
+                // Higher agility + acceleration = faster direction change
+                const wrAgilityFactor = receiver.stats.agility / 100;
+                const wrAccelFactor = (receiver.stats.acceleration || 70) / 100;
+                const wrChangeEfficiency = (wrAgilityFactor * 0.6 + wrAccelFactor * 0.4);
+
+                // Receiver's momentum penalty when changing direction
+                // More built-up momentum = harder to change (but receiver plans for this)
+                let wrMomentumPenalty = 0;
+                if (directionChanged && receiver.momentum > 0) {
+                    // Receiver takes a small penalty but planned the cut
+                    wrMomentumPenalty = receiver.momentum * 2 * (1 - wrChangeEfficiency);
+                }
+
+                // Defender has to REACT to direction change
+                // Awareness determines reaction time (how quickly they recognize the cut)
+                // Agility + acceleration determine how fast they can change direction
+                const dbAwareness = defender.stats.awareness || 70;
+                const dbAgility = defender.stats.agility || 70;
+                const dbAccel = (defender.stats.acceleration || 70);
+
+                // Reaction time: lower awareness = slower to recognize the cut
+                // Scale: 100 awareness = 0 delay, 50 awareness = significant delay
+                const reactionDelay = (100 - dbAwareness) * 0.15;  // 0 to 7.5 penalty
+
+                // Direction change efficiency for defender
+                const dbChangeEfficiency = (dbAgility / 100 * 0.6 + dbAccel / 100 * 0.4);
+
+                // Defender's momentum penalty when receiver changes direction
+                let dbMomentumPenalty = 0;
+                if (directionChanged && defender.momentum > 0) {
+                    // Defender is caught going the wrong way!
+                    // Higher momentum = worse (they were committed to the previous direction)
+                    // Lower change efficiency = harder to recover
+                    dbMomentumPenalty = defender.momentum * 5 * (1 - dbChangeEfficiency);
+                    // Add reaction delay - they don't even start changing immediately
+                    dbMomentumPenalty += reactionDelay;
+                }
+
+                // ========================================
+                // BASE SEPARATION ROLL
+                // ========================================
                 let receiverRoll = weightedStatRoll(receiver.stats, CLASH_WEIGHTS.separation.receiver);
 
-                // Crossing route bonus
+                // Apply receiver momentum penalty (small, they planned the cut)
+                receiverRoll -= wrMomentumPenalty;
+
+                // Crossing route bonus - agility and route running help execute the cut
                 if (isCrossing) {
-                    const crossingBonus = (receiver.stats.agility * 0.3 + receiver.stats.routeRunning * 0.2) * 0.5;
+                    const crossingBonus = (receiver.stats.agility * 0.2 + receiver.stats.routeRunning * 0.2);
                     receiverRoll += crossingBonus;
                 }
 
-                // Break round bonus (route breaks create separation)
+                // Break round bonus (the "snap" of the route creates separation)
                 if (isBreakRound) {
-                    const breakBonus = receiver.stats.routeRunning * 0.3;
+                    const breakBonus = receiver.stats.routeRunning * 0.25;
                     receiverRoll += breakBonus;
                 }
 
-                // Defender roll
+                // ========================================
+                // DEFENDER ROLL
+                // ========================================
                 let defenderRoll = weightedStatRoll(defender.stats, CLASH_WEIGHTS.separation.defender);
 
-                // Crossing coverage penalty
-                if (isCrossing) {
-                    const crossingPenalty = (100 - defender.stats.agility) * 0.15;
-                    defenderRoll -= crossingPenalty;
+                // Apply defender momentum penalty (large if caught going wrong way)
+                defenderRoll -= dbMomentumPenalty;
+
+                // ========================================
+                // UPDATE MOMENTUM FOR NEXT ROUND
+                // ========================================
+                if (directionChanged) {
+                    // Reset momentum when direction changes
+                    receiver.momentum = 1;
+                    // Defender's momentum resets but they're "behind" for this round
+                    defender.momentum = 1;
+                } else {
+                    // Build momentum in current direction (cap at 3)
+                    receiver.momentum = Math.min(receiver.momentum + 1, 3);
+                    defender.momentum = Math.min(defender.momentum + 1, 3);
                 }
+
+                receiver.lastDirection = currentDirection;
+                defender.lastDirection = currentDirection;  // Defender mirrors receiver
 
                 // Calculate separation margin
                 receiver.separation = receiverRoll - defenderRoll;
