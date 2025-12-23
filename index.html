@@ -7781,11 +7781,15 @@
             // Dot product with velocity direction (positive = leading, negative = behind)
             const velocityMagnitude = Math.sqrt(receiverVelocity.x * receiverVelocity.x + receiverVelocity.z * receiverVelocity.z);
             let leadScore = 50; // Default neutral
+            let leadDistance = 0; // Actual lead distance (positive = ahead, negative = behind)
+            const idealLead = 1.0; // Ideal lead distance in units
+
             if (velocityMagnitude > 0.001) {
                 const leadDot = (leadVector.x * receiverVelocity.x + leadVector.z * receiverVelocity.z) / velocityMagnitude;
+                leadDistance = leadDot;
                 // Good lead is 0.5-2 units ahead
                 if (leadDot > 0 && leadDot < 3) {
-                    leadScore = 100 - Math.abs(leadDot - 1) * 20; // Best at 1 unit lead
+                    leadScore = 100 - Math.abs(leadDot - idealLead) * 20; // Best at 1 unit lead
                 } else if (leadDot < 0) {
                     leadScore = Math.max(0, 50 + leadDot * 20); // Penalty for behind
                 } else {
@@ -7806,13 +7810,28 @@
             else if (totalScore >= 65) grade = 'B';
             else grade = 'C';
 
+            // Format lead deviation from ideal
+            const leadDeviation = leadDistance - idealLead;
+            let leadText;
+            if (Math.abs(leadDistance) < 0.1 && velocityMagnitude < 0.001) {
+                leadText = 'stationary';
+            } else if (leadDeviation > 0.1) {
+                leadText = `+${leadDeviation.toFixed(1)} (too far ahead)`;
+            } else if (leadDeviation < -0.1 && leadDistance >= 0) {
+                leadText = `${leadDeviation.toFixed(1)} (short lead)`;
+            } else if (leadDistance < 0) {
+                leadText = `${leadDistance.toFixed(1)} (behind)`;
+            } else {
+                leadText = `${leadDeviation.toFixed(1)} (good)`;
+            }
+
             return {
                 grade,
                 score: totalScore,
                 routeScore: Math.round(routeScore),
                 leadScore: Math.round(leadScore),
                 distToRoute: minDist.toFixed(1),
-                details: `Route: ${Math.round(routeScore)} | Lead: ${Math.round(leadScore)}`
+                details: `Route: ${minDist.toFixed(1)} yds off | Lead: ${leadText}`
             };
         }
 
