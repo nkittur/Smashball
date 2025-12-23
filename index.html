@@ -4554,6 +4554,9 @@
             // Don't move if play has ended or ball is being thrown
             if (gameState.playEnded || gameState.ballInFlight) return;
 
+            // Skip QB movement/sack logic in training mode
+            if (gameState.trainingMode) return;
+
             // Find closest threat (D-lineman)
             let closestThreat = null;
             let closestThreatDist = Infinity;
@@ -7790,20 +7793,18 @@
                 }
             }
 
-            // Route accuracy score (how close to the route)
-            const routeScore = Math.max(0, 100 - minDist * 30);
+            // Route accuracy score (how close to the route) - less strict
+            const routeScore = Math.max(0, 100 - minDist * 20);
 
-            // Combine scores
-            const totalScore = Math.round(routeScore * 0.5 + leadScore * 0.5);
+            // Combine scores (lead accuracy weighted more heavily)
+            const totalScore = Math.round(routeScore * 0.3 + leadScore * 0.7);
 
-            // Determine grade
+            // Determine grade (minimum C, no D or F)
             let grade;
             if (totalScore >= 90) grade = 'A+';
             else if (totalScore >= 80) grade = 'A';
-            else if (totalScore >= 70) grade = 'B';
-            else if (totalScore >= 60) grade = 'C';
-            else if (totalScore >= 50) grade = 'D';
-            else grade = 'F';
+            else if (totalScore >= 65) grade = 'B';
+            else grade = 'C';
 
             return {
                 grade,
