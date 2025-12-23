@@ -5167,9 +5167,9 @@
             // Calculate available depth to end zone
             const depthToEndZone = END_ZONE_Z - startZ;
             const isVeryNearGoalLine = depthToEndZone < 2;  // Within 2 yards - need sideways cuts
-            const isNearGoalLine = depthToEndZone < 6;  // Within 6 yards of end zone
+            const isNearGoalLine = depthToEndZone < 8;  // Within 8 yards of end zone - use goal line routes
             const isOnSideline = Math.abs(startX) > 5;  // Near sideline
-            const isInRedZone = depthToEndZone < 10;  // Inside the 10
+            const isInRedZone = depthToEndZone < 12;  // Inside the ~12 yard line
 
             // Determine lateral directions
             const towardMiddle = startX > 0 ? -1 : 1;
@@ -5194,11 +5194,11 @@
                 // Goal line routes - short, quick, mostly crossing or corner fades
                 if (isOnSideline || forceCrossing) {
                     // Near sideline + goal line = must cross toward middle
-                    const types = ['quick_slant', 'corner_fade', 'flat_cross'];
+                    const types = ['quick_slant', 'corner_fade', 'flat_cross', 'flat_cross'];
                     routeType = types[Math.floor(Math.random() * types.length)];
                 } else {
-                    // Middle of field near goal line
-                    const types = ['quick_slant', 'fade', 'back_shoulder', 'out_and_up'];
+                    // Middle of field near goal line - favor crossing routes
+                    const types = ['quick_slant', 'flat_cross', 'back_shoulder', 'quick_slant', 'flat_cross'];
                     routeType = types[Math.floor(Math.random() * types.length)];
                 }
             } else if (isInRedZone) {
