@@ -7676,6 +7676,7 @@
             document.getElementById('topBar').style.display = 'flex';
             document.getElementById('viewButtons').style.display = 'none'; // Hide view buttons in training
             document.getElementById('trainingModeUI').style.display = 'block';
+            gameSceneActive = true; // Enable game input
 
             // Reset game state
             gameState.down = 1;
@@ -7709,6 +7710,7 @@
         // Exit training mode and return to hub
         function exitTrainingMode() {
             gameState.trainingMode = false;
+            gameSceneActive = false; // Disable game input
             document.getElementById('trainingModeUI').style.display = 'none';
             document.getElementById('topBar').style.display = 'none';
             document.getElementById('viewButtons').style.display = 'none';
