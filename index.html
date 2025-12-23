@@ -207,27 +207,34 @@
     <div id="trainingModeUI" style="display: none;">
         <button id="btnExitTraining" style="
             position: fixed;
-            top: 6px;
-            left: 8px;
-            background: transparent;
-            color: #aaa;
-            border: none;
-            padding: 4px 8px;
+            top: 46px;
+            left: 10px;
+            width: 36px;
+            height: 36px;
+            padding: 0;
+            font-size: 20px;
+            line-height: 36px;
+            text-align: center;
+            border-radius: 50%;
+            background: rgba(40, 40, 60, 0.8);
+            color: #ccc;
+            border: 1px solid #444;
             cursor: pointer;
-            font-size: 18px;
             font-family: 'Courier New', monospace;
             z-index: 1001;
         ">←</button>
         <div id="trainingTitle" style="
             position: fixed;
-            top: 8px;
-            left: 35px;
+            top: 50px;
+            left: 50%;
+            transform: translateX(-50%);
             color: #4a4;
-            font-size: 12px;
+            font-size: 18px;
             font-family: 'Courier New', monospace;
             font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
             z-index: 1001;
-        ">TRAINING</div>
+        ">TRAINING MODE</div>
         <div id="throwRating" style="
             position: fixed;
             bottom: 100px;
@@ -244,6 +251,7 @@
         ">
             <div id="throwGrade" style="font-size: 48px; font-weight: bold; color: #4f4;"></div>
             <div id="throwDetails" style="font-size: 14px; color: #aaa; margin-top: 5px;"></div>
+            <div id="throwCatchInfo" style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #444;"></div>
         </div>
     </div>
 
@@ -5690,13 +5698,13 @@
 
                 // In training mode, show throw rating
                 if (gameState.trainingMode) {
-                    const throwRating = calculateThrowRating(potentialCatcher, ballPosition, gameState.gameTime);
                     gameState.lastThrowRating = throwRating;
 
                     // Update throw rating UI
                     const ratingEl = document.getElementById('throwRating');
                     const gradeEl = document.getElementById('throwGrade');
                     const detailsEl = document.getElementById('throwDetails');
+                    const catchInfoEl = document.getElementById('throwCatchInfo');
 
                     const gradeColors = {
                         'A+': '#0f0', 'A': '#4f4', 'B': '#af4',
@@ -5706,6 +5714,12 @@
                     gradeEl.textContent = throwRating.grade;
                     gradeEl.style.color = gradeColors[throwRating.grade] || '#fff';
                     detailsEl.textContent = throwRating.details;
+
+                    // Add catch info to popup
+                    const catchResult = success ? '<span style="color:#4f4">CATCH!</span>' : '<span style="color:#f66">DROPPED</span>';
+                    const catchPct = Math.round(catchInfo.probability);
+                    catchInfoEl.innerHTML = `${catchResult} (${catchPct}% chance)`;
+
                     ratingEl.style.display = 'block';
 
                     // Hide after 3 seconds
@@ -5944,6 +5958,9 @@
 
         // Show catch probability display
         const showCatchDisplay = (catchInfo, roll, success, throwRating = null) => {
+            // Skip showing in training mode (catch info is in the popup instead)
+            if (gameState.trainingMode) return;
+
             const display = document.getElementById('catchDisplay');
             const header = display.querySelector('.catch-header');
             const barBase = display.querySelector('.catch-bar-base');
@@ -7741,7 +7758,7 @@
             document.getElementById('topBar').style.display = 'flex';
             document.getElementById('viewButtons').style.display = 'none'; // Hide view buttons in training
             document.getElementById('trainingModeUI').style.display = 'block';
-            document.getElementById('downDistance').style.marginLeft = '80px'; // Make room for back arrow and title
+            document.getElementById('catchDisplay').style.display = 'none'; // Hide top-right catch display in training
             gameSceneActive = true; // Enable game input
 
             // Reset game state
@@ -7773,7 +7790,7 @@
             document.getElementById('trainingModeUI').style.display = 'none';
             document.getElementById('topBar').style.display = 'none';
             document.getElementById('viewButtons').style.display = 'none';
-            document.getElementById('downDistance').style.marginLeft = '0'; // Reset margin
+            document.getElementById('catchDisplay').style.display = ''; // Restore catch display
             document.getElementById('managementOverlay').classList.remove('hidden');
 
             // Show offensive and defensive lines again
