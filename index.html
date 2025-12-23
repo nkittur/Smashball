@@ -168,6 +168,11 @@
             font-size: 10px;
             color: #f99;
         }
+        #catchDisplay .throw-rating-info {
+            font-size: 10px;
+            color: #9cf;
+            margin-top: 2px;
+        }
     </style>
 </head>
 <body>
@@ -188,6 +193,7 @@
                 <div class="catch-bar-roll">✓</div>
             </div>
             <div class="defender-info"></div>
+            <div class="throw-rating-info"></div>
         </div>
     </div>
     <div id="viewButtons">
@@ -201,32 +207,27 @@
     <div id="trainingModeUI" style="display: none;">
         <button id="btnExitTraining" style="
             position: fixed;
-            top: 50px;
-            left: 20px;
-            background: #c44;
-            color: white;
-            border: 2px solid #fff;
-            padding: 12px 24px;
-            border-radius: 6px;
+            top: 6px;
+            left: 8px;
+            background: transparent;
+            color: #aaa;
+            border: none;
+            padding: 4px 8px;
             cursor: pointer;
-            font-size: 16px;
-            font-weight: bold;
-            font-family: 'Courier New', monospace;
-            z-index: 1000;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.5);
-        ">← EXIT TO MENU</button>
-        <div id="trainingTitle" style="
-            position: fixed;
-            top: 50px;
-            left: 50%;
-            transform: translateX(-50%);
-            color: #4a4;
             font-size: 18px;
             font-family: 'Courier New', monospace;
+            z-index: 1001;
+        ">←</button>
+        <div id="trainingTitle" style="
+            position: fixed;
+            top: 8px;
+            left: 35px;
+            color: #4a4;
+            font-size: 12px;
+            font-family: 'Courier New', monospace;
             font-weight: bold;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
-            z-index: 1000;
-        ">TRAINING MODE</div>
+            z-index: 1001;
+        ">TRAINING</div>
         <div id="throwRating" style="
             position: fixed;
             bottom: 100px;
@@ -4092,6 +4093,7 @@
         // Move receiver along their route
         const moveReceiverAlongRoute = (receiver, runSpeed) => {
             if (!receiver.route || receiver.routeIndex >= receiver.route.length) {
+                receiver.velocity = new BABYLON.Vector3(0, 0, 0); // Stopped
                 return false; // Route complete
             }
 
@@ -4105,6 +4107,7 @@
                 // Reached waypoint, move to next
                 receiver.routeIndex++;
                 if (receiver.routeIndex >= receiver.route.length) {
+                    receiver.velocity = new BABYLON.Vector3(0, 0, 0); // Stopped
                     return false; // Route complete
                 }
                 // Continue toward new waypoint this frame (don't skip a frame)
@@ -4115,10 +4118,17 @@
             }
 
             if (dist > 0.1) {
+                // Calculate and store velocity
+                const vx = (dx / dist) * runSpeed;
+                const vz = (dz / dist) * runSpeed;
+                receiver.velocity = new BABYLON.Vector3(vx, 0, vz);
+
                 // Move toward target
-                receiver.position.x += (dx / dist) * runSpeed;
-                receiver.position.z += (dz / dist) * runSpeed;
+                receiver.position.x += vx;
+                receiver.position.z += vz;
                 receiver.rotation.y = Math.atan2(dx, dz);
+            } else {
+                receiver.velocity = new BABYLON.Vector3(0, 0, 0);
             }
             return true;
         };
@@ -5651,8 +5661,11 @@
                 // Record target for roster player
                 recordPlayerStat(potentialCatcher, 'seasonTargets');
 
-                // Show the catch probability display
-                showCatchDisplay(catchInfo, catchRoll, success);
+                // Calculate throw rating (always, for display purposes)
+                const throwRating = calculateThrowRating(potentialCatcher, ballPosition, gameState.gameTime);
+
+                // Show the catch probability display with throw rating
+                showCatchDisplay(catchInfo, catchRoll, success, throwRating);
 
                 // Record per-game catch stats
                 if (potentialCatcher.playerId) {
@@ -5930,13 +5943,14 @@
         };
 
         // Show catch probability display
-        const showCatchDisplay = (catchInfo, roll, success) => {
+        const showCatchDisplay = (catchInfo, roll, success, throwRating = null) => {
             const display = document.getElementById('catchDisplay');
             const header = display.querySelector('.catch-header');
             const barBase = display.querySelector('.catch-bar-base');
             const barPenalty = display.querySelector('.catch-bar-penalty');
             const barRoll = display.querySelector('.catch-bar-roll');
             const defenderInfo = display.querySelector('.defender-info');
+            const throwRatingInfo = display.querySelector('.throw-rating-info');
 
             // Set header
             header.textContent = success ? 'CATCH!' : 'DROPPED';
@@ -5972,6 +5986,13 @@
                 defenderInfo.textContent = distances ? distances + 'yd' : '';
             } else {
                 defenderInfo.textContent = '';
+            }
+
+            // Show throw rating info if available
+            if (throwRating) {
+                throwRatingInfo.textContent = `${throwRating.grade} | Route: ${throwRating.distToRoute}yd off | Lead: ${throwRating.leadText || ''}`;
+            } else {
+                throwRatingInfo.textContent = '';
             }
 
             // Show display
@@ -7720,6 +7741,7 @@
             document.getElementById('topBar').style.display = 'flex';
             document.getElementById('viewButtons').style.display = 'none'; // Hide view buttons in training
             document.getElementById('trainingModeUI').style.display = 'block';
+            document.getElementById('downDistance').style.marginLeft = '80px'; // Make room for back arrow and title
             gameSceneActive = true; // Enable game input
 
             // Reset game state
@@ -7751,6 +7773,7 @@
             document.getElementById('trainingModeUI').style.display = 'none';
             document.getElementById('topBar').style.display = 'none';
             document.getElementById('viewButtons').style.display = 'none';
+            document.getElementById('downDistance').style.marginLeft = '0'; // Reset margin
             document.getElementById('managementOverlay').classList.remove('hidden');
 
             // Show offensive and defensive lines again
@@ -7860,6 +7883,7 @@
                 routeScore: Math.round(routeScore),
                 leadScore: Math.round(leadScore),
                 distToRoute: minDist.toFixed(1),
+                leadText: leadText,
                 details: `Route: ${minDist.toFixed(1)} yds off | Lead: ${leadText}`
             };
         }
