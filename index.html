@@ -3334,7 +3334,8 @@
 
             // Create Defenders (skip in training mode)
             // Line of scrimmage is at RECEIVER_START_Z - defenders spawn above it
-            if (!gameState.trainingMode) defenderConfigs.forEach((config, i) => {
+            if (!gameState.trainingMode) {
+            defenderConfigs.forEach((config, i) => {
                 // Calculate starting position - defenders start ABOVE line of scrimmage
                 let startPos;
                 if (config.aiType === 'man' && config.assignedReceiver !== undefined) {
@@ -3428,6 +3429,7 @@
 
                 gameState.defenders.push(defender);
             });
+            } // End of training mode skip for defenders
 
             // Offensive Line configurations (5 players) - skip in training mode
             if (!gameState.trainingMode) {
