@@ -190,7 +190,7 @@
             <div class="catch-bar">
                 <div class="catch-bar-base"></div>
                 <div class="catch-bar-penalty"></div>
-                <div class="catch-bar-roll">✓</div>
+                <div class="catch-bar-roll">🏈</div>
             </div>
             <div class="defender-info"></div>
             <div class="throw-rating-info"></div>
@@ -256,7 +256,7 @@
                 <div id="popupCatchBar" style="position: relative; width: 150px; height: 16px; background: #222; border-radius: 3px; margin: 0 auto; overflow: visible;">
                     <div id="popupCatchBase" style="position: absolute; left: 0; top: 0; height: 100%; background: linear-gradient(90deg, #3a3, #4b4); border-radius: 3px;"></div>
                     <div id="popupCatchPenalty" style="position: absolute; top: 0; height: 100%; background: rgba(0, 0, 0, 0.55); border-left: 1px solid #f55;"></div>
-                    <div id="popupCatchRoll" style="position: absolute; top: -2px; font-size: 14px; font-weight: bold; transform: translateX(-50%); line-height: 16px;">✓</div>
+                    <div id="popupCatchRoll" style="position: absolute; top: -2px; font-size: 14px; font-weight: bold; transform: translateX(-50%); line-height: 16px;">🏈</div>
                 </div>
             </div>
         </div>
@@ -5743,8 +5743,8 @@
                         popupPenalty.style.display = 'none';
                     }
 
-                    popupRoll.textContent = success ? '✓' : '✗';
-                    popupRoll.style.color = success ? '#4f4' : '#f44';
+                    popupRoll.textContent = '🏈';
+                    popupRoll.style.filter = success ? 'none' : 'grayscale(100%)';
                     popupRoll.style.left = `${catchRoll}%`;
 
                     ratingEl.style.display = 'block';
@@ -5812,6 +5812,32 @@
                 // No receiver nearby - incomplete pass
                 handleIncomplete();
                 updateMessage('Incomplete...');
+
+                // In training mode, show incomplete grade
+                if (gameState.trainingMode) {
+                    const ratingEl = document.getElementById('throwRating');
+                    const gradeEl = document.getElementById('throwGrade');
+                    const detailsEl = document.getElementById('throwDetails');
+                    const popupHeader = document.getElementById('popupCatchHeader');
+                    const popupBar = document.getElementById('popupCatchBar');
+
+                    gradeEl.textContent = 'INCOMPLETE';
+                    gradeEl.style.color = '#f66';
+                    gradeEl.style.fontSize = '32px';
+                    detailsEl.textContent = 'No receiver in range';
+
+                    popupHeader.textContent = '';
+                    popupBar.style.display = 'none';
+
+                    ratingEl.style.display = 'block';
+
+                    setTimeout(() => {
+                        ratingEl.style.display = 'none';
+                        gradeEl.style.fontSize = '48px'; // Reset font size
+                        popupBar.style.display = 'block'; // Reset bar visibility
+                    }, 3000);
+                }
+
                 // Ball bounces and rolls
                 bounceBall(scene, ballPosition);
             }
@@ -6016,9 +6042,10 @@
                 barPenalty.style.display = 'none';
             }
 
-            // Roll marker with tick/cross
-            barRoll.textContent = success ? '✓' : '✗';
+            // Roll marker with football icon
+            barRoll.textContent = '🏈';
             barRoll.className = 'catch-bar-roll ' + (success ? 'success' : 'fail');
+            barRoll.style.filter = success ? 'none' : 'grayscale(100%)';
             barRoll.style.left = `${roll}%`;
 
             // Show defender distances only
