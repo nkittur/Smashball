@@ -251,7 +251,14 @@
         ">
             <div id="throwGrade" style="font-size: 48px; font-weight: bold; color: #4f4;"></div>
             <div id="throwDetails" style="font-size: 14px; color: #aaa; margin-top: 5px;"></div>
-            <div id="throwCatchInfo" style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #444;"></div>
+            <div id="throwCatchInfo" style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #444;">
+                <div id="popupCatchHeader" style="font-size: 14px; font-weight: bold; margin-bottom: 6px;">CATCH</div>
+                <div id="popupCatchBar" style="position: relative; width: 150px; height: 16px; background: #222; border-radius: 3px; margin: 0 auto; overflow: visible;">
+                    <div id="popupCatchBase" style="position: absolute; left: 0; top: 0; height: 100%; background: linear-gradient(90deg, #3a3, #4b4); border-radius: 3px;"></div>
+                    <div id="popupCatchPenalty" style="position: absolute; top: 0; height: 100%; background: rgba(0, 0, 0, 0.55); border-left: 1px solid #f55;"></div>
+                    <div id="popupCatchRoll" style="position: absolute; top: -2px; font-size: 14px; font-weight: bold; transform: translateX(-50%); line-height: 16px;">✓</div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -5704,7 +5711,6 @@
                     const ratingEl = document.getElementById('throwRating');
                     const gradeEl = document.getElementById('throwGrade');
                     const detailsEl = document.getElementById('throwDetails');
-                    const catchInfoEl = document.getElementById('throwCatchInfo');
 
                     const gradeColors = {
                         'A+': '#0f0', 'A': '#4f4', 'B': '#af4',
@@ -5715,10 +5721,31 @@
                     gradeEl.style.color = gradeColors[throwRating.grade] || '#fff';
                     detailsEl.textContent = throwRating.details;
 
-                    // Add catch info to popup
-                    const catchResult = success ? '<span style="color:#4f4">CATCH!</span>' : '<span style="color:#f66">DROPPED</span>';
-                    const catchPct = Math.round(catchInfo.probability);
-                    catchInfoEl.innerHTML = `${catchResult} (${catchPct}% chance)`;
+                    // Update visual catch bar in popup
+                    const popupHeader = document.getElementById('popupCatchHeader');
+                    const popupBase = document.getElementById('popupCatchBase');
+                    const popupPenalty = document.getElementById('popupCatchPenalty');
+                    const popupRoll = document.getElementById('popupCatchRoll');
+
+                    popupHeader.textContent = success ? 'CATCH!' : 'DROPPED';
+                    popupHeader.style.color = success ? '#4f4' : '#f66';
+
+                    const rawCatch = Math.min(95, catchInfo.baseCatch + catchInfo.focusMod);
+                    const penaltyWidth = Math.min(catchInfo.defenderPenalty, rawCatch);
+
+                    popupBase.style.width = `${rawCatch}%`;
+
+                    if (penaltyWidth > 0) {
+                        popupPenalty.style.display = 'block';
+                        popupPenalty.style.left = `${catchInfo.probability}%`;
+                        popupPenalty.style.width = `${penaltyWidth}%`;
+                    } else {
+                        popupPenalty.style.display = 'none';
+                    }
+
+                    popupRoll.textContent = success ? '✓' : '✗';
+                    popupRoll.style.color = success ? '#4f4' : '#f44';
+                    popupRoll.style.left = `${catchRoll}%`;
 
                     ratingEl.style.display = 'block';
 
