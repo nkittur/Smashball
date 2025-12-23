@@ -1030,6 +1030,299 @@
             }
         };
 
+        // ========================================
+        // ROUTE TEMPLATES FOR SIMULATION
+        // ========================================
+        // Each route has per-round depth (yards from LOS) and crossing (direction change)
+        // breakRound is when the route "breaks" - creates separation opportunity
+        const ROUTE_TEMPLATES = {
+            standard: {
+                go: {
+                    name: 'go',
+                    rounds: [
+                        { depth: 5, crossing: false },
+                        { depth: 12, crossing: false },
+                        { depth: 20, crossing: false },
+                        { depth: 28, crossing: false },
+                        { depth: 35, crossing: false }
+                    ],
+                    breakRound: null
+                },
+                slant: {
+                    name: 'slant',
+                    rounds: [
+                        { depth: 3, crossing: true },
+                        { depth: 6, crossing: false },
+                        { depth: 8, crossing: false },
+                        { depth: 8, crossing: false },
+                        { depth: 8, crossing: false }
+                    ],
+                    breakRound: 1
+                },
+                out: {
+                    name: 'out',
+                    rounds: [
+                        { depth: 4, crossing: false },
+                        { depth: 8, crossing: true },
+                        { depth: 10, crossing: false },
+                        { depth: 10, crossing: false },
+                        { depth: 10, crossing: false }
+                    ],
+                    breakRound: 2
+                },
+                in: {
+                    name: 'in',
+                    rounds: [
+                        { depth: 4, crossing: false },
+                        { depth: 8, crossing: true },
+                        { depth: 10, crossing: false },
+                        { depth: 10, crossing: false },
+                        { depth: 10, crossing: false }
+                    ],
+                    breakRound: 2
+                },
+                post: {
+                    name: 'post',
+                    rounds: [
+                        { depth: 5, crossing: false },
+                        { depth: 10, crossing: true },
+                        { depth: 18, crossing: false },
+                        { depth: 25, crossing: false },
+                        { depth: 30, crossing: false }
+                    ],
+                    breakRound: 2
+                },
+                corner: {
+                    name: 'corner',
+                    rounds: [
+                        { depth: 5, crossing: false },
+                        { depth: 10, crossing: true },
+                        { depth: 18, crossing: false },
+                        { depth: 25, crossing: false },
+                        { depth: 30, crossing: false }
+                    ],
+                    breakRound: 2
+                },
+                curl: {
+                    name: 'curl',
+                    rounds: [
+                        { depth: 5, crossing: false },
+                        { depth: 10, crossing: false },
+                        { depth: 8, crossing: true },
+                        { depth: 8, crossing: false },
+                        { depth: 8, crossing: false }
+                    ],
+                    breakRound: 3
+                },
+                comeback: {
+                    name: 'comeback',
+                    rounds: [
+                        { depth: 5, crossing: false },
+                        { depth: 12, crossing: false },
+                        { depth: 10, crossing: true },
+                        { depth: 10, crossing: false },
+                        { depth: 10, crossing: false }
+                    ],
+                    breakRound: 3
+                },
+                dig: {
+                    name: 'dig',
+                    rounds: [
+                        { depth: 4, crossing: false },
+                        { depth: 8, crossing: false },
+                        { depth: 10, crossing: true },
+                        { depth: 12, crossing: false },
+                        { depth: 12, crossing: false }
+                    ],
+                    breakRound: 3
+                },
+                seam: {
+                    name: 'seam',
+                    rounds: [
+                        { depth: 4, crossing: false },
+                        { depth: 10, crossing: false },
+                        { depth: 16, crossing: false },
+                        { depth: 22, crossing: false },
+                        { depth: 28, crossing: false }
+                    ],
+                    breakRound: null
+                },
+                flat: {
+                    name: 'flat',
+                    rounds: [
+                        { depth: 2, crossing: true },
+                        { depth: 3, crossing: false },
+                        { depth: 3, crossing: false },
+                        { depth: 3, crossing: false },
+                        { depth: 3, crossing: false }
+                    ],
+                    breakRound: 1
+                },
+                wheel: {
+                    name: 'wheel',
+                    rounds: [
+                        { depth: 2, crossing: true },
+                        { depth: 5, crossing: false },
+                        { depth: 10, crossing: false },
+                        { depth: 16, crossing: false },
+                        { depth: 22, crossing: false }
+                    ],
+                    breakRound: 1
+                },
+                hitch: {
+                    name: 'hitch',
+                    rounds: [
+                        { depth: 4, crossing: false },
+                        { depth: 4, crossing: false },
+                        { depth: 4, crossing: false },
+                        { depth: 4, crossing: false },
+                        { depth: 4, crossing: false }
+                    ],
+                    breakRound: 1
+                }
+            },
+            redzone: {
+                fade: {
+                    name: 'fade',
+                    rounds: [
+                        { depth: 4, crossing: false },
+                        { depth: 8, crossing: false },
+                        { depth: 12, crossing: false },
+                        { depth: 15, crossing: false },
+                        { depth: 15, crossing: false }
+                    ],
+                    breakRound: null
+                },
+                back_shoulder: {
+                    name: 'back_shoulder',
+                    rounds: [
+                        { depth: 5, crossing: false },
+                        { depth: 8, crossing: false },
+                        { depth: 7, crossing: true },
+                        { depth: 7, crossing: false },
+                        { depth: 7, crossing: false }
+                    ],
+                    breakRound: 3
+                },
+                corner_fade: {
+                    name: 'corner_fade',
+                    rounds: [
+                        { depth: 3, crossing: false },
+                        { depth: 6, crossing: true },
+                        { depth: 10, crossing: false },
+                        { depth: 12, crossing: false },
+                        { depth: 12, crossing: false }
+                    ],
+                    breakRound: 2
+                },
+                quick_slant: {
+                    name: 'quick_slant',
+                    rounds: [
+                        { depth: 2, crossing: true },
+                        { depth: 5, crossing: false },
+                        { depth: 6, crossing: false },
+                        { depth: 6, crossing: false },
+                        { depth: 6, crossing: false }
+                    ],
+                    breakRound: 1
+                },
+                out_quick: {
+                    name: 'out_quick',
+                    rounds: [
+                        { depth: 3, crossing: false },
+                        { depth: 5, crossing: true },
+                        { depth: 5, crossing: false },
+                        { depth: 5, crossing: false },
+                        { depth: 5, crossing: false }
+                    ],
+                    breakRound: 2
+                }
+            },
+            goalline: {
+                endzone_fade: {
+                    name: 'endzone_fade',
+                    rounds: [
+                        { depth: 2, crossing: false },
+                        { depth: 5, crossing: false },
+                        { depth: 7, crossing: false },
+                        { depth: 7, crossing: false },
+                        { depth: 7, crossing: false }
+                    ],
+                    breakRound: null
+                },
+                endzone_slant: {
+                    name: 'endzone_slant',
+                    rounds: [
+                        { depth: 2, crossing: true },
+                        { depth: 4, crossing: false },
+                        { depth: 5, crossing: false },
+                        { depth: 5, crossing: false },
+                        { depth: 5, crossing: false }
+                    ],
+                    breakRound: 1
+                },
+                endzone_out: {
+                    name: 'endzone_out',
+                    rounds: [
+                        { depth: 2, crossing: false },
+                        { depth: 3, crossing: true },
+                        { depth: 4, crossing: false },
+                        { depth: 4, crossing: false },
+                        { depth: 4, crossing: false }
+                    ],
+                    breakRound: 2
+                },
+                endzone_flat: {
+                    name: 'endzone_flat',
+                    rounds: [
+                        { depth: 1, crossing: true },
+                        { depth: 2, crossing: false },
+                        { depth: 2, crossing: false },
+                        { depth: 2, crossing: false },
+                        { depth: 2, crossing: false }
+                    ],
+                    breakRound: 1
+                }
+            }
+        };
+
+        // QB personality traits that affect decision making
+        const QB_TRAITS = {
+            gunslinger: {
+                name: 'Gunslinger',
+                description: 'Waits for big plays, takes risks',
+                openThreshold: 60,       // Needs higher catch % to throw
+                pressureMultiplier: 0.7, // Less affected by pressure
+                firstDownBias: -10,      // Less likely to take short gains
+                aggressiveness: 1.3      // More likely to throw into coverage
+            },
+            game_manager: {
+                name: 'Game Manager',
+                description: 'Takes safe throws, avoids mistakes',
+                openThreshold: 45,       // Throws to first open receiver
+                pressureMultiplier: 1.3, // More affected by pressure
+                firstDownBias: 20,       // Heavily favors first down throws
+                aggressiveness: 0.7      // Avoids risky throws
+            },
+            balanced: {
+                name: 'Balanced',
+                description: 'Adapts to situation',
+                openThreshold: 52,
+                pressureMultiplier: 1.0,
+                firstDownBias: 5,
+                aggressiveness: 1.0
+            },
+            scrambler: {
+                name: 'Scrambler',
+                description: 'Prefers to run when pressured',
+                openThreshold: 55,
+                pressureMultiplier: 0.5, // Much less affected by pressure
+                firstDownBias: 0,
+                aggressiveness: 0.9,
+                scrambleBonus: 20        // Extra likelihood to scramble
+            }
+        };
+
         // Feature flags
         const FEATURE_FLAGS = {
             showDefenderZones: false,  // Show defender zone rings and fills
@@ -1435,6 +1728,30 @@
             };
 
             player.overall = calculateOverall(player);
+
+            // Assign QB trait based on stats
+            if (position === 'QB') {
+                // Weight trait selection based on QB's style
+                // High awareness + low agility = game_manager
+                // High agility + speed = scrambler
+                // High throwing = gunslinger
+                // Otherwise balanced
+                const awareness = stats.awareness || 70;
+                const agility = stats.agility || 70;
+                const speed = stats.speed || 70;
+                const throwing = stats.throwing || 70;
+
+                if (agility > 78 && speed > 75) {
+                    player.qbTrait = 'scrambler';
+                } else if (awareness > 80 && throwing < 75) {
+                    player.qbTrait = 'game_manager';
+                } else if (throwing > 82) {
+                    player.qbTrait = 'gunslinger';
+                } else {
+                    player.qbTrait = 'balanced';
+                }
+            }
+
             return player;
         }
 
@@ -2177,6 +2494,830 @@
             return `${first} ${last.charAt(0) || ''}.`.trim();
         }
 
+        // ========================================
+        // HIGH-FIDELITY ROUND-BASED SIMULATION
+        // ========================================
+
+        // Select routes for receivers based on field position and situation
+        function selectRoutesForPlay(receivers, yardsFromGoal, yardsToGo, down) {
+            const routeAssignments = {};
+
+            // Determine field zone
+            const zone = yardsFromGoal <= 8 ? 'goalline' :
+                         yardsFromGoal <= 20 ? 'redzone' : 'standard';
+
+            const availableRoutes = Object.values(ROUTE_TEMPLATES[zone]);
+
+            // Categorize routes by depth
+            const quickRoutes = availableRoutes.filter(r => r.rounds[1].depth <= 6);
+            const mediumRoutes = availableRoutes.filter(r => r.rounds[1].depth > 6 && r.rounds[2].depth <= 12);
+            const deepRoutes = availableRoutes.filter(r => r.rounds[2].depth > 12);
+
+            // Select based on situation
+            receivers.forEach((wr, index) => {
+                let routePool;
+
+                if (down >= 3 && yardsToGo > 7) {
+                    // 3rd/4th and long - need deep routes
+                    routePool = index === 0 ? deepRoutes : (index === 1 ? mediumRoutes : quickRoutes);
+                } else if (down >= 3 && yardsToGo <= 3) {
+                    // 3rd/4th and short - quick routes
+                    routePool = index === 0 ? quickRoutes : (index === 1 ? mediumRoutes : deepRoutes);
+                } else {
+                    // Normal downs - mix it up
+                    routePool = index === 0 ? mediumRoutes : (index === 1 ? deepRoutes : quickRoutes);
+                }
+
+                // Fallback if pool is empty
+                if (routePool.length === 0) routePool = availableRoutes;
+
+                // Pick random route from pool
+                const route = routePool[Math.floor(Math.random() * routePool.length)];
+                routeAssignments[wr.id || index] = route;
+            });
+
+            return routeAssignments;
+        }
+
+        // Initialize play state for round-based simulation
+        function initializePlayState(offense, defense, fieldPosition) {
+            const routes = selectRoutesForPlay(
+                offense.receivers,
+                fieldPosition.yardsFromGoal,
+                fieldPosition.yardsToGo,
+                fieldPosition.down
+            );
+
+            return {
+                round: 0,
+                maxRounds: 5,
+
+                // Field state
+                yardsFromGoal: fieldPosition.yardsFromGoal,
+                yardsToGo: fieldPosition.yardsToGo,
+                down: fieldPosition.down,
+
+                // Pressure tracking
+                totalPressure: 0,
+                sacked: false,
+                sackingPlayer: null,
+
+                // Receiver states
+                receivers: offense.receivers.map((wr, index) => ({
+                    id: wr.id || index,
+                    player: wr,
+                    stats: wr.stats,
+                    route: routes[wr.id || index],
+                    currentDepth: 0,
+                    separation: 0,
+                    catchProbability: 0,
+                    effectiveCatchPct: 0,
+                    rollMean: 79
+                })),
+
+                // Defender states (DBs)
+                defenders: defense.dbs.map((db, index) => ({
+                    id: db.id || index,
+                    player: db,
+                    stats: db.stats,
+                    position: db.position || 'CB'
+                })),
+
+                // O-Line states
+                oLine: offense.oLine.map((ol, index) => ({
+                    id: ol.id || index,
+                    player: ol,
+                    stats: ol.stats,
+                    knockedDown: false
+                })),
+
+                // D-Line states
+                dLine: defense.dLine.map((dl, index) => ({
+                    id: dl.id || index,
+                    player: dl,
+                    stats: dl.stats,
+                    knockedDown: false,
+                    pressureContribution: 0
+                })),
+
+                // QB state
+                qb: {
+                    player: offense.qb,
+                    stats: offense.qb.stats,
+                    trait: offense.qb.qbTrait || 'balanced',
+                    hasThrown: false
+                },
+
+                // Result tracking
+                result: null
+            };
+        }
+
+        // Process OL/DL clashes for a single round
+        function processLineClashesRound(state) {
+            const roundBonus = (state.round - 1) * 5;  // DL gets +5 per round
+            let totalPressure = 0;
+
+            // Reset pressure contributions
+            state.dLine.forEach(dl => { dl.pressureContribution = 0; });
+
+            for (let i = 0; i < state.dLine.length; i++) {
+                const dl = state.dLine[i];
+
+                if (dl.knockedDown) {
+                    continue;
+                }
+
+                // Find corresponding OL (or closest available non-knocked-down)
+                let ol = state.oLine[i];
+                if (!ol || ol.knockedDown) {
+                    ol = state.oLine.find(o => !o.knockedDown);
+                }
+
+                if (!ol) {
+                    // Unblocked rusher - maximum pressure
+                    dl.pressureContribution = 40;
+                    totalPressure += 40;
+
+                    // High sack chance for unblocked rusher
+                    if (Math.random() < 0.35) {
+                        state.sacked = true;
+                        state.sackingPlayer = dl.player;
+                    }
+                    continue;
+                }
+
+                // Resolve clash
+                const olRoll = weightedStatRoll(ol.stats, CLASH_WEIGHTS.lineClash.offense);
+                const dlRoll = weightedStatRoll(dl.stats, CLASH_WEIGHTS.lineClash.defense) + roundBonus;
+                const margin = dlRoll - olRoll;
+
+                // Determine outcome based on margin
+                if (margin > 18) {
+                    // DL dominant win - sack chance
+                    dl.pressureContribution = 35;
+                    if (Math.random() < 0.25) {
+                        state.sacked = true;
+                        state.sackingPlayer = dl.player;
+                    }
+                    // OL might get knocked down
+                    if (Math.random() < 0.3) {
+                        ol.knockedDown = true;
+                    }
+                } else if (margin > 10) {
+                    dl.pressureContribution = 25;
+                } else if (margin > 5) {
+                    dl.pressureContribution = 15;
+                } else if (margin > 2) {
+                    dl.pressureContribution = 10;
+                } else if (margin > -2) {
+                    dl.pressureContribution = 3;
+                } else if (margin > -10) {
+                    dl.pressureContribution = 0;
+                } else {
+                    // OL dominant win - DL might get knocked down
+                    dl.pressureContribution = 0;
+                    if (Math.random() < 0.2) {
+                        dl.knockedDown = true;
+                    }
+                }
+
+                totalPressure += dl.pressureContribution;
+            }
+
+            state.totalPressure = Math.min(totalPressure, 100);
+        }
+
+        // Process WR/DB separation clashes for a single round
+        function processReceiverClashesRound(state) {
+            for (const receiver of state.receivers) {
+                const routeRound = receiver.route.rounds[state.round - 1];
+                const isCrossing = routeRound.crossing;
+                const isBreakRound = receiver.route.breakRound === state.round;
+
+                // Update receiver depth
+                receiver.currentDepth = routeRound.depth;
+
+                // Find covering defender (simple 1:1 matching for now)
+                const defenderIndex = state.receivers.indexOf(receiver);
+                const defender = state.defenders[defenderIndex] || state.defenders[0];
+
+                if (!defender) {
+                    receiver.separation = 30;  // Wide open
+                    continue;
+                }
+
+                // WR roll for separation
+                let receiverRoll = weightedStatRoll(receiver.stats, CLASH_WEIGHTS.separation.receiver);
+
+                // Crossing route bonus
+                if (isCrossing) {
+                    const crossingBonus = (receiver.stats.agility * 0.3 + receiver.stats.routeRunning * 0.2) * 0.5;
+                    receiverRoll += crossingBonus;
+                }
+
+                // Break round bonus (route breaks create separation)
+                if (isBreakRound) {
+                    const breakBonus = receiver.stats.routeRunning * 0.3;
+                    receiverRoll += breakBonus;
+                }
+
+                // Defender roll
+                let defenderRoll = weightedStatRoll(defender.stats, CLASH_WEIGHTS.separation.defender);
+
+                // Crossing coverage penalty
+                if (isCrossing) {
+                    const crossingPenalty = (100 - defender.stats.agility) * 0.15;
+                    defenderRoll -= crossingPenalty;
+                }
+
+                // Calculate separation margin
+                receiver.separation = receiverRoll - defenderRoll;
+            }
+        }
+
+        // Calculate catch probabilities using exponential distribution
+        function simCalculateCatchProbabilities(state) {
+            const qbAccuracy = (state.qb.stats.throwing + state.qb.stats.awareness) / 2;
+            const pressure = state.totalPressure;
+
+            // QB throw quality - rollMean determines accuracy distribution
+            const rollMean = 79 + (75 - qbAccuracy) * 1.7 + pressure * 0.5;
+
+            for (const receiver of state.receivers) {
+                let catchProb = receiver.stats.catching;
+
+                // Separation bonus/penalty
+                if (receiver.separation >= 20) {
+                    catchProb += 15;
+                } else if (receiver.separation >= 10) {
+                    catchProb += 8;
+                } else if (receiver.separation >= 3) {
+                    catchProb += 3;
+                } else if (receiver.separation >= -3) {
+                    catchProb += 0;
+                } else if (receiver.separation >= -10) {
+                    catchProb -= 15;
+                } else {
+                    catchProb -= 30;
+                }
+
+                // Focus for contested catches
+                if (receiver.separation < 5) {
+                    const focusBonus = (receiver.stats.focus - 70) * 0.3;
+                    catchProb += focusBonus;
+                }
+
+                // Depth penalty for longer throws
+                const depthPenalty = Math.max(0, (receiver.currentDepth - 15) * 0.3);
+                catchProb -= depthPenalty;
+
+                // Clamp
+                catchProb = Math.max(5, Math.min(95, catchProb));
+
+                // Calculate effective catch % with exponential
+                const effectiveCatchPct = (1 - Math.exp(-catchProb / rollMean)) * 100;
+
+                receiver.catchProbability = catchProb;
+                receiver.effectiveCatchPct = effectiveCatchPct;
+                receiver.rollMean = rollMean;
+            }
+        }
+
+        // QB decision: should throw, and to whom?
+        function processQBDecision(state) {
+            const trait = QB_TRAITS[state.qb.trait] || QB_TRAITS.balanced;
+            const qbStats = state.qb.stats;
+
+            // Step 1: Vision check - can QB see each receiver?
+            const visibleReceivers = [];
+            for (const receiver of state.receivers) {
+                const visionRoll = weightedStatRoll(qbStats, {
+                    awareness: 0.50,
+                    throwing: 0.30,
+                    focus: 0.20
+                });
+
+                // Easier to notice more open receivers
+                const noticeThreshold = 70 - receiver.separation;
+                const noticeRoll = visionRoll + (Math.random() * 20 - 10);
+
+                if (noticeRoll >= noticeThreshold) {
+                    visibleReceivers.push(receiver);
+                }
+            }
+
+            // Step 2: Evaluate throw options
+            let throwLikelihood = 0;
+            let bestTarget = null;
+            let bestScore = -999;
+
+            for (const receiver of visibleReceivers) {
+                let score = receiver.effectiveCatchPct;
+
+                // First down consideration
+                const wouldGetFirstDown = receiver.currentDepth >= state.yardsToGo;
+                if (wouldGetFirstDown) {
+                    score += trait.firstDownBias;
+                } else {
+                    score -= state.round * 3;  // Penalty for short throws late
+                }
+
+                // Down urgency
+                if (state.down >= 3 && !wouldGetFirstDown) {
+                    score -= 15;
+                }
+
+                // Trait threshold
+                if (receiver.effectiveCatchPct < trait.openThreshold) {
+                    score -= 20;
+                }
+
+                // Aggressiveness for contested
+                if (receiver.separation < 5) {
+                    score *= trait.aggressiveness;
+                }
+
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestTarget = receiver;
+                }
+            }
+
+            // Step 3: Calculate throw likelihood
+            if (bestTarget) {
+                throwLikelihood = bestScore;
+
+                // Pressure urgency
+                const pressureUrgency = state.totalPressure * trait.pressureMultiplier;
+                throwLikelihood += pressureUrgency * 0.5;
+
+                // Round urgency
+                throwLikelihood += state.round * 8;
+
+                // Very high pressure = must throw
+                if (state.totalPressure > 70) {
+                    throwLikelihood += 30;
+                }
+            } else {
+                // No visible targets
+                throwLikelihood = state.totalPressure * 0.5 + state.round * 10;
+            }
+
+            // Step 4: Roll to throw
+            const throwRoll = Math.random() * 100;
+            const shouldThrow = throwRoll < throwLikelihood;
+
+            return {
+                shouldThrow,
+                target: bestTarget,
+                throwLikelihood,
+                visibleReceivers
+            };
+        }
+
+        // Resolve a throw attempt
+        function simResolveThrow(state, target) {
+            if (!target) {
+                return {
+                    type: 'throwaway',
+                    yardsGained: 0,
+                    description: 'QB throws the ball away'
+                };
+            }
+
+            // Exponential roll for throw quality
+            const qbRoll = -target.rollMean * Math.log(Math.random());
+            const caught = qbRoll < target.catchProbability;
+
+            if (caught) {
+                return simResolveCatchAndRun(state, target);
+            } else {
+                return simResolveIncompletions(state, target, qbRoll);
+            }
+        }
+
+        // Resolve incomplete pass (check for INT)
+        function simResolveIncompletions(state, receiver, qbRoll) {
+            const defenderIndex = state.receivers.indexOf(receiver);
+            const defender = state.defenders[defenderIndex] || state.defenders[0];
+
+            if (defender && receiver.separation < 0) {
+                const throwBadness = qbRoll - receiver.catchProbability;
+
+                let intChance = Math.min(throwBadness * 0.4, 25);
+                intChance += (defender.stats.awareness - 60) * 0.2;
+                intChance += ((defender.stats.catching || 50) - 50) * 0.1;
+
+                if (receiver.separation < -10) {
+                    intChance += 5;
+                }
+
+                intChance = Math.max(5, Math.min(35, intChance));
+
+                if (Math.random() * 100 < intChance) {
+                    return {
+                        type: 'interception',
+                        yardsGained: 0,
+                        interceptedBy: defender.player,
+                        description: `Intercepted by ${getPlayerFullName(defender.player)}!`
+                    };
+                }
+            }
+
+            return {
+                type: 'incomplete',
+                yardsGained: 0,
+                description: 'Pass incomplete'
+            };
+        }
+
+        // Resolve catch and YAC
+        function simResolveCatchAndRun(state, receiver) {
+            let totalYards = receiver.currentDepth;
+            const yacEvents = [];
+
+            // Find nearest defender for tackle
+            const defenderIndex = state.receivers.indexOf(receiver);
+            const nearestDB = state.defenders[defenderIndex] || state.defenders[0];
+
+            // Immediate tackle attempt if covered
+            if (nearestDB && receiver.separation < 10) {
+                const tackleResult = simResolveTackleAttempt(receiver, nearestDB, 0);
+
+                if (tackleResult.tackled) {
+                    return {
+                        type: 'complete',
+                        yardsGained: totalYards,
+                        caughtBy: receiver.player,
+                        tackledBy: nearestDB.player,
+                        yac: 0,
+                        description: `Caught for ${totalYards} yards, tackled immediately`
+                    };
+                }
+                yacEvents.push(tackleResult);
+            }
+
+            // YAC phase - up to 3 tackle attempts
+            let tackled = false;
+            for (let attempt = 0; attempt < 3 && !tackled; attempt++) {
+                // YAC yards proportional to receiver stats
+                const yacRoll = weightedStatRoll(receiver.stats, {
+                    speed: 0.35,
+                    acceleration: 0.25,
+                    agility: 0.25,
+                    balance: 0.15
+                });
+                const segmentYards = Math.floor(2 + (yacRoll / 100) * 10);
+
+                // Find next tackler (cycle through defenders, safety gets bonus)
+                const tacklerIndex = (defenderIndex + attempt + 1) % state.defenders.length;
+                const tackler = state.defenders[tacklerIndex];
+
+                if (!tackler) {
+                    totalYards += segmentYards;
+                    continue;
+                }
+
+                // Safety bonus on later attempts
+                const safetyBonus = (tackler.position === 'S' || attempt > 0) ? (10 + attempt * 5) : 0;
+                const tackleResult = simResolveTackleAttempt(receiver, tackler, safetyBonus);
+
+                if (tackleResult.tackled) {
+                    totalYards += Math.floor(segmentYards * 0.5);
+                    tackled = true;
+                    yacEvents.push(tackleResult);
+                } else {
+                    totalYards += segmentYards;
+                    yacEvents.push(tackleResult);
+                }
+            }
+
+            // Check for TD
+            const isTouchdown = totalYards >= state.yardsFromGoal;
+
+            return {
+                type: isTouchdown ? 'touchdown' : 'complete',
+                yardsGained: isTouchdown ? state.yardsFromGoal : totalYards,
+                caughtBy: receiver.player,
+                tackledBy: yacEvents.find(e => e.tackled)?.tackler || null,
+                yac: totalYards - receiver.currentDepth,
+                description: isTouchdown ?
+                    `TOUCHDOWN! ${totalYards} yard catch and run!` :
+                    `Caught for ${receiver.currentDepth} yards, ${totalYards - receiver.currentDepth} YAC`
+            };
+        }
+
+        // Resolve a tackle attempt
+        function simResolveTackleAttempt(receiver, tackler, safetyBonus) {
+            const evasionRoll = weightedStatRoll(receiver.stats, CLASH_WEIGHTS.tackle.ballCarrier);
+            let tackleRoll = weightedStatRoll(tackler.stats, CLASH_WEIGHTS.tackle.tackler);
+            tackleRoll += safetyBonus;
+
+            const margin = tackleRoll - evasionRoll;
+            const breakTackleThreshold = -12;
+
+            if (margin > breakTackleThreshold) {
+                return {
+                    type: 'tackle',
+                    tackled: true,
+                    tackler: tackler.player,
+                    margin
+                };
+            } else {
+                return {
+                    type: 'broken_tackle',
+                    tackled: false,
+                    tackler: tackler.player,
+                    margin
+                };
+            }
+        }
+
+        // Resolve sack
+        function simResolveSack(state) {
+            const sackYards = 5 + Math.floor(Math.random() * 6);
+            return {
+                type: 'sack',
+                yardsGained: -sackYards,
+                tackler: state.sackingPlayer,
+                description: `Sacked for a loss of ${sackYards} yards`
+            };
+        }
+
+        // Resolve desperation play (max rounds exceeded)
+        function simResolveDesperationPlay(state) {
+            const trait = QB_TRAITS[state.qb.trait] || QB_TRAITS.balanced;
+
+            if (state.totalPressure > 60 && Math.random() < 0.4) {
+                return {
+                    type: 'sack',
+                    yardsGained: -Math.floor(5 + Math.random() * 5),
+                    description: 'Sacked after holding the ball too long'
+                };
+            }
+
+            // Scrambler might run
+            if (trait.scrambleBonus && Math.random() < 0.3) {
+                const scrambleYards = Math.floor(
+                    (state.qb.stats.speed * 0.1) +
+                    (state.qb.stats.agility * 0.05) +
+                    Math.random() * 5
+                );
+                return {
+                    type: 'scramble',
+                    yardsGained: scrambleYards,
+                    description: `QB scrambles for ${scrambleYards} yards`
+                };
+            }
+
+            // Heave to best available
+            const bestReceiver = state.receivers.reduce((best, r) =>
+                r.effectiveCatchPct > (best?.effectiveCatchPct || 0) ? r : best, null
+            );
+
+            if (bestReceiver && bestReceiver.effectiveCatchPct > 20) {
+                bestReceiver.catchProbability *= 0.7;
+                return simResolveThrow(state, bestReceiver);
+            }
+
+            return {
+                type: 'throwaway',
+                yardsGained: 0,
+                description: 'QB throws it away under pressure'
+            };
+        }
+
+        // Main play simulation loop
+        function simulatePlayRoundBased(offense, defense, fieldPosition) {
+            const state = initializePlayState(offense, defense, fieldPosition);
+
+            while (state.round < state.maxRounds && !state.result) {
+                state.round++;
+
+                // Phase 1: OL/DL Clashes
+                processLineClashesRound(state);
+
+                // Check for sack
+                if (state.sacked) {
+                    state.result = simResolveSack(state);
+                    break;
+                }
+
+                // Phase 2: WR/DB Separation
+                processReceiverClashesRound(state);
+
+                // Phase 3: Calculate catch probabilities
+                simCalculateCatchProbabilities(state);
+
+                // Phase 4: QB Decision
+                const decision = processQBDecision(state);
+
+                if (decision.shouldThrow) {
+                    state.result = simResolveThrow(state, decision.target);
+                    break;
+                }
+            }
+
+            // Desperation if no throw
+            if (!state.result) {
+                state.result = simResolveDesperationPlay(state);
+            }
+
+            state.result.roundsElapsed = state.round;
+            state.result.finalPressure = state.totalPressure;
+            return state.result;
+        }
+
+        // Full drive simulation using round-based plays
+        function simulateDriveRoundBased(offense, defense, startingFieldPosition) {
+            let fieldPosition = { ...startingFieldPosition };
+            const plays = [];
+            let driveResult = null;
+
+            const maxPlays = 15;
+
+            while (!driveResult && plays.length < maxPlays) {
+                const playResult = simulatePlayRoundBased(offense, defense, fieldPosition);
+                plays.push(playResult);
+
+                // Update field position
+                const newYardsFromGoal = fieldPosition.yardsFromGoal - playResult.yardsGained;
+                const yardsGainedTowardFirst = playResult.yardsGained;
+
+                // Check first down
+                if (yardsGainedTowardFirst >= fieldPosition.yardsToGo) {
+                    fieldPosition = {
+                        yardsFromGoal: Math.max(0, newYardsFromGoal),
+                        yardsToGo: 10,
+                        down: 1
+                    };
+                } else {
+                    fieldPosition = {
+                        yardsFromGoal: Math.max(0, newYardsFromGoal),
+                        yardsToGo: fieldPosition.yardsToGo - yardsGainedTowardFirst,
+                        down: fieldPosition.down + 1
+                    };
+                }
+
+                // Check for drive-ending results
+                if (playResult.type === 'touchdown') {
+                    driveResult = { points: 7, type: 'touchdown', plays };
+                } else if (playResult.type === 'interception') {
+                    driveResult = { points: 0, type: 'turnover', plays };
+                } else if (fieldPosition.down > 4) {
+                    if (fieldPosition.yardsFromGoal <= 40) {
+                        const fgDistance = fieldPosition.yardsFromGoal + 17;
+                        const fgSuccess = Math.random() < (0.95 - fgDistance * 0.01);
+                        driveResult = {
+                            points: fgSuccess ? 3 : 0,
+                            type: fgSuccess ? 'field_goal' : 'missed_fg',
+                            plays
+                        };
+                    } else {
+                        driveResult = { points: 0, type: 'punt', plays };
+                    }
+                }
+            }
+
+            if (!driveResult) {
+                driveResult = { points: 0, type: 'punt', plays };
+            }
+
+            return driveResult;
+        }
+
+        // Simulate player's offensive drive using high-fidelity system
+        // Can be used for "auto-play" or "simulate" option
+        function simulatePlayerDriveHighFidelity(playerTeam, opponent) {
+            // Get player offense from depth chart
+            const dc = playerTeam.depthChart;
+            const roster = playerTeam.roster;
+
+            let playerQB = dc.QB ? roster.find(p => p.id === dc.QB) : null;
+            if (!playerQB) playerQB = generateWalkOn('QB');
+
+            const playerWRs = [];
+            ['WR1', 'WR2', 'WR3'].forEach(slot => {
+                const id = dc[slot];
+                if (id) {
+                    const player = roster.find(p => p.id === id);
+                    if (player) playerWRs.push(player);
+                }
+            });
+
+            const playerOL = [];
+            (dc.OL || []).forEach(id => {
+                if (id) {
+                    const player = roster.find(p => p.id === id);
+                    if (player) playerOL.push(player);
+                }
+            });
+
+            // Get opponent defense
+            const oppCBs = opponent.roster.filter(p => p.position === 'CB').sort((a, b) => b.overall - a.overall);
+            const oppDL = opponent.roster.filter(p => p.position === 'DL').sort((a, b) => b.overall - a.overall);
+
+            // Fill walk-ons if needed
+            while (playerWRs.length < 3) playerWRs.push(generateWalkOn('WR'));
+            while (playerOL.length < 5) playerOL.push(generateWalkOn('OL'));
+            while (oppCBs.length < 4) oppCBs.push(generateWalkOn('CB'));
+            while (oppDL.length < 4) oppDL.push(generateWalkOn('DL'));
+
+            // Build offense/defense objects
+            const offense = {
+                qb: playerQB,
+                receivers: playerWRs.slice(0, 3),
+                oLine: playerOL.slice(0, 5)
+            };
+
+            const defense = {
+                dbs: oppCBs.slice(0, 4),
+                dLine: oppDL.slice(0, 4)
+            };
+
+            const startingFieldPosition = {
+                yardsFromGoal: 75,  // Own 25
+                yardsToGo: 10,
+                down: 1
+            };
+
+            // Run the high-fidelity simulation
+            const result = simulateDriveRoundBased(offense, defense, startingFieldPosition);
+
+            // Add team reference
+            result.team = playerTeam;
+
+            return result;
+        }
+
+        // Adapter to use new round-based simulation for enemy possessions
+        function simulateEnemyDriveHighFidelity(opponent, playerTeam) {
+            // Get opponent offense
+            let oppQB = opponent.roster.find(p => p.position === 'QB');
+            if (!oppQB) oppQB = generateWalkOn('QB');
+
+            const oppWRs = opponent.roster.filter(p => p.position === 'WR').sort((a, b) => b.overall - a.overall);
+            const oppOL = opponent.roster.filter(p => p.position === 'OL').sort((a, b) => b.overall - a.overall);
+
+            // Get player defense from depth chart
+            const dc = playerTeam.depthChart;
+            const roster = playerTeam.roster;
+
+            const playerCBs = [];
+            ['CB1', 'CB2', 'CB3', 'CB4'].forEach(slot => {
+                const id = dc[slot];
+                if (id) {
+                    const player = roster.find(p => p.id === id);
+                    if (player) playerCBs.push(player);
+                }
+            });
+
+            const playerDL = [];
+            (dc.DL || []).forEach(id => {
+                if (id) {
+                    const player = roster.find(p => p.id === id);
+                    if (player) playerDL.push(player);
+                }
+            });
+
+            // Fill walk-ons if needed
+            while (playerCBs.length < 3) playerCBs.push(generateWalkOn('CB'));
+            while (playerDL.length < 4) playerDL.push(generateWalkOn('DL'));
+            while (oppWRs.length < 3) oppWRs.push(generateWalkOn('WR'));
+            while (oppOL.length < 5) oppOL.push(generateWalkOn('OL'));
+
+            // Build offense/defense objects for new simulation
+            const offense = {
+                qb: oppQB,
+                receivers: oppWRs.slice(0, 3),
+                oLine: oppOL.slice(0, 5)
+            };
+
+            const defense = {
+                dbs: playerCBs.slice(0, 4),
+                dLine: playerDL.slice(0, 4)
+            };
+
+            const startingFieldPosition = {
+                yardsFromGoal: 75,  // Own 25
+                yardsToGo: 10,
+                down: 1
+            };
+
+            // Run the new high-fidelity simulation
+            const result = simulateDriveRoundBased(offense, defense, startingFieldPosition);
+
+            // Add opponent reference for compatibility
+            result.opponent = opponent;
+
+            return result;
+        }
+
+        // ========================================
+        // LEGACY SIMULATION (kept for compatibility)
+        // ========================================
+
         // Simulate DL vs OL pressure for the play
         function simulateDLPressure(playerOL, opponentDL) {
             const matchups = [];
@@ -2574,24 +3715,54 @@
         // Simulate enemy possession using realistic simulation
         function simulateEnemyPossession(opponent) {
             try {
-                console.log('Starting enemy drive simulation for:', opponent?.name);
+                console.log('Starting enemy drive simulation (high-fidelity) for:', opponent?.name);
                 console.log('Opponent roster size:', opponent?.roster?.length);
                 console.log('Player team exists:', !!managementState.team);
                 console.log('Player depthChart exists:', !!managementState.team?.depthChart);
 
-                // Use the new realistic drive simulation
-                const driveResult = simulateRealisticEnemyDrive(opponent);
+                // Generate roster if missing
+                if (opponent && !opponent.roster) {
+                    console.log('Generating missing roster for opponent:', opponent.name);
+                    opponent.roster = generateOpponentRoster(opponent.difficulty || 'medium');
+                }
+
+                // Validate required data
+                if (!opponent || !opponent.roster || !managementState.team || !managementState.team.depthChart) {
+                    throw new Error('Missing required simulation data');
+                }
+
+                // Use the new high-fidelity round-based simulation
+                const driveResult = simulateEnemyDriveHighFidelity(opponent, managementState.team);
 
                 console.log('Drive result:', driveResult.type, 'with', driveResult.plays?.length, 'plays');
 
-                // Map to legacy result format for compatibility
+                // Format narrative from new play format
+                const narrative = driveResult.plays.map((p, i) => {
+                    const down = Math.min(4, Math.floor(i / 3) + 1);
+                    if (p.type === 'sack') {
+                        return `Sack! ${p.description}`;
+                    } else if (p.type === 'interception') {
+                        return `INTERCEPTION! ${p.description}`;
+                    } else if (p.type === 'touchdown') {
+                        return `TOUCHDOWN! ${p.description}`;
+                    } else if (p.type === 'complete') {
+                        return `Complete! ${p.yardsGained} yards${p.yac > 0 ? ` (${p.yac} YAC)` : ''}`;
+                    } else if (p.type === 'incomplete') {
+                        return 'Pass incomplete';
+                    } else if (p.type === 'throwaway') {
+                        return 'QB throws it away';
+                    } else if (p.type === 'scramble') {
+                        return p.description;
+                    }
+                    return `${p.type}: ${p.yardsGained} yards`;
+                });
+
                 return {
                     points: driveResult.points,
                     type: driveResult.type,
                     plays: driveResult.plays,
                     opponent: driveResult.opponent,
-                    // Legacy narrative for fallback
-                    narrative: driveResult.plays.map(p => formatPlayNarrative(p, opponent))
+                    narrative
                 };
             } catch (error) {
                 console.error('Enemy drive simulation error:', error);
