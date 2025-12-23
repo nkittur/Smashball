@@ -12,6 +12,131 @@ This document outlines a comprehensive overhaul of the possession simulation sys
 
 ---
 
+## Clash Logic Summary
+
+All clashes use `weightedStatRoll()` which rolls each stat, applies weights, and sums them. This produces a value roughly in the 40-90 range for typical players.
+
+### OL/DL Clash (Line Pressure)
+
+Uses existing `CLASH_WEIGHTS.lineClash`:
+```
+OL: passBlock(0.35) + strength(0.30) + balance(0.20) + awareness(0.15)
+DL: passRush(0.35) + strength(0.30) + acceleration(0.20) + speed(0.15)
+```
+
+**Margin = DL roll - OL roll** (+ round bonus)
+
+| Margin | Result | Pressure | Sack % | Notes |
+|--------|--------|----------|--------|-------|
+| > 18 | Beaten badly | 35 | 25% | OL may be knocked down (30%) |
+| > 10 | Beaten | 25 | 0% | Heavy pressure |
+| > 5 | Pressured | 15 | 0% | Moderate pressure |
+| > 2 | Slight pressure | 10 | 0% | Some pressure |
+| > -2 | Neutral | 3 | 0% | Stalemate |
+| ≤ -2 | Stonewalled | 0 | 0% | OL wins |
+
+**Cumulative bonus**: DL gets +5 per round (round 2 = +5, round 3 = +10, etc.)
+
+**Total Pressure** = sum of all DL contributions, capped at 100
+
+---
+
+### WR/DB Clash (Separation)
+
+Uses existing `CLASH_WEIGHTS.separation`:
+```
+WR: speed(0.25) + agility(0.25) + routeRunning(0.20) + acceleration(0.15) + release(0.15)
+DB: speed(0.20) + agility(0.20) + manCoverage(0.25) + pursuit(0.20) + awareness(0.15)
+```
+
+**Margin = WR roll - DB roll** (+ crossing/break bonuses)
+
+| Margin | Result | Catch Modifier |
+|--------|--------|----------------|
+| > 20 | Wide open | +15% catch |
+| > 10 | Good separation | +8% catch |
+| > 3 | Slight separation | +3% catch |
+| > -3 | Contested | 0% |
+| > -10 | Covered | -15% catch |
+| ≤ -10 | Blanketed | -30% catch |
+
+**Bonuses applied to WR roll**:
+- **Crossing route this round**: +(agility × 0.3 + routeRunning × 0.2) × 0.5 ≈ up to +15
+- **Break round**: +routeRunning × 0.3 ≈ up to +24
+- **Double coverage**: +10 to best DB roll
+
+---
+
+### Tackle Clash (YAC)
+
+Uses existing `CLASH_WEIGHTS.tackle`:
+```
+Tackler: tackling(0.40) + pursuit(0.30) + hitPower(0.30)
+Runner:  agility(0.35) + speed(0.30) + balance(0.35)
+```
+
+**Margin = Tackle roll - Evasion roll** (+ safety bonus)
+
+| Margin | Result |
+|--------|--------|
+| > -12 | Tackled |
+| ≤ -12 | Broken tackle (runner wins by 12+) |
+
+**Safety bonus**: +10 on first tackle attempt, +15 on second, +20 on third
+
+---
+
+## Throw Accuracy System (Existing Approach)
+
+We use the **exponential distribution** from the current codebase. This elegantly handles both QB accuracy and pressure:
+
+```javascript
+// Calculate QB's throw quality
+const qbAccuracy = (qbStats.throwing + qbStats.awareness) / 2;
+const pressure = state.totalPressure;
+
+// rollMean determines throw quality distribution
+// Lower rollMean = throws cluster near 0 = easier catches
+// Higher rollMean = throws scatter higher = harder catches
+const rollMean = 79 + (75 - qbAccuracy) * 1.7 + pressure * 0.5;
+
+// Exponential random roll (lower is better for catch)
+const qbRoll = -rollMean * Math.log(Math.random());
+
+// Catch succeeds if QB roll < receiver's catch probability
+const caught = qbRoll < catchProb;
+
+// For display: effective catch % = P(roll < catchProb)
+const effectiveCatchPct = (1 - Math.exp(-catchProb / rollMean)) * 100;
+```
+
+### How This Works
+
+**rollMean examples** (base 79, adjusted by QB and pressure):
+
+| QB Accuracy | Pressure | rollMean | Effect |
+|-------------|----------|----------|--------|
+| 95 (elite) | 0 | 45 | Throws cluster low, easy catches |
+| 85 (good) | 0 | 62 | Slight advantage |
+| 75 (avg) | 0 | 79 | Neutral baseline |
+| 65 (poor) | 0 | 96 | Throws scatter, harder catches |
+| 85 (good) | 40 | 82 | Pressure negates QB skill |
+| 75 (avg) | 60 | 109 | Heavy pressure = wild throws |
+
+**Effective catch % at 70 base catch prob**:
+
+| rollMean | Effective Catch % |
+|----------|-------------------|
+| 45 | 79% |
+| 62 | 68% |
+| 79 | 59% |
+| 96 | 52% |
+| 109 | 47% |
+
+This means an elite QB under no pressure makes a 70% receiver catch 79% of the time, while a poor QB under heavy pressure drops them to 47%.
+
+---
+
 ## Core Concepts
 
 ### Round-Based Structure
@@ -429,52 +554,56 @@ function processReceiverClashesRound(state) {
 
 ### 6. Catch Probability Calculation
 
+Uses the **exponential distribution** approach from the existing codebase. Separation modifies the base catch probability, then QB accuracy and pressure affect the throw quality roll.
+
 ```javascript
 function calculateCatchProbabilities(state) {
     const qbAccuracy = (state.qb.stats.throwing + state.qb.stats.awareness) / 2;
-    const pressurePenalty = state.totalPressure * 0.3;  // Up to -30% under pressure
+    const pressure = state.totalPressure;
+
+    // QB throw quality - this rollMean determines how "accurate" the throw is
+    // Lower = throws cluster near 0 = easier catches
+    const rollMean = 79 + (75 - qbAccuracy) * 1.7 + pressure * 0.5;
 
     for (const receiver of state.receivers) {
         // Base catch from receiver's catching stat
         let catchProb = receiver.stats.catching;
 
-        // Separation bonus/penalty
-        if (receiver.separation >= 15) {
-            // Wide open - easy catch
-            catchProb += 15;
-        } else if (receiver.separation >= 5) {
-            // Good separation
-            catchProb += 5;
-        } else if (receiver.separation >= 0) {
-            // Slight separation - contested
-            catchProb -= 10;
+        // Separation bonus/penalty (affects base catch probability)
+        if (receiver.separation >= 20) {
+            catchProb += 15;  // Wide open
+        } else if (receiver.separation >= 10) {
+            catchProb += 8;   // Good separation
+        } else if (receiver.separation >= 3) {
+            catchProb += 3;   // Slight separation
+        } else if (receiver.separation >= -3) {
+            catchProb += 0;   // Contested
         } else if (receiver.separation >= -10) {
-            // Covered - difficult catch
-            catchProb -= 25;
+            catchProb -= 15;  // Covered
         } else {
-            // Blanket coverage - very difficult
-            catchProb -= 40;
+            catchProb -= 30;  // Blanketed
         }
 
-        // QB accuracy adjustment
-        const qbBonus = (qbAccuracy - 70) * 0.3;  // +9 for 100 QB, -6 for 50 QB
-        catchProb += qbBonus;
-
-        // Pressure penalty on throw accuracy
-        catchProb -= pressurePenalty;
-
-        // Route depth penalty (longer throws are harder)
-        const depthPenalty = Math.max(0, (receiver.currentDepth - 15) * 0.5);
-        catchProb -= depthPenalty;
-
-        // Focus stat for contested catches
+        // Focus stat for contested catches (when defender is close)
         if (receiver.separation < 5) {
-            const focusBonus = (receiver.stats.focus - 70) * 0.2;
+            const focusBonus = (receiver.stats.focus - 70) * 0.3;
             catchProb += focusBonus;
         }
 
-        // Clamp to reasonable range
-        receiver.catchProbability = Math.max(5, Math.min(95, catchProb));
+        // Route depth penalty (longer throws have more variance)
+        const depthPenalty = Math.max(0, (receiver.currentDepth - 15) * 0.3);
+        catchProb -= depthPenalty;
+
+        // Clamp base catch probability
+        catchProb = Math.max(5, Math.min(95, catchProb));
+
+        // Calculate effective catch % using exponential distribution
+        // This is what QB accuracy and pressure affect
+        const effectiveCatchPct = (1 - Math.exp(-catchProb / rollMean)) * 100;
+
+        receiver.catchProbability = catchProb;           // Base (for display)
+        receiver.effectiveCatchPct = effectiveCatchPct;  // After QB/pressure
+        receiver.rollMean = rollMean;                    // For throw resolution
     }
 }
 ```
@@ -642,6 +771,8 @@ function processQBDecision(state) {
 
 #### 8.1 Catch Attempt
 
+Uses the **exponential roll** where lower values = better throws. QB accuracy and pressure affect the rollMean (distribution spread).
+
 ```javascript
 function resolveThrow(state, target) {
     if (!target) {
@@ -654,15 +785,26 @@ function resolveThrow(state, target) {
     }
 
     const receiver = target;
-    const catchRoll = Math.random() * 100;
 
-    // Determine if caught
-    if (catchRoll < receiver.catchProbability) {
+    // Exponential roll for throw quality (lower = better)
+    // Uses the rollMean calculated in calculateCatchProbabilities
+    // which already factors in QB accuracy and pressure
+    const qbRoll = -receiver.rollMean * Math.log(Math.random());
+
+    // Catch succeeds if QB roll is under the base catch probability
+    // This elegantly combines:
+    // - Receiver skill (catchProbability)
+    // - Separation (baked into catchProbability)
+    // - QB accuracy (affects rollMean distribution)
+    // - Pressure (affects rollMean distribution)
+    const caught = qbRoll < receiver.catchProbability;
+
+    if (caught) {
         // CAUGHT - now resolve YAC
         return resolveCatchAndRun(state, receiver);
     } else {
         // Incomplete or interception
-        return resolveIncompletions(state, receiver, catchRoll);
+        return resolveIncompletions(state, receiver, qbRoll);
     }
 }
 ```
@@ -670,23 +812,33 @@ function resolveThrow(state, target) {
 #### 8.2 Interception Check
 
 ```javascript
-function resolveIncompletions(state, receiver, catchRoll) {
+function resolveIncompletions(state, receiver, qbRoll) {
     // Check for interception
-    // Higher chance if: heavily covered, ball was tipped, bad throw
+    // Higher chance if: heavily covered, bad throw (high qbRoll), ball in traffic
     const defenders = findCoveringDefenders(state, receiver);
 
     if (defenders.length > 0 && receiver.separation < 0) {
         const bestDefender = defenders[0];
 
-        // INT probability based on how badly the catch failed
-        const catchFailMargin = catchRoll - receiver.catchProbability;
-        let intChance = catchFailMargin * 0.3;  // Base INT chance
+        // INT probability based on how badly the throw missed
+        // qbRoll is how "off" the throw was - higher = worse
+        // catchProbability is the threshold it needed to beat
+        const throwBadness = qbRoll - receiver.catchProbability;
 
-        // Defender's ball skills
-        intChance += (bestDefender.stats.awareness - 60) * 0.2;
-        intChance += (bestDefender.stats.catching || 50 - 50) * 0.1;
+        // Base INT chance: worse throws = higher INT chance
+        // A throw that missed by 50+ is a duck waiting to be picked
+        let intChance = Math.min(throwBadness * 0.4, 25);  // Up to 25% from bad throw
 
-        // Cap INT chance
+        // Defender's ball skills (awareness = reading QB, catching = ball skills)
+        intChance += (bestDefender.stats.awareness - 60) * 0.2;  // Up to +8%
+        intChance += ((bestDefender.stats.catching || 50) - 50) * 0.1;  // Up to +5%
+
+        // Tight coverage bonus (if defender won separation badly)
+        if (receiver.separation < -10) {
+            intChance += 5;  // Defender in great position
+        }
+
+        // Cap INT chance (5-35% range)
         intChance = Math.max(5, Math.min(35, intChance));
 
         if (Math.random() * 100 < intChance) {
