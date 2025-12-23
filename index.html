@@ -5405,6 +5405,12 @@
             gameState.canThrow = false;
             updateMessage('');
 
+            // Capture receiver velocities at throw time for rating calculation
+            gameState.receiverVelocitiesAtThrow = {};
+            gameState.receivers.forEach(receiver => {
+                gameState.receiverVelocitiesAtThrow[receiver.name] = receiver.velocity ? receiver.velocity.clone() : new BABYLON.Vector3(0, 0, 0);
+            });
+
             // Record throw attempt for QB
             if (scene.qb && scene.qb.playerId) {
                 const qbStats = gameStats.getPlayer(scene.qb.playerId, scene.qb.displayName || 'QB');
@@ -5429,6 +5435,15 @@
             const animationSpeed = 2.0 - (throwParams.power * 1.2);
             let accumulator = 0;
             const time = { value: 0 };
+
+            // Create trail effect for ball
+            const trailParticles = [];
+            const trailMaterial = new BABYLON.StandardMaterial('trailMat', scene);
+            trailMaterial.diffuseColor = new BABYLON.Color3(1, 0.8, 0.3);
+            trailMaterial.emissiveColor = new BABYLON.Color3(1, 0.6, 0.2);
+            trailMaterial.alpha = 0.8;
+            let lastTrailPos = null;
+            const trailSpacing = 0.3; // Distance between trail particles
 
             const ballAnimation = scene.onBeforeRenderObservable.add(() => {
                 const dt = scene.getEngine().getDeltaTime() * 0.001;
@@ -5456,6 +5471,28 @@
 
                     // Spin animation
                     football.rotation.z += 0.2;
+
+                    // Add trail particles
+                    const currentPos = football.position.clone();
+                    if (!lastTrailPos || BABYLON.Vector3.Distance(currentPos, lastTrailPos) > trailSpacing) {
+                        const trailSphere = BABYLON.MeshBuilder.CreateSphere('trail', { diameter: 0.15, segments: 4 }, scene);
+                        trailSphere.position = currentPos.clone();
+                        trailSphere.material = trailMaterial;
+                        trailParticles.push({ mesh: trailSphere, alpha: 0.8, createdAt: time.value });
+                        lastTrailPos = currentPos.clone();
+                    }
+
+                    // Fade and remove old trail particles
+                    for (let i = trailParticles.length - 1; i >= 0; i--) {
+                        const particle = trailParticles[i];
+                        const age = time.value - particle.createdAt;
+                        particle.alpha = Math.max(0, 0.8 - age * 2);
+                        particle.mesh.visibility = particle.alpha;
+                        if (particle.alpha <= 0) {
+                            particle.mesh.dispose();
+                            trailParticles.splice(i, 1);
+                        }
+                    }
 
                     // Track game time for clash system (use consistent time source)
                     gameState.gameTime = performance.now() * 0.001;
@@ -5570,6 +5607,10 @@
                 // Check if ball has landed
                 if (frameIndex >= path.length - 1) {
                     scene.onBeforeRenderObservable.remove(ballAnimation);
+                    // Clean up trail particles
+                    trailParticles.forEach(p => p.mesh.dispose());
+                    trailParticles.length = 0;
+                    trailMaterial.dispose();
                     checkCatch(scene, football.position, null);
                 }
             });
@@ -7690,14 +7731,7 @@
             gameState.lineOfScrimmage = -5;
             gameState.firstDownMarker = 5;
 
-            // Hide defenders in training mode
-            gameState.defenders.forEach(defender => {
-                defender.setEnabled(false);
-                if (defender.zoneRing) defender.zoneRing.setEnabled(false);
-                if (defender.zoneFill) defender.zoneFill.setEnabled(false);
-            });
-
-            // Hide offensive and defensive lines
+            // Keep defensive backs visible but hide offensive and defensive lines
             gameState.offensiveLine.forEach(lineman => lineman.setEnabled(false));
             gameState.defensiveLine.forEach(lineman => lineman.setEnabled(false));
 
@@ -7718,13 +7752,6 @@
             document.getElementById('topBar').style.display = 'none';
             document.getElementById('viewButtons').style.display = 'none';
             document.getElementById('managementOverlay').classList.remove('hidden');
-
-            // Show defenders again
-            gameState.defenders.forEach(defender => {
-                defender.setEnabled(true);
-                if (defender.zoneRing) defender.zoneRing.setEnabled(FEATURE_FLAGS.showDefenderZones);
-                if (defender.zoneFill) defender.zoneFill.setEnabled(FEATURE_FLAGS.showDefenderZones);
-            });
 
             // Show offensive and defensive lines again
             gameState.offensiveLine.forEach(lineman => lineman.setEnabled(true));
@@ -7771,7 +7798,9 @@
 
             // Calculate lead accuracy: was the ball thrown ahead of the receiver?
             // Positive lead = thrown ahead (good), negative = thrown behind (bad)
-            const receiverVelocity = receiver.velocity || new BABYLON.Vector3(0, 0, 0);
+            // Use velocity captured at throw time, not current velocity (receiver may have stopped)
+            const storedVelocity = gameState.receiverVelocitiesAtThrow && gameState.receiverVelocitiesAtThrow[receiver.name];
+            const receiverVelocity = storedVelocity || receiver.velocity || new BABYLON.Vector3(0, 0, 0);
             const leadVector = new BABYLON.Vector3(
                 ballLandingPos.x - receiverPos.x,
                 0,
