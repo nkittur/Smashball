@@ -991,6 +991,7 @@
             SPEED_BURST_MULTIPLIER: 1.5,// Speed boost after D-line wins
             SPEED_BURST_DURATION: 1.5,  // Duration of speed burst
             TACKLE_RANGE: 1.2,          // Distance for QB sack
+            SNAP_DELAY: 1.5,            // Seconds before D-line starts rushing (QB drop-back time)
         };
 
         // Receiver tackling constants
@@ -5809,6 +5810,14 @@
                 return;
             }
 
+            // Wait for snap delay before D-line starts rushing (gives QB time to drop back)
+            const timeSinceSnap = gameState.playStartTime ?
+                (performance.now() * 0.001 - gameState.playStartTime) : 0;
+            if (timeSinceSnap < LINE_CLASH_CONSTANTS.SNAP_DELAY) {
+                // D-linemen hold position during snap delay
+                return;
+            }
+
             // Get QB position (use current QB position for evasion tracking)
             const qbPos = gameState.scene.qb.position;
 
@@ -5946,6 +5955,13 @@
         // Process line clashes between O-line and D-line
         const processLineClashes = () => {
             const currentTime = gameState.gameTime;
+
+            // Skip clash processing during snap delay
+            const timeSinceSnap = gameState.playStartTime ?
+                (performance.now() * 0.001 - gameState.playStartTime) : 0;
+            if (timeSinceSnap < LINE_CLASH_CONSTANTS.SNAP_DELAY) {
+                return;
+            }
 
             gameState.defensiveLine.forEach(dLineman => {
                 // Skip if knocked down
