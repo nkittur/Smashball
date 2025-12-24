@@ -9397,10 +9397,17 @@
             gameState.catches = 0;
             gameState.attempts = 0;
             gameState.touchdowns = 0;
+            gameState.lineOfScrimmage = gameState.startingLineOfScrimmage;
+            gameState.firstDownMarker = gameState.startingLineOfScrimmage + 10;
             gameStats.reset();  // Reset per-game stats
 
             // Update game meshes with roster player data
             updateGamePlayersFromRoster();
+
+            // Reset play to position all players at the line of scrimmage
+            if (gameState.scene) {
+                resetPlay(gameState.scene);
+            }
         }
 
         // Start training mode (no defenders, throw ratings)
@@ -9422,8 +9429,8 @@
             gameState.catches = 0;
             gameState.attempts = 0;
             gameState.touchdowns = 0;
-            gameState.lineOfScrimmage = -5;
-            gameState.firstDownMarker = 5;
+            gameState.lineOfScrimmage = gameState.startingLineOfScrimmage;
+            gameState.firstDownMarker = gameState.startingLineOfScrimmage + 10;
 
             // Keep defensive backs visible but hide offensive and defensive lines
             gameState.offensiveLine.forEach(lineman => lineman.setEnabled(false));
