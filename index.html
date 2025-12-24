@@ -5626,7 +5626,7 @@
                     while (dirChange < -Math.PI) dirChange += Math.PI * 2;
 
                     // Update tilt momentum (builds up strongly on turns, decays slowly)
-                    const tiltAmount = dirChange * 5; // Strong direction-based tilt
+                    const tiltAmount = -dirChange * 5; // Lean INTO the turn (negative = opposite of direction change)
                     receiver.tiltMomentum = (receiver.tiltMomentum || 0) * 0.93 + tiltAmount * 0.7;
 
                     // Track running momentum for forward lean
@@ -5668,7 +5668,7 @@
                     while (dirChange < -Math.PI) dirChange += Math.PI * 2;
 
                     // Update tilt momentum (builds up strongly on turns, decays slowly)
-                    const tiltAmount = dirChange * 5; // Strong direction-based tilt
+                    const tiltAmount = -dirChange * 5; // Lean INTO the turn (negative = opposite of direction change)
                     player.tiltMomentum = (player.tiltMomentum || 0) * 0.93 + tiltAmount * 0.7;
                     player.runMomentum = Math.min((player.runMomentum || 0) + 0.15, 1);
                 } else {
