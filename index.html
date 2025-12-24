@@ -5236,24 +5236,41 @@
 
         // Create Field
         const createField = (scene, materials) => {
-            // Main field (extended for full 65-yard drive from own 35)
-            const field = BABYLON.MeshBuilder.CreateGround('field', {
-                width: FIELD_WIDTH + 2,
-                height: FIELD_LENGTH + 12
-            }, scene);
-            field.material = materials.fieldMaterial;
-            field.position.z = -25;  // Center the extended field
+            // Alternating turf stripes (10-yard sections with different shades of green)
+            const lightGreen = new BABYLON.StandardMaterial('lightGreen', scene);
+            lightGreen.diffuseColor = new BABYLON.Color3(0.18, 0.42, 0.18);
+            lightGreen.specularColor = new BABYLON.Color3(0.05, 0.05, 0.05);
 
-            // Yard lines - 10-yard markers across the full field (every 10 units)
-            // From own goal line (-65) to opponent's goal line (11)
+            const darkGreen = new BABYLON.StandardMaterial('darkGreen', scene);
+            darkGreen.diffuseColor = new BABYLON.Color3(0.12, 0.32, 0.12);
+            darkGreen.specularColor = new BABYLON.Color3(0.05, 0.05, 0.05);
+
+            // Create alternating 10-yard turf sections from -70 to +20
+            const stripeStart = -70;
+            const stripeEnd = 20;
+            const stripeDepth = 10;
+            let stripeIndex = 0;
+
+            for (let z = stripeStart; z < stripeEnd; z += stripeDepth) {
+                const stripe = BABYLON.MeshBuilder.CreateGround(`turf_${stripeIndex}`, {
+                    width: FIELD_WIDTH + 2,
+                    height: stripeDepth
+                }, scene);
+                stripe.material = (stripeIndex % 2 === 0) ? lightGreen : darkGreen;
+                stripe.position.set(0, 0, z + stripeDepth / 2);
+                stripeIndex++;
+            }
+
+            // Yard lines - white 10-yard markers across the full field
+            // From own territory (-60) to opponent's goal line (10)
             for (let i = -60; i <= 10; i += 10) {
                 const line = BABYLON.MeshBuilder.CreateBox('yardLine', {
                     width: FIELD_WIDTH,
                     height: 0.02,
-                    depth: 0.1
+                    depth: 0.15
                 }, scene);
                 line.material = materials.lineMaterial;
-                line.position.set(0, 0.01, i);
+                line.position.set(0, 0.012, i);
             }
 
             // End zone (30% deeper)
@@ -5266,35 +5283,25 @@
             endZone.material = endZoneMat;
             endZone.position.set(0, 0.001, 13);
 
-            // Border walls (castle-like)
-            const wallHeight = 0.8;
-            const wallPositions = [
-                { x: -FIELD_WIDTH/2 - 0.5, z: -25, width: 1, depth: FIELD_LENGTH + 12 },
-                { x: FIELD_WIDTH/2 + 0.5, z: -25, width: 1, depth: FIELD_LENGTH + 12 }
+            // Sideline boundaries (football-style white lines)
+            const sidelinePositions = [
+                { x: -FIELD_WIDTH/2 - 0.15, z: -25 },
+                { x: FIELD_WIDTH/2 + 0.15, z: -25 }
             ];
 
-            wallPositions.forEach((wp, i) => {
-                const wall = BABYLON.MeshBuilder.CreateBox(`wall_${i}`, {
-                    width: wp.width,
-                    height: wallHeight,
-                    depth: wp.depth
-                }, scene);
-                const wallMat = new BABYLON.StandardMaterial(`wallMat_${i}`, scene);
-                wallMat.diffuseColor = new BABYLON.Color3(0.35, 0.3, 0.25);
-                wall.material = wallMat;
-                wall.position.set(wp.x, wallHeight/2, wp.z);
+            const sidelineMat = new BABYLON.StandardMaterial('sidelineMat', scene);
+            sidelineMat.diffuseColor = new BABYLON.Color3(0.95, 0.95, 0.95);
+            sidelineMat.emissiveColor = new BABYLON.Color3(0.1, 0.1, 0.1);
 
-                // Battlements (extended for longer field)
-                const numBattlements = Math.ceil((FIELD_LENGTH + 12) / 2.2);
-                for (let j = 0; j < numBattlements; j++) {
-                    const merlon = BABYLON.MeshBuilder.CreateBox(`merlon_${i}_${j}`, {
-                        width: 0.4,
-                        height: 0.3,
-                        depth: 0.4
-                    }, scene);
-                    merlon.material = wallMat;
-                    merlon.position.set(wp.x, wallHeight + 0.15, -63 + j * 2.2);
-                }
+            sidelinePositions.forEach((sp, i) => {
+                // Main sideline stripe
+                const sideline = BABYLON.MeshBuilder.CreateBox(`sideline_${i}`, {
+                    width: 0.3,
+                    height: 0.02,
+                    depth: FIELD_LENGTH + 12
+                }, scene);
+                sideline.material = sidelineMat;
+                sideline.position.set(sp.x, 0.015, sp.z);
             });
 
             // Line of scrimmage marker (blue)
@@ -6678,6 +6685,10 @@
                 // Always white
                 receiver.fillMaterial.diffuseColor = new BABYLON.Color3(1.0, 1.0, 1.0);
                 receiver.fillMaterial.emissiveColor = new BABYLON.Color3(0.5, 0.5, 0.5);
+
+                // Reset body color to original (clear any flash effects from previous play)
+                receiver.bodyMaterial.diffuseColor = receiver.originalColor.clone();
+                receiver.bodyMaterial.emissiveColor = BABYLON.Color3.Black();
 
                 // Tackling state
                 receiver.breakTackleBoostUntil = 0;
