@@ -6863,19 +6863,19 @@
 
                 // === RED ZONE ROUTES ===
                 case 'corner':
-                    // Break toward corner of end zone
-                    const cornerBreak = startZ + 5 + Math.random() * 2;
+                    // Break toward corner of end zone - break at 3-5 yards
+                    const cornerBreak = startZ + 3 + Math.random() * 2;
                     const cornerX = Math.max(-7, Math.min(7, startX + towardSideline * (4 + Math.random() * 2)));
                     route.push({ z: Math.min(cornerBreak, END_ZONE_Z - 1), x: startX });
-                    route.push({ z: Math.min(cornerBreak + 4, END_ZONE_BACK), x: cornerX });
+                    route.push({ z: Math.min(cornerBreak + 6, END_ZONE_BACK), x: cornerX });
                     break;
 
                 case 'comeback_corner':
-                    // Go, comeback, then break to corner
-                    const ccBreak = startZ + 6;
+                    // Go 4-5 yards, comeback, then break to corner
+                    const ccBreak = startZ + 4 + Math.random();
                     route.push({ z: Math.min(ccBreak, END_ZONE_Z), x: startX });
                     route.push({ z: Math.min(ccBreak - 1, END_ZONE_Z - 1), x: startX });
-                    route.push({ z: Math.min(ccBreak + 3, END_ZONE_BACK), x: Math.max(-7, Math.min(7, startX + towardSideline * 4)) });
+                    route.push({ z: Math.min(ccBreak + 5, END_ZONE_BACK), x: Math.max(-7, Math.min(7, startX + towardSideline * 4)) });
                     break;
 
                 // === STANDARD ROUTES ===
@@ -6889,52 +6889,52 @@
                     break;
 
                 case 'slant':
-                    // Quick slant across the middle
-                    const slantBreak = startZ + 3 + Math.random() * 2;
+                    // Quick slant across the middle - break at 2-3 yards
+                    const slantBreak = startZ + 2 + Math.random() * 1;
                     const slantX = startX + towardMiddle * (5 + Math.random() * 3);
                     route.push({ z: slantBreak, x: startX });
                     route.push({ z: Math.min(slantBreak + 6, END_ZONE_Z), x: Math.max(-5, Math.min(5, slantX)) });
-                    route.push({ z: Math.min(slantBreak + 10, END_ZONE_BACK), x: Math.max(-5, Math.min(5, slantX)) });
+                    route.push({ z: Math.min(slantBreak + 12, END_ZONE_BACK), x: Math.max(-5, Math.min(5, slantX)) });
                     break;
 
                 case 'out':
-                    // Break to sideline
-                    const outBreak = startZ + 5 + Math.random() * 3;
+                    // Break to sideline - break at 3-5 yards
+                    const outBreak = startZ + 3 + Math.random() * 2;
                     const outX = Math.max(-7, Math.min(7, startX + towardSideline * (4 + Math.random() * 2)));
                     route.push({ z: outBreak, x: startX });
                     route.push({ z: outBreak + 1, x: outX });
-                    route.push({ z: Math.min(outBreak + 6, END_ZONE_BACK), x: outX });
+                    route.push({ z: Math.min(outBreak + 8, END_ZONE_BACK), x: outX });
                     break;
 
                 case 'post':
-                    // Break toward the goalpost (middle deep)
-                    const postBreak = startZ + 6 + Math.random() * 3;
+                    // Break toward the goalpost - break at 4-6 yards
+                    const postBreak = startZ + 4 + Math.random() * 2;
                     route.push({ z: postBreak, x: startX });
-                    route.push({ z: Math.min(postBreak + 6, END_ZONE_BACK), x: towardMiddle * (2 + Math.random() * 2) });
+                    route.push({ z: Math.min(postBreak + 8, END_ZONE_BACK), x: towardMiddle * (2 + Math.random() * 2) });
                     break;
 
                 case 'dig':
                 case 'crossing':
-                    // Deep cross - run vertical then cut across
-                    const digBreak = startZ + 7 + Math.random() * 3;
+                    // Cross route - break at 4-6 yards then go deep
+                    const digBreak = startZ + 4 + Math.random() * 2;
                     const digEndX = Math.max(-6, Math.min(6, startX + towardMiddle * (8 + Math.random() * 4)));
                     route.push({ z: Math.min(digBreak, END_ZONE_Z), x: startX });
                     route.push({ z: Math.min(digBreak + 2, END_ZONE_Z + 2), x: digEndX });
-                    route.push({ z: Math.min(digBreak + 5, END_ZONE_BACK), x: digEndX });
+                    route.push({ z: Math.min(digBreak + 8, END_ZONE_BACK), x: digEndX });
                     break;
 
                 case 'seam':
-                    // Straight up the seam (between zones)
+                    // Straight up the seam - slight angle at 3 yards
                     const seamTarget = startX > 0 ? 3 : -3;  // Stay in seam
-                    route.push({ z: startZ + 5, x: (startX + seamTarget) / 2 });
-                    route.push({ z: Math.min(startZ + 12, END_ZONE_Z), x: seamTarget });
+                    route.push({ z: startZ + 3, x: (startX + seamTarget) / 2 });
+                    route.push({ z: Math.min(startZ + 10, END_ZONE_Z), x: seamTarget });
                     route.push({ z: Math.min(startZ + 16, END_ZONE_BACK), x: seamTarget });
                     break;
 
                 case 'curl':
                 case 'comeback':
-                    // Run up, curl back toward QB
-                    const curlDepth = startZ + 8 + Math.random() * 3;
+                    // Run up 5-7 yards, curl back toward QB
+                    const curlDepth = startZ + 5 + Math.random() * 2;
                     route.push({ z: curlDepth, x: startX });
                     route.push({ z: curlDepth - 2, x: startX + towardMiddle * 1 });
                     break;
