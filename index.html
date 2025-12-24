@@ -6863,6 +6863,30 @@
                 point.x = Math.max(-SIDELINE, Math.min(SIDELINE, point.x));
             });
 
+            // Post-process: ensure routes extend into end zone if close enough
+            if (route.length > 0) {
+                const lastPoint = route[route.length - 1];
+                const distToEndZone = END_ZONE_Z - lastPoint.z;
+
+                // If within 8 yards of end zone and route doesn't reach it, extend
+                if (distToEndZone > 0 && distToEndZone < 8) {
+                    route.push({
+                        z: Math.min(END_ZONE_Z + 2, END_ZONE_BACK),
+                        x: lastPoint.x
+                    });
+                }
+
+                // If route ends near sideline, add crossing waypoint back toward middle
+                const finalPoint = route[route.length - 1];
+                if (Math.abs(finalPoint.x) > 6) {
+                    const crossDirection = finalPoint.x > 0 ? -1 : 1;  // Cross toward middle
+                    route.push({
+                        z: Math.min(finalPoint.z + 2, END_ZONE_BACK),
+                        x: finalPoint.x + crossDirection * 4  // Cross 4 yards toward middle
+                    });
+                }
+            }
+
             receiver.route = route;
 
             // Update route line visual
