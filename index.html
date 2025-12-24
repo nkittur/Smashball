@@ -2574,16 +2574,32 @@
 
             const availableRoutes = Object.values(ROUTE_TEMPLATES[zone]);
 
+            // Identify crossing/comeback routes (have crossing round or specific route types)
+            const isCrossingRoute = (route) => {
+                const crossingNames = ['slant', 'dig', 'comeback', 'curl', 'out', 'in', 'flat', 'quick_slant', 'endzone_slant'];
+                if (crossingNames.some(name => route.name?.includes(name))) return true;
+                // Or has a round with crossing: true after round 1
+                return route.rounds?.some((r, i) => i > 0 && r.crossing);
+            };
+
+            const crossingRoutes = availableRoutes.filter(isCrossingRoute);
+
             // Categorize routes by depth
             const quickRoutes = availableRoutes.filter(r => r.rounds[1].depth <= 6);
             const mediumRoutes = availableRoutes.filter(r => r.rounds[1].depth > 6 && r.rounds[2].depth <= 12);
             const deepRoutes = availableRoutes.filter(r => r.rounds[2].depth > 12);
 
+            // Randomly pick which receiver gets the guaranteed crossing route (usually slot/WR3)
+            const crossingReceiverIndex = Math.random() < 0.6 ? 2 : (Math.random() < 0.5 ? 1 : 0);
+
             // Select based on situation
             receivers.forEach((wr, index) => {
                 let routePool;
 
-                if (down >= 3 && yardsToGo > 7) {
+                // Ensure one receiver always runs a crossing/comeback route
+                if (index === crossingReceiverIndex && crossingRoutes.length > 0) {
+                    routePool = crossingRoutes;
+                } else if (down >= 3 && yardsToGo > 7) {
                     // 3rd/4th and long - need deep routes
                     routePool = index === 0 ? deepRoutes : (index === 1 ? mediumRoutes : quickRoutes);
                 } else if (down >= 3 && yardsToGo <= 3) {
