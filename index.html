@@ -8212,24 +8212,8 @@
                     // Update debug display
                     updateDebugInfo();
 
-                    // Fade out name labels after 1 second
-                    const timeSinceStart = time - gameState.playStartTime;
-                    if (timeSinceStart > 1.0 && timeSinceStart < 2.0) {
-                        // Fade over 1 second (from t=1 to t=2)
-                        const fadeProgress = timeSinceStart - 1.0;
-                        gameState.receivers.forEach(receiver => {
-                            if (receiver.nameLabel) {
-                                receiver.nameLabel.alpha = 1 - fadeProgress;
-                            }
-                        });
-                    } else if (timeSinceStart >= 2.0) {
-                        // Fully hidden
-                        gameState.receivers.forEach(receiver => {
-                            if (receiver.nameLabel) {
-                                receiver.nameLabel.alpha = 0;
-                            }
-                        });
-                    }
+                    // Name labels are hidden by hidePlayerLabels() when play starts
+                    // No additional fade logic needed here
                 }
             });
         };
