@@ -5625,12 +5625,12 @@
                     while (dirChange > Math.PI) dirChange -= Math.PI * 2;
                     while (dirChange < -Math.PI) dirChange += Math.PI * 2;
 
-                    // Update tilt momentum (builds up on turns, decays otherwise)
-                    const tiltAmount = dirChange * 2; // Convert direction change to tilt
-                    receiver.tiltMomentum = (receiver.tiltMomentum || 0) * 0.85 + tiltAmount * 0.5;
+                    // Update tilt momentum (builds up strongly on turns, decays slowly)
+                    const tiltAmount = dirChange * 5; // Strong direction-based tilt
+                    receiver.tiltMomentum = (receiver.tiltMomentum || 0) * 0.93 + tiltAmount * 0.7;
 
                     // Track running momentum for forward lean
-                    receiver.runMomentum = Math.min((receiver.runMomentum || 0) + 0.1, 1);
+                    receiver.runMomentum = Math.min((receiver.runMomentum || 0) + 0.15, 1);
                 } else {
                     receiver.tiltMomentum = 0;
                     receiver.runMomentum = 0;
@@ -5642,10 +5642,10 @@
                 receiver.position.z += vz;
                 receiver.rotation.y = currentDir;
 
-                // Apply momentum-based tilt
-                const maxTilt = 0.4; // Max tilt angle in radians (~23 degrees)
+                // Apply momentum-based tilt (lean into direction of run)
+                const maxTilt = 0.5; // Max tilt angle in radians (~29 degrees)
                 receiver.rotation.z = Math.max(-maxTilt, Math.min(maxTilt, receiver.tiltMomentum || 0));
-                receiver.rotation.x = -(receiver.runMomentum || 0) * 0.15; // Slight forward lean when running
+                receiver.rotation.x = -(receiver.runMomentum || 0) * 0.25; // Forward lean when running
             } else {
                 receiver.velocity = new BABYLON.Vector3(0, 0, 0);
                 // Decay tilt when stopped
@@ -5667,26 +5667,26 @@
                     while (dirChange > Math.PI) dirChange -= Math.PI * 2;
                     while (dirChange < -Math.PI) dirChange += Math.PI * 2;
 
-                    // Update tilt momentum (builds up on turns, decays otherwise)
-                    const tiltAmount = dirChange * 2;
-                    player.tiltMomentum = (player.tiltMomentum || 0) * 0.85 + tiltAmount * 0.5;
-                    player.runMomentum = Math.min((player.runMomentum || 0) + 0.1, 1);
+                    // Update tilt momentum (builds up strongly on turns, decays slowly)
+                    const tiltAmount = dirChange * 5; // Strong direction-based tilt
+                    player.tiltMomentum = (player.tiltMomentum || 0) * 0.93 + tiltAmount * 0.7;
+                    player.runMomentum = Math.min((player.runMomentum || 0) + 0.15, 1);
                 } else {
                     player.tiltMomentum = 0;
                     player.runMomentum = 0;
                 }
                 player.lastMoveDir = currentDir;
 
-                // Apply tilt
-                const maxTilt = 0.4;
+                // Apply tilt (lean into direction of run)
+                const maxTilt = 0.5;
                 player.rotation.z = Math.max(-maxTilt, Math.min(maxTilt, player.tiltMomentum || 0));
-                player.rotation.x = -(player.runMomentum || 0) * 0.15;
+                player.rotation.x = -(player.runMomentum || 0) * 0.25;
             } else {
                 // Decay tilt when stopped
                 player.tiltMomentum = (player.tiltMomentum || 0) * 0.9;
                 player.runMomentum = (player.runMomentum || 0) * 0.9;
                 player.rotation.z = player.tiltMomentum || 0;
-                player.rotation.x = -(player.runMomentum || 0) * 0.15;
+                player.rotation.x = -(player.runMomentum || 0) * 0.25;
             }
         };
 
@@ -7172,9 +7172,8 @@
                             moveReceiverAlongRoute(receiver, effectiveSpeed);
                         }
 
-                        // Running animation (add subtle bob, tilt handled by momentum system)
+                        // Running animation (bob only, tilt handled by momentum system)
                         receiver.position.y = Math.abs(Math.sin(time.value * 8 + i)) * 0.08;
-                        receiver.rotation.z += Math.sin(time.value * 8 + i) * 0.02; // Small wobble on top of tilt
                     });
 
                     // Move defenders during ball flight - they pursue!
@@ -7195,9 +7194,8 @@
 
                         moveDefender(defender, 0.016, effectiveSpeed);
 
-                        // Running animation (add subtle bob, tilt handled by momentum system)
+                        // Running animation (bob only, tilt handled by momentum system)
                         defender.position.y = Math.abs(Math.sin(time.value * 8 + i + 0.5)) * 0.08;
-                        defender.rotation.z += Math.sin(time.value * 8 + i + 0.5) * 0.02; // Small wobble on top of tilt
                     });
 
                     // Move linemen during ball flight (battle continues!)
@@ -7471,9 +7469,8 @@
                 // Move ball carrier
                 moveBallCarrier(ballCarrier);
 
-                // Running animation for ball carrier (add subtle bob, tilt handled by momentum system)
+                // Running animation for ball carrier (bob only, tilt handled by momentum system)
                 ballCarrier.position.y = Math.abs(Math.sin(timeSinceCatch.value * 10)) * 0.1;
-                ballCarrier.rotation.z += Math.sin(timeSinceCatch.value * 10) * 0.02; // Small wobble on top of tilt
 
                 // Calculate pursuit boost based on time since catch
                 // After 1 second: 10% boost, after 2 seconds: 20% boost
@@ -7491,10 +7488,9 @@
                     if (defender.knockdownUntil <= gameState.gameTime) {
                         moveDefenderPursuit(defender, pursuitBoost);
 
-                        // Running animation (add subtle bob, tilt handled by momentum system)
+                        // Running animation (bob only, tilt handled by momentum system)
                         const animSpeed = 10 + (pursuitBoost - 1.0) * 20;
                         defender.position.y = Math.abs(Math.sin(timeSinceCatch.value * animSpeed + i)) * 0.08;
-                        defender.rotation.z += Math.sin(timeSinceCatch.value * animSpeed + i) * 0.02; // Small wobble on top of tilt
                     }
                 });
 
@@ -8115,13 +8111,10 @@
                         const bobSpeed = receiver.initialClashSlowdownUntil > gameState.gameTime ? 4 : 8;
                         receiver.position.y = Math.abs(Math.sin(time * bobSpeed + i)) * 0.08;
 
-                        // Arm swing approximation (add to momentum tilt)
-                        receiver.rotation.z += Math.sin(time * bobSpeed + i) * 0.02;
-
                         // Clash tilt effect (add forward lean during clash)
                         if (receiver.clashTiltUntil > gameState.gameTime) {
                             const tiltProgress = (receiver.clashTiltUntil - gameState.gameTime) / 0.5;
-                            receiver.rotation.x += Math.sin(tiltProgress * Math.PI) * 0.3;  // Lean forward
+                            receiver.rotation.x += Math.sin(tiltProgress * Math.PI) * 0.3;
                         }
 
                         // Show green while speed boosted, red while speed penalized
@@ -8206,15 +8199,14 @@
 
                         moveDefender(defender, 0.016, effectiveSpeed);
 
-                        // Running bob animation (add to momentum tilt)
+                        // Running bob animation (bob only, tilt handled by momentum system)
                         const bobSpeed = defender.initialClashSlowdownUntil > gameState.gameTime ? 4 : 8;
                         defender.position.y = Math.abs(Math.sin(time * bobSpeed + i + 0.5)) * 0.08;
-                        defender.rotation.z += Math.sin(time * bobSpeed + i + 0.5) * 0.02;
 
                         // Clash tilt effect (add forward lean during clash)
                         if (defender.clashTiltUntil > gameState.gameTime) {
                             const tiltProgress = (defender.clashTiltUntil - gameState.gameTime) / 0.5;
-                            defender.rotation.x += Math.sin(tiltProgress * Math.PI) * 0.3;  // Lean forward
+                            defender.rotation.x += Math.sin(tiltProgress * Math.PI) * 0.3;
                         }
 
                     });
