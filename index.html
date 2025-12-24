@@ -1870,11 +1870,12 @@
 
             // Weights for each tier: [rookie, below_average, average, veteran, star, elite]
             // Each team has a spread from poor to elite, but difficulty shifts the distribution
+            // Easy teams still average low 70s, elite teams average low 80s
             const tierWeights = {
-                'easy':   [15, 30, 35, 15, 4, 1],    // Mostly below average, rare star
-                'medium': [8, 20, 35, 25, 10, 2],   // Balanced, some good players
-                'hard':   [3, 10, 25, 35, 20, 7],   // Mostly veterans with stars
-                'elite':  [1, 5, 15, 30, 30, 19]    // Stacked with stars and elites
+                'easy':   [2, 8, 30, 45, 12, 3],     // Avg ~72: mostly average/veteran
+                'medium': [1, 5, 25, 45, 20, 4],    // Avg ~74: solid veterans with stars
+                'hard':   [0, 3, 18, 45, 28, 6],    // Avg ~77: veteran-heavy with stars
+                'elite':  [0, 1, 10, 35, 40, 14]    // Avg ~81: star-studded roster
             };
             const weights = tierWeights[difficulty] || tierWeights['medium'];
 
