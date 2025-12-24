@@ -7606,8 +7606,10 @@
             const catchingStat = receiver.stats.catching;
 
             if (!hasNearbyDefender || totalDefenderInfluence < 0.1) {
-                // Wide open - 95% catch regardless of stats
-                finalProbability = 95;
+                // Wide open - catching stat matters but with bonus
+                // 60 catching = 80%, 80+ catching = 95% (capped)
+                const wideOpenBase = 80 + (catchingStat - 60) * 0.75;
+                finalProbability = Math.min(95, wideOpenBase);
             } else {
                 // Contested catch formula:
                 // Base 25% + (catching stat contributes up to +10%)
@@ -8313,9 +8315,11 @@
 
             totalDefenderInfluence = Math.min(1, totalDefenderInfluence);
 
-            // Match the new catch system: 95% wide open, contested 25-35% based on catching stat
+            // Match the new catch system: wide open uses catching stat with bonus, contested 25-35%
             if (!hasNearbyDefender || totalDefenderInfluence < 0.1) {
-                return 95;
+                // Wide open: 60 catching = 80%, 80+ catching = 95% (capped)
+                const wideOpenBase = 80 + (catchingStat - 60) * 0.75;
+                return Math.min(95, wideOpenBase);
             } else {
                 const contestedBase = 25;
                 const catchingBonus = (catchingStat / 100) * 10;  // Max +10% at 100 catching
