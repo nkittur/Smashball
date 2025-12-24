@@ -913,9 +913,9 @@
             // Down and distance tracking
             down: 1,                // Current down (1-4)
             yardsToGo: 10,          // Yards needed for first down
-            lineOfScrimmage: -5,    // Current field position (Z coordinate) - own 30
-            firstDownMarker: 5,     // Z position where first down is achieved
-            startingLineOfScrimmage: -5,  // Where drive started - own 30 yard line
+            lineOfScrimmage: -54,   // Current field position (Z coordinate) - own 35 yard line
+            firstDownMarker: -44,   // Z position where first down is achieved (10 yards ahead)
+            startingLineOfScrimmage: -54,  // Where drive started - own 35 yard line
             // Training mode
             trainingMode: false,    // Training mode: no defenders, throw ratings
             lastThrowRating: null   // Last throw rating for display
@@ -4535,7 +4535,7 @@
 
         // Constants
         const FIELD_WIDTH = 16;  // Doubled width
-        const FIELD_LENGTH = 20;
+        const FIELD_LENGTH = 70;  // Extended for full 65-yard drive from own 35
         const QB_START_Z = -6;  // Moved back (closer to bottom of screen)
         const MAX_THROW_DISTANCE = 18;  // Can overthrow into endzone
         const MIN_THROW_DISTANCE = 2;
@@ -5236,16 +5236,17 @@
 
         // Create Field
         const createField = (scene, materials) => {
-            // Main field (extended for deeper end zone and own territory)
+            // Main field (extended for full 65-yard drive from own 35)
             const field = BABYLON.MeshBuilder.CreateGround('field', {
                 width: FIELD_WIDTH + 2,
                 height: FIELD_LENGTH + 12
             }, scene);
             field.material = materials.fieldMaterial;
-            field.position.z = -0.5;
+            field.position.z = -25;  // Center the extended field
 
-            // Yard lines - only 10-yard markers (every 5 units)
-            for (let i = 0; i <= 10; i += 5) {
+            // Yard lines - 10-yard markers across the full field (every 10 units)
+            // From own goal line (-65) to opponent's goal line (11)
+            for (let i = -60; i <= 10; i += 10) {
                 const line = BABYLON.MeshBuilder.CreateBox('yardLine', {
                     width: FIELD_WIDTH,
                     height: 0.02,
@@ -5268,8 +5269,8 @@
             // Border walls (castle-like)
             const wallHeight = 0.8;
             const wallPositions = [
-                { x: -FIELD_WIDTH/2 - 0.5, z: -0.5, width: 1, depth: FIELD_LENGTH + 12 },
-                { x: FIELD_WIDTH/2 + 0.5, z: -0.5, width: 1, depth: FIELD_LENGTH + 12 }
+                { x: -FIELD_WIDTH/2 - 0.5, z: -25, width: 1, depth: FIELD_LENGTH + 12 },
+                { x: FIELD_WIDTH/2 + 0.5, z: -25, width: 1, depth: FIELD_LENGTH + 12 }
             ];
 
             wallPositions.forEach((wp, i) => {
@@ -5283,15 +5284,16 @@
                 wall.material = wallMat;
                 wall.position.set(wp.x, wallHeight/2, wp.z);
 
-                // Battlements
-                for (let j = 0; j < 13; j++) {
+                // Battlements (extended for longer field)
+                const numBattlements = Math.ceil((FIELD_LENGTH + 12) / 2.2);
+                for (let j = 0; j < numBattlements; j++) {
                     const merlon = BABYLON.MeshBuilder.CreateBox(`merlon_${i}_${j}`, {
                         width: 0.4,
                         height: 0.3,
                         depth: 0.4
                     }, scene);
                     merlon.material = wallMat;
-                    merlon.position.set(wp.x, wallHeight + 0.15, -13 + j * 2.2);
+                    merlon.position.set(wp.x, wallHeight + 0.15, -63 + j * 2.2);
                 }
             });
 
@@ -7784,8 +7786,8 @@
 
             // Reset QB position (relative to line of scrimmage, randomized depth behind it)
             const qbDepthBehindLine = 2 + Math.random() * 2;  // 2-4 yards behind LOS
-            // Clamp QB Z position to stay on visible field (min -14 with extended field)
-            const qbZ = Math.max(-14, gameState.lineOfScrimmage - qbDepthBehindLine);
+            // Clamp QB Z position to stay on visible field (min -60 for own 35 start)
+            const qbZ = Math.max(-60, gameState.lineOfScrimmage - qbDepthBehindLine);
             gameState.qbStartZ = qbZ;
             scene.qb.position.x = 0;
             scene.qb.position.z = qbZ;
@@ -7806,8 +7808,8 @@
                 const camera = scene.activeCamera;
 
                 // Target centered on the line of scrimmage
-                // Allow camera to follow into own territory (-10) and into end zone (Z = 14)
-                const cameraTargetZ = Math.max(-10, Math.min(14, gameState.lineOfScrimmage + 2));
+                // Allow camera to follow full field from own 35 (-60) to end zone (Z = 14)
+                const cameraTargetZ = Math.max(-60, Math.min(14, gameState.lineOfScrimmage + 2));
                 camera.target = new BABYLON.Vector3(0, 0, cameraTargetZ);
 
                 // Reset camera to current view mode settings (alpha, beta, radius)
