@@ -1052,13 +1052,13 @@
                 slant: {
                     name: 'slant',
                     rounds: [
-                        { depth: 4, crossing: true },   // Diagonal cross - gains some depth
-                        { depth: 7, crossing: false },
+                        { depth: 3, crossing: false },  // Vertical stem past LOS first
+                        { depth: 6, crossing: true },   // Then diagonal cross
                         { depth: 9, crossing: false },
                         { depth: 9, crossing: false },
                         { depth: 9, crossing: false }
                     ],
-                    breakRound: 1
+                    breakRound: 2
                 },
                 out: {
                     name: 'out',
@@ -1151,24 +1151,24 @@
                 flat: {
                     name: 'flat',
                     rounds: [
-                        { depth: 1, crossing: true },   // Pure horizontal - minimal depth
-                        { depth: 2, crossing: false },
-                        { depth: 2, crossing: false },
-                        { depth: 2, crossing: false },
-                        { depth: 2, crossing: false }
+                        { depth: 2, crossing: false },  // Short stem past LOS
+                        { depth: 3, crossing: true },   // Then horizontal cross
+                        { depth: 3, crossing: false },
+                        { depth: 3, crossing: false },
+                        { depth: 3, crossing: false }
                     ],
-                    breakRound: 1
+                    breakRound: 2
                 },
                 wheel: {
                     name: 'wheel',
                     rounds: [
-                        { depth: 1, crossing: true },   // Start horizontal
-                        { depth: 5, crossing: false },  // Turn upfield
-                        { depth: 12, crossing: false },
-                        { depth: 18, crossing: false },
+                        { depth: 2, crossing: false },  // Short stem past LOS
+                        { depth: 3, crossing: true },   // Release horizontally
+                        { depth: 8, crossing: false },  // Turn upfield
+                        { depth: 16, crossing: false },
                         { depth: 24, crossing: false }
                     ],
-                    breakRound: 1
+                    breakRound: 2
                 },
                 hitch: {
                     name: 'hitch',
@@ -1219,13 +1219,13 @@
                 quick_slant: {
                     name: 'quick_slant',
                     rounds: [
-                        { depth: 3, crossing: true },   // Diagonal slant
-                        { depth: 5, crossing: false },
+                        { depth: 2, crossing: false },  // Short stem past LOS
+                        { depth: 4, crossing: true },   // Then diagonal slant
                         { depth: 6, crossing: false },
                         { depth: 6, crossing: false },
                         { depth: 6, crossing: false }
                     ],
-                    breakRound: 1
+                    breakRound: 2
                 },
                 out_quick: {
                     name: 'out_quick',
@@ -1254,13 +1254,13 @@
                 endzone_slant: {
                     name: 'endzone_slant',
                     rounds: [
-                        { depth: 2, crossing: true },   // Diagonal into endzone
-                        { depth: 4, crossing: false },
+                        { depth: 1, crossing: false },  // Quick step into endzone
+                        { depth: 3, crossing: true },   // Then diagonal cross
                         { depth: 5, crossing: false },
                         { depth: 5, crossing: false },
                         { depth: 5, crossing: false }
                     ],
-                    breakRound: 1
+                    breakRound: 2
                 },
                 endzone_out: {
                     name: 'endzone_out',
@@ -1276,13 +1276,13 @@
                 endzone_flat: {
                     name: 'endzone_flat',
                     rounds: [
-                        { depth: 0, crossing: true },   // Pure horizontal at LOS
-                        { depth: 1, crossing: false },
-                        { depth: 1, crossing: false },
-                        { depth: 1, crossing: false },
-                        { depth: 1, crossing: false }
+                        { depth: 1, crossing: false },  // Quick step forward
+                        { depth: 2, crossing: true },   // Then horizontal cross
+                        { depth: 2, crossing: false },
+                        { depth: 2, crossing: false },
+                        { depth: 2, crossing: false }
                     ],
-                    breakRound: 1
+                    breakRound: 2
                 }
             }
         };
@@ -6741,10 +6741,12 @@
                     break;
 
                 case 'flat_cross':
-                    // Run flat across the formation then angle to end zone
+                    // Push 2-3 yards past LOS then cross across the formation
+                    const fcStem = startZ + 2 + Math.random();  // 2-3 yards forward first
                     const fcX = startX + towardMiddle * (6 + Math.random() * 3);
-                    route.push({ z: startZ + 1, x: Math.max(-6, Math.min(6, fcX)) });
-                    route.push({ z: Math.min(startZ + 4, END_ZONE_BACK), x: Math.max(-6, Math.min(6, fcX + towardMiddle * 2)) });
+                    route.push({ z: fcStem, x: startX });  // Vertical stem past LOS
+                    route.push({ z: fcStem + 1, x: Math.max(-6, Math.min(6, fcX)) });  // Then cross
+                    route.push({ z: Math.min(fcStem + 4, END_ZONE_BACK), x: Math.max(-6, Math.min(6, fcX + towardMiddle * 2)) });
                     break;
 
                 case 'back_shoulder':
