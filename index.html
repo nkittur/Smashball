@@ -4660,7 +4660,7 @@
                 receiver.stats = config.stats;
 
                 // Derive base speed from stats (normalized to game units)
-                receiver.baseSpeed = config.stats.speed * 0.0005;  // Scale stat to movement speed
+                receiver.baseSpeed = config.stats.speed * 0.0008;  // Increased for faster-paced gameplay
                 receiver.speed = receiver.baseSpeed;
 
                 // Clash system runtime state
@@ -4777,7 +4777,7 @@
                 defender.startPos = startPos.clone();
 
                 // Derive base speed from stats
-                defender.baseSpeed = config.stats.speed * 0.0005;
+                defender.baseSpeed = config.stats.speed * 0.0008;  // Increased to match receiver pace
                 defender.speed = defender.baseSpeed;
 
                 // Clash system runtime state
@@ -6845,10 +6845,15 @@
             const catchRadius = 1.2;
 
             let frameIndex = 0;
-            // Shorter throws are faster: speed ranges from 2.0 (short) to 0.8 (long)
-            const animationSpeed = 2.0 - (throwParams.power * 1.2);
+            // Ball flight speed - faster overall for snappier gameplay
+            // Short throws: very fast (3.5), long throws: still quick (1.8)
+            const animationSpeed = 3.5 - (throwParams.power * 1.7);
             let accumulator = 0;
             const time = { value: 0 };
+
+            // Spiral rotation tracking - faster spin for tight spiral effect
+            let spiralAngle = 0;
+            const spiralSpeed = 25 + (throwParams.power * 15);  // RPM increases with power
 
             // Create trail effect for ball
             const trailParticles = [];
@@ -6872,19 +6877,20 @@
                 if (frameIndex < path.length) {
                     football.position = path[frameIndex].clone();
 
-                    // Rotate ball along flight path
+                    // Rotate ball along flight path for proper orientation
                     if (frameIndex < path.length - 1) {
                         const direction = path[frameIndex + 1].subtract(path[frameIndex]);
                         const angle = Math.atan2(direction.x, direction.z);
                         football.rotation.y = angle;
 
-                        // Pitch based on vertical velocity
+                        // Pitch based on vertical velocity (nose follows arc)
                         const pitch = Math.atan2(direction.y, Math.sqrt(direction.x * direction.x + direction.z * direction.z));
                         football.rotation.x = -pitch;
                     }
 
-                    // Spin animation
-                    football.rotation.z += 0.2;
+                    // Tight spiral rotation around the ball's long axis
+                    spiralAngle += dt * spiralSpeed;
+                    football.rotation.z = spiralAngle;
 
                     // Add trail particles
                     const currentPos = football.position.clone();
