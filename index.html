@@ -5505,10 +5505,16 @@
             const dx = dragStart.x - dragCurrent.x;
             const dy = dragStart.y - dragCurrent.y;
 
+            // Get QB's arm strength (affects max throw distance)
+            // Scales from 12 yards at 50 armStrength to 26 yards at 100 armStrength
+            const qb = gameState.scene?.qb;
+            const armStrength = qb?.stats?.armStrength || 70;
+            const qbMaxThrowDistance = 12 + ((armStrength - 50) / 50) * 14;  // 12-26 range
+
             // Distance dragged determines throw power
             const rawDragDistance = Math.sqrt(dx * dx + dy * dy);
             const dragDistance = rawDragDistance * DRAG_SENSITIVITY;
-            const throwDistance = Math.min(Math.max(dragDistance, MIN_THROW_DISTANCE), MAX_THROW_DISTANCE);
+            const throwDistance = Math.min(Math.max(dragDistance, MIN_THROW_DISTANCE), qbMaxThrowDistance);
 
             // Direction is opposite of drag
             // Negate dy because screen Y is inverted (down = positive) vs world Z (up = positive)
@@ -5521,10 +5527,15 @@
                 angle = lastValidAngle;  // Use last valid angle for very small drags
             }
 
+            // Get QB max throw distance for power calculation
+            const qbForPower = gameState.scene?.qb;
+            const armStrengthForPower = qbForPower?.stats?.armStrength || 70;
+            const maxDistForPower = 12 + ((armStrengthForPower - 50) / 50) * 14;
+
             return {
                 distance: throwDistance,
                 angle: angle,
-                power: throwDistance / MAX_THROW_DISTANCE
+                power: throwDistance / maxDistForPower
             };
         };
 
@@ -7036,7 +7047,8 @@
             football.position = path[0].clone();
 
             const landingPos = path[path.length - 1];
-            const catchRadius = 1.2;
+            // Catch radius scales with catching stat: 0.8 at 50, 1.2 at 75, 1.8 at 100
+            const baseCatchRadius = 1.2;
 
             let frameIndex = 0;
             // Ball flight speed - short throws faster, long throws slower for arc visibility
@@ -7149,9 +7161,13 @@
                         // Check if route is complete
                         const routeComplete = !receiver.route || receiver.routeIndex >= receiver.route.length;
 
+                        // Calculate this receiver's catch radius based on catching stat
+                        // Scales from 0.8 at 50 catching to 1.8 at 100 catching
+                        const receiverCatchRadius = 0.8 + ((receiver.stats.catching - 50) / 50) * 1.0;
+
                         // If ball is coming to them (within catch range) OR route is done, move toward ball
                         // Moving off-route to catch slows the receiver down (allows defenders to close)
-                        if ((distToLanding < catchRadius * 2.5 && frameIndex > 5) || routeComplete) {
+                        if ((distToLanding < receiverCatchRadius * 2.5 && frameIndex > 5) || routeComplete) {
                             if (distToLanding > 0.2) {
                                 // Reduced speed when adjusting to catch (70% of normal)
                                 const catchAdjustSpeed = effectiveSpeed * 0.7;
@@ -7237,9 +7253,9 @@
 
         // Check for Catch
         const checkCatch = (scene, ballPosition, targetReceiver) => {
-            const catchRadius = 1.2;
             let potentialCatcher = null;
-            let closestDistance = catchRadius;
+            let closestDistance = Infinity;
+            let catcherRadius = 1.2;  // Default
 
             for (const receiver of gameState.receivers) {
                 // Can't catch if knocked down
@@ -7247,14 +7263,20 @@
                     continue;
                 }
 
+                // Each receiver's catch radius depends on their catching stat
+                // Scales from 0.8 at 50 catching to 1.8 at 100 catching
+                const receiverCatchRadius = 0.8 + ((receiver.stats.catching - 50) / 50) * 1.0;
+
                 const distance = BABYLON.Vector3.Distance(
                     new BABYLON.Vector3(receiver.position.x, 0, receiver.position.z),
                     new BABYLON.Vector3(ballPosition.x, 0, ballPosition.z)
                 );
 
-                if (distance < closestDistance) {
+                // Check if within this receiver's catch radius and closer than others
+                if (distance < receiverCatchRadius && distance < closestDistance) {
                     closestDistance = distance;
                     potentialCatcher = receiver;
+                    catcherRadius = receiverCatchRadius;
                 }
             }
 
@@ -7493,11 +7515,8 @@
 
         // Calculate catch probability based on receiver stats and proximity to defenders
         const calculateCatchProbability = (receiver, ballPosition) => {
-            // Base catch rate from receiver's catching stat
-            let baseCatch = receiver.stats.catching;
-
-            // Find defenders and apply proximity penalty
-            let defenderProximityPenalty = 0;
+            // Find defenders and calculate coverage
+            let totalDefenderInfluence = 0;
             let defenderDetails = [];
             let hasNearbyDefender = false;
             const coverageRange = CLASH_CONSTANTS.CLASH_RANGE * 1.5;
@@ -7532,71 +7551,96 @@
                     // Proximity factor: 1.0 at distance 0, 0.0 at max range
                     const proximityFactor = 1 - (dist / coverageRange);
 
-                    // At distance 0, if coverage equals catching, apply 80% penalty
-                    // penalty = proximityFactor^3 * coverageStat * 0.8
-                    // Cubed for steeper dropoff - separation is rewarded more
-                    let penalty = proximityFactor * proximityFactor * proximityFactor * coverageStat * 0.8;
+                    // Influence is proximity^2 * coverage stat (normalized to 0-1)
+                    let influence = proximityFactor * proximityFactor * (coverageStat / 100);
 
-                    // Very close defenders (0.6 or closer) have 50% more influence
+                    // Very close defenders have more influence
                     const CLOSE_DEFENDER_THRESHOLD = 0.6;
                     if (dist <= CLOSE_DEFENDER_THRESHOLD) {
-                        penalty *= 1.5;
+                        influence *= 1.5;
                     }
 
                     // Check if ball is on opposite side from defender
-                    // Only applies if defender isn't right on top of receiver (dist > 0.8)
                     const MIN_DIST_FOR_SIDE_BONUS = 0.8;
                     if (dist > MIN_DIST_FOR_SIDE_BONUS) {
                         const defenderSide = Math.sign(defender.position.x - receiver.position.x);
                         const ballSide = Math.sign(ballPosition.x - receiver.position.x);
-
-                        // If ball and defender are on opposite sides, halve the penalty
                         if (defenderSide !== 0 && ballSide !== 0 && defenderSide !== ballSide) {
-                            penalty *= 0.5;
+                            influence *= 0.5;
                         }
                     }
 
-                    // If defender lost a clash (has speed penalty), reduce their coverage effect by 50%
+                    // If defender lost a clash, reduce their coverage effect
                     if (defender.clashSpeedPenaltyUntil && defender.clashSpeedPenaltyUntil > gameState.gameTime) {
-                        penalty *= 0.5;
+                        influence *= 0.5;
                     }
 
                     // For zone defenders covering multiple receivers, split their coverage
                     if (defender.aiType === 'zone') {
                         const receiversInZone = zoneReceiverCounts.get(defender) || 1;
                         if (receiversInZone > 1) {
-                            penalty /= receiversInZone;
+                            influence /= receiversInZone;
                         }
                     }
 
-                    defenderProximityPenalty += penalty;
+                    totalDefenderInfluence += influence;
                     defenderDetails.push({
                         name: defender.name,
                         dist: dist.toFixed(2),
-                        penalty: penalty.toFixed(1),
+                        penalty: (influence * 100).toFixed(1),
                         coverageStat: coverageStat,
                         aiType: defender.aiType
                     });
                 }
             });
 
-            // Focus stat helps when defenders are nearby (higher focus = better under pressure)
-            const focusMod = hasNearbyDefender ? (receiver.stats.focus - 70) * 0.3 : 0;
+            // Clamp total defender influence to 0-1
+            totalDefenderInfluence = Math.min(1, totalDefenderInfluence);
 
-            // Calculate final probability (clamped between 5% and 95%)
-            const finalProbability = Math.max(5, Math.min(95,
-                baseCatch + focusMod - defenderProximityPenalty
-            ));
+            // NEW CATCH PROBABILITY SYSTEM:
+            // - Wide open (no defenders): 95% catch rate
+            // - Contested: base 25%, catching stat adds up to +50% (at 100 catching)
+            // - Defender influence reduces the catch probability
+
+            let finalProbability;
+            const catchingStat = receiver.stats.catching;
+
+            if (!hasNearbyDefender || totalDefenderInfluence < 0.1) {
+                // Wide open - 95% catch regardless of stats
+                finalProbability = 95;
+            } else {
+                // Contested catch formula:
+                // Base 25% + (catching stat contributes up to +50%)
+                // Then reduced by defender influence
+                const contestedBase = 25;
+                const catchingBonus = (catchingStat / 100) * 50;  // 0-50% bonus based on catching
+                const rawContestedProb = contestedBase + catchingBonus;  // 25-75% range
+
+                // Focus helps under pressure
+                const focusBonus = (receiver.stats.focus - 50) * 0.2;  // -10 to +10
+
+                // Defender influence reduces probability
+                // At max influence (1.0), reduces catch by up to 40%
+                const defenderReduction = totalDefenderInfluence * 40;
+
+                finalProbability = rawContestedProb + focusBonus - defenderReduction;
+            }
+
+            // Clamp between 5% and 95%
+            finalProbability = Math.max(5, Math.min(95, finalProbability));
 
             // Store for visual display
             receiver.lastCatchProbability = finalProbability;
 
+            // Calculate penalty for display (difference from wide open)
+            const defenderPenalty = hasNearbyDefender ? (95 - finalProbability) : 0;
+
             // Return detailed info for UI display
             return {
                 probability: finalProbability,
-                baseCatch: baseCatch,
-                focusMod: focusMod,
-                defenderPenalty: defenderProximityPenalty,
+                baseCatch: catchingStat,
+                focusMod: hasNearbyDefender ? (receiver.stats.focus - 50) * 0.2 : 0,
+                defenderPenalty: defenderPenalty,
                 defenderDetails: defenderDetails
             };
         };
@@ -8244,9 +8288,9 @@
 
         // Calculate real-time catch probability for a receiver (for visual display)
         const calculateRealtimeCatchProb = (receiver) => {
-            const baseCatch = receiver.stats.catching;
+            const catchingStat = receiver.stats.catching;
             const coverageRange = CLASH_CONSTANTS.CLASH_RANGE * 1.5;
-            let defenderPenalty = 0;
+            let totalDefenderInfluence = 0;
             let hasNearbyDefender = false;
 
             gameState.defenders.forEach(defender => {
@@ -8261,13 +8305,24 @@
                     const coverageStat = defender.aiType === 'zone' ?
                         defender.stats.zoneCoverage : defender.stats.manCoverage;
                     const proximityFactor = 1 - (dist / coverageRange);
-                    // Match the catch calculation: cubed for steeper dropoff
-                    defenderPenalty += proximityFactor * proximityFactor * proximityFactor * coverageStat * 0.8;
+                    let influence = proximityFactor * proximityFactor * (coverageStat / 100);
+                    if (dist <= 0.6) influence *= 1.5;
+                    totalDefenderInfluence += influence;
                 }
             });
 
-            const focusMod = hasNearbyDefender ? (receiver.stats.focus - 70) * 0.3 : 0;
-            return Math.max(5, Math.min(95, baseCatch + focusMod - defenderPenalty));
+            totalDefenderInfluence = Math.min(1, totalDefenderInfluence);
+
+            // Match the new catch system: 95% wide open, contested based on catching stat
+            if (!hasNearbyDefender || totalDefenderInfluence < 0.1) {
+                return 95;
+            } else {
+                const contestedBase = 25;
+                const catchingBonus = (catchingStat / 100) * 50;
+                const focusBonus = (receiver.stats.focus - 50) * 0.2;
+                const defenderReduction = totalDefenderInfluence * 40;
+                return Math.max(5, Math.min(95, contestedBase + catchingBonus + focusBonus - defenderReduction));
+            }
         };
 
         // Update zone fills based on proximity between receivers and defenders
