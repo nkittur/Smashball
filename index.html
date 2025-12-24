@@ -6910,10 +6910,12 @@
 
                 case 'curl':
                 case 'comeback':
-                    // Run up 5-7 yards, curl back toward QB
+                    // Run up 5-7 yards, curl back toward QB, then cross horizontally to opposite sideline
                     const curlDepth = startZ + 5 + Math.random() * 2;
+                    const oppositeSideline = startX > 0 ? -6 : 6;  // Go to opposite side of field
                     route.push({ z: curlDepth, x: startX });
-                    route.push({ z: curlDepth - 2, x: startX + towardMiddle * 1 });
+                    route.push({ z: curlDepth - 2, x: startX + towardMiddle * 1 });  // Curl back
+                    route.push({ z: curlDepth - 1, x: oppositeSideline });  // Cross horizontally to other sideline
                     break;
 
                 default:
