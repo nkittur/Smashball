@@ -5617,75 +5617,32 @@
                 const vz = (dz / dist) * runSpeed;
                 receiver.velocity = new BABYLON.Vector3(vx, 0, vz);
 
-                // Track direction for momentum tilt
-                const currentDir = Math.atan2(dx, dz);
-                if (receiver.lastMoveDir !== undefined) {
-                    let dirChange = currentDir - receiver.lastMoveDir;
-                    // Normalize to -PI to PI
-                    while (dirChange > Math.PI) dirChange -= Math.PI * 2;
-                    while (dirChange < -Math.PI) dirChange += Math.PI * 2;
-
-                    // Update tilt momentum (builds up strongly on turns, decays slowly)
-                    const tiltAmount = -dirChange * 5; // Lean INTO the turn (negative = opposite of direction change)
-                    receiver.tiltMomentum = (receiver.tiltMomentum || 0) * 0.93 + tiltAmount * 0.7;
-
-                    // Track running momentum for forward lean
-                    receiver.runMomentum = Math.min((receiver.runMomentum || 0) + 0.15, 1);
-                } else {
-                    receiver.tiltMomentum = 0;
-                    receiver.runMomentum = 0;
-                }
-                receiver.lastMoveDir = currentDir;
-
                 // Move toward target
                 receiver.position.x += vx;
                 receiver.position.z += vz;
-                receiver.rotation.y = currentDir;
+                receiver.rotation.y = Math.atan2(dx, dz);
 
-                // Apply momentum-based tilt (lean into direction of run)
-                const maxTilt = 0.5; // Max tilt angle in radians (~29 degrees)
-                receiver.rotation.z = Math.max(-maxTilt, Math.min(maxTilt, receiver.tiltMomentum || 0));
+                // Track running momentum for forward lean
+                receiver.runMomentum = Math.min((receiver.runMomentum || 0) + 0.15, 1);
                 receiver.rotation.x = (receiver.runMomentum || 0) * 0.25; // Forward lean when running
             } else {
                 receiver.velocity = new BABYLON.Vector3(0, 0, 0);
-                // Decay tilt when stopped
-                receiver.tiltMomentum = (receiver.tiltMomentum || 0) * 0.9;
+                // Decay forward lean when stopped
                 receiver.runMomentum = (receiver.runMomentum || 0) * 0.9;
-                receiver.rotation.z = receiver.tiltMomentum || 0;
                 receiver.rotation.x = (receiver.runMomentum || 0) * 0.15;
             }
             return true;
         };
 
-        // Apply momentum-based tilt to any player mesh
+        // Apply forward lean to any player mesh when running
         const applyMomentumTilt = (player, dx, dz, dist, isMoving) => {
             if (isMoving && dist > 0.1) {
-                const currentDir = Math.atan2(dx, dz);
-                if (player.lastMoveDir !== undefined) {
-                    let dirChange = currentDir - player.lastMoveDir;
-                    // Normalize to -PI to PI
-                    while (dirChange > Math.PI) dirChange -= Math.PI * 2;
-                    while (dirChange < -Math.PI) dirChange += Math.PI * 2;
-
-                    // Update tilt momentum (builds up strongly on turns, decays slowly)
-                    const tiltAmount = -dirChange * 5; // Lean INTO the turn (negative = opposite of direction change)
-                    player.tiltMomentum = (player.tiltMomentum || 0) * 0.93 + tiltAmount * 0.7;
-                    player.runMomentum = Math.min((player.runMomentum || 0) + 0.15, 1);
-                } else {
-                    player.tiltMomentum = 0;
-                    player.runMomentum = 0;
-                }
-                player.lastMoveDir = currentDir;
-
-                // Apply tilt (lean into direction of run)
-                const maxTilt = 0.5;
-                player.rotation.z = Math.max(-maxTilt, Math.min(maxTilt, player.tiltMomentum || 0));
+                // Track running momentum for forward lean
+                player.runMomentum = Math.min((player.runMomentum || 0) + 0.15, 1);
                 player.rotation.x = (player.runMomentum || 0) * 0.25; // Forward lean when running
             } else {
-                // Decay tilt when stopped
-                player.tiltMomentum = (player.tiltMomentum || 0) * 0.9;
+                // Decay forward lean when stopped
                 player.runMomentum = (player.runMomentum || 0) * 0.9;
-                player.rotation.z = player.tiltMomentum || 0;
                 player.rotation.x = (player.runMomentum || 0) * 0.15;
             }
         };
