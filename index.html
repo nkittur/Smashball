@@ -966,7 +966,7 @@
 
         // Clash system constants
         const CLASH_CONSTANTS = {
-            CLASH_RANGE: 2.5,           // Distance for clash detection
+            CLASH_RANGE: 1.8,           // Distance for clash detection (reduced for more separation time)
             SEPARATION_THRESHOLD: 3,     // Margin needed to win separation
             COVERAGE_THRESHOLD: 3,       // Margin needed to win coverage
             KNOCKDOWN_BASE_CHANCE: 0.15, // Base chance for knockdown on physical win
@@ -1027,6 +1027,300 @@
             tackle: {
                 tackler: { tackling: 0.40, pursuit: 0.30, hitPower: 0.30 },
                 ballCarrier: { agility: 0.35, speed: 0.30, balance: 0.35 }
+            }
+        };
+
+        // ========================================
+        // ROUTE TEMPLATES FOR SIMULATION
+        // ========================================
+        // Each route has per-round depth (yards from LOS) and crossing (direction change)
+        // When crossing = true, receiver moves horizontally so depth stays same or gains minimally
+        // breakRound is when the route "breaks" - creates separation opportunity
+        const ROUTE_TEMPLATES = {
+            standard: {
+                go: {
+                    name: 'go',
+                    rounds: [
+                        { depth: 5, crossing: false },
+                        { depth: 12, crossing: false },
+                        { depth: 20, crossing: false },
+                        { depth: 28, crossing: false },
+                        { depth: 35, crossing: false }
+                    ],
+                    breakRound: null
+                },
+                slant: {
+                    name: 'slant',
+                    rounds: [
+                        { depth: 3, crossing: false },  // Vertical stem past LOS first
+                        { depth: 6, crossing: true },   // Then diagonal cross
+                        { depth: 9, crossing: false },
+                        { depth: 9, crossing: false },
+                        { depth: 9, crossing: false }
+                    ],
+                    breakRound: 2
+                },
+                out: {
+                    name: 'out',
+                    rounds: [
+                        { depth: 6, crossing: false },
+                        { depth: 6, crossing: true },   // Breaking out - no depth gain
+                        { depth: 7, crossing: false },
+                        { depth: 7, crossing: false },
+                        { depth: 7, crossing: false }
+                    ],
+                    breakRound: 2
+                },
+                in: {
+                    name: 'in',
+                    rounds: [
+                        { depth: 6, crossing: false },
+                        { depth: 6, crossing: true },   // Breaking in - no depth gain
+                        { depth: 8, crossing: false },
+                        { depth: 8, crossing: false },
+                        { depth: 8, crossing: false }
+                    ],
+                    breakRound: 2
+                },
+                post: {
+                    name: 'post',
+                    rounds: [
+                        { depth: 8, crossing: false },
+                        { depth: 10, crossing: true },  // Breaking post - slight diagonal
+                        { depth: 18, crossing: false },
+                        { depth: 25, crossing: false },
+                        { depth: 30, crossing: false }
+                    ],
+                    breakRound: 2
+                },
+                corner: {
+                    name: 'corner',
+                    rounds: [
+                        { depth: 8, crossing: false },
+                        { depth: 10, crossing: true },  // Breaking corner - slight diagonal
+                        { depth: 18, crossing: false },
+                        { depth: 25, crossing: false },
+                        { depth: 30, crossing: false }
+                    ],
+                    breakRound: 2
+                },
+                curl: {
+                    name: 'curl',
+                    rounds: [
+                        { depth: 6, crossing: false },
+                        { depth: 12, crossing: false },
+                        { depth: 10, crossing: true },  // Coming back - loses depth
+                        { depth: 10, crossing: false },
+                        { depth: 10, crossing: false }
+                    ],
+                    breakRound: 3
+                },
+                comeback: {
+                    name: 'comeback',
+                    rounds: [
+                        { depth: 6, crossing: false },
+                        { depth: 14, crossing: false },
+                        { depth: 12, crossing: true },  // Coming back - loses depth
+                        { depth: 12, crossing: false },
+                        { depth: 12, crossing: false }
+                    ],
+                    breakRound: 3
+                },
+                dig: {
+                    name: 'dig',
+                    rounds: [
+                        { depth: 5, crossing: false },
+                        { depth: 12, crossing: false },
+                        { depth: 12, crossing: true },  // Crossing - no depth gain
+                        { depth: 14, crossing: false },
+                        { depth: 14, crossing: false }
+                    ],
+                    breakRound: 3
+                },
+                seam: {
+                    name: 'seam',
+                    rounds: [
+                        { depth: 4, crossing: false },
+                        { depth: 10, crossing: false },
+                        { depth: 16, crossing: false },
+                        { depth: 22, crossing: false },
+                        { depth: 28, crossing: false }
+                    ],
+                    breakRound: null
+                },
+                flat: {
+                    name: 'flat',
+                    rounds: [
+                        { depth: 2, crossing: false },  // Short stem past LOS
+                        { depth: 3, crossing: true },   // Then horizontal cross
+                        { depth: 3, crossing: false },
+                        { depth: 3, crossing: false },
+                        { depth: 3, crossing: false }
+                    ],
+                    breakRound: 2
+                },
+                wheel: {
+                    name: 'wheel',
+                    rounds: [
+                        { depth: 2, crossing: false },  // Short stem past LOS
+                        { depth: 3, crossing: true },   // Release horizontally
+                        { depth: 8, crossing: false },  // Turn upfield
+                        { depth: 16, crossing: false },
+                        { depth: 24, crossing: false }
+                    ],
+                    breakRound: 2
+                },
+                hitch: {
+                    name: 'hitch',
+                    rounds: [
+                        { depth: 5, crossing: false },
+                        { depth: 5, crossing: false },  // Stop and wait
+                        { depth: 5, crossing: false },
+                        { depth: 5, crossing: false },
+                        { depth: 5, crossing: false }
+                    ],
+                    breakRound: 1
+                }
+            },
+            redzone: {
+                fade: {
+                    name: 'fade',
+                    rounds: [
+                        { depth: 4, crossing: false },
+                        { depth: 8, crossing: false },
+                        { depth: 12, crossing: false },
+                        { depth: 15, crossing: false },
+                        { depth: 15, crossing: false }
+                    ],
+                    breakRound: null
+                },
+                back_shoulder: {
+                    name: 'back_shoulder',
+                    rounds: [
+                        { depth: 5, crossing: false },
+                        { depth: 9, crossing: false },
+                        { depth: 8, crossing: true },   // Fading back - loses depth
+                        { depth: 8, crossing: false },
+                        { depth: 8, crossing: false }
+                    ],
+                    breakRound: 3
+                },
+                corner_fade: {
+                    name: 'corner_fade',
+                    rounds: [
+                        { depth: 4, crossing: false },
+                        { depth: 5, crossing: true },   // Breaking corner - minimal gain
+                        { depth: 10, crossing: false },
+                        { depth: 12, crossing: false },
+                        { depth: 12, crossing: false }
+                    ],
+                    breakRound: 2
+                },
+                quick_slant: {
+                    name: 'quick_slant',
+                    rounds: [
+                        { depth: 2, crossing: false },  // Short stem past LOS
+                        { depth: 4, crossing: true },   // Then diagonal slant
+                        { depth: 6, crossing: false },
+                        { depth: 6, crossing: false },
+                        { depth: 6, crossing: false }
+                    ],
+                    breakRound: 2
+                },
+                out_quick: {
+                    name: 'out_quick',
+                    rounds: [
+                        { depth: 4, crossing: false },
+                        { depth: 4, crossing: true },   // Breaking out - no depth gain
+                        { depth: 5, crossing: false },
+                        { depth: 5, crossing: false },
+                        { depth: 5, crossing: false }
+                    ],
+                    breakRound: 2
+                }
+            },
+            goalline: {
+                endzone_fade: {
+                    name: 'endzone_fade',
+                    rounds: [
+                        { depth: 2, crossing: false },
+                        { depth: 5, crossing: false },
+                        { depth: 7, crossing: false },
+                        { depth: 7, crossing: false },
+                        { depth: 7, crossing: false }
+                    ],
+                    breakRound: null
+                },
+                endzone_slant: {
+                    name: 'endzone_slant',
+                    rounds: [
+                        { depth: 1, crossing: false },  // Quick step into endzone
+                        { depth: 3, crossing: true },   // Then diagonal cross
+                        { depth: 5, crossing: false },
+                        { depth: 5, crossing: false },
+                        { depth: 5, crossing: false }
+                    ],
+                    breakRound: 2
+                },
+                endzone_out: {
+                    name: 'endzone_out',
+                    rounds: [
+                        { depth: 3, crossing: false },
+                        { depth: 3, crossing: true },   // Breaking out - no depth gain
+                        { depth: 4, crossing: false },
+                        { depth: 4, crossing: false },
+                        { depth: 4, crossing: false }
+                    ],
+                    breakRound: 2
+                },
+                endzone_flat: {
+                    name: 'endzone_flat',
+                    rounds: [
+                        { depth: 1, crossing: false },  // Quick step forward
+                        { depth: 2, crossing: true },   // Then horizontal cross
+                        { depth: 2, crossing: false },
+                        { depth: 2, crossing: false },
+                        { depth: 2, crossing: false }
+                    ],
+                    breakRound: 2
+                }
+            }
+        };
+
+        // QB personality traits that affect decision making
+        const QB_TRAITS = {
+            gunslinger: {
+                name: 'Gunslinger',
+                description: 'Waits for big plays, takes risks',
+                openThreshold: 60,       // Needs higher catch % to throw
+                pressureMultiplier: 0.7, // Less affected by pressure
+                firstDownBias: -10,      // Less likely to take short gains
+                aggressiveness: 1.3      // More likely to throw into coverage
+            },
+            game_manager: {
+                name: 'Game Manager',
+                description: 'Takes safe throws, avoids mistakes',
+                openThreshold: 45,       // Throws to first open receiver
+                pressureMultiplier: 1.3, // More affected by pressure
+                firstDownBias: 20,       // Heavily favors first down throws
+                aggressiveness: 0.7      // Avoids risky throws
+            },
+            balanced: {
+                name: 'Balanced',
+                description: 'Adapts to situation',
+                openThreshold: 52,
+                pressureMultiplier: 1.0,
+                firstDownBias: 5,
+                aggressiveness: 1.0
+            },
+            scrambler: {
+                name: 'Scrambler',
+                description: 'Prefers to run when pressured',
+                openThreshold: 55,
+                pressureMultiplier: 0.5, // Much less affected by pressure
+                firstDownBias: 0,
+                aggressiveness: 0.9,
+                scrambleBonus: 20        // Extra likelihood to scramble
             }
         };
 
@@ -1291,10 +1585,12 @@
         // Generate base stats for a tier
         function getBaseStatsForTier(tier) {
             const ranges = {
-                rookie: { min: 45, max: 65 },
-                average: { min: 55, max: 75 },
-                veteran: { min: 65, max: 85 },
-                elite: { min: 75, max: 95 }
+                rookie: { min: 45, max: 62 },        // Raw talent, inconsistent
+                below_average: { min: 50, max: 68 }, // Backup caliber
+                average: { min: 58, max: 75 },       // Solid starter
+                veteran: { min: 68, max: 82 },       // Reliable contributor
+                star: { min: 78, max: 90 },          // Pro Bowl caliber
+                elite: { min: 88, max: 99 }          // All-Pro / HOF caliber
             };
             const range = ranges[tier] || ranges.average;
             return { min: range.min, max: range.max };
@@ -1304,9 +1600,11 @@
         function rollAge(tier) {
             switch(tier) {
                 case 'rookie': return randomInt(20, 23);
+                case 'below_average': return randomInt(22, 30);
                 case 'average': return randomInt(23, 28);
-                case 'veteran': return randomInt(28, 33);
-                case 'elite': return randomInt(25, 30);
+                case 'veteran': return randomInt(27, 33);
+                case 'star': return randomInt(24, 30);
+                case 'elite': return randomInt(25, 31);
                 default: return randomInt(22, 28);
             }
         }
@@ -1435,6 +1733,30 @@
             };
 
             player.overall = calculateOverall(player);
+
+            // Assign QB trait based on stats
+            if (position === 'QB') {
+                // Weight trait selection based on QB's style
+                // High awareness + low agility = game_manager
+                // High agility + speed = scrambler
+                // High throwing = gunslinger
+                // Otherwise balanced
+                const awareness = stats.awareness || 70;
+                const agility = stats.agility || 70;
+                const speed = stats.speed || 70;
+                const throwing = stats.throwing || 70;
+
+                if (agility > 78 && speed > 75) {
+                    player.qbTrait = 'scrambler';
+                } else if (awareness > 80 && throwing < 75) {
+                    player.qbTrait = 'game_manager';
+                } else if (throwing > 82) {
+                    player.qbTrait = 'gunslinger';
+                } else {
+                    player.qbTrait = 'balanced';
+                }
+            }
+
             return player;
         }
 
@@ -1534,49 +1856,110 @@
 
         // Generate a roster for an opponent team based on difficulty
         function generateOpponentRoster(difficulty) {
-            const tierMap = {
-                'easy': { good: 'average', mid: 'below_average', low: 'below_average' },
-                'medium': { good: 'veteran', mid: 'average', low: 'average' },
-                'hard': { good: 'star', mid: 'veteran', low: 'average' },
-                'elite': { good: 'star', mid: 'star', low: 'veteran' }
+            // Helper to pick a random tier based on weighted probabilities
+            const pickTier = (weights) => {
+                const tiers = ['rookie', 'below_average', 'average', 'veteran', 'star', 'elite'];
+                const total = weights.reduce((a, b) => a + b, 0);
+                let roll = Math.random() * total;
+                for (let i = 0; i < tiers.length; i++) {
+                    roll -= weights[i];
+                    if (roll <= 0) return tiers[i];
+                }
+                return 'average';
             };
-            const tiers = tierMap[difficulty] || tierMap['medium'];
+
+            // Weights for each tier: [rookie, below_average, average, veteran, star, elite]
+            // Each team has a spread from poor to elite, but difficulty shifts the distribution
+            // Easy teams average low 70s, elite teams average low 90s
+            const tierWeights = {
+                'easy':   [2, 8, 35, 45, 8, 2],      // Avg ~72: mostly average/veteran
+                'medium': [1, 5, 25, 50, 15, 4],    // Avg ~75: solid veterans with stars
+                'hard':   [0, 2, 15, 45, 30, 8],    // Avg ~79: veteran-heavy with stars
+                'elite':  [0, 0, 0, 5, 30, 65]      // Avg ~91: almost all stars/elites
+            };
+            const weights = tierWeights[difficulty] || tierWeights['medium'];
+
+            // Create weighted tiers for key vs role players
+            // Key players: boosted toward star/elite
+            // Role players: can be average/veteran (depth pieces)
+            const keyPlayerWeights = weights.map((w, i) => i >= 4 ? w * 2.5 : i >= 3 ? w * 1.2 : w * 0.3);
+            const rolePlayerWeights = weights.map((w, i) => i <= 3 ? w * 1.5 : w * 0.5);
 
             const roster = [];
-            // QB
-            roster.push(generatePlayer('QB', tiers.good));
-            // WRs: 3
-            roster.push(generatePlayer('WR', tiers.good));
-            roster.push(generatePlayer('WR', tiers.mid));
-            roster.push(generatePlayer('WR', tiers.low));
-            // CBs: 3
-            roster.push(generatePlayer('CB', tiers.good));
-            roster.push(generatePlayer('CB', tiers.mid));
-            roster.push(generatePlayer('CB', tiers.low));
-            // OL: 4 (to match 4 DL matchups in simulation)
-            roster.push(generatePlayer('OL', tiers.good));
-            roster.push(generatePlayer('OL', tiers.mid));
-            roster.push(generatePlayer('OL', tiers.low));
-            roster.push(generatePlayer('OL', tiers.low));
-            // DL: 4
-            roster.push(generatePlayer('DL', tiers.good));
-            roster.push(generatePlayer('DL', tiers.mid));
-            roster.push(generatePlayer('DL', tiers.low));
-            roster.push(generatePlayer('DL', tiers.low));
+
+            // QB - franchise player, heavily boosted
+            const qbWeights = weights.map((w, i) => i >= 4 ? w * 3 : i >= 3 ? w * 1.5 : w * 0.2);
+            roster.push(generatePlayer('QB', pickTier(qbWeights)));
+
+            // WRs: WR1 is key player, WR2-3 are role players
+            roster.push(generatePlayer('WR', pickTier(keyPlayerWeights)));   // WR1 - star
+            roster.push(generatePlayer('WR', pickTier(weights)));            // WR2 - normal
+            roster.push(generatePlayer('WR', pickTier(rolePlayerWeights)));  // WR3 - depth
+
+            // CBs: CB1 is key player, CB2-3 are role players
+            roster.push(generatePlayer('CB', pickTier(keyPlayerWeights)));   // CB1 - star
+            roster.push(generatePlayer('CB', pickTier(weights)));            // CB2 - normal
+            roster.push(generatePlayer('CB', pickTier(rolePlayerWeights)));  // CB3 - depth
+
+            // OL: 1 anchor, rest are role players
+            roster.push(generatePlayer('OL', pickTier(keyPlayerWeights)));   // LT - anchor
+            roster.push(generatePlayer('OL', pickTier(rolePlayerWeights)));  // LG
+            roster.push(generatePlayer('OL', pickTier(rolePlayerWeights)));  // C
+            roster.push(generatePlayer('OL', pickTier(rolePlayerWeights)));  // RG/RT
+
+            // DL: 1-2 pass rushers, rest are role players
+            roster.push(generatePlayer('DL', pickTier(keyPlayerWeights)));   // Edge rusher
+            roster.push(generatePlayer('DL', pickTier(weights)));            // DT
+            roster.push(generatePlayer('DL', pickTier(rolePlayerWeights)));  // DT
+            roster.push(generatePlayer('DL', pickTier(rolePlayerWeights)));  // Rotational
 
             return roster;
         }
 
-        // Calculate team ratings from roster
+        // Calculate team ratings from roster (weighted by key positions)
         function calculateTeamRatings(roster) {
+            // Weight key positions more heavily
+            const getPositionWeight = (player, index, position) => {
+                if (position === 'QB') return 3.0;        // QB is most important
+                if (position === 'WR' && index === 0) return 2.0;  // WR1
+                if (position === 'CB' && index === 0) return 2.0;  // CB1
+                if (position === 'DL' && index === 0) return 1.5;  // Pass rusher
+                if (position === 'OL' && index === 0) return 1.5;  // LT
+                return 1.0;  // Role players
+            };
+
             const offense = roster.filter(p => ['QB', 'WR', 'OL'].includes(p.position));
             const defense = roster.filter(p => ['CB', 'DL'].includes(p.position));
 
-            const offenseRating = offense.length > 0
-                ? Math.round(offense.reduce((s, p) => s + p.overall, 0) / offense.length)
+            // Group by position for index-based weighting
+            const byPosition = {};
+            roster.forEach(p => {
+                if (!byPosition[p.position]) byPosition[p.position] = [];
+                byPosition[p.position].push(p);
+            });
+
+            let offenseWeightedSum = 0, offenseWeightTotal = 0;
+            let defenseWeightedSum = 0, defenseWeightTotal = 0;
+
+            Object.entries(byPosition).forEach(([pos, players]) => {
+                players.sort((a, b) => b.overall - a.overall); // Best first
+                players.forEach((p, i) => {
+                    const weight = getPositionWeight(p, i, pos);
+                    if (['QB', 'WR', 'OL'].includes(pos)) {
+                        offenseWeightedSum += p.overall * weight;
+                        offenseWeightTotal += weight;
+                    } else {
+                        defenseWeightedSum += p.overall * weight;
+                        defenseWeightTotal += weight;
+                    }
+                });
+            });
+
+            const offenseRating = offenseWeightTotal > 0
+                ? Math.round(offenseWeightedSum / offenseWeightTotal)
                 : 60;
-            const defenseRating = defense.length > 0
-                ? Math.round(defense.reduce((s, p) => s + p.overall, 0) / defense.length)
+            const defenseRating = defenseWeightTotal > 0
+                ? Math.round(defenseWeightedSum / defenseWeightTotal)
                 : 60;
 
             return { offenseRating, defenseRating };
@@ -2177,6 +2560,1070 @@
             return `${first} ${last.charAt(0) || ''}.`.trim();
         }
 
+        // ========================================
+        // HIGH-FIDELITY ROUND-BASED SIMULATION
+        // ========================================
+
+        // Select routes for receivers based on field position and situation
+        function selectRoutesForPlay(receivers, yardsFromGoal, yardsToGo, down) {
+            const routeAssignments = {};
+
+            // Determine field zone
+            const zone = yardsFromGoal <= 8 ? 'goalline' :
+                         yardsFromGoal <= 20 ? 'redzone' : 'standard';
+
+            const availableRoutes = Object.values(ROUTE_TEMPLATES[zone]);
+
+            // Identify crossing/comeback routes (have crossing round or specific route types)
+            const isCrossingRoute = (route) => {
+                const crossingNames = ['slant', 'dig', 'comeback', 'curl', 'out', 'in', 'flat', 'quick_slant', 'endzone_slant'];
+                if (crossingNames.some(name => route.name?.includes(name))) return true;
+                // Or has a round with crossing: true after round 1
+                return route.rounds?.some((r, i) => i > 0 && r.crossing);
+            };
+
+            const crossingRoutes = availableRoutes.filter(isCrossingRoute);
+
+            // Categorize routes by depth
+            const quickRoutes = availableRoutes.filter(r => r.rounds[1].depth <= 6);
+            const mediumRoutes = availableRoutes.filter(r => r.rounds[1].depth > 6 && r.rounds[2].depth <= 12);
+            const deepRoutes = availableRoutes.filter(r => r.rounds[2].depth > 12);
+
+            // Randomly pick which receiver gets the guaranteed crossing route (usually slot/WR3)
+            const crossingReceiverIndex = Math.random() < 0.6 ? 2 : (Math.random() < 0.5 ? 1 : 0);
+
+            // Select based on situation
+            receivers.forEach((wr, index) => {
+                let routePool;
+
+                // Ensure one receiver always runs a crossing/comeback route
+                if (index === crossingReceiverIndex && crossingRoutes.length > 0) {
+                    routePool = crossingRoutes;
+                } else if (down >= 3 && yardsToGo > 7) {
+                    // 3rd/4th and long - need deep routes
+                    routePool = index === 0 ? deepRoutes : (index === 1 ? mediumRoutes : quickRoutes);
+                } else if (down >= 3 && yardsToGo <= 3) {
+                    // 3rd/4th and short - quick routes
+                    routePool = index === 0 ? quickRoutes : (index === 1 ? mediumRoutes : deepRoutes);
+                } else {
+                    // Normal downs - mix it up
+                    routePool = index === 0 ? mediumRoutes : (index === 1 ? deepRoutes : quickRoutes);
+                }
+
+                // Fallback if pool is empty
+                if (routePool.length === 0) routePool = availableRoutes;
+
+                // Pick random route from pool
+                const route = routePool[Math.floor(Math.random() * routePool.length)];
+                routeAssignments[wr.id || index] = route;
+            });
+
+            return routeAssignments;
+        }
+
+        // Initialize play state for round-based simulation
+        function initializePlayState(offense, defense, fieldPosition) {
+            const routes = selectRoutesForPlay(
+                offense.receivers,
+                fieldPosition.yardsFromGoal,
+                fieldPosition.yardsToGo,
+                fieldPosition.down
+            );
+
+            return {
+                round: 0,
+                maxRounds: 5,
+
+                // Field state
+                yardsFromGoal: fieldPosition.yardsFromGoal,
+                yardsToGo: fieldPosition.yardsToGo,
+                down: fieldPosition.down,
+
+                // Pressure tracking
+                totalPressure: 0,
+                sacked: false,
+                sackingPlayer: null,
+                lineMatchups: [],  // Track OL/DL clashes for display
+
+                // Receiver states
+                receivers: offense.receivers.map((wr, index) => ({
+                    id: wr.id || index,
+                    player: wr,
+                    stats: wr.stats,
+                    route: routes[wr.id || index],
+                    currentDepth: 0,
+                    separation: 0,
+                    catchProbability: 0,
+                    effectiveCatchPct: 0,
+                    rollMean: 79,
+                    // Momentum tracking
+                    lastDirection: 'vertical',  // 'vertical' or 'horizontal'
+                    momentum: 0                  // Built up over consecutive same-direction rounds
+                })),
+
+                // Defender states (DBs)
+                defenders: defense.dbs.map((db, index) => ({
+                    id: db.id || index,
+                    player: db,
+                    stats: db.stats,
+                    position: db.position || 'CB',
+                    // Momentum tracking for defenders
+                    lastDirection: 'vertical',
+                    momentum: 0
+                })),
+
+                // O-Line states
+                oLine: offense.oLine.map((ol, index) => ({
+                    id: ol.id || index,
+                    player: ol,
+                    stats: ol.stats,
+                    knockedDown: false
+                })),
+
+                // D-Line states
+                dLine: defense.dLine.map((dl, index) => ({
+                    id: dl.id || index,
+                    player: dl,
+                    stats: dl.stats,
+                    knockedDown: false,
+                    pressureContribution: 0
+                })),
+
+                // QB state
+                qb: {
+                    player: offense.qb,
+                    stats: offense.qb.stats,
+                    trait: offense.qb.qbTrait || 'balanced',
+                    hasThrown: false
+                },
+
+                // Result tracking
+                result: null
+            };
+        }
+
+        // Process OL/DL clashes for a single round
+        function processLineClashesRound(state) {
+            const roundBonus = (state.round - 1) * 5;  // DL gets +5 per round
+            let totalPressure = 0;
+
+            // Reset pressure contributions
+            state.dLine.forEach(dl => { dl.pressureContribution = 0; });
+
+            // Clear matchups for this round (we'll keep the latest round's matchups)
+            state.lineMatchups = [];
+
+            for (let i = 0; i < state.dLine.length; i++) {
+                const dl = state.dLine[i];
+
+                if (dl.knockedDown) {
+                    continue;
+                }
+
+                // Find corresponding OL (or closest available non-knocked-down)
+                let ol = state.oLine[i];
+                if (!ol || ol.knockedDown) {
+                    ol = state.oLine.find(o => !o.knockedDown);
+                }
+
+                if (!ol) {
+                    // Unblocked rusher - maximum pressure
+                    dl.pressureContribution = 40;
+                    totalPressure += 40;
+
+                    // Record matchup
+                    state.lineMatchups.push({
+                        dl: dl.player,
+                        ol: null,
+                        dlRoll: 99,
+                        olRoll: 0,
+                        result: 'unblocked',
+                        pressure: 40
+                    });
+
+                    // High sack chance for unblocked rusher
+                    if (Math.random() < 0.35) {
+                        state.sacked = true;
+                        state.sackingPlayer = dl.player;
+                    }
+                    continue;
+                }
+
+                // Resolve clash
+                const olRoll = weightedStatRoll(ol.stats, CLASH_WEIGHTS.lineClash.offense);
+                const dlRoll = weightedStatRoll(dl.stats, CLASH_WEIGHTS.lineClash.defense) + roundBonus;
+                const margin = dlRoll - olRoll;
+
+                let result = 'held';
+                // Determine outcome based on margin
+                if (margin > 18) {
+                    // DL dominant win - sack chance
+                    dl.pressureContribution = 35;
+                    result = 'beaten badly';
+                    if (Math.random() < 0.25) {
+                        state.sacked = true;
+                        state.sackingPlayer = dl.player;
+                    }
+                    // OL might get knocked down
+                    if (Math.random() < 0.3) {
+                        ol.knockedDown = true;
+                    }
+                } else if (margin > 10) {
+                    dl.pressureContribution = 25;
+                    result = 'beaten';
+                } else if (margin > 5) {
+                    dl.pressureContribution = 15;
+                    result = 'pressured';
+                } else if (margin > 2) {
+                    dl.pressureContribution = 10;
+                    result = 'pressured';
+                } else if (margin > -2) {
+                    dl.pressureContribution = 3;
+                    result = 'held';
+                } else if (margin > -10) {
+                    dl.pressureContribution = 0;
+                    result = 'blocked';
+                } else {
+                    // OL dominant win - DL might get knocked down
+                    dl.pressureContribution = 0;
+                    result = 'pancaked';
+                    if (Math.random() < 0.2) {
+                        dl.knockedDown = true;
+                    }
+                }
+
+                // Record matchup for display
+                state.lineMatchups.push({
+                    dl: dl.player,
+                    ol: ol.player,
+                    dlRoll: Math.round(dlRoll),
+                    olRoll: Math.round(olRoll),
+                    result: result,
+                    pressure: dl.pressureContribution
+                });
+
+                totalPressure += dl.pressureContribution;
+            }
+
+            state.totalPressure = Math.min(totalPressure, 100);
+        }
+
+        // Process WR/DB separation clashes for a single round
+        // Momentum mechanics - both players have same physics, but DB must REACT while WR pre-plans
+        function processReceiverClashesRound(state) {
+            for (let i = 0; i < state.receivers.length; i++) {
+                const receiver = state.receivers[i];
+                const routeRound = receiver.route.rounds[state.round - 1];
+                const isCrossing = routeRound.crossing;
+                const isBreakRound = receiver.route.breakRound === state.round;
+
+                // Determine current direction
+                const currentDirection = isCrossing ? 'horizontal' : 'vertical';
+                const directionChanged = currentDirection !== receiver.lastDirection;
+
+                // Update receiver depth
+                receiver.currentDepth = routeRound.depth;
+
+                // Find covering defender
+                const defender = state.defenders[i] || state.defenders[0];
+
+                if (!defender) {
+                    receiver.separation = 30;  // Wide open
+                    receiver.momentum = directionChanged ? 1 : Math.min(receiver.momentum + 1, 5);
+                    receiver.lastDirection = currentDirection;
+                    receiver.momentumAdvantage = 0;
+                    continue;
+                }
+
+                // ========================================
+                // MOMENTUM MECHANICS (UNIFIED PHYSICS)
+                // ========================================
+                // Both players have the same momentum physics when changing direction
+                // The difference: WR pre-plans the cut, DB must REACT
+
+                // Agility determines how well a player changes direction
+                const wrAgility = receiver.stats.agility || 70;
+                const dbAgility = defender.stats.agility || 70;
+
+                // DB reaction time based on awareness (0-100)
+                // Low awareness = slow to recognize the cut = still moving wrong way
+                const dbAwareness = defender.stats.awareness || 70;
+                // Reaction frames: 100 awareness = 0 frames, 50 awareness = 2.5 frames delay
+                const reactionFrames = (100 - dbAwareness) / 20;
+
+                // Momentum effect multiplier (same physics for both)
+                // Higher momentum = harder to change direction
+                const momentumPenaltyPerLevel = 8;  // Strong effect
+
+                let wrMomentumEffect = 0;
+                let dbMomentumEffect = 0;
+                let momentumAdvantage = 0;
+
+                if (directionChanged) {
+                    // WR changes direction instantly (pre-planned)
+                    // Penalty based on their momentum, reduced by agility
+                    const wrAgilityFactor = wrAgility / 100;
+                    wrMomentumEffect = receiver.momentum * momentumPenaltyPerLevel * (1 - wrAgilityFactor * 0.5);
+
+                    // DB must REACT - they keep moving wrong way during reaction time
+                    // Then they change direction with same physics
+                    const dbAgilityFactor = dbAgility / 100;
+
+                    // Reaction delay: DB's momentum CONTINUES building during reaction time
+                    const effectiveMomentum = defender.momentum + reactionFrames;
+                    dbMomentumEffect = effectiveMomentum * momentumPenaltyPerLevel * (1 - dbAgilityFactor * 0.5);
+
+                    // Momentum advantage = how much the WR gained from the cut
+                    momentumAdvantage = dbMomentumEffect - wrMomentumEffect;
+
+                    // Store for display
+                    receiver.momentumAdvantage = Math.round(momentumAdvantage);
+                    receiver.dbReactionDelay = reactionFrames;
+                } else {
+                    receiver.momentumAdvantage = 0;
+                    receiver.dbReactionDelay = 0;
+                }
+
+                // ========================================
+                // BASE SEPARATION ROLL
+                // ========================================
+                let receiverRoll = weightedStatRoll(receiver.stats, CLASH_WEIGHTS.separation.receiver);
+
+                // Crossing route bonus - route running helps execute cuts cleanly
+                if (isCrossing) {
+                    const crossingBonus = receiver.stats.routeRunning * 0.3;
+                    receiverRoll += crossingBonus;
+                }
+
+                // Break round bonus (the "snap" of the route creates separation)
+                if (isBreakRound) {
+                    const breakBonus = receiver.stats.routeRunning * 0.25;
+                    receiverRoll += breakBonus;
+                }
+
+                // ========================================
+                // DEFENDER ROLL
+                // ========================================
+                let defenderRoll = weightedStatRoll(defender.stats, CLASH_WEIGHTS.separation.defender);
+
+                // ========================================
+                // APPLY MOMENTUM ADVANTAGE
+                // ========================================
+                // The momentum advantage goes directly to separation
+                // Positive = WR gained separation from the cut
+                receiverRoll += momentumAdvantage;
+
+                // ========================================
+                // UPDATE MOMENTUM FOR NEXT ROUND
+                // ========================================
+                if (directionChanged) {
+                    // Both reset to 1 after direction change
+                    receiver.momentum = 1;
+                    defender.momentum = 1;
+                } else {
+                    // Build momentum in current direction (cap at 5 for stronger effect)
+                    receiver.momentum = Math.min(receiver.momentum + 1, 5);
+                    defender.momentum = Math.min(defender.momentum + 1, 5);
+                }
+
+                receiver.lastDirection = currentDirection;
+                defender.lastDirection = currentDirection;
+
+                // Calculate separation margin
+                receiver.separation = receiverRoll - defenderRoll;
+            }
+        }
+
+        // Calculate catch probabilities using exponential distribution
+        function simCalculateCatchProbabilities(state) {
+            const qbAccuracy = (state.qb.stats.throwing + state.qb.stats.awareness) / 2;
+            const pressure = state.totalPressure;
+
+            // QB throw quality - rollMean determines accuracy distribution
+            const rollMean = 79 + (75 - qbAccuracy) * 1.7 + pressure * 0.5;
+
+            for (const receiver of state.receivers) {
+                let catchProb = receiver.stats.catching;
+
+                // Separation bonus/penalty
+                if (receiver.separation >= 20) {
+                    catchProb += 15;
+                } else if (receiver.separation >= 10) {
+                    catchProb += 8;
+                } else if (receiver.separation >= 3) {
+                    catchProb += 3;
+                } else if (receiver.separation >= -3) {
+                    catchProb += 0;
+                } else if (receiver.separation >= -10) {
+                    catchProb -= 15;
+                } else {
+                    catchProb -= 30;
+                }
+
+                // Focus for contested catches
+                if (receiver.separation < 5) {
+                    const focusBonus = (receiver.stats.focus - 70) * 0.3;
+                    catchProb += focusBonus;
+                }
+
+                // Depth penalty for longer throws
+                const depthPenalty = Math.max(0, (receiver.currentDepth - 15) * 0.3);
+                catchProb -= depthPenalty;
+
+                // Clamp
+                catchProb = Math.max(5, Math.min(95, catchProb));
+
+                // Calculate effective catch % with exponential
+                const effectiveCatchPct = (1 - Math.exp(-catchProb / rollMean)) * 100;
+
+                receiver.catchProbability = catchProb;
+                receiver.effectiveCatchPct = effectiveCatchPct;
+                receiver.rollMean = rollMean;
+            }
+        }
+
+        // QB decision: should throw, and to whom?
+        function processQBDecision(state) {
+            const trait = QB_TRAITS[state.qb.trait] || QB_TRAITS.balanced;
+            const qbStats = state.qb.stats;
+
+            // Step 1: Vision check - can QB see each receiver?
+            const visibleReceivers = [];
+            for (const receiver of state.receivers) {
+                const visionRoll = weightedStatRoll(qbStats, {
+                    awareness: 0.50,
+                    throwing: 0.30,
+                    focus: 0.20
+                });
+
+                // Easier to notice more open receivers
+                const noticeThreshold = 70 - receiver.separation;
+                const noticeRoll = visionRoll + (Math.random() * 20 - 10);
+
+                if (noticeRoll >= noticeThreshold) {
+                    visibleReceivers.push(receiver);
+                }
+            }
+
+            // Step 2: Evaluate throw options
+            let throwLikelihood = 0;
+            let bestTarget = null;
+            let bestScore = -999;
+
+            for (const receiver of visibleReceivers) {
+                let score = receiver.effectiveCatchPct;
+
+                // First down consideration
+                const wouldGetFirstDown = receiver.currentDepth >= state.yardsToGo;
+                if (wouldGetFirstDown) {
+                    score += trait.firstDownBias;
+                } else {
+                    score -= state.round * 3;  // Penalty for short throws late
+                }
+
+                // Down urgency
+                if (state.down >= 3 && !wouldGetFirstDown) {
+                    score -= 15;
+                }
+
+                // Trait threshold
+                if (receiver.effectiveCatchPct < trait.openThreshold) {
+                    score -= 20;
+                }
+
+                // Aggressiveness for contested
+                if (receiver.separation < 5) {
+                    score *= trait.aggressiveness;
+                }
+
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestTarget = receiver;
+                }
+            }
+
+            // Step 3: Calculate throw likelihood
+            if (bestTarget) {
+                throwLikelihood = bestScore;
+
+                // Pressure urgency
+                const pressureUrgency = state.totalPressure * trait.pressureMultiplier;
+                throwLikelihood += pressureUrgency * 0.5;
+
+                // Round urgency
+                throwLikelihood += state.round * 8;
+
+                // Very high pressure = must throw
+                if (state.totalPressure > 70) {
+                    throwLikelihood += 30;
+                }
+            } else {
+                // No visible targets
+                throwLikelihood = state.totalPressure * 0.5 + state.round * 10;
+            }
+
+            // Step 4: Roll to throw
+            const throwRoll = Math.random() * 100;
+            const shouldThrow = throwRoll < throwLikelihood;
+
+            return {
+                shouldThrow,
+                target: bestTarget,
+                throwLikelihood,
+                visibleReceivers
+            };
+        }
+
+        // Resolve a throw attempt
+        function simResolveThrow(state, target) {
+            if (!target) {
+                return {
+                    type: 'throwaway',
+                    yardsGained: 0,
+                    description: 'QB throws the ball away',
+                    _targetReceiver: null,
+                    _qbRoll: 0,
+                    _catchSuccess: false
+                };
+            }
+
+            // Exponential roll for throw quality
+            const qbRoll = -target.rollMean * Math.log(Math.random());
+            const caught = qbRoll < target.catchProbability;
+
+            let result;
+            if (caught) {
+                result = simResolveCatchAndRun(state, target);
+            } else {
+                result = simResolveIncompletions(state, target, qbRoll);
+            }
+
+            // Attach tracking info for legacy display
+            result._targetReceiver = target;
+            result._qbRoll = qbRoll;
+            result._catchSuccess = caught;
+
+            return result;
+        }
+
+        // Resolve incomplete pass (check for INT)
+        function simResolveIncompletions(state, receiver, qbRoll) {
+            const defenderIndex = state.receivers.indexOf(receiver);
+            const defender = state.defenders[defenderIndex] || state.defenders[0];
+
+            if (defender && receiver.separation < 0) {
+                const throwBadness = qbRoll - receiver.catchProbability;
+
+                let intChance = Math.min(throwBadness * 0.4, 25);
+                intChance += (defender.stats.awareness - 60) * 0.2;
+                intChance += ((defender.stats.catching || 50) - 50) * 0.1;
+
+                if (receiver.separation < -10) {
+                    intChance += 5;
+                }
+
+                intChance = Math.max(5, Math.min(35, intChance));
+
+                if (Math.random() * 100 < intChance) {
+                    return {
+                        type: 'interception',
+                        yardsGained: 0,
+                        interceptedBy: defender.player,
+                        description: `Intercepted by ${getPlayerFullName(defender.player)}!`
+                    };
+                }
+            }
+
+            return {
+                type: 'incomplete',
+                yardsGained: 0,
+                description: 'Pass incomplete'
+            };
+        }
+
+        // Resolve catch and YAC
+        function simResolveCatchAndRun(state, receiver) {
+            let totalYards = receiver.currentDepth;
+            const yacEvents = [];
+
+            // Find nearest defender for tackle
+            const defenderIndex = state.receivers.indexOf(receiver);
+            const nearestDB = state.defenders[defenderIndex] || state.defenders[0];
+
+            // Immediate tackle attempt if covered
+            if (nearestDB && receiver.separation < 10) {
+                const tackleResult = simResolveTackleAttempt(receiver, nearestDB, 0);
+
+                if (tackleResult.tackled) {
+                    return {
+                        type: 'complete',
+                        yardsGained: totalYards,
+                        caughtBy: receiver.player,
+                        tackledBy: nearestDB.player,
+                        yac: 0,
+                        description: `Caught for ${totalYards} yards, tackled immediately`
+                    };
+                }
+                yacEvents.push(tackleResult);
+            }
+
+            // YAC phase - up to 3 tackle attempts
+            let tackled = false;
+            for (let attempt = 0; attempt < 3 && !tackled; attempt++) {
+                // YAC yards proportional to receiver stats
+                const yacRoll = weightedStatRoll(receiver.stats, {
+                    speed: 0.35,
+                    acceleration: 0.25,
+                    agility: 0.25,
+                    balance: 0.15
+                });
+                const segmentYards = Math.floor(2 + (yacRoll / 100) * 10);
+
+                // Find next tackler (cycle through defenders, safety gets bonus)
+                const tacklerIndex = (defenderIndex + attempt + 1) % state.defenders.length;
+                const tackler = state.defenders[tacklerIndex];
+
+                if (!tackler) {
+                    totalYards += segmentYards;
+                    continue;
+                }
+
+                // Safety bonus on later attempts
+                const safetyBonus = (tackler.position === 'S' || attempt > 0) ? (10 + attempt * 5) : 0;
+                const tackleResult = simResolveTackleAttempt(receiver, tackler, safetyBonus);
+
+                if (tackleResult.tackled) {
+                    totalYards += Math.floor(segmentYards * 0.5);
+                    tackled = true;
+                    yacEvents.push(tackleResult);
+                } else {
+                    totalYards += segmentYards;
+                    yacEvents.push(tackleResult);
+                }
+            }
+
+            // Check for TD
+            const isTouchdown = totalYards >= state.yardsFromGoal;
+
+            return {
+                type: isTouchdown ? 'touchdown' : 'complete',
+                yardsGained: isTouchdown ? state.yardsFromGoal : totalYards,
+                caughtBy: receiver.player,
+                tackledBy: yacEvents.find(e => e.tackled)?.tackler || null,
+                yac: totalYards - receiver.currentDepth,
+                description: isTouchdown ?
+                    `TOUCHDOWN! ${totalYards} yard catch and run!` :
+                    `Caught for ${receiver.currentDepth} yards, ${totalYards - receiver.currentDepth} YAC`
+            };
+        }
+
+        // Resolve a tackle attempt
+        function simResolveTackleAttempt(receiver, tackler, safetyBonus) {
+            const evasionRoll = weightedStatRoll(receiver.stats, CLASH_WEIGHTS.tackle.ballCarrier);
+            let tackleRoll = weightedStatRoll(tackler.stats, CLASH_WEIGHTS.tackle.tackler);
+            tackleRoll += safetyBonus;
+
+            const margin = tackleRoll - evasionRoll;
+            const breakTackleThreshold = -12;
+
+            if (margin > breakTackleThreshold) {
+                return {
+                    type: 'tackle',
+                    tackled: true,
+                    tackler: tackler.player,
+                    margin
+                };
+            } else {
+                return {
+                    type: 'broken_tackle',
+                    tackled: false,
+                    tackler: tackler.player,
+                    margin
+                };
+            }
+        }
+
+        // Resolve sack
+        function simResolveSack(state) {
+            const sackYards = 5 + Math.floor(Math.random() * 6);
+            return {
+                type: 'sack',
+                yardsGained: -sackYards,
+                tackler: state.sackingPlayer,
+                description: `Sacked for a loss of ${sackYards} yards`
+            };
+        }
+
+        // Resolve desperation play (max rounds exceeded)
+        function simResolveDesperationPlay(state) {
+            const trait = QB_TRAITS[state.qb.trait] || QB_TRAITS.balanced;
+
+            if (state.totalPressure > 60 && Math.random() < 0.4) {
+                return {
+                    type: 'sack',
+                    yardsGained: -Math.floor(5 + Math.random() * 5),
+                    description: 'Sacked after holding the ball too long'
+                };
+            }
+
+            // Scrambler might run
+            if (trait.scrambleBonus && Math.random() < 0.3) {
+                const scrambleYards = Math.floor(
+                    (state.qb.stats.speed * 0.1) +
+                    (state.qb.stats.agility * 0.05) +
+                    Math.random() * 5
+                );
+                return {
+                    type: 'scramble',
+                    yardsGained: scrambleYards,
+                    description: `QB scrambles for ${scrambleYards} yards`
+                };
+            }
+
+            // Heave to best available
+            const bestReceiver = state.receivers.reduce((best, r) =>
+                r.effectiveCatchPct > (best?.effectiveCatchPct || 0) ? r : best, null
+            );
+
+            if (bestReceiver && bestReceiver.effectiveCatchPct > 20) {
+                bestReceiver.catchProbability *= 0.7;
+                return simResolveThrow(state, bestReceiver);
+            }
+
+            return {
+                type: 'throwaway',
+                yardsGained: 0,
+                description: 'QB throws it away under pressure'
+            };
+        }
+
+        // Main play simulation loop
+        function simulatePlayRoundBased(offense, defense, fieldPosition) {
+            const state = initializePlayState(offense, defense, fieldPosition);
+
+            while (state.round < state.maxRounds && !state.result) {
+                state.round++;
+
+                // Phase 1: OL/DL Clashes
+                processLineClashesRound(state);
+
+                // Check for sack
+                if (state.sacked) {
+                    state.result = simResolveSack(state);
+                    break;
+                }
+
+                // Phase 2: WR/DB Separation
+                processReceiverClashesRound(state);
+
+                // Phase 3: Calculate catch probabilities
+                simCalculateCatchProbabilities(state);
+
+                // Phase 4: QB Decision
+                const decision = processQBDecision(state);
+
+                if (decision.shouldThrow) {
+                    state.result = simResolveThrow(state, decision.target);
+                    break;
+                }
+            }
+
+            // Desperation if no throw
+            if (!state.result) {
+                state.result = simResolveDesperationPlay(state);
+            }
+
+            state.result.roundsElapsed = state.round;
+            state.result.finalPressure = state.totalPressure;
+
+            // ========================================
+            // BUILD LEGACY-COMPATIBLE DISPLAY PROPERTIES
+            // ========================================
+
+            // Attach QB
+            state.result.qb = state.qb.player;
+
+            // Attach sackingPlayer for sacks
+            if (state.result.type === 'sack') {
+                state.result.sackingPlayer = state.sackingPlayer;
+            }
+
+            // Build pressureInfo (legacy format)
+            const pressureLevel = state.totalPressure >= 70 ? 'heavy' :
+                                  state.totalPressure >= 50 ? 'moderate' :
+                                  state.totalPressure >= 25 ? 'light' : 'none';
+
+            state.result.pressureInfo = {
+                totalPressure: state.totalPressure,
+                pressureLevel: pressureLevel,
+                matchups: state.lineMatchups,
+                sackingDL: state.sackingPlayer || null
+            };
+
+            // Build catchInfo for pass plays
+            const targetReceiver = state.result._targetReceiver;
+            if (targetReceiver) {
+                const receiverIndex = state.receivers.indexOf(targetReceiver);
+                const defender = state.defenders[receiverIndex] || state.defenders[0];
+
+                // Calculate display values
+                const wrRoll = Math.round(targetReceiver.separation + 50);
+                const cbRoll = Math.round(50 - targetReceiver.separation);
+                const separationMargin = targetReceiver.separation;
+                const coverageCloseness = Math.max(0, Math.min(1, 1 - (separationMargin + 30) / 60));
+                const defenderPenalty = Math.round(Math.pow(coverageCloseness, 3) * (defender?.stats?.coverage || 70) * 0.8);
+                const baseCatch = targetReceiver.player?.stats?.catching || 70;
+                const focusMod = (targetReceiver.player?.stats?.focus || 70) - 60;
+                const catchProb = Math.round(targetReceiver.catchProbability);
+                const qbAccuracy = state.qb.player?.stats?.accuracy || 70;
+
+                state.result.catchInfo = {
+                    receiver: targetReceiver.player,
+                    cb: defender?.player || null,
+                    wrRoll: wrRoll,
+                    cbRoll: cbRoll,
+                    separationMargin: Math.round(separationMargin),
+                    coverageCloseness: Math.round(coverageCloseness * 100) / 100,
+                    defenderPenalty: defenderPenalty,
+                    baseCatch: baseCatch,
+                    focusMod: focusMod > 0 ? focusMod : 0,
+                    catchProb: catchProb,
+                    qbAccuracy: qbAccuracy,
+                    pressure: Math.round(state.totalPressure),
+                    rollMean: Math.round(targetReceiver.rollMean),
+                    qbRoll: Math.round(state.result._qbRoll),
+                    catchSuccess: state.result._catchSuccess,
+                    throwGood: state.result._qbRoll < targetReceiver.rollMean * 1.5,
+                    cbCoverage: defender?.stats?.coverage || 70,
+                    effectiveCatchPct: Math.round(targetReceiver.effectiveCatchPct || catchProb),
+                    // Momentum tracking for display
+                    momentumAdvantage: targetReceiver.momentumAdvantage || 0,
+                    dbReactionDelay: targetReceiver.dbReactionDelay || 0,
+                    dbAwareness: defender?.stats?.awareness || 70
+                };
+
+                // Attach target slot
+                state.result.targetSlot = ['WR1', 'WR2', 'WR3'][receiverIndex] || 'WR';
+            }
+
+            // Clean up internal tracking properties
+            delete state.result._targetReceiver;
+            delete state.result._qbRoll;
+            delete state.result._catchSuccess;
+
+            return state.result;
+        }
+
+        // Full drive simulation using round-based plays
+        function simulateDriveRoundBased(offense, defense, startingFieldPosition) {
+            let fieldPosition = { ...startingFieldPosition };
+            const plays = [];
+            let driveResult = null;
+
+            const maxPlays = 15;
+
+            while (!driveResult && plays.length < maxPlays) {
+                // Store the pre-play situation
+                const prePlayDown = fieldPosition.down;
+                const prePlayYardsToGo = fieldPosition.yardsToGo;
+                const prePlayYardsFromGoal = fieldPosition.yardsFromGoal;
+
+                const playResult = simulatePlayRoundBased(offense, defense, fieldPosition);
+
+                // Attach pre-play situation to the result for display
+                playResult.down = prePlayDown;
+                playResult.yardsToGo = prePlayYardsToGo;
+                playResult.yardsFromGoal = prePlayYardsFromGoal;
+
+                plays.push(playResult);
+
+                // Update field position
+                const newYardsFromGoal = fieldPosition.yardsFromGoal - playResult.yardsGained;
+                const yardsGainedTowardFirst = playResult.yardsGained;
+
+                // Check first down
+                if (yardsGainedTowardFirst >= fieldPosition.yardsToGo) {
+                    fieldPosition = {
+                        yardsFromGoal: Math.max(0, newYardsFromGoal),
+                        yardsToGo: 10,
+                        down: 1
+                    };
+                } else {
+                    fieldPosition = {
+                        yardsFromGoal: Math.max(0, newYardsFromGoal),
+                        yardsToGo: fieldPosition.yardsToGo - yardsGainedTowardFirst,
+                        down: fieldPosition.down + 1
+                    };
+                }
+
+                // Attach post-play situation
+                playResult.newYardsFromGoal = fieldPosition.yardsFromGoal;
+                playResult.newYardsToGo = fieldPosition.yardsToGo;
+                playResult.newDown = fieldPosition.down;
+
+                // Check for drive-ending results
+                if (playResult.type === 'touchdown') {
+                    driveResult = { points: 7, type: 'touchdown', plays };
+                } else if (playResult.type === 'interception') {
+                    driveResult = { points: 0, type: 'turnover', plays };
+                } else if (fieldPosition.down > 4) {
+                    if (fieldPosition.yardsFromGoal <= 40) {
+                        const fgDistance = fieldPosition.yardsFromGoal + 17;
+                        const fgSuccess = Math.random() < (0.95 - fgDistance * 0.01);
+
+                        // Mark the last play as a field goal attempt for display
+                        playResult.fieldGoalAttempt = true;
+                        playResult.fieldGoalSuccess = fgSuccess;
+
+                        driveResult = {
+                            points: fgSuccess ? 3 : 0,
+                            type: fgSuccess ? 'field_goal' : 'missed_fg',
+                            plays
+                        };
+                    } else {
+                        driveResult = { points: 0, type: 'punt', plays };
+                    }
+                }
+            }
+
+            if (!driveResult) {
+                driveResult = { points: 0, type: 'punt', plays };
+            }
+
+            return driveResult;
+        }
+
+        // Simulate player's offensive drive using high-fidelity system
+        // Can be used for "auto-play" or "simulate" option
+        function simulatePlayerDriveHighFidelity(playerTeam, opponent) {
+            // Get player offense from depth chart
+            const dc = playerTeam.depthChart;
+            const roster = playerTeam.roster;
+
+            let playerQB = dc.QB ? roster.find(p => p.id === dc.QB) : null;
+            if (!playerQB) playerQB = generateWalkOn('QB');
+
+            const playerWRs = [];
+            ['WR1', 'WR2', 'WR3'].forEach(slot => {
+                const id = dc[slot];
+                if (id) {
+                    const player = roster.find(p => p.id === id);
+                    if (player) playerWRs.push(player);
+                }
+            });
+
+            const playerOL = [];
+            (dc.OL || []).forEach(id => {
+                if (id) {
+                    const player = roster.find(p => p.id === id);
+                    if (player) playerOL.push(player);
+                }
+            });
+
+            // Get opponent defense
+            const oppCBs = opponent.roster.filter(p => p.position === 'CB').sort((a, b) => b.overall - a.overall);
+            const oppDL = opponent.roster.filter(p => p.position === 'DL').sort((a, b) => b.overall - a.overall);
+
+            // Fill walk-ons if needed
+            while (playerWRs.length < 3) playerWRs.push(generateWalkOn('WR'));
+            while (playerOL.length < 5) playerOL.push(generateWalkOn('OL'));
+            while (oppCBs.length < 4) oppCBs.push(generateWalkOn('CB'));
+            while (oppDL.length < 4) oppDL.push(generateWalkOn('DL'));
+
+            // Build offense/defense objects
+            const offense = {
+                qb: playerQB,
+                receivers: playerWRs.slice(0, 3),
+                oLine: playerOL.slice(0, 5)
+            };
+
+            const defense = {
+                dbs: oppCBs.slice(0, 4),
+                dLine: oppDL.slice(0, 4)
+            };
+
+            const startingFieldPosition = {
+                yardsFromGoal: 75,  // Own 25
+                yardsToGo: 10,
+                down: 1
+            };
+
+            // Run the high-fidelity simulation
+            const result = simulateDriveRoundBased(offense, defense, startingFieldPosition);
+
+            // Add team reference
+            result.team = playerTeam;
+
+            return result;
+        }
+
+        // Adapter to use new round-based simulation for enemy possessions
+        function simulateEnemyDriveHighFidelity(opponent, playerTeam) {
+            // Get opponent offense
+            let oppQB = opponent.roster.find(p => p.position === 'QB');
+            if (!oppQB) oppQB = generateWalkOn('QB');
+
+            const oppWRs = opponent.roster.filter(p => p.position === 'WR').sort((a, b) => b.overall - a.overall);
+            const oppOL = opponent.roster.filter(p => p.position === 'OL').sort((a, b) => b.overall - a.overall);
+
+            // Get player defense from depth chart
+            const dc = playerTeam.depthChart;
+            const roster = playerTeam.roster;
+
+            const playerCBs = [];
+            ['CB1', 'CB2', 'CB3', 'CB4'].forEach(slot => {
+                const id = dc[slot];
+                if (id) {
+                    const player = roster.find(p => p.id === id);
+                    if (player) playerCBs.push(player);
+                }
+            });
+
+            const playerDL = [];
+            (dc.DL || []).forEach(id => {
+                if (id) {
+                    const player = roster.find(p => p.id === id);
+                    if (player) playerDL.push(player);
+                }
+            });
+
+            // Fill walk-ons if needed
+            while (playerCBs.length < 3) playerCBs.push(generateWalkOn('CB'));
+            while (playerDL.length < 4) playerDL.push(generateWalkOn('DL'));
+            while (oppWRs.length < 3) oppWRs.push(generateWalkOn('WR'));
+            while (oppOL.length < 5) oppOL.push(generateWalkOn('OL'));
+
+            // Build offense/defense objects for new simulation
+            const offense = {
+                qb: oppQB,
+                receivers: oppWRs.slice(0, 3),
+                oLine: oppOL.slice(0, 5)
+            };
+
+            const defense = {
+                dbs: playerCBs.slice(0, 4),
+                dLine: playerDL.slice(0, 4)
+            };
+
+            const startingFieldPosition = {
+                yardsFromGoal: 75,  // Own 25
+                yardsToGo: 10,
+                down: 1
+            };
+
+            // Run the new high-fidelity simulation
+            const result = simulateDriveRoundBased(offense, defense, startingFieldPosition);
+
+            // Add opponent reference for compatibility
+            result.opponent = opponent;
+
+            return result;
+        }
+
+        // ========================================
+        // LEGACY SIMULATION (kept for compatibility)
+        // ========================================
+
         // Simulate DL vs OL pressure for the play
         function simulateDLPressure(playerOL, opponentDL) {
             const matchups = [];
@@ -2574,24 +4021,54 @@
         // Simulate enemy possession using realistic simulation
         function simulateEnemyPossession(opponent) {
             try {
-                console.log('Starting enemy drive simulation for:', opponent?.name);
+                console.log('Starting enemy drive simulation (high-fidelity) for:', opponent?.name);
                 console.log('Opponent roster size:', opponent?.roster?.length);
                 console.log('Player team exists:', !!managementState.team);
                 console.log('Player depthChart exists:', !!managementState.team?.depthChart);
 
-                // Use the new realistic drive simulation
-                const driveResult = simulateRealisticEnemyDrive(opponent);
+                // Generate roster if missing
+                if (opponent && !opponent.roster) {
+                    console.log('Generating missing roster for opponent:', opponent.name);
+                    opponent.roster = generateOpponentRoster(opponent.difficulty || 'medium');
+                }
+
+                // Validate required data
+                if (!opponent || !opponent.roster || !managementState.team || !managementState.team.depthChart) {
+                    throw new Error('Missing required simulation data');
+                }
+
+                // Use the new high-fidelity round-based simulation
+                const driveResult = simulateEnemyDriveHighFidelity(opponent, managementState.team);
 
                 console.log('Drive result:', driveResult.type, 'with', driveResult.plays?.length, 'plays');
 
-                // Map to legacy result format for compatibility
+                // Format narrative from new play format
+                const narrative = driveResult.plays.map((p, i) => {
+                    const down = Math.min(4, Math.floor(i / 3) + 1);
+                    if (p.type === 'sack') {
+                        return `Sack! ${p.description}`;
+                    } else if (p.type === 'interception') {
+                        return `INTERCEPTION! ${p.description}`;
+                    } else if (p.type === 'touchdown') {
+                        return `TOUCHDOWN! ${p.description}`;
+                    } else if (p.type === 'complete') {
+                        return `Complete! ${p.yardsGained} yards${p.yac > 0 ? ` (${p.yac} YAC)` : ''}`;
+                    } else if (p.type === 'incomplete') {
+                        return 'Pass incomplete';
+                    } else if (p.type === 'throwaway') {
+                        return 'QB throws it away';
+                    } else if (p.type === 'scramble') {
+                        return p.description;
+                    }
+                    return `${p.type}: ${p.yardsGained} yards`;
+                });
+
                 return {
                     points: driveResult.points,
                     type: driveResult.type,
                     plays: driveResult.plays,
                     opponent: driveResult.opponent,
-                    // Legacy narrative for fallback
-                    narrative: driveResult.plays.map(p => formatPlayNarrative(p, opponent))
+                    narrative
                 };
             } catch (error) {
                 console.error('Enemy drive simulation error:', error);
@@ -3272,7 +4749,7 @@
                 receiver.stats = config.stats;
 
                 // Derive base speed from stats (normalized to game units)
-                receiver.baseSpeed = config.stats.speed * 0.0005;  // Scale stat to movement speed
+                receiver.baseSpeed = config.stats.speed * 0.00064;  // Balanced pace
                 receiver.speed = receiver.baseSpeed;
 
                 // Clash system runtime state
@@ -3282,6 +4759,7 @@
                 receiver.knockdownUntil = 0;
                 receiver.knockdownResistance = 0;
                 receiver.hasHadInitialClash = false;
+                receiver.wasOutsideClashRange = false;  // Track if WR/DB were apart before clashing
                 receiver.lastRouteIndex = 0;  // Track route changes for jink clashes
                 receiver.initialClashSlowdownUntil = 0;  // Slowdown during first contact
 
@@ -3389,7 +4867,7 @@
                 defender.startPos = startPos.clone();
 
                 // Derive base speed from stats
-                defender.baseSpeed = config.stats.speed * 0.0005;
+                defender.baseSpeed = config.stats.speed * 0.00064;  // Matches receiver pace
                 defender.speed = defender.baseSpeed;
 
                 // Clash system runtime state
@@ -3987,25 +5465,26 @@
         const createFootball = (scene, materials) => {
             const football = new BABYLON.TransformNode('football', scene);
 
-            // Elongated sphere for football
+            // Elongated sphere for football - larger and more visible
             const ball = BABYLON.MeshBuilder.CreateSphere('ball', {
-                diameter: 0.3,
-                segments: 8
+                diameter: 0.6,
+                segments: 12
             }, scene);
-            ball.scaling = new BABYLON.Vector3(0.6, 0.6, 1);
+            ball.scaling = new BABYLON.Vector3(0.5, 0.5, 1.2);  // More elongated football shape
             ball.material = materials.ballMaterial;
             ball.parent = football;
 
-            // Laces
+            // Laces - scaled up to match larger ball
             const laces = BABYLON.MeshBuilder.CreateBox('laces', {
-                width: 0.05,
-                height: 0.02,
-                depth: 0.15
+                width: 0.08,
+                height: 0.03,
+                depth: 0.25
             }, scene);
             const laceMat = new BABYLON.StandardMaterial('laceMat', scene);
-            laceMat.diffuseColor = new BABYLON.Color3(0.9, 0.9, 0.9);
+            laceMat.diffuseColor = new BABYLON.Color3(0.95, 0.95, 0.95);
+            laceMat.emissiveColor = new BABYLON.Color3(0.3, 0.3, 0.3);  // Glow for visibility
             laces.material = laceMat;
-            laces.position.y = 0.08;
+            laces.position.y = 0.14;
             laces.parent = football;
 
             return football;
@@ -4143,10 +5622,30 @@
                 receiver.position.x += vx;
                 receiver.position.z += vz;
                 receiver.rotation.y = Math.atan2(dx, dz);
+
+                // Track running momentum for forward lean
+                receiver.runMomentum = Math.min((receiver.runMomentum || 0) + 0.15, 1);
+                receiver.rotation.x = (receiver.runMomentum || 0) * 0.25; // Forward lean when running
             } else {
                 receiver.velocity = new BABYLON.Vector3(0, 0, 0);
+                // Decay forward lean when stopped
+                receiver.runMomentum = (receiver.runMomentum || 0) * 0.9;
+                receiver.rotation.x = (receiver.runMomentum || 0) * 0.15;
             }
             return true;
+        };
+
+        // Apply forward lean to any player mesh when running
+        const applyMomentumTilt = (player, dx, dz, dist, isMoving) => {
+            if (isMoving && dist > 0.1) {
+                // Track running momentum for forward lean
+                player.runMomentum = Math.min((player.runMomentum || 0) + 0.15, 1);
+                player.rotation.x = (player.runMomentum || 0) * 0.25; // Forward lean when running
+            } else {
+                // Decay forward lean when stopped
+                player.runMomentum = (player.runMomentum || 0) * 0.9;
+                player.rotation.x = (player.runMomentum || 0) * 0.15;
+            }
         };
 
         // Move defender based on AI type
@@ -4154,6 +5653,12 @@
             // Don't move if knocked down
             if (defender.knockdownUntil > gameState.gameTime) {
                 return;
+            }
+
+            // Reaction delay at start of play - defenders don't move immediately
+            const timeSincePlayStart = gameState.gameTime - (gameState.playStartTime || 0);
+            if (defender.reactionDelay && timeSincePlayStart < defender.reactionDelay) {
+                return;  // Still reacting, don't move yet
             }
 
             const speed = overrideSpeed !== null ? overrideSpeed : defender.speed;
@@ -4191,6 +5696,9 @@
                 defender.position.z += (dz / dist) * speed;
                 defender.rotation.y = Math.atan2(dx, dz);
             }
+
+            // Apply momentum-based tilt
+            applyMomentumTilt(defender, dx, dz, dist, dist > 0.2);
         };
 
         // Zone coverage AI - patrol assigned area, react to nearby receivers
@@ -4231,6 +5739,9 @@
                 defender.position.z += (dz / dist) * speed;
                 defender.rotation.y = Math.atan2(dx, dz);
             }
+
+            // Apply momentum-based tilt
+            applyMomentumTilt(defender, dx, dz, dist, dist > 0.3);
         };
 
         // Blitzer AI - rush toward QB or ball
@@ -4257,6 +5768,9 @@
                 defender.position.z += (dz / dist) * speed * 1.2;
                 defender.rotation.y = Math.atan2(dx, dz);
             }
+
+            // Apply momentum-based tilt
+            applyMomentumTilt(defender, dx, dz, dist, dist > 0.5);
         };
 
         // ============================================
@@ -4295,6 +5809,9 @@
                 dLineman.position.z += (dz / dist) * speed;
                 dLineman.rotation.y = Math.atan2(dx, dz);
             }
+
+            // Apply momentum-based tilt
+            applyMomentumTilt(dLineman, dx, dz, dist, dist > 0.3);
         };
 
         // Move O-lineman - stay between assigned D-lineman and QB
@@ -4344,6 +5861,9 @@
                 // Face the D-lineman
                 oLineman.rotation.y = Math.atan2(dLinePos.x - oLineman.position.x, dLinePos.z - oLineman.position.z);
             }
+
+            // Apply momentum-based tilt
+            applyMomentumTilt(oLineman, dx, dz, dist, dist > 0.2);
         };
 
         // Find the best D-lineman for an O-lineman to block
@@ -4719,6 +6239,9 @@
                 receiver.rotation.y = Math.atan2(dx, dz);
             }
 
+            // Apply momentum-based tilt
+            applyMomentumTilt(receiver, dx, dz, dist, dist > 0.1);
+
             // Check for touchdown
             if (receiver.position.z >= 12) {
                 handleTouchdown(receiver);
@@ -5030,11 +6553,18 @@
                 defender.position.z += (dz / dist) * speed;
                 defender.rotation.y = Math.atan2(dx, dz);
             }
+
+            // Apply momentum-based tilt
+            applyMomentumTilt(defender, dx, dz, dist, dist > 0.3);
         };
 
         // Reset defenders to starting positions
         const resetDefenders = () => {
             const lineZ = gameState.lineOfScrimmage;
+            const END_ZONE_Z = 11;
+            const END_ZONE_BACK = 15;  // Back of end zone - max Z position
+            const SIDELINE = 8;  // Field boundary
+            const distToGoal = END_ZONE_Z - lineZ;  // How far from goal line
             let manDefenderIndex = 0;
 
             gameState.defenders.forEach((defender, i) => {
@@ -5044,22 +6574,29 @@
                     defender.assignedReceiver = receiverIndex;
                     const targetReceiver = gameState.receivers[receiverIndex];
 
-                    // Position directly above receiver with varying depth
-                    defender.cushion = 2 + Math.random() * 4;  // 2-6 yards cushion
-                    defender.startPos.x = targetReceiver.startPos.x;
-                    defender.startPos.z = targetReceiver.startPos.z + defender.cushion;
+                    // Cushion decreases near goal line (DBs play tighter in red zone)
+                    // Far from goal: 4-7 yards, Near goal line: 1-3 yards
+                    const baseCushion = Math.max(1, Math.min(4, distToGoal * 0.4));
+                    const cushionVariance = Math.max(1, Math.min(3, distToGoal * 0.3));
+                    defender.cushion = baseCushion + Math.random() * cushionVariance;
+
+                    defender.startPos.x = Math.max(-SIDELINE, Math.min(SIDELINE, targetReceiver.startPos.x));
+                    defender.startPos.z = Math.min(END_ZONE_BACK - 1, targetReceiver.startPos.z + defender.cushion);
+                    defender.reactionDelay = 0.25;  // Quarter second before reacting
                     manDefenderIndex++;
                 } else if (defender.aiType === 'zone') {
-                    // Zone defender in middle of field with random depth
+                    // Zone defender (safety) - stays at normal depth, doesn't move back
                     const zoneDepth = 6 + Math.random() * 4;  // 6-10 yards deep
-                    defender.zoneCenter = new BABYLON.Vector3(0, 0, lineZ + zoneDepth);
+                    const clampedZoneZ = Math.min(END_ZONE_BACK - 1, lineZ + zoneDepth);
+                    defender.zoneCenter = new BABYLON.Vector3(0, 0, clampedZoneZ);
                     defender.zoneRadius = 5 + Math.random() * 2;  // 5-7 yard radius
                     defender.startPos.x = 0;
-                    defender.startPos.z = lineZ + zoneDepth - 2;
+                    defender.startPos.z = Math.min(END_ZONE_BACK - 1, clampedZoneZ - 2);
                 }
 
-                defender.position.x = defender.startPos.x;
-                defender.position.z = defender.startPos.z;
+                // Clamp final positions to field boundaries
+                defender.position.x = Math.max(-SIDELINE, Math.min(SIDELINE, defender.startPos.x));
+                defender.position.z = Math.min(END_ZONE_BACK - 1, defender.startPos.z);
                 defender.position.y = 0;
                 defender.knockdownUntil = 0;
                 defender.knockdownResistance = 0;
@@ -5116,6 +6653,7 @@
                 receiver.routeIndex = 0;
                 receiver.lastRouteIndex = 0;
                 receiver.hasHadInitialClash = false;
+                receiver.wasOutsideClashRange = false;
                 receiver.separationState = 'contested';
                 receiver.knockdownUntil = 0;
                 receiver.knockdownResistance = 0;
@@ -5263,122 +6801,127 @@
 
                 // === GOAL LINE ROUTES ===
                 case 'quick_slant':
-                    // Quick slant toward middle - 2-3 yards then cut
-                    const qsDepth = Math.min(startZ + 2, END_ZONE_Z);
+                    // Quick slant toward middle - 2-3 yards then cut, go to end zone
+                    const qsDepth = startZ + 2;
                     const qsEndX = Math.max(-6, Math.min(6, startX + towardMiddle * (4 + Math.random() * 2)));
                     route.push({ z: qsDepth, x: startX });
-                    route.push({ z: Math.min(qsDepth + 3, END_ZONE_BACK), x: qsEndX });
+                    route.push({ z: qsDepth + 3, x: qsEndX });
+                    route.push({ z: END_ZONE_BACK, x: qsEndX });
                     break;
 
                 case 'flat_cross':
-                    // Run flat across the formation then angle to end zone
+                    // Push 2-3 yards past LOS then cross across the formation, go to end zone
+                    const fcStem = startZ + 2 + Math.random();  // 2-3 yards forward first
                     const fcX = startX + towardMiddle * (6 + Math.random() * 3);
-                    route.push({ z: startZ + 1, x: Math.max(-6, Math.min(6, fcX)) });
-                    route.push({ z: Math.min(startZ + 4, END_ZONE_BACK), x: Math.max(-6, Math.min(6, fcX + towardMiddle * 2)) });
+                    route.push({ z: fcStem, x: startX });  // Vertical stem past LOS
+                    route.push({ z: fcStem + 1, x: Math.max(-6, Math.min(6, fcX)) });  // Then cross
+                    route.push({ z: END_ZONE_BACK, x: Math.max(-6, Math.min(6, fcX + towardMiddle * 2)) });
                     break;
 
                 case 'back_shoulder':
-                    // Straight then slight fade back - for back shoulder throw
-                    route.push({ z: Math.min(startZ + 3, END_ZONE_Z + 1), x: startX });
-                    route.push({ z: Math.min(startZ + 2, END_ZONE_Z), x: startX + towardSideline * 1.5 });
+                    // Straight then slight fade back - for back shoulder throw, extend to end zone
+                    route.push({ z: startZ + 3, x: startX });
+                    route.push({ z: startZ + 5, x: startX + towardSideline * 1.5 });
+                    route.push({ z: END_ZONE_BACK, x: startX + towardSideline * 2 });
                     break;
 
                 case 'corner_fade':
                     // Quick move to corner of end zone
                     const cfX = Math.max(-7, Math.min(7, startX + towardSideline * 3));
-                    route.push({ z: Math.min(startZ + 2, END_ZONE_Z), x: cfX });
-                    route.push({ z: Math.min(startZ + 5, END_ZONE_BACK), x: Math.max(-7, Math.min(7, cfX + towardSideline * 2)) });
+                    route.push({ z: startZ + 2, x: cfX });
+                    route.push({ z: END_ZONE_BACK, x: Math.max(-7, Math.min(7, cfX + towardSideline * 2)) });
                     break;
 
                 case 'out_and_up':
-                    // Fake out, then go vertical
+                    // Fake out, then go vertical to end zone
                     const oauOutX = startX + towardSideline * 2;
                     route.push({ z: startZ + 2, x: oauOutX });
-                    route.push({ z: Math.min(startZ + 6, END_ZONE_BACK), x: oauOutX });
+                    route.push({ z: END_ZONE_BACK, x: oauOutX });
                     break;
 
                 // === RED ZONE ROUTES ===
                 case 'corner':
-                    // Break toward corner of end zone
-                    const cornerBreak = startZ + 5 + Math.random() * 2;
+                    // Break toward corner of end zone - break at 3-5 yards, go to back corner
+                    const cornerBreak = startZ + 3 + Math.random() * 2;
                     const cornerX = Math.max(-7, Math.min(7, startX + towardSideline * (4 + Math.random() * 2)));
-                    route.push({ z: Math.min(cornerBreak, END_ZONE_Z - 1), x: startX });
-                    route.push({ z: Math.min(cornerBreak + 4, END_ZONE_BACK), x: cornerX });
+                    route.push({ z: cornerBreak, x: startX });
+                    route.push({ z: END_ZONE_BACK, x: cornerX });
                     break;
 
                 case 'comeback_corner':
-                    // Go, comeback, then break to corner
-                    const ccBreak = startZ + 6;
-                    route.push({ z: Math.min(ccBreak, END_ZONE_Z), x: startX });
-                    route.push({ z: Math.min(ccBreak - 1, END_ZONE_Z - 1), x: startX });
-                    route.push({ z: Math.min(ccBreak + 3, END_ZONE_BACK), x: Math.max(-7, Math.min(7, startX + towardSideline * 4)) });
+                    // Go 4-5 yards, comeback, then break to corner and go to end zone
+                    const ccBreak = startZ + 4 + Math.random();
+                    route.push({ z: ccBreak, x: startX });
+                    route.push({ z: ccBreak - 1, x: startX });
+                    route.push({ z: END_ZONE_BACK, x: Math.max(-7, Math.min(7, startX + towardSideline * 4)) });
                     break;
 
                 // === STANDARD ROUTES ===
                 case 'go':
                 case 'fade':
-                    // Straight up the field with slight fade
-                    const goMid = startZ + 8 + Math.random() * 3;
+                    // Straight up the field with slight fade - go to back of end zone
                     const fadeAmount = towardSideline * (1 + Math.random() * 2);
-                    route.push({ z: Math.min(goMid, END_ZONE_Z), x: startX + fadeAmount * 0.3 });
-                    route.push({ z: Math.min(goMid + 5, END_ZONE_BACK), x: Math.max(-7, Math.min(7, startX + fadeAmount)) });
+                    route.push({ z: startZ + 8, x: startX + fadeAmount * 0.3 });
+                    route.push({ z: END_ZONE_BACK, x: Math.max(-7, Math.min(7, startX + fadeAmount)) });
                     break;
 
                 case 'slant':
-                    // Quick slant across the middle
-                    const slantBreak = startZ + 3 + Math.random() * 2;
+                    // Quick slant across the middle - break at 2-3 yards, then go deep
+                    const slantBreak = startZ + 2 + Math.random() * 1;
                     const slantX = startX + towardMiddle * (5 + Math.random() * 3);
                     route.push({ z: slantBreak, x: startX });
-                    route.push({ z: Math.min(slantBreak + 6, END_ZONE_Z), x: Math.max(-5, Math.min(5, slantX)) });
-                    route.push({ z: Math.min(slantBreak + 10, END_ZONE_BACK), x: Math.max(-5, Math.min(5, slantX)) });
+                    route.push({ z: slantBreak + 5, x: Math.max(-5, Math.min(5, slantX)) });
+                    route.push({ z: END_ZONE_BACK, x: Math.max(-5, Math.min(5, slantX)) });
                     break;
 
                 case 'out':
-                    // Break to sideline
-                    const outBreak = startZ + 5 + Math.random() * 3;
+                    // Break to sideline - break at 3-5 yards, then continue deep
+                    const outBreak = startZ + 3 + Math.random() * 2;
                     const outX = Math.max(-7, Math.min(7, startX + towardSideline * (4 + Math.random() * 2)));
                     route.push({ z: outBreak, x: startX });
                     route.push({ z: outBreak + 1, x: outX });
-                    route.push({ z: Math.min(outBreak + 6, END_ZONE_BACK), x: outX });
+                    route.push({ z: END_ZONE_BACK, x: outX });
                     break;
 
                 case 'post':
-                    // Break toward the goalpost (middle deep)
-                    const postBreak = startZ + 6 + Math.random() * 3;
+                    // Break toward the goalpost - break at 4-6 yards, go to back of end zone
+                    const postBreak = startZ + 4 + Math.random() * 2;
                     route.push({ z: postBreak, x: startX });
-                    route.push({ z: Math.min(postBreak + 6, END_ZONE_BACK), x: towardMiddle * (2 + Math.random() * 2) });
+                    route.push({ z: END_ZONE_BACK, x: towardMiddle * (2 + Math.random() * 2) });
                     break;
 
                 case 'dig':
                 case 'crossing':
-                    // Deep cross - run vertical then cut across
-                    const digBreak = startZ + 7 + Math.random() * 3;
+                    // Cross route - break at 4-6 yards then go deep
+                    const digBreak = startZ + 4 + Math.random() * 2;
                     const digEndX = Math.max(-6, Math.min(6, startX + towardMiddle * (8 + Math.random() * 4)));
-                    route.push({ z: Math.min(digBreak, END_ZONE_Z), x: startX });
-                    route.push({ z: Math.min(digBreak + 2, END_ZONE_Z + 2), x: digEndX });
-                    route.push({ z: Math.min(digBreak + 5, END_ZONE_BACK), x: digEndX });
+                    route.push({ z: digBreak, x: startX });
+                    route.push({ z: digBreak + 2, x: digEndX });
+                    route.push({ z: END_ZONE_BACK, x: digEndX });
                     break;
 
                 case 'seam':
-                    // Straight up the seam (between zones)
+                    // Straight up the seam - slight angle at 3 yards, go deep
                     const seamTarget = startX > 0 ? 3 : -3;  // Stay in seam
-                    route.push({ z: startZ + 5, x: (startX + seamTarget) / 2 });
-                    route.push({ z: Math.min(startZ + 12, END_ZONE_Z), x: seamTarget });
-                    route.push({ z: Math.min(startZ + 16, END_ZONE_BACK), x: seamTarget });
+                    route.push({ z: startZ + 3, x: (startX + seamTarget) / 2 });
+                    route.push({ z: startZ + 10, x: seamTarget });
+                    route.push({ z: END_ZONE_BACK, x: seamTarget });
                     break;
 
                 case 'curl':
                 case 'comeback':
-                    // Run up, curl back toward QB
-                    const curlDepth = startZ + 8 + Math.random() * 3;
+                    // Run up 5-7 yards, curl back toward QB, then cross horizontally to opposite sideline
+                    const curlDepth = startZ + 5 + Math.random() * 2;
+                    const oppositeSideline = startX > 0 ? -6 : 6;  // Go to opposite side of field
                     route.push({ z: curlDepth, x: startX });
-                    route.push({ z: curlDepth - 2, x: startX + towardMiddle * 1 });
+                    route.push({ z: curlDepth - 2, x: startX + towardMiddle * 1 });  // Curl back
+                    route.push({ z: curlDepth - 1, x: oppositeSideline });  // Cross horizontally to other sideline
                     break;
 
                 default:
-                    // Fallback: simple go route
-                    route.push({ z: Math.min(startZ + 8, END_ZONE_Z), x: startX });
-                    route.push({ z: Math.min(startZ + 14, END_ZONE_BACK), x: startX });
+                    // Fallback: simple go route to end zone
+                    route.push({ z: startZ + 8, x: startX });
+                    route.push({ z: END_ZONE_BACK, x: startX });
             }
 
             // Ensure all route points move forward (no backwards routes)
@@ -5392,6 +6935,32 @@
                 point.z = Math.min(point.z, END_ZONE_BACK);
                 point.x = Math.max(-SIDELINE, Math.min(SIDELINE, point.x));
             });
+
+            // Post-process: ensure routes extend into end zone if close enough
+            if (route.length > 0) {
+                const lastPoint = route[route.length - 1];
+                const distToEndZone = END_ZONE_Z - lastPoint.z;
+
+                // If within 8 yards of end zone and route doesn't reach it, extend
+                if (distToEndZone > 0 && distToEndZone < 8) {
+                    route.push({
+                        z: Math.min(END_ZONE_Z + 2, END_ZONE_BACK),
+                        x: lastPoint.x
+                    });
+                }
+
+                // If route ends near sideline, add crossing waypoint back toward middle
+                // But only if we're still in the first 15 yards of the route (not in end zone)
+                const finalPoint = route[route.length - 1];
+                const routeDepth = finalPoint.z - startZ;  // How far into the route
+                if (Math.abs(finalPoint.x) > 6 && routeDepth < 15 && finalPoint.z < END_ZONE_Z - 2) {
+                    const crossDirection = finalPoint.x > 0 ? -1 : 1;  // Cross toward middle
+                    route.push({
+                        z: Math.min(finalPoint.z + 2, END_ZONE_BACK),
+                        x: finalPoint.x + crossDirection * 4  // Cross 4 yards toward middle
+                    });
+                }
+            }
 
             receiver.route = route;
 
@@ -5457,10 +7026,15 @@
             const catchRadius = 1.2;
 
             let frameIndex = 0;
-            // Shorter throws are faster: speed ranges from 2.0 (short) to 0.8 (long)
-            const animationSpeed = 2.0 - (throwParams.power * 1.2);
+            // Ball flight speed - short throws faster, long throws slower for arc visibility
+            // Short throws: quick (2.4), long throws: slower (0.8)
+            const animationSpeed = 2.4 - (throwParams.power * 1.6);
             let accumulator = 0;
             const time = { value: 0 };
+
+            // Spiral rotation tracking - fast visible spin for tight spiral effect
+            let spiralAngle = 0;
+            const spiralSpeed = 45 + (throwParams.power * 25);  // Fast visible spiral, increases with power
 
             // Create trail effect for ball
             const trailParticles = [];
@@ -5484,19 +7058,20 @@
                 if (frameIndex < path.length) {
                     football.position = path[frameIndex].clone();
 
-                    // Rotate ball along flight path
+                    // Rotate ball along flight path for proper orientation
                     if (frameIndex < path.length - 1) {
                         const direction = path[frameIndex + 1].subtract(path[frameIndex]);
                         const angle = Math.atan2(direction.x, direction.z);
                         football.rotation.y = angle;
 
-                        // Pitch based on vertical velocity
+                        // Pitch based on vertical velocity (nose follows arc)
                         const pitch = Math.atan2(direction.y, Math.sqrt(direction.x * direction.x + direction.z * direction.z));
                         football.rotation.x = -pitch;
                     }
 
-                    // Spin animation
-                    football.rotation.z += 0.2;
+                    // Tight spiral rotation around the ball's long axis
+                    spiralAngle += dt * spiralSpeed;
+                    football.rotation.z = spiralAngle;
 
                     // Add trail particles
                     const currentPos = football.position.clone();
@@ -5576,9 +7151,8 @@
                             moveReceiverAlongRoute(receiver, effectiveSpeed);
                         }
 
-                        // Running animation
+                        // Running animation (bob only, tilt handled by momentum system)
                         receiver.position.y = Math.abs(Math.sin(time.value * 8 + i)) * 0.08;
-                        receiver.rotation.z = Math.sin(time.value * 8 + i) * 0.05;
                     });
 
                     // Move defenders during ball flight - they pursue!
@@ -5589,12 +7163,18 @@
                             return;
                         }
 
-                        // Defenders move at full speed during ball flight
-                        moveDefender(defender, 0.016);
+                        // Calculate effective speed with catch-up boost
+                        let effectiveSpeed = defender.speed;
+                        if (defender.catchupBoostStart && defender.catchupBoostUntil &&
+                            gameState.gameTime >= defender.catchupBoostStart &&
+                            gameState.gameTime < defender.catchupBoostUntil) {
+                            effectiveSpeed *= defender.catchupBoostAmount || 1.3;
+                        }
 
-                        // Running animation
+                        moveDefender(defender, 0.016, effectiveSpeed);
+
+                        // Running animation (bob only, tilt handled by momentum system)
                         defender.position.y = Math.abs(Math.sin(time.value * 8 + i + 0.5)) * 0.08;
-                        defender.rotation.z = Math.sin(time.value * 8 + i + 0.5) * 0.05;
                     });
 
                     // Move linemen during ball flight (battle continues!)
@@ -5868,9 +7448,8 @@
                 // Move ball carrier
                 moveBallCarrier(ballCarrier);
 
-                // Running animation for ball carrier
+                // Running animation for ball carrier (bob only, tilt handled by momentum system)
                 ballCarrier.position.y = Math.abs(Math.sin(timeSinceCatch.value * 10)) * 0.1;
-                ballCarrier.rotation.z = Math.sin(timeSinceCatch.value * 10) * 0.06;
 
                 // Calculate pursuit boost based on time since catch
                 // After 1 second: 10% boost, after 2 seconds: 20% boost
@@ -5888,10 +7467,9 @@
                     if (defender.knockdownUntil <= gameState.gameTime) {
                         moveDefenderPursuit(defender, pursuitBoost);
 
-                        // Running animation (faster when boosted)
+                        // Running animation (bob only, tilt handled by momentum system)
                         const animSpeed = 10 + (pursuitBoost - 1.0) * 20;
                         defender.position.y = Math.abs(Math.sin(timeSinceCatch.value * animSpeed + i)) * 0.08;
-                        defender.rotation.z = Math.sin(timeSinceCatch.value * animSpeed + i) * 0.05;
                     }
                 });
 
@@ -6512,15 +8090,10 @@
                         const bobSpeed = receiver.initialClashSlowdownUntil > gameState.gameTime ? 4 : 8;
                         receiver.position.y = Math.abs(Math.sin(time * bobSpeed + i)) * 0.08;
 
-                        // Arm swing approximation via slight rotation
-                        receiver.rotation.z = Math.sin(time * bobSpeed + i) * 0.05;
-
-                        // Clash tilt effect (lean towards opponent)
+                        // Clash tilt effect (add forward lean during clash)
                         if (receiver.clashTiltUntil > gameState.gameTime) {
                             const tiltProgress = (receiver.clashTiltUntil - gameState.gameTime) / 0.5;
-                            receiver.rotation.x = Math.sin(tiltProgress * Math.PI) * 0.3;  // Lean forward
-                        } else {
-                            receiver.rotation.x = 0;
+                            receiver.rotation.x += Math.sin(tiltProgress * Math.PI) * 0.3;
                         }
 
                         // Show green while speed boosted, red while speed penalized
@@ -6588,7 +8161,7 @@
                             return;
                         }
 
-                        // Calculate effective speed (slowdowns from clashes)
+                        // Calculate effective speed (slowdowns and boosts from clashes)
                         let effectiveSpeed = defender.speed;
                         if (defender.initialClashSlowdownUntil > gameState.gameTime) {
                             effectiveSpeed *= 0.2;  // 20% speed during initial clash
@@ -6596,20 +8169,23 @@
                         if (defender.clashSpeedPenaltyUntil > gameState.gameTime) {
                             effectiveSpeed *= 0.5;  // 50% slower after losing clash
                         }
+                        // DB catch-up boost - kicks in after receiver's boost ends
+                        if (defender.catchupBoostStart && defender.catchupBoostUntil &&
+                            gameState.gameTime >= defender.catchupBoostStart &&
+                            gameState.gameTime < defender.catchupBoostUntil) {
+                            effectiveSpeed *= defender.catchupBoostAmount || 1.3;  // 30% faster catch-up
+                        }
 
                         moveDefender(defender, 0.016, effectiveSpeed);
 
-                        // Running bob animation (slower during slowdown)
+                        // Running bob animation (bob only, tilt handled by momentum system)
                         const bobSpeed = defender.initialClashSlowdownUntil > gameState.gameTime ? 4 : 8;
                         defender.position.y = Math.abs(Math.sin(time * bobSpeed + i + 0.5)) * 0.08;
-                        defender.rotation.z = Math.sin(time * bobSpeed + i + 0.5) * 0.05;
 
-                        // Clash tilt effect (lean towards opponent)
+                        // Clash tilt effect (add forward lean during clash)
                         if (defender.clashTiltUntil > gameState.gameTime) {
                             const tiltProgress = (defender.clashTiltUntil - gameState.gameTime) / 0.5;
-                            defender.rotation.x = Math.sin(tiltProgress * Math.PI) * 0.3;  // Lean forward
-                        } else {
-                            defender.rotation.x = 0;
+                            defender.rotation.x += Math.sin(tiltProgress * Math.PI) * 0.3;
                         }
 
                     });
@@ -6820,6 +8396,10 @@
 
             // Not close enough for clash
             if (distance > CLASH_CONSTANTS.CLASH_RANGE) {
+                // Track that they were far apart (for initial clash detection)
+                if (!receiver.hasHadInitialClash) {
+                    receiver.wasOutsideClashRange = true;
+                }
                 return { trigger: false, reason: 'distance' };
             }
 
@@ -6836,9 +8416,13 @@
                 return { trigger: false, reason: 'cooldown' };
             }
 
-            // Initial contact - first time zones overlap
+            // Initial contact - only trigger if they were previously apart
+            // This prevents clashes from happening immediately at play start
             if (!receiver.hasHadInitialClash) {
-                return { trigger: true, reason: 'initial_contact' };
+                if (receiver.wasOutsideClashRange) {
+                    return { trigger: true, reason: 'initial_contact' };
+                }
+                return { trigger: false, reason: 'not_yet_separated' };
             }
 
             // Direction change (jink) - receiver changed route waypoint
@@ -6888,17 +8472,24 @@
                 defenderRoll
             };
 
-            // Speed effect duration for receivers only
-            const CLASH_SPEED_EFFECT_DURATION = 2.0;  // seconds
-            const CLASH_SPEED_PENALTY = 0.5;  // 50% slower
+            // Speed effect durations
+            const CLASH_SPEED_EFFECT_DURATION = 1.0;  // seconds - reduced for quicker gameplay
+            const DB_CATCHUP_DELAY = 2.0;             // seconds - delay before DB catch-up starts
+            const DB_CATCHUP_BOOST_DURATION = 1.0;    // seconds - DB gets catch-up boost after delay
+            const CLASH_SPEED_PENALTY = 0.75;  // 25% slower (was 50%, cut in half)
             const CLASH_SPEED_BOOST = 1.5;  // 50% faster
+            const DB_CATCHUP_BOOST = 1.3;  // 30% faster for catch-up
 
             if (margin > CLASH_CONSTANTS.SEPARATION_THRESHOLD) {
                 result.winner = 'receiver';
                 result.type = 'separation';
-                // Receiver wins - gets speed boost
+                // Receiver wins - gets speed boost for 1 second
                 receiver.clashSpeedBoostUntil = currentTime + CLASH_SPEED_EFFECT_DURATION;
                 receiver.speed = receiver.baseSpeed * CLASH_SPEED_BOOST;
+                // DB gets catch-up boost 2 seconds after clash
+                defender.catchupBoostStart = currentTime + DB_CATCHUP_DELAY;
+                defender.catchupBoostUntil = currentTime + DB_CATCHUP_DELAY + DB_CATCHUP_BOOST_DURATION;
+                defender.catchupBoostAmount = DB_CATCHUP_BOOST;
                 // Record clash stats
                 recordPlayerStat(receiver, 'seasonClashesWon');
                 recordPlayerStat(defender, 'seasonClashesLost');
@@ -8242,8 +9833,30 @@
                     html += `<div style="color: ${successColor}; font-size: 13px; font-weight: bold;">`;
                     html += play.fieldGoalSuccess ? `Field Goal GOOD from ${distance} yards!` : `Field Goal MISSED from ${distance} yards!`;
                     html += `</div>`;
+                } else if (play.type === 'scramble') {
+                    // QB scramble
+                    html += createPressureBarHTML(play.pressureInfo);
+                    html += `<div style="margin-top: 6px;">`;
+                    html += `<div style="color: #fa4; font-size: 13px; font-weight: bold;">QB Scramble!</div>`;
+                    html += `<div style="color: #888; font-size: 10px; margin-top: 2px;">${qbName} takes off for ${play.yardsGained} yards</div>`;
+                    html += `</div>`;
+                } else if (play.type === 'throwaway') {
+                    // Throwaway
+                    html += createPressureBarHTML(play.pressureInfo);
+                    html += `<div style="margin-top: 6px;">`;
+                    html += `<div style="color: #888; font-size: 13px;">Throwaway</div>`;
+                    html += `<div style="color: #666; font-size: 10px; margin-top: 2px;">${qbName} throws it away under pressure</div>`;
+                    html += `</div>`;
+                } else if (play.type === 'interception') {
+                    // Interception
+                    html += createPressureBarHTML(play.pressureInfo);
+                    const interceptedBy = play.interceptedBy ? getPlayerFullName(play.interceptedBy) : 'Your DB';
+                    html += `<div style="margin-top: 6px;">`;
+                    html += `<div style="color: #4f4; font-size: 13px; font-weight: bold;">INTERCEPTION!</div>`;
+                    html += `<div style="color: #888; font-size: 10px; margin-top: 2px;">Picked off by ${interceptedBy}!</div>`;
+                    html += `</div>`;
                 } else {
-                    // Pass play
+                    // Pass play (complete/incomplete)
                     const catchInfo = play.catchInfo;
                     const wrName = catchInfo?.receiver ? getPlayerFullName(catchInfo.receiver) : `${teamShort} WR`;
                     const cbName = catchInfo?.cb ? getPlayerFullName(catchInfo.cb) : 'Your CB';
@@ -8288,6 +9901,18 @@
                             <span>WR <span style="color: #f94;">${catchInfo.wrRoll}</span> vs CB <span style="color: #4af;">${catchInfo.cbRoll}</span> → <span style="color: ${sepColor};">${sepLabel}</span></span>
                         </div>`;
 
+                        // Momentum advantage display (if route had direction change)
+                        if (catchInfo.momentumAdvantage && catchInfo.momentumAdvantage > 0) {
+                            const momColor = catchInfo.momentumAdvantage >= 15 ? '#4f4' :
+                                           catchInfo.momentumAdvantage >= 8 ? '#8f4' : '#aa4';
+                            const reactionLabel = catchInfo.dbReactionDelay >= 2 ? 'SLOW REACT' :
+                                                 catchInfo.dbReactionDelay >= 1 ? 'delayed' : 'quick';
+                            html += `<div style="display: flex; justify-content: space-between; margin-bottom: 3px;">
+                                <span style="color: #666;">Momentum (DB AWR ${catchInfo.dbAwareness}):</span>
+                                <span style="color: ${momColor};">+${catchInfo.momentumAdvantage} sep <span style="color: #888;">(${reactionLabel})</span></span>
+                            </div>`;
+                        }
+
                         // Coverage penalty (like player offense defender proximity penalty)
                         html += `<div style="display: flex; justify-content: space-between; margin-bottom: 3px;">
                             <span style="color: #666;">CB Penalty (${catchInfo.coverageCloseness}³ × ${catchInfo.cbCoverage} × 0.8):</span>
@@ -8319,8 +9944,8 @@
 
                     // Result with catch bar
                     html += `<div style="margin-top: 6px;">`;
-                    if (play.type === 'complete') {
-                        if (play.isTouchdown) {
+                    if (play.type === 'complete' || play.type === 'touchdown') {
+                        if (play.type === 'touchdown' || play.isTouchdown) {
                             html += `<div style="color: #f44; font-size: 13px; font-weight: bold;">TOUCHDOWN! ${wrName} catches it for ${play.yardsGained} yards!</div>`;
                         } else {
                             html += `<div style="color: #ccc; font-size: 12px;">${wrName} catches for <span style="color: #f94;">${play.yardsGained} yards</span></div>`;
@@ -8361,10 +9986,12 @@
                     // All plays shown - add final result banner
                     const resultBanner = document.createElement('div');
                     resultBanner.style.cssText = `text-align: center; padding: 15px; color: ${pointsColor}; font-size: 16px; font-weight: bold; background: #252540; border-radius: 6px; border-left: 3px solid ${pointsColor};`;
-                    resultBanner.textContent = result.enemyResult.type === 'TD' ? 'TOUCHDOWN!' :
-                        result.enemyResult.type === 'FG' ? 'FIELD GOAL!' :
-                        result.enemyResult.type === 'PUNT' ? 'Forced to Punt!' :
-                        result.enemyResult.type === 'MISSED_FG' ? 'Field Goal Missed!' : 'Drive Stopped!';
+                    const driveType = result.enemyResult.type;
+                    resultBanner.textContent = (driveType === 'TD' || driveType === 'touchdown') ? 'TOUCHDOWN!' :
+                        (driveType === 'FG' || driveType === 'field_goal') ? 'FIELD GOAL!' :
+                        (driveType === 'PUNT' || driveType === 'punt') ? 'Forced to Punt!' :
+                        (driveType === 'MISSED_FG' || driveType === 'missed_fg') ? 'Field Goal Missed!' :
+                        driveType === 'turnover' ? 'TURNOVER!' : 'Drive Stopped!';
                     playsContainer.appendChild(resultBanner);
                     scrollContainer.scrollTop = scrollContainer.scrollHeight;
 
