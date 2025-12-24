@@ -6797,40 +6797,42 @@
 
                 // === GOAL LINE ROUTES ===
                 case 'quick_slant':
-                    // Quick slant toward middle - 2-3 yards then cut
-                    const qsDepth = Math.min(startZ + 2, END_ZONE_Z);
+                    // Quick slant toward middle - 2-3 yards then cut, go to end zone
+                    const qsDepth = startZ + 2;
                     const qsEndX = Math.max(-6, Math.min(6, startX + towardMiddle * (4 + Math.random() * 2)));
                     route.push({ z: qsDepth, x: startX });
-                    route.push({ z: Math.min(qsDepth + 3, END_ZONE_BACK), x: qsEndX });
+                    route.push({ z: qsDepth + 3, x: qsEndX });
+                    route.push({ z: END_ZONE_BACK, x: qsEndX });
                     break;
 
                 case 'flat_cross':
-                    // Push 2-3 yards past LOS then cross across the formation
+                    // Push 2-3 yards past LOS then cross across the formation, go to end zone
                     const fcStem = startZ + 2 + Math.random();  // 2-3 yards forward first
                     const fcX = startX + towardMiddle * (6 + Math.random() * 3);
                     route.push({ z: fcStem, x: startX });  // Vertical stem past LOS
                     route.push({ z: fcStem + 1, x: Math.max(-6, Math.min(6, fcX)) });  // Then cross
-                    route.push({ z: Math.min(fcStem + 4, END_ZONE_BACK), x: Math.max(-6, Math.min(6, fcX + towardMiddle * 2)) });
+                    route.push({ z: END_ZONE_BACK, x: Math.max(-6, Math.min(6, fcX + towardMiddle * 2)) });
                     break;
 
                 case 'back_shoulder':
-                    // Straight then slight fade back - for back shoulder throw
-                    route.push({ z: Math.min(startZ + 3, END_ZONE_Z + 1), x: startX });
-                    route.push({ z: Math.min(startZ + 2, END_ZONE_Z), x: startX + towardSideline * 1.5 });
+                    // Straight then slight fade back - for back shoulder throw, extend to end zone
+                    route.push({ z: startZ + 3, x: startX });
+                    route.push({ z: startZ + 5, x: startX + towardSideline * 1.5 });
+                    route.push({ z: END_ZONE_BACK, x: startX + towardSideline * 2 });
                     break;
 
                 case 'corner_fade':
                     // Quick move to corner of end zone
                     const cfX = Math.max(-7, Math.min(7, startX + towardSideline * 3));
-                    route.push({ z: Math.min(startZ + 2, END_ZONE_Z), x: cfX });
-                    route.push({ z: Math.min(startZ + 5, END_ZONE_BACK), x: Math.max(-7, Math.min(7, cfX + towardSideline * 2)) });
+                    route.push({ z: startZ + 2, x: cfX });
+                    route.push({ z: END_ZONE_BACK, x: Math.max(-7, Math.min(7, cfX + towardSideline * 2)) });
                     break;
 
                 case 'out_and_up':
-                    // Fake out, then go vertical
+                    // Fake out, then go vertical to end zone
                     const oauOutX = startX + towardSideline * 2;
                     route.push({ z: startZ + 2, x: oauOutX });
-                    route.push({ z: Math.min(startZ + 6, END_ZONE_BACK), x: oauOutX });
+                    route.push({ z: END_ZONE_BACK, x: oauOutX });
                     break;
 
                 // === RED ZONE ROUTES ===
@@ -6843,11 +6845,11 @@
                     break;
 
                 case 'comeback_corner':
-                    // Go 4-5 yards, comeback, then break to corner
+                    // Go 4-5 yards, comeback, then break to corner and go to end zone
                     const ccBreak = startZ + 4 + Math.random();
-                    route.push({ z: Math.min(ccBreak, END_ZONE_Z), x: startX });
-                    route.push({ z: Math.min(ccBreak - 1, END_ZONE_Z - 1), x: startX });
-                    route.push({ z: Math.min(ccBreak + 5, END_ZONE_BACK), x: Math.max(-7, Math.min(7, startX + towardSideline * 4)) });
+                    route.push({ z: ccBreak, x: startX });
+                    route.push({ z: ccBreak - 1, x: startX });
+                    route.push({ z: END_ZONE_BACK, x: Math.max(-7, Math.min(7, startX + towardSideline * 4)) });
                     break;
 
                 // === STANDARD ROUTES ===
@@ -6911,9 +6913,9 @@
                     break;
 
                 default:
-                    // Fallback: simple go route
-                    route.push({ z: Math.min(startZ + 8, END_ZONE_Z), x: startX });
-                    route.push({ z: Math.min(startZ + 14, END_ZONE_BACK), x: startX });
+                    // Fallback: simple go route to end zone
+                    route.push({ z: startZ + 8, x: startX });
+                    route.push({ z: END_ZONE_BACK, x: startX });
             }
 
             // Ensure all route points move forward (no backwards routes)
