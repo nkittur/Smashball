@@ -237,28 +237,32 @@
         ">TRAINING MODE</div>
         <div id="throwRating" style="
             position: fixed;
-            bottom: 100px;
+            bottom: 80px;
             left: 50%;
             transform: translateX(-50%);
-            background: rgba(0,0,0,0.85);
-            padding: 15px 30px;
-            border-radius: 10px;
+            background: rgba(0,0,0,0.92);
+            padding: 20px 28px;
+            border-radius: 12px;
             color: white;
             font-family: 'Courier New', monospace;
             text-align: center;
             z-index: 1000;
             display: none;
+            min-width: 260px;
+            cursor: pointer;
         ">
             <div id="throwGrade" style="font-size: 48px; font-weight: bold; color: #4f4;"></div>
-            <div id="throwDetails" style="font-size: 14px; color: #aaa; margin-top: 5px;"></div>
-            <div id="throwCatchInfo" style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #444;">
-                <div id="popupCatchHeader" style="font-size: 14px; font-weight: bold; margin-bottom: 6px;">CATCH</div>
-                <div id="popupCatchBar" style="position: relative; width: 150px; height: 16px; background: #222; border-radius: 3px; margin: 0 auto; overflow: visible;">
-                    <div id="popupCatchBase" style="position: absolute; left: 0; top: 0; height: 100%; background: linear-gradient(90deg, #3a3, #4b4); border-radius: 3px;"></div>
-                    <div id="popupCatchPenalty" style="position: absolute; top: 0; height: 100%; background: rgba(0, 0, 0, 0.55); border-left: 1px solid #f55;"></div>
-                    <div id="popupCatchRoll" style="position: absolute; top: -2px; font-size: 14px; font-weight: bold; transform: translateX(-50%); line-height: 16px;">🏈</div>
+            <div id="throwDetails" style="font-size: 13px; color: #aaa; margin-top: 5px;"></div>
+            <div id="throwCatchInfo" style="margin-top: 14px; padding-top: 14px; border-top: 1px solid #444;">
+                <div id="popupCatchHeader" style="font-size: 16px; font-weight: bold; margin-bottom: 8px;">CATCH</div>
+                <div id="popupCatchBar" style="position: relative; width: 200px; height: 18px; background: #222; border-radius: 4px; margin: 0 auto 12px auto; overflow: visible;">
+                    <div id="popupCatchBase" style="position: absolute; left: 0; top: 0; height: 100%; background: linear-gradient(90deg, #3a3, #4b4); border-radius: 4px;"></div>
+                    <div id="popupCatchPenalty" style="position: absolute; top: 0; height: 100%; background: rgba(0, 0, 0, 0.55); border-left: 2px solid #f55;"></div>
+                    <div id="popupCatchRoll" style="position: absolute; top: -2px; font-size: 16px; font-weight: bold; transform: translateX(-50%); line-height: 18px;">🏈</div>
                 </div>
+                <div id="popupModifierList" style="text-align: left; font-size: 13px; margin-top: 10px;"></div>
             </div>
+            <div id="popupTapToContinue" style="margin-top: 16px; font-size: 11px; color: #666; text-transform: uppercase; letter-spacing: 1px;">tap to continue</div>
         </div>
     </div>
 
@@ -7337,32 +7341,64 @@
                     gradeEl.style.color = gradeColors[throwRating.grade] || '#fff';
 
                     // Build detailed breakdown for training feedback
-                    let detailLines = [throwRating.details];
+                    detailsEl.textContent = throwRating.details;
 
-                    // Separation info
+                    // Build modifier list with right-aligned values and color coding
+                    const modList = document.getElementById('popupModifierList');
                     const sepYards = catchInfo.separation.toFixed(1);
-                    detailLines.push(`${catchInfo.coverageLevel} (${sepYards}yd sep)`);
 
-                    // Modifiers
-                    let modifiers = [];
+                    // Helper to create a modifier row
+                    const makeRow = (label, value, isPositive) => {
+                        const color = isPositive ? '#4f4' : '#f66';
+                        const sign = isPositive ? '+' : '';
+                        return `<div style="display:flex; justify-content:space-between; margin: 4px 0;">
+                            <span style="color:#aaa;">${label}</span>
+                            <span style="color:${color}; font-weight:bold;">${sign}${value}</span>
+                        </div>`;
+                    };
+
+                    let modRows = [];
+
+                    // Show separation/coverage
+                    modRows.push(`<div style="display:flex; justify-content:space-between; margin: 4px 0; padding-bottom: 6px; border-bottom: 1px solid #333;">
+                        <span style="color:#888;">Separation</span>
+                        <span style="color:#fff;">${sepYards} yds - ${catchInfo.coverageLevel}</span>
+                    </div>`);
+
+                    // Base catch rate (wide open rate based on catching stat)
+                    modRows.push(`<div style="display:flex; justify-content:space-between; margin: 4px 0;">
+                        <span style="color:#aaa;">Base catch (${catchInfo.baseCatch} catching)</span>
+                        <span style="color:#4f4; font-weight:bold;">${Math.round(catchInfo.wideOpenRate)}%</span>
+                    </div>`);
+
+                    // If contested, show the DB coverage penalty clearly
                     if (catchInfo.isContested) {
-                        modifiers.push(`Contested: ${Math.round(catchInfo.probability)}%`);
-                    } else {
-                        modifiers.push(`Open: ${Math.round(catchInfo.wideOpenRate)}%`);
-                    }
-                    if (catchInfo.hasSideBonus) {
-                        modifiers.push('Shoulder throw +50%');
-                    }
-                    if (catchInfo.focusMod !== 0) {
-                        const sign = catchInfo.focusMod > 0 ? '+' : '';
-                        modifiers.push(`Focus: ${sign}${catchInfo.focusMod.toFixed(0)}%`);
-                    }
-                    if (catchInfo.defenderInfluence > 0 && catchInfo.isContested) {
-                        modifiers.push(`DB pressure: -${Math.round(catchInfo.defenderInfluence * 40)}%`);
+                        // Show the penalty as the difference from wide open
+                        const penalty = Math.round(catchInfo.wideOpenRate - catchInfo.probability + (catchInfo.focusMod || 0));
+                        if (penalty > 0) {
+                            modRows.push(makeRow('DB coverage penalty', `-${penalty}%`, false));
+                        }
                     }
 
-                    detailLines.push(modifiers.join(' | '));
-                    detailsEl.innerHTML = detailLines.join('<br>');
+                    // Shoulder throw bonus
+                    if (catchInfo.hasSideBonus) {
+                        modRows.push(makeRow('Shoulder throw bonus', '50% less DB impact', true));
+                    }
+
+                    // Focus modifier (if any significant effect)
+                    if (catchInfo.focusMod && Math.abs(catchInfo.focusMod) >= 1) {
+                        const focusVal = Math.round(catchInfo.focusMod);
+                        modRows.push(makeRow('Focus stat', `${focusVal}%`, catchInfo.focusMod > 0));
+                    }
+
+                    // Final probability line
+                    const finalColor = catchInfo.probability >= 50 ? '#4f4' : (catchInfo.probability >= 25 ? '#ff4' : '#f66');
+                    modRows.push(`<div style="display:flex; justify-content:space-between; margin: 8px 0 0 0; padding-top: 6px; border-top: 1px solid #333;">
+                        <span style="color:#fff; font-weight:bold;">Final catch rate</span>
+                        <span style="color:${finalColor}; font-weight:bold; font-size: 15px;">${Math.round(catchInfo.probability)}%</span>
+                    </div>`);
+
+                    modList.innerHTML = modRows.join('');
 
                     // Update visual catch bar in popup
                     const popupHeader = document.getElementById('popupCatchHeader');
@@ -7393,10 +7429,12 @@
 
                     ratingEl.style.display = 'block';
 
-                    // Hide after 3 seconds
-                    setTimeout(() => {
+                    // Add click handler to dismiss (remove previous handler first)
+                    const dismissPopup = () => {
                         ratingEl.style.display = 'none';
-                    }, 3000);
+                        ratingEl.removeEventListener('click', dismissPopup);
+                    };
+                    ratingEl.addEventListener('click', dismissPopup);
                 }
 
                 if (success) {
@@ -7464,6 +7502,7 @@
                     const detailsEl = document.getElementById('throwDetails');
                     const popupHeader = document.getElementById('popupCatchHeader');
                     const popupBar = document.getElementById('popupCatchBar');
+                    const modList = document.getElementById('popupModifierList');
 
                     gradeEl.textContent = 'INCOMPLETE';
                     gradeEl.style.color = '#f66';
@@ -7472,14 +7511,18 @@
 
                     popupHeader.textContent = '';
                     popupBar.style.display = 'none';
+                    modList.innerHTML = '';
 
                     ratingEl.style.display = 'block';
 
-                    setTimeout(() => {
+                    // Add click handler to dismiss
+                    const dismissPopup = () => {
                         ratingEl.style.display = 'none';
                         gradeEl.style.fontSize = '48px'; // Reset font size
                         popupBar.style.display = 'block'; // Reset bar visibility
-                    }, 3000);
+                        ratingEl.removeEventListener('click', dismissPopup);
+                    };
+                    ratingEl.addEventListener('click', dismissPopup);
                 }
 
                 // Ball bounces and rolls
