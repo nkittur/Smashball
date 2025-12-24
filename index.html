@@ -6911,9 +6911,9 @@
             const catchRadius = 1.2;
 
             let frameIndex = 0;
-            // Ball flight speed - short throws faster, long throws slow for arc visibility
-            // Short throws: quick (2.4), long throws: slow (0.75)
-            const animationSpeed = 2.4 - (throwParams.power * 1.65);
+            // Ball flight speed - short throws faster, long throws slower for arc visibility
+            // Short throws: quick (2.4), long throws: moderate (1.0)
+            const animationSpeed = 2.4 - (throwParams.power * 1.4);
             let accumulator = 0;
             const time = { value: 0 };
 
