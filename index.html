@@ -7612,11 +7612,11 @@
                 finalProbability = Math.min(95, wideOpenBase);
             } else {
                 // Contested catch formula:
-                // Base 25% + (catching stat contributes up to +10%)
+                // 50 catching = 10%, 100 catching = 35%
                 // Then reduced by defender influence
-                const contestedBase = 25;
-                const catchingBonus = (catchingStat / 100) * 10;  // 0-10% bonus based on catching
-                const rawContestedProb = contestedBase + catchingBonus;  // 25-35% range
+                const contestedBase = 10;
+                const catchingBonus = (catchingStat - 50) * 0.5;  // +0.5% per point above 50
+                const rawContestedProb = contestedBase + catchingBonus;  // 10-35% range
 
                 // Focus helps under pressure
                 const focusBonus = (receiver.stats.focus - 50) * 0.2;  // -10 to +10
@@ -8321,8 +8321,9 @@
                 const wideOpenBase = 80 + (catchingStat - 60) * 0.75;
                 return Math.min(95, wideOpenBase);
             } else {
-                const contestedBase = 25;
-                const catchingBonus = (catchingStat / 100) * 10;  // Max +10% at 100 catching
+                // 50 catching = 10%, 100 catching = 35%
+                const contestedBase = 10;
+                const catchingBonus = (catchingStat - 50) * 0.5;
                 const focusBonus = (receiver.stats.focus - 50) * 0.2;
                 const defenderReduction = totalDefenderInfluence * 40;
                 return Math.max(5, Math.min(95, contestedBase + catchingBonus + focusBonus - defenderReduction));
