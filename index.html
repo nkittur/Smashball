@@ -7099,8 +7099,15 @@
                             return;
                         }
 
-                        // Defenders move at full speed during ball flight
-                        moveDefender(defender, 0.016);
+                        // Calculate effective speed with catch-up boost
+                        let effectiveSpeed = defender.speed;
+                        if (defender.catchupBoostStart && defender.catchupBoostUntil &&
+                            gameState.gameTime >= defender.catchupBoostStart &&
+                            gameState.gameTime < defender.catchupBoostUntil) {
+                            effectiveSpeed *= defender.catchupBoostAmount || 1.3;
+                        }
+
+                        moveDefender(defender, 0.016, effectiveSpeed);
 
                         // Running animation
                         defender.position.y = Math.abs(Math.sin(time.value * 8 + i + 0.5)) * 0.08;
@@ -8098,13 +8105,19 @@
                             return;
                         }
 
-                        // Calculate effective speed (slowdowns from clashes)
+                        // Calculate effective speed (slowdowns and boosts from clashes)
                         let effectiveSpeed = defender.speed;
                         if (defender.initialClashSlowdownUntil > gameState.gameTime) {
                             effectiveSpeed *= 0.2;  // 20% speed during initial clash
                         }
                         if (defender.clashSpeedPenaltyUntil > gameState.gameTime) {
                             effectiveSpeed *= 0.5;  // 50% slower after losing clash
+                        }
+                        // DB catch-up boost - kicks in after receiver's boost ends
+                        if (defender.catchupBoostStart && defender.catchupBoostUntil &&
+                            gameState.gameTime >= defender.catchupBoostStart &&
+                            gameState.gameTime < defender.catchupBoostUntil) {
+                            effectiveSpeed *= defender.catchupBoostAmount || 1.3;  // 30% faster catch-up
                         }
 
                         moveDefender(defender, 0.016, effectiveSpeed);
@@ -8398,17 +8411,23 @@
                 defenderRoll
             };
 
-            // Speed effect duration for receivers only
-            const CLASH_SPEED_EFFECT_DURATION = 2.0;  // seconds
+            // Speed effect durations
+            const CLASH_SPEED_EFFECT_DURATION = 1.0;  // seconds - reduced for quicker gameplay
+            const DB_CATCHUP_BOOST_DURATION = 1.0;    // seconds - DB gets catch-up boost after
             const CLASH_SPEED_PENALTY = 0.5;  // 50% slower
             const CLASH_SPEED_BOOST = 1.5;  // 50% faster
+            const DB_CATCHUP_BOOST = 1.3;  // 30% faster for catch-up
 
             if (margin > CLASH_CONSTANTS.SEPARATION_THRESHOLD) {
                 result.winner = 'receiver';
                 result.type = 'separation';
-                // Receiver wins - gets speed boost
+                // Receiver wins - gets speed boost for 1 second
                 receiver.clashSpeedBoostUntil = currentTime + CLASH_SPEED_EFFECT_DURATION;
                 receiver.speed = receiver.baseSpeed * CLASH_SPEED_BOOST;
+                // DB gets catch-up boost AFTER receiver's boost ends
+                defender.catchupBoostStart = currentTime + CLASH_SPEED_EFFECT_DURATION;
+                defender.catchupBoostUntil = currentTime + CLASH_SPEED_EFFECT_DURATION + DB_CATCHUP_BOOST_DURATION;
+                defender.catchupBoostAmount = DB_CATCHUP_BOOST;
                 // Record clash stats
                 recordPlayerStat(receiver, 'seasonClashesWon');
                 recordPlayerStat(defender, 'seasonClashesLost');
