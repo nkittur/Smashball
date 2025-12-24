@@ -7090,6 +7090,20 @@
             let lastTrailPos = null;
             const trailSpacing = 0.3; // Distance between trail particles
 
+            // Create target circle at landing position
+            const targetCircle = BABYLON.MeshBuilder.CreateTorus('targetCircle', {
+                diameter: 2.0,
+                thickness: 0.08,
+                tessellation: 32
+            }, scene);
+            targetCircle.position = new BABYLON.Vector3(landingPos.x, 0.05, landingPos.z);
+            targetCircle.rotation.x = Math.PI / 2; // Lay flat on ground
+            const targetMaterial = new BABYLON.StandardMaterial('targetMat', scene);
+            targetMaterial.diffuseColor = new BABYLON.Color3(1, 1, 0.3);
+            targetMaterial.emissiveColor = new BABYLON.Color3(1, 0.8, 0);
+            targetMaterial.alpha = 0.7;
+            targetCircle.material = targetMaterial;
+
             const ballAnimation = scene.onBeforeRenderObservable.add(() => {
                 const dt = scene.getEngine().getDeltaTime() * 0.001;
                 time.value += dt;
@@ -7185,10 +7199,14 @@
                         // Scales from 0.8 at 50 catching to 1.8 at 100 catching
                         const receiverCatchRadius = 0.8 + ((receiver.stats.catching - 50) / 50) * 1.0;
 
-                        // If ball is coming to them (within catch range) OR route is done, move toward ball
+                        // Adjustment range - receivers will start moving toward ball when it's within this range
+                        // Use larger range so receivers can adjust to poorly thrown balls
+                        const adjustmentRange = Math.max(6, receiverCatchRadius * 4);
+
+                        // If ball is coming to them (within adjustment range) OR route is done, move toward ball
                         // Moving off-route to catch slows the receiver down (allows defenders to close)
-                        if ((distToLanding < receiverCatchRadius * 2.5 && frameIndex > 5) || routeComplete) {
-                            if (distToLanding > 0.2) {
+                        if ((distToLanding < adjustmentRange && frameIndex > 5) || routeComplete) {
+                            if (distToLanding > 0.3) {
                                 // Reduced speed when adjusting to catch (70% of normal)
                                 const catchAdjustSpeed = effectiveSpeed * 0.7;
                                 receiver.position.x += (dx / distToLanding) * catchAdjustSpeed;
@@ -7262,10 +7280,12 @@
                 // Check if ball has landed
                 if (frameIndex >= path.length - 1) {
                     scene.onBeforeRenderObservable.remove(ballAnimation);
-                    // Clean up trail particles
+                    // Clean up trail particles and target circle
                     trailParticles.forEach(p => p.mesh.dispose());
                     trailParticles.length = 0;
                     trailMaterial.dispose();
+                    targetCircle.dispose();
+                    targetMaterial.dispose();
                     checkCatch(scene, football.position, null);
                 }
             });
