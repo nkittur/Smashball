@@ -1879,47 +1879,87 @@
             };
             const weights = tierWeights[difficulty] || tierWeights['medium'];
 
+            // Create weighted tiers for key vs role players
+            // Key players: boosted toward star/elite
+            // Role players: can be average/veteran (depth pieces)
+            const keyPlayerWeights = weights.map((w, i) => i >= 4 ? w * 2.5 : i >= 3 ? w * 1.2 : w * 0.3);
+            const rolePlayerWeights = weights.map((w, i) => i <= 3 ? w * 1.5 : w * 0.5);
+
             const roster = [];
 
-            // QB - tends to be one of the better players
-            const qbWeights = weights.map((w, i) => i >= 2 ? w * 1.5 : w * 0.5); // Boost veteran+
+            // QB - franchise player, heavily boosted
+            const qbWeights = weights.map((w, i) => i >= 4 ? w * 3 : i >= 3 ? w * 1.5 : w * 0.2);
             roster.push(generatePlayer('QB', pickTier(qbWeights)));
 
-            // WRs: 3 - full range
-            roster.push(generatePlayer('WR', pickTier(weights)));
-            roster.push(generatePlayer('WR', pickTier(weights)));
-            roster.push(generatePlayer('WR', pickTier(weights)));
+            // WRs: WR1 is key player, WR2-3 are role players
+            roster.push(generatePlayer('WR', pickTier(keyPlayerWeights)));   // WR1 - star
+            roster.push(generatePlayer('WR', pickTier(weights)));            // WR2 - normal
+            roster.push(generatePlayer('WR', pickTier(rolePlayerWeights)));  // WR3 - depth
 
-            // CBs: 3 - full range
-            roster.push(generatePlayer('CB', pickTier(weights)));
-            roster.push(generatePlayer('CB', pickTier(weights)));
-            roster.push(generatePlayer('CB', pickTier(weights)));
+            // CBs: CB1 is key player, CB2-3 are role players
+            roster.push(generatePlayer('CB', pickTier(keyPlayerWeights)));   // CB1 - star
+            roster.push(generatePlayer('CB', pickTier(weights)));            // CB2 - normal
+            roster.push(generatePlayer('CB', pickTier(rolePlayerWeights)));  // CB3 - depth
 
-            // OL: 4 - full range
-            roster.push(generatePlayer('OL', pickTier(weights)));
-            roster.push(generatePlayer('OL', pickTier(weights)));
-            roster.push(generatePlayer('OL', pickTier(weights)));
-            roster.push(generatePlayer('OL', pickTier(weights)));
+            // OL: 1 anchor, rest are role players
+            roster.push(generatePlayer('OL', pickTier(keyPlayerWeights)));   // LT - anchor
+            roster.push(generatePlayer('OL', pickTier(rolePlayerWeights)));  // LG
+            roster.push(generatePlayer('OL', pickTier(rolePlayerWeights)));  // C
+            roster.push(generatePlayer('OL', pickTier(rolePlayerWeights)));  // RG/RT
 
-            // DL: 4 - full range
-            roster.push(generatePlayer('DL', pickTier(weights)));
-            roster.push(generatePlayer('DL', pickTier(weights)));
-            roster.push(generatePlayer('DL', pickTier(weights)));
-            roster.push(generatePlayer('DL', pickTier(weights)));
+            // DL: 1-2 pass rushers, rest are role players
+            roster.push(generatePlayer('DL', pickTier(keyPlayerWeights)));   // Edge rusher
+            roster.push(generatePlayer('DL', pickTier(weights)));            // DT
+            roster.push(generatePlayer('DL', pickTier(rolePlayerWeights)));  // DT
+            roster.push(generatePlayer('DL', pickTier(rolePlayerWeights)));  // Rotational
 
             return roster;
         }
 
-        // Calculate team ratings from roster
+        // Calculate team ratings from roster (weighted by key positions)
         function calculateTeamRatings(roster) {
+            // Weight key positions more heavily
+            const getPositionWeight = (player, index, position) => {
+                if (position === 'QB') return 3.0;        // QB is most important
+                if (position === 'WR' && index === 0) return 2.0;  // WR1
+                if (position === 'CB' && index === 0) return 2.0;  // CB1
+                if (position === 'DL' && index === 0) return 1.5;  // Pass rusher
+                if (position === 'OL' && index === 0) return 1.5;  // LT
+                return 1.0;  // Role players
+            };
+
             const offense = roster.filter(p => ['QB', 'WR', 'OL'].includes(p.position));
             const defense = roster.filter(p => ['CB', 'DL'].includes(p.position));
 
-            const offenseRating = offense.length > 0
-                ? Math.round(offense.reduce((s, p) => s + p.overall, 0) / offense.length)
+            // Group by position for index-based weighting
+            const byPosition = {};
+            roster.forEach(p => {
+                if (!byPosition[p.position]) byPosition[p.position] = [];
+                byPosition[p.position].push(p);
+            });
+
+            let offenseWeightedSum = 0, offenseWeightTotal = 0;
+            let defenseWeightedSum = 0, defenseWeightTotal = 0;
+
+            Object.entries(byPosition).forEach(([pos, players]) => {
+                players.sort((a, b) => b.overall - a.overall); // Best first
+                players.forEach((p, i) => {
+                    const weight = getPositionWeight(p, i, pos);
+                    if (['QB', 'WR', 'OL'].includes(pos)) {
+                        offenseWeightedSum += p.overall * weight;
+                        offenseWeightTotal += weight;
+                    } else {
+                        defenseWeightedSum += p.overall * weight;
+                        defenseWeightTotal += weight;
+                    }
+                });
+            });
+
+            const offenseRating = offenseWeightTotal > 0
+                ? Math.round(offenseWeightedSum / offenseWeightTotal)
                 : 60;
-            const defenseRating = defense.length > 0
-                ? Math.round(defense.reduce((s, p) => s + p.overall, 0) / defense.length)
+            const defenseRating = defenseWeightTotal > 0
+                ? Math.round(defenseWeightedSum / defenseWeightTotal)
                 : 60;
 
             return { offenseRating, defenseRating };
