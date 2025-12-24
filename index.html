@@ -1585,10 +1585,12 @@
         // Generate base stats for a tier
         function getBaseStatsForTier(tier) {
             const ranges = {
-                rookie: { min: 45, max: 65 },
-                average: { min: 55, max: 75 },
-                veteran: { min: 65, max: 85 },
-                elite: { min: 75, max: 95 }
+                rookie: { min: 45, max: 62 },        // Raw talent, inconsistent
+                below_average: { min: 50, max: 68 }, // Backup caliber
+                average: { min: 58, max: 75 },       // Solid starter
+                veteran: { min: 68, max: 82 },       // Reliable contributor
+                star: { min: 75, max: 88 },          // Pro Bowl caliber
+                elite: { min: 82, max: 96 }          // All-Pro / HOF caliber
             };
             const range = ranges[tier] || ranges.average;
             return { min: range.min, max: range.max };
@@ -1598,9 +1600,11 @@
         function rollAge(tier) {
             switch(tier) {
                 case 'rookie': return randomInt(20, 23);
+                case 'below_average': return randomInt(22, 30);
                 case 'average': return randomInt(23, 28);
-                case 'veteran': return randomInt(28, 33);
-                case 'elite': return randomInt(25, 30);
+                case 'veteran': return randomInt(27, 33);
+                case 'star': return randomInt(24, 30);
+                case 'elite': return randomInt(25, 31);
                 default: return randomInt(22, 28);
             }
         }
@@ -1852,35 +1856,55 @@
 
         // Generate a roster for an opponent team based on difficulty
         function generateOpponentRoster(difficulty) {
-            const tierMap = {
-                'easy': { good: 'average', mid: 'below_average', low: 'below_average' },
-                'medium': { good: 'veteran', mid: 'average', low: 'average' },
-                'hard': { good: 'star', mid: 'veteran', low: 'average' },
-                'elite': { good: 'star', mid: 'star', low: 'veteran' }
+            // Helper to pick a random tier based on weighted probabilities
+            const pickTier = (weights) => {
+                const tiers = ['rookie', 'below_average', 'average', 'veteran', 'star', 'elite'];
+                const total = weights.reduce((a, b) => a + b, 0);
+                let roll = Math.random() * total;
+                for (let i = 0; i < tiers.length; i++) {
+                    roll -= weights[i];
+                    if (roll <= 0) return tiers[i];
+                }
+                return 'average';
             };
-            const tiers = tierMap[difficulty] || tierMap['medium'];
+
+            // Weights for each tier: [rookie, below_average, average, veteran, star, elite]
+            // Each team has a spread from poor to elite, but difficulty shifts the distribution
+            const tierWeights = {
+                'easy':   [15, 30, 35, 15, 4, 1],    // Mostly below average, rare star
+                'medium': [8, 20, 35, 25, 10, 2],   // Balanced, some good players
+                'hard':   [3, 10, 25, 35, 20, 7],   // Mostly veterans with stars
+                'elite':  [1, 5, 15, 30, 30, 19]    // Stacked with stars and elites
+            };
+            const weights = tierWeights[difficulty] || tierWeights['medium'];
 
             const roster = [];
-            // QB
-            roster.push(generatePlayer('QB', tiers.good));
-            // WRs: 3
-            roster.push(generatePlayer('WR', tiers.good));
-            roster.push(generatePlayer('WR', tiers.mid));
-            roster.push(generatePlayer('WR', tiers.low));
-            // CBs: 3
-            roster.push(generatePlayer('CB', tiers.good));
-            roster.push(generatePlayer('CB', tiers.mid));
-            roster.push(generatePlayer('CB', tiers.low));
-            // OL: 4 (to match 4 DL matchups in simulation)
-            roster.push(generatePlayer('OL', tiers.good));
-            roster.push(generatePlayer('OL', tiers.mid));
-            roster.push(generatePlayer('OL', tiers.low));
-            roster.push(generatePlayer('OL', tiers.low));
-            // DL: 4
-            roster.push(generatePlayer('DL', tiers.good));
-            roster.push(generatePlayer('DL', tiers.mid));
-            roster.push(generatePlayer('DL', tiers.low));
-            roster.push(generatePlayer('DL', tiers.low));
+
+            // QB - tends to be one of the better players
+            const qbWeights = weights.map((w, i) => i >= 2 ? w * 1.5 : w * 0.5); // Boost veteran+
+            roster.push(generatePlayer('QB', pickTier(qbWeights)));
+
+            // WRs: 3 - full range
+            roster.push(generatePlayer('WR', pickTier(weights)));
+            roster.push(generatePlayer('WR', pickTier(weights)));
+            roster.push(generatePlayer('WR', pickTier(weights)));
+
+            // CBs: 3 - full range
+            roster.push(generatePlayer('CB', pickTier(weights)));
+            roster.push(generatePlayer('CB', pickTier(weights)));
+            roster.push(generatePlayer('CB', pickTier(weights)));
+
+            // OL: 4 - full range
+            roster.push(generatePlayer('OL', pickTier(weights)));
+            roster.push(generatePlayer('OL', pickTier(weights)));
+            roster.push(generatePlayer('OL', pickTier(weights)));
+            roster.push(generatePlayer('OL', pickTier(weights)));
+
+            // DL: 4 - full range
+            roster.push(generatePlayer('DL', pickTier(weights)));
+            roster.push(generatePlayer('DL', pickTier(weights)));
+            roster.push(generatePlayer('DL', pickTier(weights)));
+            roster.push(generatePlayer('DL', pickTier(weights)));
 
             return roster;
         }
