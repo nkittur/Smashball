@@ -5176,42 +5176,35 @@
             scene.trajectoryDots = null;  // Created dynamically during drag
             scene.gameMaterials = materials;
 
-            // Setup post-processing pipeline with bloom, FXAA, vignette, and DOF
+            // Setup post-processing pipeline with bloom, FXAA, and vignette
+            // Note: DOF disabled for performance - too GPU intensive
             const pipeline = new BABYLON.DefaultRenderingPipeline(
                 'defaultPipeline',
-                true,  // HDR
+                false,  // HDR disabled for performance
                 scene,
                 [camera]
             );
 
-            // Bloom effect - makes emissive materials glow
+            // Bloom effect - optimized settings for performance
             pipeline.bloomEnabled = true;
-            pipeline.bloomThreshold = 0.3;
-            pipeline.bloomWeight = 0.6;
-            pipeline.bloomKernel = 64;
+            pipeline.bloomThreshold = 0.4;
+            pipeline.bloomWeight = 0.5;
+            pipeline.bloomKernel = 32;  // Reduced from 64 for performance
             pipeline.bloomScale = 0.5;
 
-            // FXAA anti-aliasing
+            // FXAA anti-aliasing (lightweight)
             pipeline.fxaaEnabled = true;
 
-            // Vignette effect - darkens edges for depth
+            // Vignette effect - cheap, keep for depth
             pipeline.imageProcessingEnabled = true;
             pipeline.imageProcessing.vignetteEnabled = true;
-            pipeline.imageProcessing.vignetteWeight = 1.5;
+            pipeline.imageProcessing.vignetteWeight = 1.2;
             pipeline.imageProcessing.vignetteStretch = 0.5;
             pipeline.imageProcessing.vignetteColor = new BABYLON.Color4(0, 0, 0, 0);
-            pipeline.imageProcessing.vignetteCameraFov = camera.fov;
-
-            // Depth of Field - blur stadium edges
-            pipeline.depthOfFieldEnabled = true;
-            pipeline.depthOfFieldBlurLevel = BABYLON.DepthOfFieldEffectBlurLevel.Medium;
-            pipeline.depthOfField.focusDistance = 18000;  // Focus on field center
-            pipeline.depthOfField.focalLength = 150;
-            pipeline.depthOfField.fStop = 2.8;
 
             // Slight color grading for richer visuals
             pipeline.imageProcessing.contrast = 1.1;
-            pipeline.imageProcessing.exposure = 1.05;
+            pipeline.imageProcessing.exposure = 1.0;
 
             scene.postProcessPipeline = pipeline;
 
