@@ -6562,6 +6562,8 @@
         const resetDefenders = () => {
             const lineZ = gameState.lineOfScrimmage;
             const END_ZONE_Z = 11;
+            const END_ZONE_BACK = 15;  // Back of end zone - max Z position
+            const SIDELINE = 8;  // Field boundary
             const distToGoal = END_ZONE_Z - lineZ;  // How far from goal line
             let manDefenderIndex = 0;
 
@@ -6578,21 +6580,23 @@
                     const cushionVariance = Math.max(1, Math.min(3, distToGoal * 0.3));
                     defender.cushion = baseCushion + Math.random() * cushionVariance;
 
-                    defender.startPos.x = targetReceiver.startPos.x;
-                    defender.startPos.z = targetReceiver.startPos.z + defender.cushion;
+                    defender.startPos.x = Math.max(-SIDELINE, Math.min(SIDELINE, targetReceiver.startPos.x));
+                    defender.startPos.z = Math.min(END_ZONE_BACK - 1, targetReceiver.startPos.z + defender.cushion);
                     defender.reactionDelay = 0.25;  // Quarter second before reacting
                     manDefenderIndex++;
                 } else if (defender.aiType === 'zone') {
                     // Zone defender (safety) - stays at normal depth, doesn't move back
                     const zoneDepth = 6 + Math.random() * 4;  // 6-10 yards deep
-                    defender.zoneCenter = new BABYLON.Vector3(0, 0, lineZ + zoneDepth);
+                    const clampedZoneZ = Math.min(END_ZONE_BACK - 1, lineZ + zoneDepth);
+                    defender.zoneCenter = new BABYLON.Vector3(0, 0, clampedZoneZ);
                     defender.zoneRadius = 5 + Math.random() * 2;  // 5-7 yard radius
                     defender.startPos.x = 0;
-                    defender.startPos.z = lineZ + zoneDepth - 2;
+                    defender.startPos.z = Math.min(END_ZONE_BACK - 1, clampedZoneZ - 2);
                 }
 
-                defender.position.x = defender.startPos.x;
-                defender.position.z = defender.startPos.z;
+                // Clamp final positions to field boundaries
+                defender.position.x = Math.max(-SIDELINE, Math.min(SIDELINE, defender.startPos.x));
+                defender.position.z = Math.min(END_ZONE_BACK - 1, defender.startPos.z);
                 defender.position.y = 0;
                 defender.knockdownUntil = 0;
                 defender.knockdownResistance = 0;
