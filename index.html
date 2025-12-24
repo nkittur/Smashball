@@ -1589,8 +1589,8 @@
                 below_average: { min: 50, max: 68 }, // Backup caliber
                 average: { min: 58, max: 75 },       // Solid starter
                 veteran: { min: 68, max: 82 },       // Reliable contributor
-                star: { min: 75, max: 88 },          // Pro Bowl caliber
-                elite: { min: 82, max: 96 }          // All-Pro / HOF caliber
+                star: { min: 78, max: 90 },          // Pro Bowl caliber
+                elite: { min: 88, max: 99 }          // All-Pro / HOF caliber
             };
             const range = ranges[tier] || ranges.average;
             return { min: range.min, max: range.max };
@@ -1870,12 +1870,12 @@
 
             // Weights for each tier: [rookie, below_average, average, veteran, star, elite]
             // Each team has a spread from poor to elite, but difficulty shifts the distribution
-            // Easy teams still average low 70s, elite teams average low 80s
+            // Easy teams average low 70s, elite teams average low 90s
             const tierWeights = {
-                'easy':   [2, 8, 30, 45, 12, 3],     // Avg ~72: mostly average/veteran
-                'medium': [1, 5, 25, 45, 20, 4],    // Avg ~74: solid veterans with stars
-                'hard':   [0, 3, 18, 45, 28, 6],    // Avg ~77: veteran-heavy with stars
-                'elite':  [0, 1, 10, 35, 40, 14]    // Avg ~81: star-studded roster
+                'easy':   [2, 8, 35, 45, 8, 2],      // Avg ~72: mostly average/veteran
+                'medium': [1, 5, 25, 50, 15, 4],    // Avg ~75: solid veterans with stars
+                'hard':   [0, 2, 15, 45, 30, 8],    // Avg ~79: veteran-heavy with stars
+                'elite':  [0, 0, 0, 5, 30, 65]      // Avg ~91: almost all stars/elites
             };
             const weights = tierWeights[difficulty] || tierWeights['medium'];
 
