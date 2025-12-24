@@ -6561,6 +6561,8 @@
         // Reset defenders to starting positions
         const resetDefenders = () => {
             const lineZ = gameState.lineOfScrimmage;
+            const END_ZONE_Z = 11;
+            const distToGoal = END_ZONE_Z - lineZ;  // How far from goal line
             let manDefenderIndex = 0;
 
             gameState.defenders.forEach((defender, i) => {
@@ -6570,15 +6572,19 @@
                     defender.assignedReceiver = receiverIndex;
                     const targetReceiver = gameState.receivers[receiverIndex];
 
-                    // Position directly above receiver with varying depth (far enough for clash delay)
-                    defender.cushion = 4 + Math.random() * 3;  // 4-7 yards cushion
+                    // Cushion decreases near goal line (DBs play tighter in red zone)
+                    // Far from goal: 4-7 yards, Near goal line: 1-3 yards
+                    const baseCushion = Math.max(1, Math.min(4, distToGoal * 0.4));
+                    const cushionVariance = Math.max(1, Math.min(3, distToGoal * 0.3));
+                    defender.cushion = baseCushion + Math.random() * cushionVariance;
+
                     defender.startPos.x = targetReceiver.startPos.x;
                     defender.startPos.z = targetReceiver.startPos.z + defender.cushion;
                     defender.reactionDelay = 0.25;  // Quarter second before reacting
                     manDefenderIndex++;
                 } else if (defender.aiType === 'zone') {
-                    // Zone defender in middle of field with random depth
-                    const zoneDepth = 8 + Math.random() * 4;  // 8-12 yards deep
+                    // Zone defender (safety) - stays at normal depth, doesn't move back
+                    const zoneDepth = 6 + Math.random() * 4;  // 6-10 yards deep
                     defender.zoneCenter = new BABYLON.Vector3(0, 0, lineZ + zoneDepth);
                     defender.zoneRadius = 5 + Math.random() * 2;  // 5-7 yard radius
                     defender.startPos.x = 0;
