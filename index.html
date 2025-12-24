@@ -5645,14 +5645,14 @@
                 // Apply momentum-based tilt (lean into direction of run)
                 const maxTilt = 0.5; // Max tilt angle in radians (~29 degrees)
                 receiver.rotation.z = Math.max(-maxTilt, Math.min(maxTilt, receiver.tiltMomentum || 0));
-                receiver.rotation.x = -(receiver.runMomentum || 0) * 0.25; // Forward lean when running
+                receiver.rotation.x = (receiver.runMomentum || 0) * 0.25; // Forward lean when running
             } else {
                 receiver.velocity = new BABYLON.Vector3(0, 0, 0);
                 // Decay tilt when stopped
                 receiver.tiltMomentum = (receiver.tiltMomentum || 0) * 0.9;
                 receiver.runMomentum = (receiver.runMomentum || 0) * 0.9;
                 receiver.rotation.z = receiver.tiltMomentum || 0;
-                receiver.rotation.x = -(receiver.runMomentum || 0) * 0.15;
+                receiver.rotation.x = (receiver.runMomentum || 0) * 0.15;
             }
             return true;
         };
@@ -5680,13 +5680,13 @@
                 // Apply tilt (lean into direction of run)
                 const maxTilt = 0.5;
                 player.rotation.z = Math.max(-maxTilt, Math.min(maxTilt, player.tiltMomentum || 0));
-                player.rotation.x = -(player.runMomentum || 0) * 0.25;
+                player.rotation.x = (player.runMomentum || 0) * 0.25; // Forward lean when running
             } else {
                 // Decay tilt when stopped
                 player.tiltMomentum = (player.tiltMomentum || 0) * 0.9;
                 player.runMomentum = (player.runMomentum || 0) * 0.9;
                 player.rotation.z = player.tiltMomentum || 0;
-                player.rotation.x = -(player.runMomentum || 0) * 0.25;
+                player.rotation.x = (player.runMomentum || 0) * 0.15;
             }
         };
 
