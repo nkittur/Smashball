@@ -4759,6 +4759,7 @@
                 receiver.knockdownUntil = 0;
                 receiver.knockdownResistance = 0;
                 receiver.hasHadInitialClash = false;
+                receiver.wasOutsideClashRange = false;  // Track if WR/DB were apart before clashing
                 receiver.lastRouteIndex = 0;  // Track route changes for jink clashes
                 receiver.initialClashSlowdownUntil = 0;  // Slowdown during first contact
 
@@ -6635,6 +6636,7 @@
                 receiver.routeIndex = 0;
                 receiver.lastRouteIndex = 0;
                 receiver.hasHadInitialClash = false;
+                receiver.wasOutsideClashRange = false;
                 receiver.separationState = 'contested';
                 receiver.knockdownUntil = 0;
                 receiver.knockdownResistance = 0;
@@ -8374,6 +8376,10 @@
 
             // Not close enough for clash
             if (distance > CLASH_CONSTANTS.CLASH_RANGE) {
+                // Track that they were far apart (for initial clash detection)
+                if (!receiver.hasHadInitialClash) {
+                    receiver.wasOutsideClashRange = true;
+                }
                 return { trigger: false, reason: 'distance' };
             }
 
@@ -8390,9 +8396,13 @@
                 return { trigger: false, reason: 'cooldown' };
             }
 
-            // Initial contact - first time zones overlap
+            // Initial contact - only trigger if they were previously apart
+            // This prevents clashes from happening immediately at play start
             if (!receiver.hasHadInitialClash) {
-                return { trigger: true, reason: 'initial_contact' };
+                if (receiver.wasOutsideClashRange) {
+                    return { trigger: true, reason: 'initial_contact' };
+                }
+                return { trigger: false, reason: 'not_yet_separated' };
             }
 
             // Direction change (jink) - receiver changed route waypoint
