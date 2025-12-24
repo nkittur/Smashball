@@ -7335,7 +7335,34 @@
 
                     gradeEl.textContent = throwRating.grade;
                     gradeEl.style.color = gradeColors[throwRating.grade] || '#fff';
-                    detailsEl.textContent = throwRating.details;
+
+                    // Build detailed breakdown for training feedback
+                    let detailLines = [throwRating.details];
+
+                    // Separation info
+                    const sepYards = catchInfo.separation.toFixed(1);
+                    detailLines.push(`${catchInfo.coverageLevel} (${sepYards}yd sep)`);
+
+                    // Modifiers
+                    let modifiers = [];
+                    if (catchInfo.isContested) {
+                        modifiers.push(`Contested: ${Math.round(catchInfo.probability)}%`);
+                    } else {
+                        modifiers.push(`Open: ${Math.round(catchInfo.wideOpenRate)}%`);
+                    }
+                    if (catchInfo.hasSideBonus) {
+                        modifiers.push('Shoulder throw +50%');
+                    }
+                    if (catchInfo.focusMod !== 0) {
+                        const sign = catchInfo.focusMod > 0 ? '+' : '';
+                        modifiers.push(`Focus: ${sign}${catchInfo.focusMod.toFixed(0)}%`);
+                    }
+                    if (catchInfo.defenderInfluence > 0 && catchInfo.isContested) {
+                        modifiers.push(`DB pressure: -${Math.round(catchInfo.defenderInfluence * 40)}%`);
+                    }
+
+                    detailLines.push(modifiers.join(' | '));
+                    detailsEl.innerHTML = detailLines.join('<br>');
 
                     // Update visual catch bar in popup
                     const popupHeader = document.getElementById('popupCatchHeader');
@@ -7346,10 +7373,11 @@
                     popupHeader.textContent = success ? 'CATCH!' : 'DROPPED';
                     popupHeader.style.color = success ? '#4f4' : '#f66';
 
-                    const rawCatch = Math.min(95, catchInfo.baseCatch + catchInfo.focusMod);
-                    const penaltyWidth = Math.min(catchInfo.defenderPenalty, rawCatch);
+                    // Show wide open rate as base, with penalty overlay
+                    const baseWidth = catchInfo.isContested ? catchInfo.wideOpenRate : catchInfo.wideOpenRate;
+                    const penaltyWidth = Math.max(0, catchInfo.wideOpenRate - catchInfo.probability);
 
-                    popupBase.style.width = `${rawCatch}%`;
+                    popupBase.style.width = `${baseWidth}%`;
 
                     if (penaltyWidth > 0) {
                         popupPenalty.style.display = 'block';
@@ -7553,20 +7581,25 @@
 
                     // Influence is proximity^2 * coverage stat (normalized to 0-1)
                     let influence = proximityFactor * proximityFactor * (coverageStat / 100);
+                    let sideBonus = false;
 
                     // Very close defenders have more influence
                     const CLOSE_DEFENDER_THRESHOLD = 0.6;
                     if (dist <= CLOSE_DEFENDER_THRESHOLD) {
                         influence *= 1.5;
-                    }
+                    } else {
+                        // Check if ball is on opposite side from defender (shoulder throw bonus)
+                        // Check both X (lateral) and Z (depth) - defender on opposite side = halved influence
+                        const defDx = defender.position.x - receiver.position.x;
+                        const defDz = defender.position.z - receiver.position.z;
+                        const ballDx = ballPosition.x - receiver.position.x;
+                        const ballDz = ballPosition.z - receiver.position.z;
 
-                    // Check if ball is on opposite side from defender
-                    const MIN_DIST_FOR_SIDE_BONUS = 0.8;
-                    if (dist > MIN_DIST_FOR_SIDE_BONUS) {
-                        const defenderSide = Math.sign(defender.position.x - receiver.position.x);
-                        const ballSide = Math.sign(ballPosition.x - receiver.position.x);
-                        if (defenderSide !== 0 && ballSide !== 0 && defenderSide !== ballSide) {
+                        // Dot product: if negative, they're on opposite sides
+                        const dotProduct = defDx * ballDx + defDz * ballDz;
+                        if (dotProduct < 0) {
                             influence *= 0.5;
+                            sideBonus = true;
                         }
                     }
 
@@ -7589,7 +7622,8 @@
                         dist: dist.toFixed(2),
                         penalty: (influence * 100).toFixed(1),
                         coverageStat: coverageStat,
-                        aiType: defender.aiType
+                        aiType: defender.aiType,
+                        sideBonus: sideBonus
                     });
                 }
             });
@@ -7634,8 +7668,27 @@
             // Store for visual display
             receiver.lastCatchProbability = finalProbability;
 
+            // Calculate closest defender distance (separation)
+            let closestDefenderDist = coverageRange;
+            let hasSideBonus = false;
+            defenderDetails.forEach(d => {
+                const dist = parseFloat(d.dist);
+                if (dist < closestDefenderDist) closestDefenderDist = dist;
+                if (d.sideBonus) hasSideBonus = true;
+            });
+
+            // Determine coverage level
+            let coverageLevel = 'Wide Open';
+            if (hasNearbyDefender) {
+                if (closestDefenderDist <= 0.6) coverageLevel = 'Blanketed';
+                else if (closestDefenderDist <= 1.5) coverageLevel = 'Tight Coverage';
+                else if (closestDefenderDist <= 2.5) coverageLevel = 'Contested';
+                else coverageLevel = 'Light Coverage';
+            }
+
             // Calculate penalty for display (difference from wide open)
-            const defenderPenalty = hasNearbyDefender ? (95 - finalProbability) : 0;
+            const wideOpenRate = Math.min(95, 80 + (catchingStat - 60) * 0.75);
+            const defenderPenalty = hasNearbyDefender ? (wideOpenRate - finalProbability) : 0;
 
             // Return detailed info for UI display
             return {
@@ -7643,7 +7696,14 @@
                 baseCatch: catchingStat,
                 focusMod: hasNearbyDefender ? (receiver.stats.focus - 50) * 0.2 : 0,
                 defenderPenalty: defenderPenalty,
-                defenderDetails: defenderDetails
+                defenderDetails: defenderDetails,
+                // New detailed info
+                separation: closestDefenderDist,
+                coverageLevel: coverageLevel,
+                defenderInfluence: totalDefenderInfluence,
+                hasSideBonus: hasSideBonus,
+                isContested: hasNearbyDefender && totalDefenderInfluence >= 0.1,
+                wideOpenRate: wideOpenRate
             };
         };
 
