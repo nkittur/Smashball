@@ -6887,8 +6887,10 @@
                 }
 
                 // If route ends near sideline, add crossing waypoint back toward middle
+                // But only if we're still in the first 15 yards of the route (not in end zone)
                 const finalPoint = route[route.length - 1];
-                if (Math.abs(finalPoint.x) > 6) {
+                const routeDepth = finalPoint.z - startZ;  // How far into the route
+                if (Math.abs(finalPoint.x) > 6 && routeDepth < 15 && finalPoint.z < END_ZONE_Z - 2) {
                     const crossDirection = finalPoint.x > 0 ? -1 : 1;  // Cross toward middle
                     route.push({
                         z: Math.min(finalPoint.z + 2, END_ZONE_BACK),
