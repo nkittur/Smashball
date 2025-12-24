@@ -2809,7 +2809,7 @@
         }
 
         // Process WR/DB separation clashes for a single round
-        // Incorporates momentum mechanics - players have inertia that makes direction changes harder
+        // Momentum mechanics - both players have same physics, but DB must REACT while WR pre-plans
         function processReceiverClashesRound(state) {
             for (let i = 0; i < state.receivers.length; i++) {
                 const receiver = state.receivers[i];
@@ -2829,55 +2829,59 @@
 
                 if (!defender) {
                     receiver.separation = 30;  // Wide open
-                    // Update receiver momentum
-                    receiver.momentum = directionChanged ? 1 : Math.min(receiver.momentum + 1, 3);
+                    receiver.momentum = directionChanged ? 1 : Math.min(receiver.momentum + 1, 5);
                     receiver.lastDirection = currentDirection;
+                    receiver.momentumAdvantage = 0;
                     continue;
                 }
 
                 // ========================================
-                // MOMENTUM MECHANICS
+                // MOMENTUM MECHANICS (UNIFIED PHYSICS)
                 // ========================================
-                // When a player changes direction, their momentum works against them
-                // But receivers KNOW when they're going to cut, defenders have to REACT
+                // Both players have the same momentum physics when changing direction
+                // The difference: WR pre-plans the cut, DB must REACT
 
-                // Calculate receiver's direction change efficiency
-                // Higher agility + acceleration = faster direction change
-                const wrAgilityFactor = receiver.stats.agility / 100;
-                const wrAccelFactor = (receiver.stats.acceleration || 70) / 100;
-                const wrChangeEfficiency = (wrAgilityFactor * 0.6 + wrAccelFactor * 0.4);
-
-                // Receiver's momentum penalty when changing direction
-                // More built-up momentum = harder to change (but receiver plans for this)
-                let wrMomentumPenalty = 0;
-                if (directionChanged && receiver.momentum > 0) {
-                    // Receiver takes a small penalty but planned the cut
-                    wrMomentumPenalty = receiver.momentum * 2 * (1 - wrChangeEfficiency);
-                }
-
-                // Defender has to REACT to direction change
-                // Awareness determines reaction time (how quickly they recognize the cut)
-                // Agility + acceleration determine how fast they can change direction
-                const dbAwareness = defender.stats.awareness || 70;
+                // Agility determines how well a player changes direction
+                const wrAgility = receiver.stats.agility || 70;
                 const dbAgility = defender.stats.agility || 70;
-                const dbAccel = (defender.stats.acceleration || 70);
 
-                // Reaction time: lower awareness = slower to recognize the cut
-                // Scale: 100 awareness = 0 delay, 50 awareness = significant delay
-                const reactionDelay = (100 - dbAwareness) * 0.15;  // 0 to 7.5 penalty
+                // DB reaction time based on awareness (0-100)
+                // Low awareness = slow to recognize the cut = still moving wrong way
+                const dbAwareness = defender.stats.awareness || 70;
+                // Reaction frames: 100 awareness = 0 frames, 50 awareness = 2.5 frames delay
+                const reactionFrames = (100 - dbAwareness) / 20;
 
-                // Direction change efficiency for defender
-                const dbChangeEfficiency = (dbAgility / 100 * 0.6 + dbAccel / 100 * 0.4);
+                // Momentum effect multiplier (same physics for both)
+                // Higher momentum = harder to change direction
+                const momentumPenaltyPerLevel = 8;  // Strong effect
 
-                // Defender's momentum penalty when receiver changes direction
-                let dbMomentumPenalty = 0;
-                if (directionChanged && defender.momentum > 0) {
-                    // Defender is caught going the wrong way!
-                    // Higher momentum = worse (they were committed to the previous direction)
-                    // Lower change efficiency = harder to recover
-                    dbMomentumPenalty = defender.momentum * 5 * (1 - dbChangeEfficiency);
-                    // Add reaction delay - they don't even start changing immediately
-                    dbMomentumPenalty += reactionDelay;
+                let wrMomentumEffect = 0;
+                let dbMomentumEffect = 0;
+                let momentumAdvantage = 0;
+
+                if (directionChanged) {
+                    // WR changes direction instantly (pre-planned)
+                    // Penalty based on their momentum, reduced by agility
+                    const wrAgilityFactor = wrAgility / 100;
+                    wrMomentumEffect = receiver.momentum * momentumPenaltyPerLevel * (1 - wrAgilityFactor * 0.5);
+
+                    // DB must REACT - they keep moving wrong way during reaction time
+                    // Then they change direction with same physics
+                    const dbAgilityFactor = dbAgility / 100;
+
+                    // Reaction delay: DB's momentum CONTINUES building during reaction time
+                    const effectiveMomentum = defender.momentum + reactionFrames;
+                    dbMomentumEffect = effectiveMomentum * momentumPenaltyPerLevel * (1 - dbAgilityFactor * 0.5);
+
+                    // Momentum advantage = how much the WR gained from the cut
+                    momentumAdvantage = dbMomentumEffect - wrMomentumEffect;
+
+                    // Store for display
+                    receiver.momentumAdvantage = Math.round(momentumAdvantage);
+                    receiver.dbReactionDelay = reactionFrames;
+                } else {
+                    receiver.momentumAdvantage = 0;
+                    receiver.dbReactionDelay = 0;
                 }
 
                 // ========================================
@@ -2885,12 +2889,9 @@
                 // ========================================
                 let receiverRoll = weightedStatRoll(receiver.stats, CLASH_WEIGHTS.separation.receiver);
 
-                // Apply receiver momentum penalty (small, they planned the cut)
-                receiverRoll -= wrMomentumPenalty;
-
-                // Crossing route bonus - agility and route running help execute the cut
+                // Crossing route bonus - route running helps execute cuts cleanly
                 if (isCrossing) {
-                    const crossingBonus = (receiver.stats.agility * 0.2 + receiver.stats.routeRunning * 0.2);
+                    const crossingBonus = receiver.stats.routeRunning * 0.3;
                     receiverRoll += crossingBonus;
                 }
 
@@ -2905,25 +2906,28 @@
                 // ========================================
                 let defenderRoll = weightedStatRoll(defender.stats, CLASH_WEIGHTS.separation.defender);
 
-                // Apply defender momentum penalty (large if caught going wrong way)
-                defenderRoll -= dbMomentumPenalty;
+                // ========================================
+                // APPLY MOMENTUM ADVANTAGE
+                // ========================================
+                // The momentum advantage goes directly to separation
+                // Positive = WR gained separation from the cut
+                receiverRoll += momentumAdvantage;
 
                 // ========================================
                 // UPDATE MOMENTUM FOR NEXT ROUND
                 // ========================================
                 if (directionChanged) {
-                    // Reset momentum when direction changes
+                    // Both reset to 1 after direction change
                     receiver.momentum = 1;
-                    // Defender's momentum resets but they're "behind" for this round
                     defender.momentum = 1;
                 } else {
-                    // Build momentum in current direction (cap at 3)
-                    receiver.momentum = Math.min(receiver.momentum + 1, 3);
-                    defender.momentum = Math.min(defender.momentum + 1, 3);
+                    // Build momentum in current direction (cap at 5 for stronger effect)
+                    receiver.momentum = Math.min(receiver.momentum + 1, 5);
+                    defender.momentum = Math.min(defender.momentum + 1, 5);
                 }
 
                 receiver.lastDirection = currentDirection;
-                defender.lastDirection = currentDirection;  // Defender mirrors receiver
+                defender.lastDirection = currentDirection;
 
                 // Calculate separation margin
                 receiver.separation = receiverRoll - defenderRoll;
@@ -3391,7 +3395,11 @@
                     catchSuccess: state.result._catchSuccess,
                     throwGood: state.result._qbRoll < targetReceiver.rollMean * 1.5,
                     cbCoverage: defender?.stats?.coverage || 70,
-                    effectiveCatchPct: Math.round(targetReceiver.effectiveCatchPct || catchProb)
+                    effectiveCatchPct: Math.round(targetReceiver.effectiveCatchPct || catchProb),
+                    // Momentum tracking for display
+                    momentumAdvantage: targetReceiver.momentumAdvantage || 0,
+                    dbReactionDelay: targetReceiver.dbReactionDelay || 0,
+                    dbAwareness: defender?.stats?.awareness || 70
                 };
 
                 // Attach target slot
@@ -9811,6 +9819,18 @@
                             <span style="color: #666;">Separation:</span>
                             <span>WR <span style="color: #f94;">${catchInfo.wrRoll}</span> vs CB <span style="color: #4af;">${catchInfo.cbRoll}</span> → <span style="color: ${sepColor};">${sepLabel}</span></span>
                         </div>`;
+
+                        // Momentum advantage display (if route had direction change)
+                        if (catchInfo.momentumAdvantage && catchInfo.momentumAdvantage > 0) {
+                            const momColor = catchInfo.momentumAdvantage >= 15 ? '#4f4' :
+                                           catchInfo.momentumAdvantage >= 8 ? '#8f4' : '#aa4';
+                            const reactionLabel = catchInfo.dbReactionDelay >= 2 ? 'SLOW REACT' :
+                                                 catchInfo.dbReactionDelay >= 1 ? 'delayed' : 'quick';
+                            html += `<div style="display: flex; justify-content: space-between; margin-bottom: 3px;">
+                                <span style="color: #666;">Momentum (DB AWR ${catchInfo.dbAwareness}):</span>
+                                <span style="color: ${momColor};">+${catchInfo.momentumAdvantage} sep <span style="color: #888;">(${reactionLabel})</span></span>
+                            </div>`;
+                        }
 
                         // Coverage penalty (like player offense defender proximity penalty)
                         html += `<div style="display: flex; justify-content: space-between; margin-bottom: 3px;">
