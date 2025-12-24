@@ -5375,25 +5375,26 @@
         const createFootball = (scene, materials) => {
             const football = new BABYLON.TransformNode('football', scene);
 
-            // Elongated sphere for football
+            // Elongated sphere for football - larger and more visible
             const ball = BABYLON.MeshBuilder.CreateSphere('ball', {
-                diameter: 0.3,
-                segments: 8
+                diameter: 0.6,
+                segments: 12
             }, scene);
-            ball.scaling = new BABYLON.Vector3(0.6, 0.6, 1);
+            ball.scaling = new BABYLON.Vector3(0.5, 0.5, 1.2);  // More elongated football shape
             ball.material = materials.ballMaterial;
             ball.parent = football;
 
-            // Laces
+            // Laces - scaled up to match larger ball
             const laces = BABYLON.MeshBuilder.CreateBox('laces', {
-                width: 0.05,
-                height: 0.02,
-                depth: 0.15
+                width: 0.08,
+                height: 0.03,
+                depth: 0.25
             }, scene);
             const laceMat = new BABYLON.StandardMaterial('laceMat', scene);
-            laceMat.diffuseColor = new BABYLON.Color3(0.9, 0.9, 0.9);
+            laceMat.diffuseColor = new BABYLON.Color3(0.95, 0.95, 0.95);
+            laceMat.emissiveColor = new BABYLON.Color3(0.3, 0.3, 0.3);  // Glow for visibility
             laces.material = laceMat;
-            laces.position.y = 0.08;
+            laces.position.y = 0.14;
             laces.parent = football;
 
             return football;
@@ -6851,9 +6852,9 @@
             let accumulator = 0;
             const time = { value: 0 };
 
-            // Spiral rotation tracking - faster spin for tight spiral effect
+            // Spiral rotation tracking - fast visible spin for tight spiral effect
             let spiralAngle = 0;
-            const spiralSpeed = 25 + (throwParams.power * 15);  // RPM increases with power
+            const spiralSpeed = 45 + (throwParams.power * 25);  // Fast visible spiral, increases with power
 
             // Create trail effect for ball
             const trailParticles = [];
