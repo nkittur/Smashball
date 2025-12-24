@@ -4720,11 +4720,12 @@
                 }
             ];
 
-            // Route line material
+            // Route line material - highly emissive for bloom glow
             const routeMat = new BABYLON.StandardMaterial('routeMat', scene);
             routeMat.diffuseColor = new BABYLON.Color3(0.3, 0.7, 1);
-            routeMat.emissiveColor = new BABYLON.Color3(0.1, 0.3, 0.5);
-            routeMat.alpha = 0.6;
+            routeMat.emissiveColor = new BABYLON.Color3(0.4, 0.7, 1.0);  // Strong emissive for bloom
+            routeMat.alpha = 0.8;
+            routeMat.specularColor = new BABYLON.Color3(0.5, 0.8, 1);
 
             // Store references for route regeneration
             gameState.scene = scene;
@@ -5175,15 +5176,129 @@
             scene.trajectoryDots = null;  // Created dynamically during drag
             scene.gameMaterials = materials;
 
+            // Setup post-processing pipeline with bloom, FXAA, vignette, and DOF
+            const pipeline = new BABYLON.DefaultRenderingPipeline(
+                'defaultPipeline',
+                true,  // HDR
+                scene,
+                [camera]
+            );
+
+            // Bloom effect - makes emissive materials glow
+            pipeline.bloomEnabled = true;
+            pipeline.bloomThreshold = 0.3;
+            pipeline.bloomWeight = 0.6;
+            pipeline.bloomKernel = 64;
+            pipeline.bloomScale = 0.5;
+
+            // FXAA anti-aliasing
+            pipeline.fxaaEnabled = true;
+
+            // Vignette effect - darkens edges for depth
+            pipeline.imageProcessingEnabled = true;
+            pipeline.imageProcessing.vignetteEnabled = true;
+            pipeline.imageProcessing.vignetteWeight = 1.5;
+            pipeline.imageProcessing.vignetteStretch = 0.5;
+            pipeline.imageProcessing.vignetteColor = new BABYLON.Color4(0, 0, 0, 0);
+            pipeline.imageProcessing.vignetteCameraFov = camera.fov;
+
+            // Depth of Field - blur stadium edges
+            pipeline.depthOfFieldEnabled = true;
+            pipeline.depthOfFieldBlurLevel = BABYLON.DepthOfFieldEffectBlurLevel.Medium;
+            pipeline.depthOfField.focusDistance = 18000;  // Focus on field center
+            pipeline.depthOfField.focalLength = 150;
+            pipeline.depthOfField.fStop = 2.8;
+
+            // Slight color grading for richer visuals
+            pipeline.imageProcessing.contrast = 1.1;
+            pipeline.imageProcessing.exposure = 1.05;
+
+            scene.postProcessPipeline = pipeline;
+
             return scene;
+        };
+
+        // Create procedural grass texture with stripe pattern
+        const createGrassTexture = (scene, width, height) => {
+            const textureResolution = 1024;
+            const grassTexture = new BABYLON.DynamicTexture('grassTexture', {
+                width: textureResolution,
+                height: textureResolution * 1.5  // Taller to match field proportions
+            }, scene, true);
+
+            const ctx = grassTexture.getContext();
+            const texWidth = textureResolution;
+            const texHeight = textureResolution * 1.5;
+
+            // Base grass color with variation
+            const baseGreen = { r: 45, g: 100, b: 45 };
+            const darkGreen = { r: 35, g: 85, b: 35 };
+            const lightGreen = { r: 55, g: 115, b: 50 };
+
+            // Draw alternating grass stripes (mowed pattern)
+            const stripeHeight = texHeight / 12;  // 12 horizontal stripes
+            for (let i = 0; i < 12; i++) {
+                const y = i * stripeHeight;
+                const isLight = i % 2 === 0;
+                const color = isLight ? lightGreen : darkGreen;
+                ctx.fillStyle = `rgb(${color.r}, ${color.g}, ${color.b})`;
+                ctx.fillRect(0, y, texWidth, stripeHeight);
+            }
+
+            // Add subtle grass grain texture
+            for (let i = 0; i < 8000; i++) {
+                const x = Math.random() * texWidth;
+                const y = Math.random() * texHeight;
+                const brightness = Math.random() * 30 - 15;
+                const stripeIndex = Math.floor(y / stripeHeight);
+                const isLight = stripeIndex % 2 === 0;
+                const baseColor = isLight ? lightGreen : darkGreen;
+                ctx.fillStyle = `rgba(${baseColor.r + brightness}, ${baseColor.g + brightness}, ${baseColor.b + brightness}, 0.3)`;
+                ctx.fillRect(x, y, 2, 4);  // Small grass blade marks
+            }
+
+            // Paint yard line stripes (white painted lines)
+            ctx.fillStyle = 'rgba(240, 235, 220, 0.95)';  // Off-white paint color
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.2)';
+            ctx.shadowBlur = 2;
+
+            // Yard lines every 5 yards (10 units = 5 yards in game scale)
+            const yardLinePositions = [0.15, 0.28, 0.41, 0.54, 0.67];  // Normalized positions on field
+            yardLinePositions.forEach(pos => {
+                const lineY = pos * texHeight;
+                ctx.fillRect(0, lineY - 4, texWidth, 8);
+
+                // Hash marks on the sides
+                const hashWidth = texWidth * 0.08;
+                ctx.fillRect(texWidth * 0.15, lineY - 12, hashWidth, 3);
+                ctx.fillRect(texWidth * 0.77, lineY - 12, hashWidth, 3);
+                ctx.fillRect(texWidth * 0.15, lineY + 9, hashWidth, 3);
+                ctx.fillRect(texWidth * 0.77, lineY + 9, hashWidth, 3);
+            });
+
+            // Sideline stripes
+            ctx.fillRect(texWidth * 0.03, 0, 6, texHeight);
+            ctx.fillRect(texWidth * 0.97 - 6, 0, 6, texHeight);
+
+            // End zone line (goal line)
+            ctx.fillStyle = 'rgba(255, 255, 255, 1)';
+            ctx.fillRect(0, texHeight * 0.78, texWidth, 10);
+
+            ctx.shadowBlur = 0;
+            grassTexture.update();
+
+            return grassTexture;
         };
 
         // Create Materials
         const createMaterials = (scene) => {
-            // Field material - dark green medieval grass
+            // Field material with procedural grass texture
             const fieldMaterial = new BABYLON.StandardMaterial('fieldMat', scene);
-            fieldMaterial.diffuseColor = new BABYLON.Color3(0.15, 0.35, 0.15);
-            fieldMaterial.specularColor = new BABYLON.Color3(0.05, 0.1, 0.05);
+            const grassTex = createGrassTexture(scene, 22, 27);
+            fieldMaterial.diffuseTexture = grassTex;
+            fieldMaterial.diffuseColor = new BABYLON.Color3(1, 1, 1);  // Let texture show through
+            fieldMaterial.specularColor = new BABYLON.Color3(0.1, 0.15, 0.1);
+            fieldMaterial.specularPower = 8;
 
             // QB material - gold/yellow knight
             const qbMaterial = new BABYLON.StandardMaterial('qbMat', scene);
@@ -5255,13 +5370,53 @@
                 line.position.set(0, 0.01, i);
             }
 
-            // End zone (30% deeper)
+            // End zone with painted grass texture (30% deeper)
             const endZone = BABYLON.MeshBuilder.CreateGround('endzone', {
                 width: FIELD_WIDTH + 2,
                 height: 4
             }, scene);
+
+            // Create end zone texture with grass pattern
+            const endZoneTexture = new BABYLON.DynamicTexture('endZoneTexture', {
+                width: 512,
+                height: 256
+            }, scene, true);
+            const ezCtx = endZoneTexture.getContext();
+
+            // Dark red grass base with stripes
+            const ezDark = { r: 90, g: 30, b: 30 };
+            const ezLight = { r: 110, g: 40, b: 40 };
+            const ezStripeHeight = 256 / 4;
+            for (let i = 0; i < 4; i++) {
+                const color = i % 2 === 0 ? ezLight : ezDark;
+                ezCtx.fillStyle = `rgb(${color.r}, ${color.g}, ${color.b})`;
+                ezCtx.fillRect(0, i * ezStripeHeight, 512, ezStripeHeight);
+            }
+
+            // Add grass grain
+            for (let i = 0; i < 2000; i++) {
+                const x = Math.random() * 512;
+                const y = Math.random() * 256;
+                const brightness = Math.random() * 20 - 10;
+                ezCtx.fillStyle = `rgba(${100 + brightness}, ${35 + brightness}, ${35 + brightness}, 0.3)`;
+                ezCtx.fillRect(x, y, 2, 3);
+            }
+
+            // "SMASHBALL" text placeholder (diagonal stripes)
+            ezCtx.strokeStyle = 'rgba(255, 200, 150, 0.15)';
+            ezCtx.lineWidth = 8;
+            for (let i = -256; i < 768; i += 40) {
+                ezCtx.beginPath();
+                ezCtx.moveTo(i, 0);
+                ezCtx.lineTo(i + 256, 256);
+                ezCtx.stroke();
+            }
+
+            endZoneTexture.update();
+
             const endZoneMat = new BABYLON.StandardMaterial('endzoneMat', scene);
-            endZoneMat.diffuseColor = new BABYLON.Color3(0.4, 0.15, 0.15);
+            endZoneMat.diffuseTexture = endZoneTexture;
+            endZoneMat.specularColor = new BABYLON.Color3(0.1, 0.05, 0.05);
             endZone.material = endZoneMat;
             endZone.position.set(0, 0.001, 13);
 
@@ -5295,21 +5450,21 @@
                 }
             });
 
-            // Line of scrimmage marker (blue)
+            // Line of scrimmage marker (blue) - enhanced glow for bloom
             const losLine = BABYLON.MeshBuilder.CreateBox('losLine', {
                 width: FIELD_WIDTH,
                 height: 0.03,
                 depth: 0.15
             }, scene);
             const losMat = new BABYLON.StandardMaterial('losMat', scene);
-            losMat.diffuseColor = new BABYLON.Color3(0.2, 0.4, 0.9);
-            losMat.emissiveColor = new BABYLON.Color3(0.1, 0.2, 0.4);
-            losMat.alpha = 0.8;
+            losMat.diffuseColor = new BABYLON.Color3(0.3, 0.5, 1.0);
+            losMat.emissiveColor = new BABYLON.Color3(0.3, 0.5, 0.9);  // Strong glow for bloom
+            losMat.alpha = 0.85;
             losLine.material = losMat;
             losLine.position.set(0, 0.02, gameState.lineOfScrimmage);
             scene.losLine = losLine;
 
-            // First down marker (yellow)
+            // First down marker (yellow) - enhanced glow for bloom
             const firstDownLine = BABYLON.MeshBuilder.CreateBox('firstDownLine', {
                 width: FIELD_WIDTH,
                 height: 0.03,
@@ -5317,8 +5472,8 @@
             }, scene);
             const fdMat = new BABYLON.StandardMaterial('fdMat', scene);
             fdMat.diffuseColor = new BABYLON.Color3(1.0, 0.9, 0.2);
-            fdMat.emissiveColor = new BABYLON.Color3(0.4, 0.35, 0.1);
-            fdMat.alpha = 0.8;
+            fdMat.emissiveColor = new BABYLON.Color3(0.6, 0.5, 0.15);  // Strong yellow glow
+            fdMat.alpha = 0.85;
             firstDownLine.material = fdMat;
             firstDownLine.position.set(0, 0.02, gameState.firstDownMarker);
             scene.firstDownLine = firstDownLine;
@@ -5373,14 +5528,16 @@
             shield.position.set(-0.3, 0.5, 0.1);
             shield.parent = knight;
 
-            // Base shadow
+            // Enhanced blob shadow for better depth perception
             const shadow = BABYLON.MeshBuilder.CreateDisc('shadow', {
-                radius: 0.4,
-                tessellation: 12
+                radius: 0.45,
+                tessellation: 16
             }, scene);
             const shadowMat = new BABYLON.StandardMaterial('shadowMat', scene);
             shadowMat.diffuseColor = new BABYLON.Color3(0, 0, 0);
-            shadowMat.alpha = 0.3;
+            shadowMat.emissiveColor = new BABYLON.Color3(0, 0, 0);
+            shadowMat.alpha = 0.45;
+            shadowMat.disableLighting = true;
             shadow.material = shadowMat;
             shadow.rotation.x = Math.PI / 2;
             shadow.position.y = 0.01;
@@ -5442,14 +5599,16 @@
             shield.position.set(-0.3 * scale, 0.5 * scale, 0.1 * scale);
             shield.parent = lineman;
 
-            // Base shadow
+            // Enhanced blob shadow for better depth perception
             const shadow = BABYLON.MeshBuilder.CreateDisc('shadow', {
-                radius: 0.4 * scale,
-                tessellation: 12
+                radius: 0.5 * scale,
+                tessellation: 16
             }, scene);
             const shadowMat = new BABYLON.StandardMaterial('shadowMat', scene);
             shadowMat.diffuseColor = new BABYLON.Color3(0, 0, 0);
-            shadowMat.alpha = 0.3;
+            shadowMat.emissiveColor = new BABYLON.Color3(0, 0, 0);
+            shadowMat.alpha = 0.45;
+            shadowMat.disableLighting = true;
             shadow.material = shadowMat;
             shadow.rotation.x = Math.PI / 2;
             shadow.position.y = 0.01;
@@ -5486,6 +5645,21 @@
             laces.material = laceMat;
             laces.position.y = 0.14;
             laces.parent = football;
+
+            // Football blob shadow (shows when ball is on ground)
+            const ballShadow = BABYLON.MeshBuilder.CreateDisc('ballShadow', {
+                radius: 0.25,
+                tessellation: 12
+            }, scene);
+            const ballShadowMat = new BABYLON.StandardMaterial('ballShadowMat', scene);
+            ballShadowMat.diffuseColor = new BABYLON.Color3(0, 0, 0);
+            ballShadowMat.emissiveColor = new BABYLON.Color3(0, 0, 0);
+            ballShadowMat.alpha = 0.35;
+            ballShadowMat.disableLighting = true;
+            ballShadow.material = ballShadowMat;
+            ballShadow.rotation.x = Math.PI / 2;
+            ballShadow.parent = football;
+            football.ballShadow = ballShadow;
 
             return football;
         };
