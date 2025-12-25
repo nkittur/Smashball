@@ -7977,6 +7977,9 @@
                     gameState.ballCarrier = potentialCatcher;
                     potentialCatcher.breakTackleBoostUntil = 0;
 
+                    // Clean up any speed effects that expired during ball flight
+                    cleanupExpiredSpeedEffects();
+
                     // Start the run-after-catch phase
                     startRunAfterCatch(scene);
                 } else {
@@ -7985,6 +7988,9 @@
                     handleIncomplete(wasDefended ? 'Pass defended' : 'Dropped');
                     updateScore();
                     updateMessage(wasDefended ? 'DEFENDED!' : 'Dropped...');
+
+                    // Clean up any speed effects that expired during ball flight
+                    cleanupExpiredSpeedEffects();
 
                     // Record pass defended for nearest defender if it was defended
                     if (wasDefended) {
@@ -9258,6 +9264,21 @@
                         resolveClash(receiver, defender, clashCheck.reason);
                     }
                 });
+            });
+        };
+
+        // Clean up any expired speed boosts/penalties (called when ball lands)
+        const cleanupExpiredSpeedEffects = () => {
+            const currentTime = gameState.gameTime;
+            gameState.receivers.forEach(receiver => {
+                if (receiver.clashSpeedBoostUntil > 0 && receiver.clashSpeedBoostUntil <= currentTime) {
+                    receiver.speed = receiver.baseSpeed;
+                    receiver.clashSpeedBoostUntil = 0;
+                }
+                if (receiver.clashSpeedPenaltyUntil > 0 && receiver.clashSpeedPenaltyUntil <= currentTime) {
+                    receiver.speed = receiver.baseSpeed;
+                    receiver.clashSpeedPenaltyUntil = 0;
+                }
             });
         };
 
