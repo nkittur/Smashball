@@ -8144,13 +8144,14 @@
             });
 
             // BASE CATCH RATE: catching stat determines your potential
-            // 70 catching → 70%, 80 catching → 95%, 90 catching → 120% (capped at 98%)
-            const baseCatchRate = Math.min(98, (catchingStat - 50) * 2.5 + 20);
+            // 70 catch → 70%, 80 catch → 95%, 90 catch → 120%, 100 catch → 145%
+            // Not capped - high catching can exceed 100% to better absorb DB penalty
+            const baseCatchRate = (catchingStat - 50) * 2.5 + 20;
 
-            // WIDE OPEN: no nearby defender
+            // WIDE OPEN: no nearby defender (cap at 98% for actual probability)
             if (!hasNearbyDefender) {
                 return {
-                    probability: baseCatchRate,
+                    probability: Math.min(98, baseCatchRate),
                     baseCatch: catchingStat,
                     wideOpenRate: baseCatchRate,
                     separation: coverageRange,
