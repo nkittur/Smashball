@@ -6431,17 +6431,17 @@
                     </div>`);
                 }
 
-                // DB penalty (raw, before shoulder reduction)
+                // DB penalty (raw, before throw quality reduction)
                 if (catchInfo.isContested && catchInfo.dbPenalty > 0) {
                     modRows.push(makeRow('DB penalty', `-${catchInfo.dbPenalty}%`, false));
                 }
 
-                // Shoulder throw bonus (reduction of DB penalty)
-                if (catchInfo.hasSideBonus && catchInfo.shoulderBonusSaved > 0) {
-                    const leadLabel = catchInfo.leadQuality >= 80 ? 'perfect' :
-                                     catchInfo.leadQuality >= 60 ? 'good' :
-                                     catchInfo.leadQuality >= 40 ? 'ok' : 'poor';
-                    modRows.push(makeRow(`Shoulder (${leadLabel} lead)`, `${catchInfo.shoulderBonusSaved}%`, true));
+                // Throw quality bonus (hit in stride = reduced DB penalty)
+                if (catchInfo.throwQualityBonus > 0) {
+                    const qualityLabel = catchInfo.throwQualityScore >= 80 ? 'in stride' :
+                                        catchInfo.throwQualityScore >= 60 ? 'good' :
+                                        catchInfo.throwQualityScore >= 40 ? 'adjusted' : 'off-target';
+                    modRows.push(makeRow(`Throw (${qualityLabel})`, `${catchInfo.throwQualityBonus}%`, true));
                 }
 
                 // Final probability
@@ -7765,8 +7765,8 @@
                 // Calculate throw rating first (need lead score for catch probability)
                 const throwRating = calculateThrowRating(potentialCatcher, ballPosition, gameState.gameTime);
 
-                // Calculate catch probability (returns detailed info) - pass lead score for shoulder bonus scaling
-                const catchInfo = calculateCatchProbability(potentialCatcher, ballPosition, throwRating.leadScore);
+                // Calculate catch probability (returns detailed info) - pass throw rating for quality bonus
+                const catchInfo = calculateCatchProbability(potentialCatcher, ballPosition, throwRating);
                 const catchRoll = Math.random() * 100;
                 const success = catchRoll < catchInfo.probability;
 
@@ -7880,20 +7880,17 @@
                         <span style="color:#4f4; font-weight:bold;">${Math.round(catchInfo.wideOpenRate)}%</span>
                     </div>`);
 
-                    // DB penalty (raw, before shoulder reduction)
+                    // DB penalty (raw, before throw quality reduction)
                     if (catchInfo.isContested && catchInfo.dbPenalty > 0) {
                         modRows.push(makeRow('DB penalty', `-${catchInfo.dbPenalty}%`, false));
                     }
 
-                    // Shoulder throw bonus (reduction of DB penalty)
-                    if (catchInfo.hasSideBonus && catchInfo.shoulderBonusSaved > 0) {
-                        const leadLabel = catchInfo.leadQuality >= 80 ? 'perfect' :
-                                         catchInfo.leadQuality >= 60 ? 'good' :
-                                         catchInfo.leadQuality >= 40 ? 'ok' : 'poor';
-                        modRows.push(makeRow(`Shoulder (${leadLabel} lead)`, `${catchInfo.shoulderBonusSaved}%`, true));
-                    } else if (catchInfo.hasSideBonus) {
-                        // Shoulder throw detected but no bonus due to poor lead
-                        modRows.push(makeRow('Shoulder (poor lead)', '0%', false));
+                    // Throw quality bonus (hit in stride = reduced DB penalty)
+                    if (catchInfo.throwQualityBonus > 0) {
+                        const qualityLabel = catchInfo.throwQualityScore >= 80 ? 'in stride' :
+                                            catchInfo.throwQualityScore >= 60 ? 'good' :
+                                            catchInfo.throwQualityScore >= 40 ? 'adjusted' : 'off-target';
+                        modRows.push(makeRow(`Throw (${qualityLabel})`, `${catchInfo.throwQualityBonus}%`, true));
                     }
 
                     // Final probability line
@@ -8090,19 +8087,18 @@
         };
 
         // Calculate catch probability based on receiver stats and proximity to defenders
-        // NEW SIMPLIFIED FORMULA:
-        // baseCatchRate = (catching - 50) × 2 + 20  -> 70→60%, 80→80%, 90→100%
-        // dbPenalty = dbCoverage × 0.7 × proximity²
-        // shoulderReduction = up to 50% of DB penalty with perfect lead
+        // FORMULA:
+        // baseCatchRate = (catching - 50) × 2.5 + 20  -> 70→70%, 80→95%, 90→120%
+        // dbPenalty = dbCoverage × 1.5 × proximity² × tightCoverageBonus
+        // throwQualityReduction = up to 50% of DB penalty based on how well WR was hit in stride
         // finalRate = baseCatchRate - effectiveDbPenalty
-        const calculateCatchProbability = (receiver, ballPosition, leadScore = 50) => {
+        const calculateCatchProbability = (receiver, ballPosition, throwRating = null) => {
             const catchingStat = receiver.stats.catching;
             const coverageRange = CLASH_CONSTANTS.CLASH_RANGE * 1.5;
 
-            // Find closest defender and check for shoulder throw
+            // Find closest defender
             let closestDefenderDist = coverageRange;
             let closestDefenderCoverage = 0;
-            let hasSideBonus = false;
             let hasNearbyDefender = false;
             let defenderDetails = [];
 
@@ -8126,19 +8122,11 @@
                         closestDefenderCoverage = coverageStat;
                     }
 
-                    // Check for shoulder throw (ball on opposite side from defender)
-                    const ballDx = ballPosition.x - receiver.position.x;
-                    const ballDz = ballPosition.z - receiver.position.z;
-                    const dotProduct = dx * ballDx + dz * ballDz;
-                    const isShoulder = dotProduct < 0;
-                    if (isShoulder) hasSideBonus = true;
-
                     defenderDetails.push({
                         name: defender.name,
                         dist: dist.toFixed(2),
                         coverageStat: coverageStat,
-                        aiType: defender.aiType,
-                        sideBonus: isShoulder
+                        aiType: defender.aiType
                     });
                 }
             });
@@ -8157,9 +8145,8 @@
                     separation: coverageRange,
                     coverageLevel: 'Wide Open',
                     isContested: false,
-                    hasSideBonus: false,
-                    shoulderBonusSaved: 0,
-                    leadQuality: 0,
+                    throwQualityBonus: 0,
+                    throwQualityScore: 0,
                     dbPenalty: 0,
                     defenderDetails: []
                 };
@@ -8171,14 +8158,21 @@
             const tightCoverageBonus = closestDefenderDist <= 0.7 ? 1.2 : 1.0;  // +20% penalty for tight coverage
             const rawDbPenalty = closestDefenderCoverage * 1.5 * proximityFactor * proximityFactor * tightCoverageBonus;
 
-            // SHOULDER THROW: reduces DB penalty by up to 50% based on lead quality
-            let shoulderReduction = 0;
-            let shoulderBonusSaved = 0;
-            if (hasSideBonus) {
-                shoulderReduction = (leadScore / 100) * 0.5;  // 0 to 0.5
-                shoulderBonusSaved = Math.round(rawDbPenalty * shoulderReduction);
+            // THROW QUALITY BONUS: reduces DB penalty by up to 50% based on hitting WR in stride
+            // Uses lead score (how well ball was placed ahead) and slowdown score (did WR maintain speed)
+            let throwQualityReduction = 0;
+            let throwQualityBonus = 0;
+            let throwQualityScore = 50;  // default if no throw rating
+            if (throwRating) {
+                const leadScore = throwRating.leadScore || 50;
+                const slowdownScore = throwRating.slowdownScore || 50;
+                // Combine lead and stride into overall throw quality (0-100)
+                throwQualityScore = (leadScore + slowdownScore) / 2;
+                // Convert to 0-50% reduction
+                throwQualityReduction = (throwQualityScore / 100) * 0.5;
+                throwQualityBonus = Math.round(rawDbPenalty * throwQualityReduction);
             }
-            const effectiveDbPenalty = rawDbPenalty * (1 - shoulderReduction);
+            const effectiveDbPenalty = rawDbPenalty * (1 - throwQualityReduction);
 
             // FINAL PROBABILITY
             const finalProbability = Math.max(5, Math.min(98, baseCatchRate - effectiveDbPenalty));
@@ -8197,9 +8191,8 @@
                 separation: closestDefenderDist,
                 coverageLevel: coverageLevel,
                 isContested: true,
-                hasSideBonus: hasSideBonus,
-                shoulderBonusSaved: shoulderBonusSaved,
-                leadQuality: Math.round(leadScore),
+                throwQualityBonus: throwQualityBonus,
+                throwQualityScore: Math.round(throwQualityScore),
                 dbPenalty: Math.round(rawDbPenalty),
                 effectiveDbPenalty: Math.round(effectiveDbPenalty),
                 defenderDetails: defenderDetails
