@@ -10210,9 +10210,8 @@
                 lateralScore = Math.max(0, 100 - lateralOffset * 25);
 
                 // 3. SLOWDOWN MEASUREMENT: Compare expected vs actual distance traveled
-                // Expected: max distance receiver could cover at full speed
+                // Expected: receiver running at full speed for flight time
                 const expectedDistance = velocityMagnitude * flightTime;
-
                 // Actual: where receiver ended up vs where they started
                 const actualPos = receiver.position;
                 const actualDistance = Math.sqrt(
@@ -10220,7 +10219,7 @@
                     Math.pow(actualPos.z - throwPos.z, 2)
                 );
 
-                // Slowdown ratio: 1.0 = full speed maintained, < 1 = had to slow/stop
+                // Slowdown ratio: 1.0 = full speed, 0.5 = half speed
                 const speedRatio = expectedDistance > 0.1 ?
                     Math.min(1, actualDistance / expectedDistance) : 1;
 
@@ -10298,61 +10297,45 @@
             clearThrowHeatMap();
 
             const scene = gameState.scene;
-            const qbPos = gameState.qb ? gameState.qb.position : new BABYLON.Vector3(0, 0, gameState.qbStartZ);
+            const qbPos = scene.qb ? scene.qb.position : new BABYLON.Vector3(0, 0, gameState.qbStartZ);
 
             // For each receiver, draw their throw zones
             gameState.receivers.forEach((receiver, idx) => {
                 if (!receiver.velocity) return;
 
                 const pos = receiver.position;
-                const vel = { x: receiver.velocity.x * 60, z: receiver.velocity.z * 60 }; // per second
+                const vel = { x: receiver.velocity.x * 60, z: receiver.velocity.z * 60 };
                 const speed = Math.sqrt(vel.x * vel.x + vel.z * vel.z);
 
-                if (speed < 0.1) return; // Stationary receiver - no zones to show
-
-                // Normalize velocity direction
-                const velDir = { x: vel.x / speed, z: vel.z / speed };
+                if (speed < 0.1) return;
 
                 // Estimate flight times for different throw distances
-                // Using throwSpeed ~25 yards/sec from THROW_SETTINGS
                 const throwSpeed = 25;
 
                 // Create zones along the receiver's trajectory
                 for (let t = 0.3; t <= 2.0; t += 0.2) {
-                    // Where receiver will be after time t
                     const futureX = pos.x + vel.x * t;
                     const futureZ = pos.z + vel.z * t;
 
-                    // Distance from QB to this point
                     const distToQB = Math.sqrt(
                         Math.pow(futureX - qbPos.x, 2) +
                         Math.pow(futureZ - qbPos.z, 2)
                     );
 
-                    // How long ball would take to get there
                     const ballFlightTime = distToQB / throwSpeed;
-
-                    // Compare receiver run time to ball flight time
-                    // If they're close, this is a good throw zone
                     const timeDiff = Math.abs(t - ballFlightTime);
 
-                    // Determine zone quality
                     let color;
                     if (timeDiff < 0.15) {
-                        // Ideal zone - receiver arrives same time as ball
-                        color = new BABYLON.Color3(0, 1, 0); // Green
+                        color = new BABYLON.Color3(0, 1, 0);
                     } else if (timeDiff < 0.35) {
-                        // Medium zone - slight adjustment needed
-                        color = new BABYLON.Color3(1, 1, 0); // Yellow
+                        color = new BABYLON.Color3(1, 1, 0);
                     } else if (timeDiff < 0.6) {
-                        // Poor zone - significant slowdown/wait
-                        color = new BABYLON.Color3(1, 0.5, 0); // Orange
+                        color = new BABYLON.Color3(1, 0.5, 0);
                     } else {
-                        // Bad zone - receiver has to stop and wait or can't reach
-                        color = new BABYLON.Color3(1, 0, 0); // Red
+                        color = new BABYLON.Color3(1, 0, 0);
                     }
 
-                    // Create zone marker
                     const zoneMesh = BABYLON.MeshBuilder.CreateDisc(
                         `heatZone_${idx}_${t}`,
                         { radius: 0.3, tessellation: 16 },
@@ -10982,7 +10965,6 @@
 
         // Keyboard shortcuts for debug features
         document.addEventListener('keydown', (e) => {
-            // 'H' to toggle throw heat map
             if (e.key === 'h' || e.key === 'H') {
                 gameState.showThrowHeatMap = !gameState.showThrowHeatMap;
                 if (!gameState.showThrowHeatMap) {
