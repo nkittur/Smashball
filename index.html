@@ -6767,12 +6767,19 @@
             const END_ZONE_BACK = 15;  // Back of end zone - max Z position
             const SIDELINE = 8;  // Field boundary
             const distToGoal = END_ZONE_Z - lineZ;  // How far from goal line
+
+            // Create shuffled receiver assignment for man coverage DBs
+            const receiverIndices = [0, 1, 2];
+            for (let i = receiverIndices.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [receiverIndices[i], receiverIndices[j]] = [receiverIndices[j], receiverIndices[i]];
+            }
             let manDefenderIndex = 0;
 
             gameState.defenders.forEach((defender, i) => {
                 if (defender.aiType === 'man') {
-                    // Man defenders cover receivers 1-to-1
-                    const receiverIndex = manDefenderIndex % gameState.receivers.length;
+                    // Man defenders cover receivers 1-to-1 (randomized assignment)
+                    const receiverIndex = receiverIndices[manDefenderIndex % receiverIndices.length];
                     defender.assignedReceiver = receiverIndex;
                     const targetReceiver = gameState.receivers[receiverIndex];
 
@@ -6787,12 +6794,14 @@
                     defender.reactionDelay = 0.25;  // Quarter second before reacting
                     manDefenderIndex++;
                 } else if (defender.aiType === 'zone') {
-                    // Zone defender (safety) - stays at normal depth, doesn't move back
+                    // Zone defender (safety) - randomized horizontal position
                     const zoneDepth = 6 + Math.random() * 4;  // 6-10 yards deep
                     const clampedZoneZ = Math.min(END_ZONE_BACK - 1, lineZ + zoneDepth);
-                    defender.zoneCenter = new BABYLON.Vector3(0, 0, clampedZoneZ);
+                    // Safety can line up anywhere from -4 to +4 horizontally
+                    const safetyX = (Math.random() - 0.5) * 8;
+                    defender.zoneCenter = new BABYLON.Vector3(safetyX, 0, clampedZoneZ);
                     defender.zoneRadius = 5 + Math.random() * 2;  // 5-7 yard radius
-                    defender.startPos.x = 0;
+                    defender.startPos.x = safetyX;
                     defender.startPos.z = Math.min(END_ZONE_BACK - 1, clampedZoneZ - 2);
                 }
 
@@ -6823,15 +6832,19 @@
             // Receivers line up at the line of scrimmage
             const receiverLineZ = gameState.lineOfScrimmage;
 
-            // Fixed positions - receivers stay in same relative spots each play
             // Slot receiver lines up just outside the offensive tackle (randomly left or right)
             const slotSide = Math.random() > 0.5 ? 1 : -1;  // Randomly pick left or right side
             const positions = [
-                -(6 + Math.random() * 1.5),   // WR1: Wide left (-6 to -7.5)
-                (6 + Math.random() * 1.5),    // WR2: Wide right (6 to 7.5)
-                slotSide * (4 + Math.random() * 0.5)  // WR3/Slot: Just outside tackle (±4 to ±4.5)
+                -(6 + Math.random() * 1.5),   // Wide left (-6 to -7.5)
+                (6 + Math.random() * 1.5),    // Wide right (6 to 7.5)
+                slotSide * (4 + Math.random() * 0.5)  // Slot: Just outside tackle (±4 to ±4.5)
             ];
-            // No shuffle - receivers stay in consistent positions
+
+            // Shuffle positions so receivers line up in random slots each play
+            for (let i = positions.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [positions[i], positions[j]] = [positions[j], positions[i]];
+            }
 
             // Rarely pick 0-1 receivers to run crossing routes (less overlap)
             const numCrossing = Math.random() < 0.3 ? 1 : 0;  // 30% chance of 1 crossing route
