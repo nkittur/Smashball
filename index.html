@@ -6402,7 +6402,7 @@
                 rollEl.style.filter = success ? 'none' : 'grayscale(100%)';
                 rollEl.style.left = `${catchRoll}%`;
 
-                // Build modifier list
+                // Build modifier list - simplified formula display
                 const makeRow = (label, value, isPositive) => {
                     const color = isPositive ? '#4f4' : '#f66';
                     const sign = isPositive ? '+' : '';
@@ -6423,39 +6423,25 @@
                     </div>`);
                 }
 
-                // Base catch rate
+                // Base catch rate (from catching stat)
                 if (catchInfo.baseCatch !== undefined) {
                     modRows.push(`<div style="display:flex; justify-content:space-between; margin: 4px 0;">
-                        <span style="color:#aaa;">Base catch (${catchInfo.baseCatch} catching)</span>
+                        <span style="color:#aaa;">Base rate (${catchInfo.baseCatch} catch)</span>
                         <span style="color:#4f4; font-weight:bold;">${Math.round(catchInfo.wideOpenRate)}%</span>
                     </div>`);
                 }
 
-                // DB coverage penalty if contested
-                // Show the RAW penalty (before shoulder bonus), so the math adds up
-                if (catchInfo.isContested) {
-                    const rawPenalty = Math.round(
-                        catchInfo.wideOpenRate - catchInfo.probability +
-                        (catchInfo.focusMod || 0) +
-                        (catchInfo.shoulderBonusSaved || 0)
-                    );
-                    if (rawPenalty > 0) {
-                        modRows.push(makeRow('DB coverage penalty', `-${rawPenalty}%`, false));
-                    }
+                // DB penalty (raw, before shoulder reduction)
+                if (catchInfo.isContested && catchInfo.dbPenalty > 0) {
+                    modRows.push(makeRow('DB penalty', `-${catchInfo.dbPenalty}%`, false));
                 }
 
-                // Shoulder throw bonus
+                // Shoulder throw bonus (reduction of DB penalty)
                 if (catchInfo.hasSideBonus && catchInfo.shoulderBonusSaved > 0) {
                     const leadLabel = catchInfo.leadQuality >= 80 ? 'perfect' :
                                      catchInfo.leadQuality >= 60 ? 'good' :
                                      catchInfo.leadQuality >= 40 ? 'ok' : 'poor';
-                    modRows.push(makeRow(`Shoulder throw (${leadLabel} lead)`, `${catchInfo.shoulderBonusSaved}%`, true));
-                }
-
-                // Focus modifier
-                if (catchInfo.focusMod && Math.abs(catchInfo.focusMod) >= 1) {
-                    const focusVal = Math.round(catchInfo.focusMod);
-                    modRows.push(makeRow('Focus stat', `${focusVal}%`, catchInfo.focusMod > 0));
+                    modRows.push(makeRow(`Shoulder (${leadLabel} lead)`, `${catchInfo.shoulderBonusSaved}%`, true));
                 }
 
                 // Final probability
@@ -7888,40 +7874,26 @@
                         <span style="color:${getScoreColor(slowPct)}; font-weight:bold;">${Math.round(slowPct)}</span>
                     </div>`);
 
-                    // Base catch rate (wide open rate based on catching stat)
+                    // Base catch rate (from catching stat)
                     modRows.push(`<div style="display:flex; justify-content:space-between; margin: 4px 0;">
-                        <span style="color:#aaa;">Base catch (${catchInfo.baseCatch} catching)</span>
+                        <span style="color:#aaa;">Base rate (${catchInfo.baseCatch} catch)</span>
                         <span style="color:#4f4; font-weight:bold;">${Math.round(catchInfo.wideOpenRate)}%</span>
                     </div>`);
 
-                    // If contested, show the DB coverage penalty clearly
-                    // Show the RAW penalty (before shoulder bonus), so the math adds up
-                    if (catchInfo.isContested) {
-                        const rawPenalty = Math.round(
-                            catchInfo.wideOpenRate - catchInfo.probability +
-                            (catchInfo.focusMod || 0) +
-                            (catchInfo.shoulderBonusSaved || 0)
-                        );
-                        if (rawPenalty > 0) {
-                            modRows.push(makeRow('DB coverage penalty', `-${rawPenalty}%`, false));
-                        }
+                    // DB penalty (raw, before shoulder reduction)
+                    if (catchInfo.isContested && catchInfo.dbPenalty > 0) {
+                        modRows.push(makeRow('DB penalty', `-${catchInfo.dbPenalty}%`, false));
                     }
 
-                    // Shoulder throw bonus - show actual amount saved with lead quality
+                    // Shoulder throw bonus (reduction of DB penalty)
                     if (catchInfo.hasSideBonus && catchInfo.shoulderBonusSaved > 0) {
                         const leadLabel = catchInfo.leadQuality >= 80 ? 'perfect' :
                                          catchInfo.leadQuality >= 60 ? 'good' :
                                          catchInfo.leadQuality >= 40 ? 'ok' : 'poor';
-                        modRows.push(makeRow(`Shoulder throw (${leadLabel} lead)`, `${catchInfo.shoulderBonusSaved}%`, true));
+                        modRows.push(makeRow(`Shoulder (${leadLabel} lead)`, `${catchInfo.shoulderBonusSaved}%`, true));
                     } else if (catchInfo.hasSideBonus) {
                         // Shoulder throw detected but no bonus due to poor lead
-                        modRows.push(makeRow('Shoulder throw (poor lead)', '0%', false));
-                    }
-
-                    // Focus modifier (if any significant effect)
-                    if (catchInfo.focusMod && Math.abs(catchInfo.focusMod) >= 1) {
-                        const focusVal = Math.round(catchInfo.focusMod);
-                        modRows.push(makeRow('Focus stat', `${focusVal}%`, catchInfo.focusMod > 0));
+                        modRows.push(makeRow('Shoulder (poor lead)', '0%', false));
                     }
 
                     // Final probability line
@@ -8118,29 +8090,21 @@
         };
 
         // Calculate catch probability based on receiver stats and proximity to defenders
-        // leadScore (0-100) scales the shoulder throw bonus - perfect lead = full bonus
+        // NEW SIMPLIFIED FORMULA:
+        // baseCatchRate = (catching - 50) × 2 + 20  -> 70→60%, 80→80%, 90→100%
+        // dbPenalty = dbCoverage × 0.7 × proximity²
+        // shoulderReduction = up to 50% of DB penalty with perfect lead
+        // finalRate = baseCatchRate - effectiveDbPenalty
         const calculateCatchProbability = (receiver, ballPosition, leadScore = 50) => {
-            // Find defenders and calculate coverage
-            let totalDefenderInfluence = 0;
-            let defenderDetails = [];
-            let hasNearbyDefender = false;
+            const catchingStat = receiver.stats.catching;
             const coverageRange = CLASH_CONSTANTS.CLASH_RANGE * 1.5;
 
-            // For zone defenders, count how many receivers are in their zone to split coverage
-            const zoneReceiverCounts = new Map();
-            gameState.defenders.forEach(defender => {
-                if (defender.aiType === 'zone' && defender.knockdownUntil <= gameState.gameTime) {
-                    let count = 0;
-                    gameState.receivers.forEach(rec => {
-                        const dist = BABYLON.Vector3.Distance(defender.position, rec.position);
-                        if (dist < coverageRange) count++;
-                    });
-                    zoneReceiverCounts.set(defender, Math.max(1, count));
-                }
-            });
-
-            let shoulderBonusSaved = 0;  // Track influence saved by shoulder throws
-            let totalInfluenceWithoutShoulder = 0;  // What influence would be without shoulder throw
+            // Find closest defender and check for shoulder throw
+            let closestDefenderDist = coverageRange;
+            let closestDefenderCoverage = 0;
+            let hasSideBonus = false;
+            let hasNearbyDefender = false;
+            let defenderDetails = [];
 
             gameState.defenders.forEach(defender => {
                 if (defender.knockdownUntil > gameState.gameTime) return;
@@ -8152,179 +8116,91 @@
                 if (dist < coverageRange) {
                     hasNearbyDefender = true;
 
-                    // Get defender's coverage stat based on their type
+                    // Get defender's coverage stat
                     const coverageStat = defender.aiType === 'zone' ?
                         defender.stats.zoneCoverage : defender.stats.manCoverage;
 
-                    // Proximity factor: 1.0 at distance 0, 0.0 at max range
-                    const proximityFactor = 1 - (dist / coverageRange);
+                    // Check if this is the closest defender
+                    if (dist < closestDefenderDist) {
+                        closestDefenderDist = dist;
+                        closestDefenderCoverage = coverageStat;
+                    }
 
-                    // Influence is proximity^2 * coverage stat (normalized to 0-1)
-                    let influence = proximityFactor * proximityFactor * (coverageStat / 100);
-                    let sideBonus = false;
-
-                    // For shoulder throw check later
-                    const defDx = defender.position.x - receiver.position.x;
-                    const defDz = defender.position.z - receiver.position.z;
+                    // Check for shoulder throw (ball on opposite side from defender)
                     const ballDx = ballPosition.x - receiver.position.x;
                     const ballDz = ballPosition.z - receiver.position.z;
+                    const dotProduct = dx * ballDx + dz * ballDz;
+                    const isShoulder = dotProduct < 0;
+                    if (isShoulder) hasSideBonus = true;
 
-                    // Very close defenders have more influence
-                    const CLOSE_DEFENDER_THRESHOLD = 0.6;
-                    if (dist <= CLOSE_DEFENDER_THRESHOLD) {
-                        influence *= 1.5;
-                    }
-
-                    // If defender lost a clash, reduce their coverage effect
-                    if (defender.clashSpeedPenaltyUntil && defender.clashSpeedPenaltyUntil > gameState.gameTime) {
-                        influence *= 0.5;
-                    }
-
-                    // For zone defenders covering multiple receivers, split their coverage
-                    if (defender.aiType === 'zone') {
-                        const receiversInZone = zoneReceiverCounts.get(defender) || 1;
-                        if (receiversInZone > 1) {
-                            influence /= receiversInZone;
-                        }
-                    }
-
-                    // Track what influence would be without shoulder throw
-                    const influenceWithoutShoulder = influence;
-                    totalInfluenceWithoutShoulder += influenceWithoutShoulder;
-
-                    // Dot product: if negative, ball is on opposite side from defender
-                    // Apply shoulder throw bonus LAST to truly halve the final DB impact
-                    const dotProduct = defDx * ballDx + defDz * ballDz;
-                    if (dotProduct < 0) {
-                        influence *= 0.5;  // Halve DB influence for shoulder throw
-                        sideBonus = true;
-                        shoulderBonusSaved += influenceWithoutShoulder - influence;
-                    }
-
-                    totalDefenderInfluence += influence;
                     defenderDetails.push({
                         name: defender.name,
                         dist: dist.toFixed(2),
-                        penalty: (influence * 100).toFixed(1),
                         coverageStat: coverageStat,
                         aiType: defender.aiType,
-                        sideBonus: sideBonus
+                        sideBonus: isShoulder
                     });
                 }
             });
 
-            // Clamp total defender influence to 0-1
-            totalDefenderInfluence = Math.min(1, totalDefenderInfluence);
+            // BASE CATCH RATE: catching stat determines your potential
+            // 70 catching → 60%, 80 catching → 80%, 90 catching → 100%
+            const baseCatchRate = Math.min(98, (catchingStat - 50) * 2 + 20);
 
-            // NEW CATCH PROBABILITY SYSTEM:
-            // - Wide open (no defenders): 95% catch rate
-            // - Contested: base 25%, catching stat adds up to +10% (at 100 catching) = 35% max
-            // - Defender influence reduces the catch probability
-
-            let finalProbability;
-            const catchingStat = receiver.stats.catching;
-
-            if (!hasNearbyDefender || totalDefenderInfluence < 0.1) {
-                // Wide open - catching stat matters but with bonus
-                // 60 catching = 80%, 80+ catching = 95% (capped)
-                const wideOpenBase = 80 + (catchingStat - 60) * 0.75;
-                finalProbability = Math.min(95, wideOpenBase);
-            } else {
-                // Contested catch formula:
-                // 50 catching = 10%, 100 catching = 35%
-                // Then reduced by defender influence
-                const contestedBase = 10;
-                const catchingBonus = (catchingStat - 50) * 0.5;  // +0.5% per point above 50
-                const rawContestedProb = contestedBase + catchingBonus;  // 10-35% range
-
-                // Focus helps under pressure
-                const focusBonus = (receiver.stats.focus - 50) * 0.2;  // -10 to +10
-
-                // Defender influence reduces probability
-                // Use the FULL influence (without shoulder bonus) for base calculation
-                const fullInfluence = Math.min(1, totalInfluenceWithoutShoulder);
-                const defenderReduction = fullInfluence * 40;
-
-                // Calculate what probability would be without shoulder throw
-                const probWithoutShoulder = rawContestedProb + focusBonus - defenderReduction;
-
-                // If shoulder throw applies, reduce the DB impact based on lead quality
-                // Perfect lead (100) = 50% reduction, bad lead (0) = 0% reduction
-                if (shoulderBonusSaved > 0) {
-                    // The DB penalty is the drop from wide open to contested result
-                    const wideOpen = Math.min(95, 80 + (catchingStat - 60) * 0.75);
-                    const fullPenalty = wideOpen - probWithoutShoulder;
-                    // Scale the bonus by lead quality (0-100 -> 0-0.5 reduction)
-                    const leadMultiplier = (leadScore / 100) * 0.5;  // 0 to 0.5
-                    const reducedPenalty = fullPenalty * (1 - leadMultiplier);
-                    finalProbability = wideOpen - reducedPenalty;
-                } else {
-                    finalProbability = probWithoutShoulder;
-                }
+            // WIDE OPEN: no nearby defender
+            if (!hasNearbyDefender) {
+                return {
+                    probability: baseCatchRate,
+                    baseCatch: catchingStat,
+                    wideOpenRate: baseCatchRate,
+                    separation: coverageRange,
+                    coverageLevel: 'Wide Open',
+                    isContested: false,
+                    hasSideBonus: false,
+                    shoulderBonusSaved: 0,
+                    leadQuality: 0,
+                    dbPenalty: 0,
+                    defenderDetails: []
+                };
             }
 
-            // Clamp between 5% and 95%
-            finalProbability = Math.max(5, Math.min(95, finalProbability));
+            // DB PENALTY: coverage stat × proximity²
+            // proximity: 1.0 at distance 0, 0.0 at max range
+            const proximityFactor = Math.max(0, 1 - (closestDefenderDist / coverageRange));
+            const rawDbPenalty = closestDefenderCoverage * 0.7 * proximityFactor * proximityFactor;
 
-            // Store for visual display
-            receiver.lastCatchProbability = finalProbability;
+            // SHOULDER THROW: reduces DB penalty by up to 50% based on lead quality
+            let shoulderReduction = 0;
+            let shoulderBonusSaved = 0;
+            if (hasSideBonus) {
+                shoulderReduction = (leadScore / 100) * 0.5;  // 0 to 0.5
+                shoulderBonusSaved = Math.round(rawDbPenalty * shoulderReduction);
+            }
+            const effectiveDbPenalty = rawDbPenalty * (1 - shoulderReduction);
 
-            // Calculate closest defender distance (separation)
-            let closestDefenderDist = coverageRange;
-            let hasSideBonus = false;
-            defenderDetails.forEach(d => {
-                const dist = parseFloat(d.dist);
-                if (dist < closestDefenderDist) closestDefenderDist = dist;
-                if (d.sideBonus) hasSideBonus = true;
-            });
+            // FINAL PROBABILITY
+            const finalProbability = Math.max(5, Math.min(98, baseCatchRate - effectiveDbPenalty));
 
-            // Determine coverage level
+            // Determine coverage level for display
             let coverageLevel = 'Wide Open';
-            if (hasNearbyDefender) {
-                if (closestDefenderDist <= 0.6) coverageLevel = 'Blanketed';
-                else if (closestDefenderDist <= 1.5) coverageLevel = 'Tight Coverage';
-                else if (closestDefenderDist <= 2.5) coverageLevel = 'Contested';
-                else coverageLevel = 'Light Coverage';
-            }
-
-            // Calculate penalty for display (difference from wide open)
-            const wideOpenRate = Math.min(95, 80 + (catchingStat - 60) * 0.75);
-            const defenderPenalty = hasNearbyDefender ? (wideOpenRate - finalProbability) : 0;
-
-            // Calculate the shoulder throw bonus (scaled by lead quality)
-            let shoulderBonusCatchSaved = 0;
-            let leadQualityPercent = 0;
-            if (hasSideBonus && hasNearbyDefender) {
-                // Calculate what the full penalty would have been
-                const fullInfluence = Math.min(1, totalInfluenceWithoutShoulder);
-                const contestedBase = 10;
-                const catchingBonus = (catchingStat - 50) * 0.5;
-                const rawContestedProb = contestedBase + catchingBonus;
-                const focusBonus = (receiver.stats.focus - 50) * 0.2;
-                const defenderReduction = fullInfluence * 40;
-                const probWithoutShoulder = Math.max(5, rawContestedProb + focusBonus - defenderReduction);
-                const fullPenalty = wideOpenRate - probWithoutShoulder;
-                // Shoulder throw bonus scaled by lead quality (0-100 -> 0-50% reduction)
-                const leadMultiplier = (leadScore / 100) * 0.5;
-                shoulderBonusCatchSaved = Math.round(fullPenalty * leadMultiplier);
-                leadQualityPercent = Math.round(leadScore);
-            }
+            if (closestDefenderDist <= 0.6) coverageLevel = 'Blanketed';
+            else if (closestDefenderDist <= 1.5) coverageLevel = 'Tight Coverage';
+            else if (closestDefenderDist <= 2.5) coverageLevel = 'Contested';
+            else coverageLevel = 'Light Coverage';
 
             return {
                 probability: finalProbability,
                 baseCatch: catchingStat,
-                focusMod: hasNearbyDefender ? (receiver.stats.focus - 50) * 0.2 : 0,
-                defenderPenalty: defenderPenalty,
-                defenderDetails: defenderDetails,
-                // New detailed info
+                wideOpenRate: baseCatchRate,
                 separation: closestDefenderDist,
                 coverageLevel: coverageLevel,
-                defenderInfluence: totalDefenderInfluence,
+                isContested: true,
                 hasSideBonus: hasSideBonus,
-                shoulderBonusSaved: shoulderBonusCatchSaved,  // How much catch % was saved
-                leadQuality: leadQualityPercent,  // Lead quality (0-100)
-                isContested: hasNearbyDefender && totalDefenderInfluence >= 0.1,
-                wideOpenRate: wideOpenRate
+                shoulderBonusSaved: shoulderBonusSaved,
+                leadQuality: Math.round(leadScore),
+                dbPenalty: Math.round(rawDbPenalty),
+                effectiveDbPenalty: Math.round(effectiveDbPenalty),
+                defenderDetails: defenderDetails
             };
         };
 
