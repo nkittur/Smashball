@@ -7328,8 +7328,11 @@
             }
 
             if (potentialCatcher) {
-                // Calculate catch probability (returns detailed info)
-                const catchInfo = calculateCatchProbability(potentialCatcher, ballPosition);
+                // Calculate throw rating first (need lead score for catch probability)
+                const throwRating = calculateThrowRating(potentialCatcher, ballPosition, gameState.gameTime);
+
+                // Calculate catch probability (returns detailed info) - pass lead score for shoulder bonus scaling
+                const catchInfo = calculateCatchProbability(potentialCatcher, ballPosition, throwRating.leadScore);
                 const catchRoll = Math.random() * 100;
                 const success = catchRoll < catchInfo.probability;
 
@@ -7338,9 +7341,6 @@
 
                 // Record target for roster player
                 recordPlayerStat(potentialCatcher, 'seasonTargets');
-
-                // Calculate throw rating (always, for display purposes)
-                const throwRating = calculateThrowRating(potentialCatcher, ballPosition, gameState.gameTime);
 
                 // Show the catch probability display with throw rating
                 showCatchDisplay(catchInfo, catchRoll, success, throwRating);
@@ -7423,9 +7423,15 @@
                         }
                     }
 
-                    // Shoulder throw bonus - show actual amount saved
+                    // Shoulder throw bonus - show actual amount saved with lead quality
                     if (catchInfo.hasSideBonus && catchInfo.shoulderBonusSaved > 0) {
-                        modRows.push(makeRow('Shoulder throw bonus', `${catchInfo.shoulderBonusSaved}%`, true));
+                        const leadLabel = catchInfo.leadQuality >= 80 ? 'perfect' :
+                                         catchInfo.leadQuality >= 60 ? 'good' :
+                                         catchInfo.leadQuality >= 40 ? 'ok' : 'poor';
+                        modRows.push(makeRow(`Shoulder throw (${leadLabel} lead)`, `${catchInfo.shoulderBonusSaved}%`, true));
+                    } else if (catchInfo.hasSideBonus) {
+                        // Shoulder throw detected but no bonus due to poor lead
+                        modRows.push(makeRow('Shoulder throw (poor lead)', '0%', false));
                     }
 
                     // Focus modifier (if any significant effect)
@@ -7628,7 +7634,8 @@
         };
 
         // Calculate catch probability based on receiver stats and proximity to defenders
-        const calculateCatchProbability = (receiver, ballPosition) => {
+        // leadScore (0-100) scales the shoulder throw bonus - perfect lead = full bonus
+        const calculateCatchProbability = (receiver, ballPosition, leadScore = 50) => {
             // Find defenders and calculate coverage
             let totalDefenderInfluence = 0;
             let defenderDetails = [];
@@ -7757,13 +7764,16 @@
                 // Calculate what probability would be without shoulder throw
                 const probWithoutShoulder = rawContestedProb + focusBonus - defenderReduction;
 
-                // If shoulder throw applies, halve the total DB impact
+                // If shoulder throw applies, reduce the DB impact based on lead quality
+                // Perfect lead (100) = 50% reduction, bad lead (0) = 0% reduction
                 if (shoulderBonusSaved > 0) {
                     // The DB penalty is the drop from wide open to contested result
                     const wideOpen = Math.min(95, 80 + (catchingStat - 60) * 0.75);
                     const fullPenalty = wideOpen - probWithoutShoulder;
-                    const halvedPenalty = fullPenalty * 0.5;
-                    finalProbability = wideOpen - halvedPenalty;
+                    // Scale the bonus by lead quality (0-100 -> 0-0.5 reduction)
+                    const leadMultiplier = (leadScore / 100) * 0.5;  // 0 to 0.5
+                    const reducedPenalty = fullPenalty * (1 - leadMultiplier);
+                    finalProbability = wideOpen - reducedPenalty;
                 } else {
                     finalProbability = probWithoutShoulder;
                 }
@@ -7797,8 +7807,9 @@
             const wideOpenRate = Math.min(95, 80 + (catchingStat - 60) * 0.75);
             const defenderPenalty = hasNearbyDefender ? (wideOpenRate - finalProbability) : 0;
 
-            // Calculate the shoulder throw bonus (half of what the full penalty would have been)
+            // Calculate the shoulder throw bonus (scaled by lead quality)
             let shoulderBonusCatchSaved = 0;
+            let leadQualityPercent = 0;
             if (hasSideBonus && hasNearbyDefender) {
                 // Calculate what the full penalty would have been
                 const fullInfluence = Math.min(1, totalInfluenceWithoutShoulder);
@@ -7809,8 +7820,10 @@
                 const defenderReduction = fullInfluence * 40;
                 const probWithoutShoulder = Math.max(5, rawContestedProb + focusBonus - defenderReduction);
                 const fullPenalty = wideOpenRate - probWithoutShoulder;
-                // Shoulder throw saves half the penalty
-                shoulderBonusCatchSaved = Math.round(fullPenalty * 0.5);
+                // Shoulder throw bonus scaled by lead quality (0-100 -> 0-50% reduction)
+                const leadMultiplier = (leadScore / 100) * 0.5;
+                shoulderBonusCatchSaved = Math.round(fullPenalty * leadMultiplier);
+                leadQualityPercent = Math.round(leadScore);
             }
 
             return {
@@ -7825,6 +7838,7 @@
                 defenderInfluence: totalDefenderInfluence,
                 hasSideBonus: hasSideBonus,
                 shoulderBonusSaved: shoulderBonusCatchSaved,  // How much catch % was saved
+                leadQuality: leadQualityPercent,  // Lead quality (0-100)
                 isContested: hasNearbyDefender && totalDefenderInfluence >= 0.1,
                 wideOpenRate: wideOpenRate
             };
