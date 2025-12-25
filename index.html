@@ -8168,7 +8168,8 @@
             // DB PENALTY: coverage stat × proximity²
             // proximity: 1.0 at distance 0, 0.0 at max range
             const proximityFactor = Math.max(0, 1 - (closestDefenderDist / coverageRange));
-            const rawDbPenalty = closestDefenderCoverage * 1.5 * proximityFactor * proximityFactor;
+            const tightCoverageBonus = closestDefenderDist <= 0.7 ? 1.2 : 1.0;  // +20% penalty for tight coverage
+            const rawDbPenalty = closestDefenderCoverage * 1.5 * proximityFactor * proximityFactor * tightCoverageBonus;
 
             // SHOULDER THROW: reduces DB penalty by up to 50% based on lead quality
             let shoulderReduction = 0;
