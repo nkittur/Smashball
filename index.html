@@ -7648,7 +7648,8 @@
                 }
             });
 
-            let shoulderBonusSaved = 0;  // Track how much influence was saved by shoulder throws
+            let shoulderBonusSaved = 0;  // Track influence saved by shoulder throws
+            let totalInfluenceWithoutShoulder = 0;  // What influence would be without shoulder throw
 
             gameState.defenders.forEach(defender => {
                 if (defender.knockdownUntil > gameState.gameTime) return;
@@ -7696,14 +7697,17 @@
                         }
                     }
 
+                    // Track what influence would be without shoulder throw
+                    const influenceWithoutShoulder = influence;
+                    totalInfluenceWithoutShoulder += influenceWithoutShoulder;
+
                     // Dot product: if negative, ball is on opposite side from defender
                     // Apply shoulder throw bonus LAST to truly halve the final DB impact
                     const dotProduct = defDx * ballDx + defDz * ballDz;
                     if (dotProduct < 0) {
-                        const influenceBeforeShoulder = influence;
                         influence *= 0.5;  // Halve DB influence for shoulder throw
                         sideBonus = true;
-                        shoulderBonusSaved += influenceBeforeShoulder - influence;
+                        shoulderBonusSaved += influenceWithoutShoulder - influence;
                     }
 
                     totalDefenderInfluence += influence;
@@ -7746,10 +7750,23 @@
                 const focusBonus = (receiver.stats.focus - 50) * 0.2;  // -10 to +10
 
                 // Defender influence reduces probability
-                // At max influence (1.0), reduces catch by up to 40%
-                const defenderReduction = totalDefenderInfluence * 40;
+                // Use the FULL influence (without shoulder bonus) for base calculation
+                const fullInfluence = Math.min(1, totalInfluenceWithoutShoulder);
+                const defenderReduction = fullInfluence * 40;
 
-                finalProbability = rawContestedProb + focusBonus - defenderReduction;
+                // Calculate what probability would be without shoulder throw
+                const probWithoutShoulder = rawContestedProb + focusBonus - defenderReduction;
+
+                // If shoulder throw applies, halve the total DB impact
+                if (shoulderBonusSaved > 0) {
+                    // The DB penalty is the drop from wide open to contested result
+                    const wideOpen = Math.min(95, 80 + (catchingStat - 60) * 0.75);
+                    const fullPenalty = wideOpen - probWithoutShoulder;
+                    const halvedPenalty = fullPenalty * 0.5;
+                    finalProbability = wideOpen - halvedPenalty;
+                } else {
+                    finalProbability = probWithoutShoulder;
+                }
             }
 
             // Clamp between 5% and 95%
@@ -7780,9 +7797,21 @@
             const wideOpenRate = Math.min(95, 80 + (catchingStat - 60) * 0.75);
             const defenderPenalty = hasNearbyDefender ? (wideOpenRate - finalProbability) : 0;
 
-            // Return detailed info for UI display
-            // Calculate how much catch % the shoulder bonus saved (influence * 40 = reduction %)
-            const shoulderBonusCatchSaved = Math.round(shoulderBonusSaved * 40);
+            // Calculate the shoulder throw bonus (half of what the full penalty would have been)
+            let shoulderBonusCatchSaved = 0;
+            if (hasSideBonus && hasNearbyDefender) {
+                // Calculate what the full penalty would have been
+                const fullInfluence = Math.min(1, totalInfluenceWithoutShoulder);
+                const contestedBase = 10;
+                const catchingBonus = (catchingStat - 50) * 0.5;
+                const rawContestedProb = contestedBase + catchingBonus;
+                const focusBonus = (receiver.stats.focus - 50) * 0.2;
+                const defenderReduction = fullInfluence * 40;
+                const probWithoutShoulder = Math.max(5, rawContestedProb + focusBonus - defenderReduction);
+                const fullPenalty = wideOpenRate - probWithoutShoulder;
+                // Shoulder throw saves half the penalty
+                shoulderBonusCatchSaved = Math.round(fullPenalty * 0.5);
+            }
 
             return {
                 probability: finalProbability,
