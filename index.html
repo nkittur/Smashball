@@ -7423,9 +7423,9 @@
                         }
                     }
 
-                    // Shoulder throw bonus
-                    if (catchInfo.hasSideBonus) {
-                        modRows.push(makeRow('Shoulder throw bonus', '50% less DB impact', true));
+                    // Shoulder throw bonus - show actual amount saved
+                    if (catchInfo.hasSideBonus && catchInfo.shoulderBonusSaved > 0) {
+                        modRows.push(makeRow('Shoulder throw bonus', `+${catchInfo.shoulderBonusSaved}%`, true));
                     }
 
                     // Focus modifier (if any significant effect)
@@ -7648,6 +7648,8 @@
                 }
             });
 
+            let shoulderBonusSaved = 0;  // Track how much influence was saved by shoulder throws
+
             gameState.defenders.forEach(defender => {
                 if (defender.knockdownUntil > gameState.gameTime) return;
 
@@ -7667,6 +7669,7 @@
 
                     // Influence is proximity^2 * coverage stat (normalized to 0-1)
                     let influence = proximityFactor * proximityFactor * (coverageStat / 100);
+                    const influenceBeforeBonus = influence;
                     let sideBonus = false;
 
                     // Check if ball is on opposite side from defender (shoulder throw bonus)
@@ -7681,6 +7684,7 @@
                     if (dotProduct < 0) {
                         influence *= 0.5;  // Halve DB influence for shoulder throw
                         sideBonus = true;
+                        shoulderBonusSaved += influenceBeforeBonus - influence;
                     }
 
                     // Very close defenders have more influence (but shoulder bonus still applies first)
@@ -7777,6 +7781,9 @@
             const defenderPenalty = hasNearbyDefender ? (wideOpenRate - finalProbability) : 0;
 
             // Return detailed info for UI display
+            // Calculate how much catch % the shoulder bonus saved (influence * 40 = reduction %)
+            const shoulderBonusCatchSaved = Math.round(shoulderBonusSaved * 40);
+
             return {
                 probability: finalProbability,
                 baseCatch: catchingStat,
@@ -7788,6 +7795,7 @@
                 coverageLevel: coverageLevel,
                 defenderInfluence: totalDefenderInfluence,
                 hasSideBonus: hasSideBonus,
+                shoulderBonusSaved: shoulderBonusCatchSaved,  // How much catch % was saved
                 isContested: hasNearbyDefender && totalDefenderInfluence >= 0.1,
                 wideOpenRate: wideOpenRate
             };
