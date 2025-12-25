@@ -7287,7 +7287,7 @@
                 }
             });
 
-            if (closestReceiver && gameState.trainingMode) {
+            if (closestReceiver) {
                 const throwPos = gameState.receiverPositionsAtThrow[closestReceiver.name];
                 const throwVel = gameState.receiverVelocitiesAtThrow[closestReceiver.name];
                 // Velocity is per-frame, convert to per-second by multiplying by 60
