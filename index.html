@@ -10043,6 +10043,22 @@
             const scene = gameState.scene;
             if (!scene) return;
 
+            // Helper for rating indicator text
+            const getRatingText = (overall) => {
+                if (overall >= 90) return `${overall} ★★`;
+                if (overall >= 85) return `${overall} ★`;
+                if (overall >= 80) return `${overall} ☆`;
+                return `${overall}`;
+            };
+
+            // Helper to get label background based on rating (for offense - gold tint)
+            const getOffenseLabelBg = (overall) => {
+                if (overall >= 90) return 'rgba(80, 60, 0, 0.85)';
+                if (overall >= 85) return 'rgba(50, 40, 0, 0.8)';
+                if (overall >= 80) return 'rgba(40, 40, 50, 0.75)';
+                return null;  // Use default
+            };
+
             // Update QB
             const rosterQB = getDepthChartPlayer('QB1');
             if (rosterQB && scene.qb) {
@@ -10056,7 +10072,10 @@
                     scene.qb.nameTextBlock.text = rosterQB.lastName.toUpperCase();
                 }
                 if (scene.qb.ovrTextBlock) {
-                    scene.qb.ovrTextBlock.text = `${rosterQB.overall}`;
+                    scene.qb.ovrTextBlock.text = getRatingText(rosterQB.overall);
+                }
+                if (scene.qb.nameLabel) {
+                    scene.qb.nameLabel.background = getOffenseLabelBg(rosterQB.overall) || 'rgba(0, 0, 0, 0.7)';
                 }
             }
 
@@ -10075,7 +10094,10 @@
                         receiver.nameTextBlock.text = player.lastName.toUpperCase();
                     }
                     if (receiver.ovrTextBlock) {
-                        receiver.ovrTextBlock.text = `${player.overall}`;
+                        receiver.ovrTextBlock.text = getRatingText(player.overall);
+                    }
+                    if (receiver.nameLabel) {
+                        receiver.nameLabel.background = getOffenseLabelBg(player.overall) || 'rgba(0, 0, 0, 0.65)';
                     }
                 }
             });
@@ -10088,12 +10110,31 @@
                     .filter(p => p.position === 'CB')
                     .sort((a, b) => b.overall - a.overall);
 
+                // Helper for defender label background (red theme)
+                const getDefenderLabelBg = (overall) => {
+                    if (overall >= 90) return 'rgba(100, 40, 40, 0.9)';
+                    if (overall >= 85) return 'rgba(80, 35, 35, 0.85)';
+                    if (overall >= 80) return 'rgba(60, 30, 30, 0.8)';
+                    return 'rgba(40, 20, 20, 0.75)';
+                };
+
                 gameState.defenders.forEach((defender, index) => {
                     const player = oppCBs[index];
                     if (player && defender) {
                         defender.playerId = player.id;
                         defender.displayName = `${player.firstName} ${player.lastName.charAt(0)}.`;
                         defender.stats = { ...player.stats };
+                        defender.overall = player.overall;
+                        // Update name label TextBlocks
+                        if (defender.nameTextBlock) {
+                            defender.nameTextBlock.text = defender.displayName.toUpperCase();
+                        }
+                        if (defender.ovrTextBlock) {
+                            defender.ovrTextBlock.text = getRatingText(player.overall);
+                        }
+                        if (defender.nameLabel) {
+                            defender.nameLabel.background = getDefenderLabelBg(player.overall);
+                        }
                     }
                 });
             }
