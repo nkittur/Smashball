@@ -7044,11 +7044,14 @@
             gameState.canThrow = false;
             updateMessage('');
 
-            // Capture receiver velocities at throw time for rating calculation
+            // Capture receiver positions and velocities at throw time for rating calculation
             gameState.receiverVelocitiesAtThrow = {};
+            gameState.receiverPositionsAtThrow = {};
             gameState.receivers.forEach(receiver => {
                 gameState.receiverVelocitiesAtThrow[receiver.name] = receiver.velocity ? receiver.velocity.clone() : new BABYLON.Vector3(0, 0, 0);
+                gameState.receiverPositionsAtThrow[receiver.name] = receiver.position.clone();
             });
+            gameState.throwStartTime = performance.now();
 
             // Record throw attempt for QB
             if (scene.qb && scene.qb.playerId) {
@@ -9721,101 +9724,136 @@
             }
         }
 
-        // Calculate throw rating based on route proximity and leading
+        // Calculate throw rating based on lead accuracy, lateral offset, and receiver slowdown
         function calculateThrowRating(receiver, ballLandingPos, catchTime) {
-            // Get the receiver's route waypoints
-            const route = receiver.route || [];
-            if (route.length === 0) return { grade: 'C', score: 50, details: 'No route data' };
+            // Get receiver's position and velocity at THROW time (not catch time)
+            const throwPos = gameState.receiverPositionsAtThrow && gameState.receiverPositionsAtThrow[receiver.name];
+            const throwVelocity = gameState.receiverVelocitiesAtThrow && gameState.receiverVelocitiesAtThrow[receiver.name];
 
-            // Find the closest point on the route to where the ball landed
-            let minDist = Infinity;
-            let closestRoutePoint = null;
-
-            // Check distance to each route waypoint
-            route.forEach(waypoint => {
-                const dist = Math.sqrt(
-                    Math.pow(ballLandingPos.x - waypoint.x, 2) +
-                    Math.pow(ballLandingPos.z - waypoint.z, 2)
-                );
-                if (dist < minDist) {
-                    minDist = dist;
-                    closestRoutePoint = waypoint;
-                }
-            });
-
-            // Also check current receiver position at catch time
-            const receiverPos = receiver.position;
-            const distToReceiver = Math.sqrt(
-                Math.pow(ballLandingPos.x - receiverPos.x, 2) +
-                Math.pow(ballLandingPos.z - receiverPos.z, 2)
-            );
-
-            // Calculate lead accuracy: was the ball thrown ahead of the receiver?
-            // Positive lead = thrown ahead (good), negative = thrown behind (bad)
-            // Use velocity captured at throw time, not current velocity (receiver may have stopped)
-            const storedVelocity = gameState.receiverVelocitiesAtThrow && gameState.receiverVelocitiesAtThrow[receiver.name];
-            const receiverVelocity = storedVelocity || receiver.velocity || new BABYLON.Vector3(0, 0, 0);
-            const leadVector = new BABYLON.Vector3(
-                ballLandingPos.x - receiverPos.x,
-                0,
-                ballLandingPos.z - receiverPos.z
-            );
-
-            // Dot product with velocity direction (positive = leading, negative = behind)
-            const velocityMagnitude = Math.sqrt(receiverVelocity.x * receiverVelocity.x + receiverVelocity.z * receiverVelocity.z);
-            let leadScore = 50; // Default neutral
-            let leadDistance = 0; // Actual lead distance (positive = ahead, negative = behind)
-            const idealLead = 1.0; // Ideal lead distance in units
-
-            if (velocityMagnitude > 0.001) {
-                const leadDot = (leadVector.x * receiverVelocity.x + leadVector.z * receiverVelocity.z) / velocityMagnitude;
-                leadDistance = leadDot;
-                // Good lead is 0.5-2 units ahead
-                if (leadDot > 0 && leadDot < 3) {
-                    leadScore = 100 - Math.abs(leadDot - idealLead) * 20; // Best at 1 unit lead
-                } else if (leadDot < 0) {
-                    leadScore = Math.max(0, 50 + leadDot * 20); // Penalty for behind
-                } else {
-                    leadScore = Math.max(30, 100 - leadDot * 15); // Too far ahead
-                }
+            if (!throwPos || !throwVelocity) {
+                return { grade: 'C', score: 50, details: 'No throw data', leadScore: 50 };
             }
 
-            // Route accuracy score (how close to the route) - less strict
-            const routeScore = Math.max(0, 100 - minDist * 20);
+            // Calculate ball flight time
+            const flightTime = gameState.throwStartTime ?
+                (performance.now() - gameState.throwStartTime) / 1000 : 1.5;
 
-            // Combine scores (lead accuracy weighted more heavily)
-            const totalScore = Math.round(routeScore * 0.3 + leadScore * 0.7);
+            // Get velocity magnitude at throw time
+            const velocityMagnitude = Math.sqrt(
+                throwVelocity.x * throwVelocity.x + throwVelocity.z * throwVelocity.z
+            );
 
-            // Determine grade (minimum C, no D or F)
+            // Vector from receiver (at throw time) to ball landing
+            const toBall = new BABYLON.Vector3(
+                ballLandingPos.x - throwPos.x,
+                0,
+                ballLandingPos.z - throwPos.z
+            );
+            const distToBall = Math.sqrt(toBall.x * toBall.x + toBall.z * toBall.z);
+
+            let leadScore = 50;
+            let lateralScore = 100;
+            let slowdownScore = 100;
+            let leadDistance = 0;
+            let lateralOffset = 0;
+
+            if (velocityMagnitude > 0.001) {
+                // Normalize velocity direction
+                const velDir = new BABYLON.Vector3(
+                    throwVelocity.x / velocityMagnitude,
+                    0,
+                    throwVelocity.z / velocityMagnitude
+                );
+
+                // 1. LEAD DISTANCE: Dot product gives distance along velocity direction
+                leadDistance = toBall.x * velDir.x + toBall.z * velDir.z;
+
+                // 2. LATERAL OFFSET: Cross product magnitude gives perpendicular distance
+                // In 2D (XZ plane): |A × B| = Ax*Bz - Az*Bx
+                lateralOffset = Math.abs(toBall.x * velDir.z - toBall.z * velDir.x);
+
+                // Ideal lead scales with flight time and receiver speed
+                // If receiver runs at speed S for time T, ideal lead = S * T
+                const idealLead = velocityMagnitude * flightTime * 0.8; // 80% to give catching room
+
+                // Score lead accuracy (how close to ideal)
+                const leadError = Math.abs(leadDistance - idealLead);
+                if (leadDistance < 0) {
+                    // Ball thrown behind - very bad
+                    leadScore = Math.max(0, 30 + leadDistance * 15);
+                } else if (leadDistance > idealLead * 2) {
+                    // Too far ahead - receiver can't reach
+                    leadScore = Math.max(20, 80 - (leadDistance - idealLead) * 10);
+                } else {
+                    // Near ideal range
+                    leadScore = Math.max(0, 100 - leadError * 15);
+                }
+
+                // Lateral offset penalty - each yard off costs points
+                // Perfect = on the line, 3+ yards off = significant penalty
+                lateralScore = Math.max(0, 100 - lateralOffset * 25);
+
+                // 3. SLOWDOWN MEASUREMENT: Compare expected vs actual distance traveled
+                // Expected: receiver running at full speed for flight time
+                const expectedDistance = velocityMagnitude * flightTime;
+                // Actual: where receiver ended up vs where they started
+                const actualPos = receiver.position;
+                const actualDistance = Math.sqrt(
+                    Math.pow(actualPos.x - throwPos.x, 2) +
+                    Math.pow(actualPos.z - throwPos.z, 2)
+                );
+
+                // Slowdown ratio: 1.0 = full speed, 0.5 = half speed
+                const speedRatio = expectedDistance > 0.1 ?
+                    Math.min(1, actualDistance / expectedDistance) : 1;
+
+                // Perfect throw = receiver maintained speed (ratio ~1)
+                // Bad throw = receiver had to slow/stop (ratio < 1)
+                slowdownScore = speedRatio * 100;
+            } else {
+                // Stationary receiver - just measure distance to ball
+                const directDist = distToBall;
+                leadScore = Math.max(0, 100 - directDist * 30);
+                lateralScore = 100; // No direction, so no lateral concept
+            }
+
+            // Combine scores: lead most important, then slowdown, then lateral
+            // Lead 40%, Slowdown 35%, Lateral 25%
+            const totalScore = Math.round(
+                leadScore * 0.40 +
+                slowdownScore * 0.35 +
+                lateralScore * 0.25
+            );
+
+            // Determine grade
             let grade;
             if (totalScore >= 90) grade = 'A+';
             else if (totalScore >= 80) grade = 'A';
             else if (totalScore >= 65) grade = 'B';
             else grade = 'C';
 
-            // Format lead deviation from ideal
-            const leadDeviation = leadDistance - idealLead;
+            // Format details
             let leadText;
-            if (Math.abs(leadDistance) < 0.1 && velocityMagnitude < 0.001) {
+            if (velocityMagnitude < 0.001) {
                 leadText = 'stationary';
-            } else if (leadDeviation > 0.1) {
-                leadText = `+${leadDeviation.toFixed(1)} (too far ahead)`;
-            } else if (leadDeviation < -0.1 && leadDistance >= 0) {
-                leadText = `${leadDeviation.toFixed(1)} (short lead)`;
             } else if (leadDistance < 0) {
-                leadText = `${leadDistance.toFixed(1)} (behind)`;
+                leadText = `${leadDistance.toFixed(1)}yd behind`;
             } else {
-                leadText = `${leadDeviation.toFixed(1)} (good)`;
+                leadText = `${leadDistance.toFixed(1)}yd ahead`;
             }
+
+            const lateralText = lateralOffset > 0.3 ? `, ${lateralOffset.toFixed(1)}yd wide` : '';
 
             return {
                 grade,
                 score: totalScore,
-                routeScore: Math.round(routeScore),
                 leadScore: Math.round(leadScore),
-                distToRoute: minDist.toFixed(1),
-                leadText: leadText,
-                details: `Route: ${minDist.toFixed(1)} yds off | Lead: ${leadText}`
+                lateralScore: Math.round(lateralScore),
+                slowdownScore: Math.round(slowdownScore),
+                leadDistance: leadDistance,
+                lateralOffset: lateralOffset,
+                leadText: leadText + lateralText,
+                details: `Lead: ${leadText}${lateralText} | Slowdown: ${Math.round(slowdownScore)}%`
             };
         }
 
