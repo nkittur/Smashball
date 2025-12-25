@@ -957,10 +957,7 @@
             startingLineOfScrimmage: -54,  // Where drive started - own 35 yard line
             // Training mode
             trainingMode: false,    // Training mode: no defenders, throw ratings
-            lastThrowRating: null,  // Last throw rating for display
-            // Debug visualization
-            showThrowHeatMap: false, // Show ideal/poor throw zones for each receiver
-            heatMapMeshes: []       // Store heat map meshes for cleanup
+            lastThrowRating: null   // Last throw rating for display
         };
 
         // Per-game stats tracking (reset each match)
@@ -6434,17 +6431,17 @@
                     </div>`);
                 }
 
-                // DB penalty (raw, before throw quality reduction)
+                // DB penalty (raw, before shoulder reduction)
                 if (catchInfo.isContested && catchInfo.dbPenalty > 0) {
                     modRows.push(makeRow('DB penalty', `-${catchInfo.dbPenalty}%`, false));
                 }
 
-                // Throw quality bonus (hit in stride = reduced DB penalty)
-                if (catchInfo.throwQualityBonus > 0) {
-                    const qualityLabel = catchInfo.throwQualityScore >= 80 ? 'in stride' :
-                                        catchInfo.throwQualityScore >= 60 ? 'good' :
-                                        catchInfo.throwQualityScore >= 40 ? 'adjusted' : 'off-target';
-                    modRows.push(makeRow(`Throw (${qualityLabel})`, `${catchInfo.throwQualityBonus}%`, true));
+                // Shoulder throw bonus (reduction of DB penalty)
+                if (catchInfo.hasSideBonus && catchInfo.shoulderBonusSaved > 0) {
+                    const leadLabel = catchInfo.leadQuality >= 80 ? 'perfect' :
+                                     catchInfo.leadQuality >= 60 ? 'good' :
+                                     catchInfo.leadQuality >= 40 ? 'ok' : 'poor';
+                    modRows.push(makeRow(`Shoulder (${leadLabel} lead)`, `${catchInfo.shoulderBonusSaved}%`, true));
                 }
 
                 // Final probability
@@ -7409,7 +7406,6 @@
             gameState.ballInFlight = true;
             gameState.canThrow = false;
             updateMessage('');
-            clearThrowHeatMap();
 
             // Capture receiver positions and velocities at throw time for rating calculation
             gameState.receiverVelocitiesAtThrow = {};
@@ -7769,8 +7765,8 @@
                 // Calculate throw rating first (need lead score for catch probability)
                 const throwRating = calculateThrowRating(potentialCatcher, ballPosition, gameState.gameTime);
 
-                // Calculate catch probability (returns detailed info) - pass throw rating for quality bonus
-                const catchInfo = calculateCatchProbability(potentialCatcher, ballPosition, throwRating);
+                // Calculate catch probability (returns detailed info) - pass lead score for shoulder bonus scaling
+                const catchInfo = calculateCatchProbability(potentialCatcher, ballPosition, throwRating.leadScore);
                 const catchRoll = Math.random() * 100;
                 const success = catchRoll < catchInfo.probability;
 
@@ -7873,25 +7869,10 @@
                     // Slowdown
                     const slowPct = throwRating.slowdownScore || 100;
                     const slowLabel = slowPct >= 90 ? 'in stride' : slowPct >= 70 ? 'adjusted' : 'had to stop';
-                    modRows.push(`<div style="display:flex; justify-content:space-between; margin: 4px 0;">
+                    modRows.push(`<div style="display:flex; justify-content:space-between; margin: 4px 0; padding-bottom: 6px; border-bottom: 1px solid #333;">
                         <span style="color:#888;">WR speed (${slowLabel})</span>
                         <span style="color:${getScoreColor(slowPct)}; font-weight:bold;">${Math.round(slowPct)}</span>
                     </div>`);
-
-                    // Debug info for slowdown calculation
-                    if (throwRating.debugInfo) {
-                        const dbg = throwRating.debugInfo;
-                        modRows.push(`<div style="display:flex; justify-content:space-between; margin: 2px 0; font-size: 11px;">
-                            <span style="color:#666;">Flight: ${dbg.flightTime}s @ ${dbg.receiverSpeed}yd/s</span>
-                            <span style="color:#666;">Exp: ${dbg.expectedDist}yd</span>
-                        </div>`);
-                        modRows.push(`<div style="display:flex; justify-content:space-between; margin: 2px 0; padding-bottom: 6px; border-bottom: 1px solid #333; font-size: 11px;">
-                            <span style="color:#666;">Actual dist: ${dbg.actualDist}yd</span>
-                            <span style="color:#666;">Ratio: ${dbg.speedRatio}</span>
-                        </div>`);
-                    } else {
-                        modRows.push(`<div style="padding-bottom: 6px; border-bottom: 1px solid #333;"></div>`);
-                    }
 
                     // Base catch rate (from catching stat)
                     modRows.push(`<div style="display:flex; justify-content:space-between; margin: 4px 0;">
@@ -7899,17 +7880,20 @@
                         <span style="color:#4f4; font-weight:bold;">${Math.round(catchInfo.wideOpenRate)}%</span>
                     </div>`);
 
-                    // DB penalty (raw, before throw quality reduction)
+                    // DB penalty (raw, before shoulder reduction)
                     if (catchInfo.isContested && catchInfo.dbPenalty > 0) {
                         modRows.push(makeRow('DB penalty', `-${catchInfo.dbPenalty}%`, false));
                     }
 
-                    // Throw quality bonus (hit in stride = reduced DB penalty)
-                    if (catchInfo.throwQualityBonus > 0) {
-                        const qualityLabel = catchInfo.throwQualityScore >= 80 ? 'in stride' :
-                                            catchInfo.throwQualityScore >= 60 ? 'good' :
-                                            catchInfo.throwQualityScore >= 40 ? 'adjusted' : 'off-target';
-                        modRows.push(makeRow(`Throw (${qualityLabel})`, `${catchInfo.throwQualityBonus}%`, true));
+                    // Shoulder throw bonus (reduction of DB penalty)
+                    if (catchInfo.hasSideBonus && catchInfo.shoulderBonusSaved > 0) {
+                        const leadLabel = catchInfo.leadQuality >= 80 ? 'perfect' :
+                                         catchInfo.leadQuality >= 60 ? 'good' :
+                                         catchInfo.leadQuality >= 40 ? 'ok' : 'poor';
+                        modRows.push(makeRow(`Shoulder (${leadLabel} lead)`, `${catchInfo.shoulderBonusSaved}%`, true));
+                    } else if (catchInfo.hasSideBonus) {
+                        // Shoulder throw detected but no bonus due to poor lead
+                        modRows.push(makeRow('Shoulder (poor lead)', '0%', false));
                     }
 
                     // Final probability line
@@ -8106,18 +8090,19 @@
         };
 
         // Calculate catch probability based on receiver stats and proximity to defenders
-        // FORMULA:
-        // baseCatchRate = (catching - 50) × 2.5 + 20  -> 70→70%, 80→95%, 90→120%
-        // dbPenalty = dbCoverage × 1.5 × proximity² × tightCoverageBonus
-        // throwQualityReduction = up to 50% of DB penalty based on how well WR was hit in stride
+        // NEW SIMPLIFIED FORMULA:
+        // baseCatchRate = (catching - 50) × 2 + 20  -> 70→60%, 80→80%, 90→100%
+        // dbPenalty = dbCoverage × 0.7 × proximity²
+        // shoulderReduction = up to 50% of DB penalty with perfect lead
         // finalRate = baseCatchRate - effectiveDbPenalty
-        const calculateCatchProbability = (receiver, ballPosition, throwRating = null) => {
+        const calculateCatchProbability = (receiver, ballPosition, leadScore = 50) => {
             const catchingStat = receiver.stats.catching;
             const coverageRange = CLASH_CONSTANTS.CLASH_RANGE * 1.5;
 
-            // Find closest defender
+            // Find closest defender and check for shoulder throw
             let closestDefenderDist = coverageRange;
             let closestDefenderCoverage = 0;
+            let hasSideBonus = false;
             let hasNearbyDefender = false;
             let defenderDetails = [];
 
@@ -8141,11 +8126,19 @@
                         closestDefenderCoverage = coverageStat;
                     }
 
+                    // Check for shoulder throw (ball on opposite side from defender)
+                    const ballDx = ballPosition.x - receiver.position.x;
+                    const ballDz = ballPosition.z - receiver.position.z;
+                    const dotProduct = dx * ballDx + dz * ballDz;
+                    const isShoulder = dotProduct < 0;
+                    if (isShoulder) hasSideBonus = true;
+
                     defenderDetails.push({
                         name: defender.name,
                         dist: dist.toFixed(2),
                         coverageStat: coverageStat,
-                        aiType: defender.aiType
+                        aiType: defender.aiType,
+                        sideBonus: isShoulder
                     });
                 }
             });
@@ -8164,8 +8157,9 @@
                     separation: coverageRange,
                     coverageLevel: 'Wide Open',
                     isContested: false,
-                    throwQualityBonus: 0,
-                    throwQualityScore: 0,
+                    hasSideBonus: false,
+                    shoulderBonusSaved: 0,
+                    leadQuality: 0,
                     dbPenalty: 0,
                     defenderDetails: []
                 };
@@ -8177,21 +8171,14 @@
             const tightCoverageBonus = closestDefenderDist <= 0.7 ? 1.2 : 1.0;  // +20% penalty for tight coverage
             const rawDbPenalty = closestDefenderCoverage * 1.5 * proximityFactor * proximityFactor * tightCoverageBonus;
 
-            // THROW QUALITY BONUS: reduces DB penalty by up to 50% based on hitting WR in stride
-            // Uses lead score (how well ball was placed ahead) and slowdown score (did WR maintain speed)
-            let throwQualityReduction = 0;
-            let throwQualityBonus = 0;
-            let throwQualityScore = 50;  // default if no throw rating
-            if (throwRating) {
-                const leadScore = throwRating.leadScore || 50;
-                const slowdownScore = throwRating.slowdownScore || 50;
-                // Combine lead and stride into overall throw quality (0-100)
-                throwQualityScore = (leadScore + slowdownScore) / 2;
-                // Convert to 0-50% reduction
-                throwQualityReduction = (throwQualityScore / 100) * 0.5;
-                throwQualityBonus = Math.round(rawDbPenalty * throwQualityReduction);
+            // SHOULDER THROW: reduces DB penalty by up to 50% based on lead quality
+            let shoulderReduction = 0;
+            let shoulderBonusSaved = 0;
+            if (hasSideBonus) {
+                shoulderReduction = (leadScore / 100) * 0.5;  // 0 to 0.5
+                shoulderBonusSaved = Math.round(rawDbPenalty * shoulderReduction);
             }
-            const effectiveDbPenalty = rawDbPenalty * (1 - throwQualityReduction);
+            const effectiveDbPenalty = rawDbPenalty * (1 - shoulderReduction);
 
             // FINAL PROBABILITY
             const finalProbability = Math.max(5, Math.min(98, baseCatchRate - effectiveDbPenalty));
@@ -8210,8 +8197,9 @@
                 separation: closestDefenderDist,
                 coverageLevel: coverageLevel,
                 isContested: true,
-                throwQualityBonus: throwQualityBonus,
-                throwQualityScore: Math.round(throwQualityScore),
+                hasSideBonus: hasSideBonus,
+                shoulderBonusSaved: shoulderBonusSaved,
+                leadQuality: Math.round(leadScore),
                 dbPenalty: Math.round(rawDbPenalty),
                 effectiveDbPenalty: Math.round(effectiveDbPenalty),
                 defenderDetails: defenderDetails
@@ -8775,11 +8763,6 @@
                             receiver.bodyMaterial.emissiveColor = BABYLON.Color3.Black();
                         }
                     });
-
-                    // Update throw heat map visualization if enabled
-                    if (gameState.showThrowHeatMap) {
-                        updateThrowHeatMap();
-                    }
 
                     // Route completion no longer triggers reset - play continues normally
 
@@ -10166,7 +10149,6 @@
             let slowdownScore = 100;
             let leadDistance = 0;
             let lateralOffset = 0;
-            let debugInfo = null;
 
             if (velocityMagnitude > 0.1) {
                 // Normalize velocity direction
@@ -10223,16 +10205,9 @@
                 const speedRatio = expectedDistance > 0.1 ?
                     Math.min(1, actualDistance / expectedDistance) : 1;
 
+                // Perfect throw = receiver maintained speed (ratio ~1)
+                // Bad throw = receiver had to slow/stop (ratio < 1)
                 slowdownScore = speedRatio * 100;
-
-                // Store debug info for display
-                debugInfo = {
-                    flightTime: flightTime.toFixed(2),
-                    receiverSpeed: velocityMagnitude.toFixed(1),
-                    expectedDist: expectedDistance.toFixed(1),
-                    actualDist: actualDistance.toFixed(1),
-                    speedRatio: speedRatio.toFixed(2)
-                };
             } else {
                 // Stationary receiver - just measure distance to ball
                 const directDist = distToBall;
@@ -10276,83 +10251,8 @@
                 leadDistance: leadDistance,
                 lateralOffset: lateralOffset,
                 leadText: leadText + lateralText,
-                details: `Lead: ${leadText}${lateralText} | Slowdown: ${Math.round(slowdownScore)}%`,
-                debugInfo: debugInfo
+                details: `Lead: ${leadText}${lateralText} | Slowdown: ${Math.round(slowdownScore)}%`
             };
-        }
-
-        // Clear heat map meshes
-        function clearThrowHeatMap() {
-            if (gameState.heatMapMeshes) {
-                gameState.heatMapMeshes.forEach(mesh => mesh.dispose());
-                gameState.heatMapMeshes = [];
-            }
-        }
-
-        // Draw throw heat map showing ideal/medium/poor zones for each receiver
-        function updateThrowHeatMap() {
-            if (!gameState.showThrowHeatMap || !gameState.scene) return;
-
-            // Clear existing meshes
-            clearThrowHeatMap();
-
-            const scene = gameState.scene;
-            const qbPos = scene.qb ? scene.qb.position : new BABYLON.Vector3(0, 0, gameState.qbStartZ);
-
-            // For each receiver, draw their throw zones
-            gameState.receivers.forEach((receiver, idx) => {
-                if (!receiver.velocity) return;
-
-                const pos = receiver.position;
-                const vel = { x: receiver.velocity.x * 60, z: receiver.velocity.z * 60 };
-                const speed = Math.sqrt(vel.x * vel.x + vel.z * vel.z);
-
-                if (speed < 0.1) return;
-
-                // Estimate flight times for different throw distances
-                const throwSpeed = 25;
-
-                // Create zones along the receiver's trajectory
-                for (let t = 0.3; t <= 2.0; t += 0.2) {
-                    const futureX = pos.x + vel.x * t;
-                    const futureZ = pos.z + vel.z * t;
-
-                    const distToQB = Math.sqrt(
-                        Math.pow(futureX - qbPos.x, 2) +
-                        Math.pow(futureZ - qbPos.z, 2)
-                    );
-
-                    const ballFlightTime = distToQB / throwSpeed;
-                    const timeDiff = Math.abs(t - ballFlightTime);
-
-                    let color;
-                    if (timeDiff < 0.15) {
-                        color = new BABYLON.Color3(0, 1, 0);
-                    } else if (timeDiff < 0.35) {
-                        color = new BABYLON.Color3(1, 1, 0);
-                    } else if (timeDiff < 0.6) {
-                        color = new BABYLON.Color3(1, 0.5, 0);
-                    } else {
-                        color = new BABYLON.Color3(1, 0, 0);
-                    }
-
-                    const zoneMesh = BABYLON.MeshBuilder.CreateDisc(
-                        `heatZone_${idx}_${t}`,
-                        { radius: 0.3, tessellation: 16 },
-                        scene
-                    );
-                    zoneMesh.position = new BABYLON.Vector3(futureX, 0.02, futureZ);
-                    zoneMesh.rotation.x = Math.PI / 2;
-
-                    const zoneMat = new BABYLON.StandardMaterial(`heatZoneMat_${idx}_${t}`, scene);
-                    zoneMat.diffuseColor = color;
-                    zoneMat.emissiveColor = color.scale(0.5);
-                    zoneMat.alpha = 0.4;
-                    zoneMesh.material = zoneMat;
-
-                    gameState.heatMapMeshes.push(zoneMesh);
-                }
-            });
         }
 
         // Update game player meshes with roster data
@@ -10962,17 +10862,6 @@
         document.getElementById('viewIso').addEventListener('click', () => setCameraView('iso'));
         document.getElementById('viewOverhead').addEventListener('click', () => setCameraView('overhead'));
         document.getElementById('viewShoulder').addEventListener('click', () => setCameraView('shoulder'));
-
-        // Keyboard shortcuts for debug features
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'h' || e.key === 'H') {
-                gameState.showThrowHeatMap = !gameState.showThrowHeatMap;
-                if (!gameState.showThrowHeatMap) {
-                    clearThrowHeatMap();
-                }
-                console.log('Throw heat map:', gameState.showThrowHeatMap ? 'ON' : 'OFF');
-            }
-        });
 
         engine.runRenderLoop(() => {
             scene.render();
