@@ -10184,23 +10184,21 @@
                 // Perfect = on the line, 3+ yards off = significant penalty
                 lateralScore = Math.max(0, 100 - lateralOffset * 25);
 
-                // 3. SLOWDOWN MEASUREMENT: Compare expected vs actual distance traveled
-                // Expected: receiver running at full speed for flight time
-                const expectedDistance = velocityMagnitude * flightTime;
-                // Actual: where receiver ended up vs where they started
-                const actualPos = receiver.position;
-                const actualDistance = Math.sqrt(
-                    Math.pow(actualPos.x - throwPos.x, 2) +
-                    Math.pow(actualPos.z - throwPos.z, 2)
+                // 3. SLOWDOWN MEASUREMENT: Check receiver's current velocity at catch time
+                // If receiver had to stop and wait for the ball, their current velocity will be low
+                const currentVel = receiver.velocity || { x: 0, z: 0 };
+                const currentVelMag = Math.sqrt(
+                    Math.pow(currentVel.x * 60, 2) +
+                    Math.pow(currentVel.z * 60, 2)
                 );
 
-                // Slowdown ratio: 1.0 = full speed, 0.5 = half speed
-                const speedRatio = expectedDistance > 0.1 ?
-                    Math.min(1, actualDistance / expectedDistance) : 1;
+                // Compare current speed to speed at throw time
+                // Perfect throw = receiver still running at full speed (ratio ~1)
+                // Bad throw = receiver had to stop/wait (ratio ~0)
+                const speedRetention = velocityMagnitude > 0.1 ?
+                    Math.min(1, currentVelMag / velocityMagnitude) : 1;
 
-                // Perfect throw = receiver maintained speed (ratio ~1)
-                // Bad throw = receiver had to slow/stop (ratio < 1)
-                slowdownScore = speedRatio * 100;
+                slowdownScore = speedRetention * 100;
             } else {
                 // Stationary receiver - just measure distance to ball
                 const directDist = distToBall;
