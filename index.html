@@ -6319,6 +6319,75 @@
             }
         };
 
+        // Show play result popup (game mode - not training)
+        const showPlayResult = (result) => {
+            if (gameState.trainingMode) return;  // Training mode has its own popup
+
+            const popup = document.getElementById('playResultPopup');
+            const mainEl = document.getElementById('playResultMain');
+            const detailEl = document.getElementById('playResultDetail');
+            const downEl = document.getElementById('playResultDown');
+            const fieldPosEl = document.getElementById('playResultFieldPos');
+
+            if (result.type === 'incomplete') {
+                mainEl.textContent = 'INCOMPLETE';
+                mainEl.style.color = '#f66';
+                detailEl.textContent = result.detail || '';
+            } else if (result.type === 'touchdown') {
+                mainEl.textContent = 'TOUCHDOWN!';
+                mainEl.style.color = '#4f4';
+                detailEl.textContent = result.detail || '';
+            } else if (result.type === 'catch') {
+                const yards = result.yards;
+                if (yards > 0) {
+                    mainEl.textContent = `+${yards} YDS`;
+                    mainEl.style.color = '#4f4';
+                } else if (yards < 0) {
+                    mainEl.textContent = `${yards} YDS`;
+                    mainEl.style.color = '#f66';
+                } else {
+                    mainEl.textContent = 'NO GAIN';
+                    mainEl.style.color = '#ff4';
+                }
+                detailEl.textContent = result.detail || '';
+            } else if (result.type === 'sack') {
+                mainEl.textContent = `${result.yards} YDS`;
+                mainEl.style.color = '#f66';
+                detailEl.textContent = 'SACKED!';
+            }
+
+            // Show next down info
+            if (result.nextDown) {
+                downEl.textContent = result.nextDown;
+                downEl.style.display = 'block';
+            } else {
+                downEl.style.display = 'none';
+            }
+
+            // Calculate and show field position
+            const END_ZONE_Z = 11;
+            const yardsFromGoal = Math.round(END_ZONE_Z - gameState.lineOfScrimmage);
+            let fieldPosText = '';
+            if (yardsFromGoal <= 0) {
+                fieldPosText = 'Ball at: GOAL LINE';
+            } else if (yardsFromGoal <= 50) {
+                fieldPosText = yardsFromGoal === 50 ? 'Ball at: MIDFIELD' : `Ball at: OPP ${yardsFromGoal}`;
+            } else {
+                const ownYardLine = 100 - yardsFromGoal;
+                fieldPosText = `Ball at: OWN ${ownYardLine}`;
+            }
+            fieldPosEl.textContent = fieldPosText;
+
+            popup.style.display = 'block';
+
+            // Require tap to dismiss (like training mode)
+            const dismissPopup = () => {
+                popup.style.display = 'none';
+                popup.removeEventListener('click', dismissPopup);
+            };
+            popup.addEventListener('click', dismissPopup);
+        };
+
         // Handle QB sack
         const handleSack = (scene, tackler) => {
             if (gameState.playEnded) return;
@@ -8430,75 +8499,6 @@
 
         const updateMessage = (msg) => {
             // Message display removed
-        };
-
-        // Show play result popup (game mode - not training)
-        const showPlayResult = (result) => {
-            if (gameState.trainingMode) return;  // Training mode has its own popup
-
-            const popup = document.getElementById('playResultPopup');
-            const mainEl = document.getElementById('playResultMain');
-            const detailEl = document.getElementById('playResultDetail');
-            const downEl = document.getElementById('playResultDown');
-            const fieldPosEl = document.getElementById('playResultFieldPos');
-
-            if (result.type === 'incomplete') {
-                mainEl.textContent = 'INCOMPLETE';
-                mainEl.style.color = '#f66';
-                detailEl.textContent = result.detail || '';
-            } else if (result.type === 'touchdown') {
-                mainEl.textContent = 'TOUCHDOWN!';
-                mainEl.style.color = '#4f4';
-                detailEl.textContent = result.detail || '';
-            } else if (result.type === 'catch') {
-                const yards = result.yards;
-                if (yards > 0) {
-                    mainEl.textContent = `+${yards} YDS`;
-                    mainEl.style.color = '#4f4';
-                } else if (yards < 0) {
-                    mainEl.textContent = `${yards} YDS`;
-                    mainEl.style.color = '#f66';
-                } else {
-                    mainEl.textContent = 'NO GAIN';
-                    mainEl.style.color = '#ff4';
-                }
-                detailEl.textContent = result.detail || '';
-            } else if (result.type === 'sack') {
-                mainEl.textContent = `${result.yards} YDS`;
-                mainEl.style.color = '#f66';
-                detailEl.textContent = 'SACKED!';
-            }
-
-            // Show next down info
-            if (result.nextDown) {
-                downEl.textContent = result.nextDown;
-                downEl.style.display = 'block';
-            } else {
-                downEl.style.display = 'none';
-            }
-
-            // Calculate and show field position
-            const END_ZONE_Z = 11;
-            const yardsFromGoal = Math.round(END_ZONE_Z - gameState.lineOfScrimmage);
-            let fieldPosText = '';
-            if (yardsFromGoal <= 0) {
-                fieldPosText = 'Ball at: GOAL LINE';
-            } else if (yardsFromGoal <= 50) {
-                fieldPosText = yardsFromGoal === 50 ? 'Ball at: MIDFIELD' : `Ball at: OPP ${yardsFromGoal}`;
-            } else {
-                const ownYardLine = 100 - yardsFromGoal;
-                fieldPosText = `Ball at: OWN ${ownYardLine}`;
-            }
-            fieldPosEl.textContent = fieldPosText;
-
-            popup.style.display = 'block';
-
-            // Require tap to dismiss (like training mode)
-            const dismissPopup = () => {
-                popup.style.display = 'none';
-                popup.removeEventListener('click', dismissPopup);
-            };
-            popup.addEventListener('click', dismissPopup);
         };
 
         // Update debug info display
