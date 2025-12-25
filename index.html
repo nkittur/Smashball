@@ -7409,12 +7409,15 @@
             updateMessage('');
             clearThrowHeatMap();
 
-            // Capture receiver positions and velocities at throw time for rating calculation
+            // Capture receiver positions, velocities, and speeds at throw time for rating calculation
             gameState.receiverVelocitiesAtThrow = {};
             gameState.receiverPositionsAtThrow = {};
+            gameState.receiverSpeedsAtThrow = {};
             gameState.receivers.forEach(receiver => {
                 gameState.receiverVelocitiesAtThrow[receiver.name] = receiver.velocity ? receiver.velocity.clone() : new BABYLON.Vector3(0, 0, 0);
                 gameState.receiverPositionsAtThrow[receiver.name] = receiver.position.clone();
+                // Capture current speed (includes any active boost)
+                gameState.receiverSpeedsAtThrow[receiver.name] = receiver.speed || receiver.baseSpeed;
             });
             gameState.throwStartTime = performance.now();
 
@@ -10140,9 +10143,10 @@
 
         // Calculate throw rating based on lead accuracy, lateral offset, and receiver slowdown
         function calculateThrowRating(receiver, ballLandingPos, catchTime) {
-            // Get receiver's position and velocity at THROW time (not catch time)
+            // Get receiver's position, velocity, and speed at THROW time (not catch time)
             const throwPos = gameState.receiverPositionsAtThrow && gameState.receiverPositionsAtThrow[receiver.name];
             const throwVelocity = gameState.receiverVelocitiesAtThrow && gameState.receiverVelocitiesAtThrow[receiver.name];
+            const throwSpeed = gameState.receiverSpeedsAtThrow && gameState.receiverSpeedsAtThrow[receiver.name];
 
             if (!throwPos || !throwVelocity) {
                 return { grade: 'C', score: 50, details: 'No throw data', leadScore: 50 };
@@ -10152,11 +10156,14 @@
             const flightTime = gameState.throwStartTime ?
                 (performance.now() - gameState.throwStartTime) / 1000 : 1.5;
 
-            // Get velocity magnitude at throw time (velocity is per-frame, convert to per-second)
+            // Get velocity direction at throw time (velocity is per-frame, convert to per-second)
             const velPerSec = { x: throwVelocity.x * 60, z: throwVelocity.z * 60 };
             const velocityMagnitude = Math.sqrt(
                 velPerSec.x * velPerSec.x + velPerSec.z * velPerSec.z
             );
+
+            // Use stored speed (includes boosts) for expected distance, fallback to velocity magnitude
+            const receiverSpeed = throwSpeed || velocityMagnitude;
 
             // Vector from receiver (at throw time) to ball landing
             const toBall = new BABYLON.Vector3(
@@ -10215,8 +10222,8 @@
                 lateralScore = Math.max(0, 100 - lateralOffset * 25);
 
                 // 3. SLOWDOWN MEASUREMENT: Compare expected vs actual distance traveled
-                // Expected: receiver running at full speed for flight time
-                const expectedDistance = velocityMagnitude * flightTime;
+                // Expected: receiver running at their current speed (including boosts) for flight time
+                const expectedDistance = receiverSpeed * flightTime;
                 // Actual: where receiver ended up vs where they started
                 const actualPos = receiver.position;
                 const actualDistance = Math.sqrt(
@@ -10231,13 +10238,11 @@
                 slowdownScore = speedRatio * 100;
 
                 // Store debug info for display
-                // Note: actual can exceed expected if receiver got speed boost from clash
-                const wasBoosted = actualDistance > expectedDistance;
                 debugInfo = {
                     flightTime: flightTime.toFixed(2),
-                    receiverSpeed: velocityMagnitude.toFixed(1),
+                    receiverSpeed: receiverSpeed.toFixed(1),
                     expectedDist: expectedDistance.toFixed(1),
-                    actualDist: actualDistance.toFixed(1) + (wasBoosted ? '★' : ''),
+                    actualDist: actualDistance.toFixed(1),
                     speedRatio: speedRatio.toFixed(2)
                 };
             } else {
