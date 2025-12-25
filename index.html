@@ -7600,15 +7600,8 @@
                             return;
                         }
 
-                        // Reset speed to base when boost/penalty expires (also during ball flight)
-                        if (receiver.clashSpeedBoostUntil > 0 && receiver.clashSpeedBoostUntil <= gameState.gameTime) {
-                            receiver.speed = receiver.baseSpeed;
-                            receiver.clashSpeedBoostUntil = 0;
-                        }
-                        if (receiver.clashSpeedPenaltyUntil > 0 && receiver.clashSpeedPenaltyUntil <= gameState.gameTime) {
-                            receiver.speed = receiver.baseSpeed;
-                            receiver.clashSpeedPenaltyUntil = 0;
-                        }
+                        // Don't expire speed boosts during ball flight - keep speed locked for accurate throw rating
+                        // Speed boosts will expire after the catch/incompletion
 
                         // Calculate distance to ball landing spot
                         const dx = landingPos.x - receiver.position.x;
@@ -9254,6 +9247,9 @@
 
         // Process all clashes in the game
         const processClashes = () => {
+            // Skip clashes during ball flight to keep speed/distance calculations accurate
+            if (gameState.ballInFlight) return;
+
             gameState.receivers.forEach((receiver, rIndex) => {
                 gameState.defenders.forEach((defender, dIndex) => {
                     const clashCheck = shouldTriggerClash(receiver, defender);
