@@ -8166,6 +8166,11 @@
                     receiver.nameLabel.alpha = 0;
                 }
             });
+            gameState.defenders.forEach(defender => {
+                if (defender.nameLabel) {
+                    defender.nameLabel.alpha = 0;
+                }
+            });
         };
 
         // Show player labels when play is frozen
@@ -8176,6 +8181,11 @@
             gameState.receivers.forEach(receiver => {
                 if (receiver.nameLabel) {
                     receiver.nameLabel.alpha = 1;
+                }
+            });
+            gameState.defenders.forEach(defender => {
+                if (defender.nameLabel) {
+                    defender.nameLabel.alpha = 1;
                 }
             });
         };
