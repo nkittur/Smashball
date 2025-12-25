@@ -198,9 +198,7 @@
         </div>
     </div>
     <div id="viewButtons">
-        <button id="viewIso" class="active">Iso</button>
-        <button id="viewOverhead">Top</button>
-        <button id="viewShoulder">Behind</button>
+        <button id="btnHeatMap" class="active">Heat Map: ON</button>
     </div>
     <div id="debugInfo"></div>
 
@@ -959,7 +957,7 @@
             trainingMode: false,    // Training mode: no defenders, throw ratings
             lastThrowRating: null,  // Last throw rating for display
             // Debug visualization
-            showThrowHeatMap: false,
+            showThrowHeatMap: true,
             heatMapMeshes: []
         };
 
@@ -10233,11 +10231,13 @@
                 slowdownScore = speedRatio * 100;
 
                 // Store debug info for display
+                // Note: actual can exceed expected if receiver got speed boost from clash
+                const wasBoosted = actualDistance > expectedDistance;
                 debugInfo = {
                     flightTime: flightTime.toFixed(2),
                     receiverSpeed: velocityMagnitude.toFixed(1),
                     expectedDist: expectedDistance.toFixed(1),
-                    actualDist: actualDistance.toFixed(1),
+                    actualDist: actualDistance.toFixed(1) + (wasBoosted ? '★' : ''),
                     speedRatio: speedRatio.toFixed(2)
                 };
             } else {
@@ -10914,46 +10914,18 @@
         // Show initial screen
         showScreen(managementState.currentScreen);
 
-        // Camera view switching
-        const setCameraView = (viewType) => {
-            const camera = scene.activeCamera;
-            if (!camera) return;
-            gameState.currentView = viewType;
-            document.querySelectorAll('#viewButtons button').forEach(btn => btn.classList.remove('active'));
-            switch(viewType) {
-                case 'iso':
-                    camera.alpha = -Math.PI / 2;
-                    camera.beta = Math.PI / 3.5;
-                    camera.radius = 32;
-                    document.getElementById('viewIso').classList.add('active');
-                    break;
-                case 'overhead':
-                    camera.alpha = -Math.PI / 2;
-                    camera.beta = 0.1;
-                    camera.radius = 28;
-                    document.getElementById('viewOverhead').classList.add('active');
-                    break;
-                case 'shoulder':
-                    camera.alpha = -Math.PI / 2;
-                    camera.beta = Math.PI / 2.5;
-                    camera.radius = 18;
-                    document.getElementById('viewShoulder').classList.add('active');
-                    break;
-            }
+        // Heat map toggle button
+        const heatMapBtn = document.getElementById('btnHeatMap');
+        const updateHeatMapButton = () => {
+            heatMapBtn.textContent = gameState.showThrowHeatMap ? 'Heat Map: ON' : 'Heat Map: OFF';
+            heatMapBtn.classList.toggle('active', gameState.showThrowHeatMap);
         };
-
-        document.getElementById('viewIso').addEventListener('click', () => setCameraView('iso'));
-        document.getElementById('viewOverhead').addEventListener('click', () => setCameraView('overhead'));
-        document.getElementById('viewShoulder').addEventListener('click', () => setCameraView('shoulder'));
-
-        // Keyboard shortcuts - 'H' toggles throw heat map
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'h' || e.key === 'H') {
-                gameState.showThrowHeatMap = !gameState.showThrowHeatMap;
-                if (!gameState.showThrowHeatMap) clearThrowHeatMap();
-                console.log('Throw heat map:', gameState.showThrowHeatMap ? 'ON' : 'OFF');
-            }
+        heatMapBtn.addEventListener('click', () => {
+            gameState.showThrowHeatMap = !gameState.showThrowHeatMap;
+            if (!gameState.showThrowHeatMap) clearThrowHeatMap();
+            updateHeatMapButton();
         });
+        updateHeatMapButton();
 
         engine.runRenderLoop(() => {
             scene.render();
