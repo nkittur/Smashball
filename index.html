@@ -363,6 +363,7 @@
 
         <!-- Pre-Game Matchup Screen -->
         <div id="preGameScreen" class="mgmt-screen" style="display:none;max-width:500px;">
+            <button id="btnPreGameBack" class="mgmt-btn back-btn">←</button>
             <h2 id="preGameOpponent">VS OPPONENT</h2>
             <div id="preGameTeamScores" class="pre-game-team-scores"></div>
             <div id="preGameQBScores" class="pre-game-qb-scores"></div>
@@ -4386,6 +4387,7 @@
                 zoneCenter: index === 3 ? new BABYLON.Vector3(0, 0, startZ + 8) : null,
                 zoneRadius: index === 3 ? 6 : 0,
                 zoneColor: zoneColors[index],
+                overall: player.overall,
                 stats: { ...player.stats }
             };
         }
@@ -4869,6 +4871,7 @@
                 defender.zoneCenter = config.zoneCenter;
                 defender.zoneRadius = config.zoneRadius || 5;
                 defender.stats = config.stats;
+                defender.overall = config.overall || Math.round(Object.values(config.stats).reduce((a, b) => a + b, 0) / Object.keys(config.stats).length);
                 defender.startPos = startPos.clone();
 
                 // Derive base speed from stats
@@ -5077,13 +5080,26 @@
             qb.overall = qbPlayer.overall;
             qb.displayName = `${qbPlayer.firstName} ${qbPlayer.lastName.charAt(0)}.`;
 
+            // Helper function to get rating indicator (stars) and styling for high-rated players
+            const getRatingIndicator = (overall) => {
+                if (overall >= 90) {
+                    return { stars: '★★', starColor: '#ffd700', bgTint: 'rgba(80, 60, 0, 0.85)' };  // Gold double star
+                } else if (overall >= 85) {
+                    return { stars: '★', starColor: '#ffd700', bgTint: 'rgba(50, 40, 0, 0.8)' };   // Gold single star
+                } else if (overall >= 80) {
+                    return { stars: '☆', starColor: '#c0c0c0', bgTint: 'rgba(40, 40, 50, 0.75)' }; // Silver hollow star
+                }
+                return { stars: '', starColor: '', bgTint: null };  // No indicator below 80
+            };
+
             // Add name label to QB (stacked: name on top, OVR below bigger)
+            const qbRating = getRatingIndicator(qb.overall);
             const qbLabelRect = new BABYLON.GUI.Rectangle();
             qbLabelRect.width = '140px';
             qbLabelRect.height = '70px';
             qbLabelRect.cornerRadius = 6;
             qbLabelRect.thickness = 0;
-            qbLabelRect.background = 'rgba(0, 0, 0, 0.7)';
+            qbLabelRect.background = qbRating.bgTint || 'rgba(0, 0, 0, 0.7)';
 
             const qbStack = new BABYLON.GUI.StackPanel();
             qbStack.isVertical = true;
@@ -5099,7 +5115,7 @@
             qbNameText.height = '28px';
 
             const qbOvrText = new BABYLON.GUI.TextBlock();
-            qbOvrText.text = `${qb.overall}`;
+            qbOvrText.text = qbRating.stars ? `${qb.overall} ${qbRating.stars}` : `${qb.overall}`;
             qbOvrText.color = '#ffffff';
             qbOvrText.fontSize = 28;
             qbOvrText.fontFamily = 'Courier New';
@@ -5123,12 +5139,13 @@
 
             // Add name labels to receivers (stacked: name on top, OVR below bigger)
             gameState.receivers.forEach((receiver, i) => {
+                const wrRating = getRatingIndicator(receiver.overall);
                 const labelRect = new BABYLON.GUI.Rectangle();
                 labelRect.width = '130px';
                 labelRect.height = '65px';
                 labelRect.cornerRadius = 6;
                 labelRect.thickness = 0;
-                labelRect.background = 'rgba(0, 0, 0, 0.65)';
+                labelRect.background = wrRating.bgTint || 'rgba(0, 0, 0, 0.65)';
 
                 const stack = new BABYLON.GUI.StackPanel();
                 stack.isVertical = true;
@@ -5144,7 +5161,7 @@
                 nameText.height = '26px';
 
                 const ovrText = new BABYLON.GUI.TextBlock();
-                ovrText.text = `${receiver.overall}`;
+                ovrText.text = wrRating.stars ? `${receiver.overall} ${wrRating.stars}` : `${receiver.overall}`;
                 ovrText.color = '#ffffff';
                 ovrText.fontSize = 26;
                 ovrText.fontFamily = 'Courier New';
@@ -5166,6 +5183,67 @@
                 receiver.nameTextBlock = nameText;
                 receiver.ovrTextBlock = ovrText;
             });
+
+            // Add name labels to defenders (DBs) - only if not in training mode
+            if (!gameState.trainingMode) {
+                // Defender-specific rating indicator with red theme
+                const getDefenderRatingIndicator = (overall) => {
+                    if (overall >= 90) {
+                        return { stars: '★★', bgTint: 'rgba(100, 40, 40, 0.9)' };  // Elite - darker red with gold stars
+                    } else if (overall >= 85) {
+                        return { stars: '★', bgTint: 'rgba(80, 35, 35, 0.85)' };   // Very good
+                    } else if (overall >= 80) {
+                        return { stars: '☆', bgTint: 'rgba(60, 30, 30, 0.8)' };    // Good - silver star
+                    }
+                    return { stars: '', bgTint: 'rgba(40, 20, 20, 0.75)' };  // Default
+                };
+
+                gameState.defenders.forEach((defender, i) => {
+                    const dbRating = getDefenderRatingIndicator(defender.overall);
+                    const labelRect = new BABYLON.GUI.Rectangle();
+                    labelRect.width = '130px';
+                    labelRect.height = '65px';
+                    labelRect.cornerRadius = 6;
+                    labelRect.thickness = 0;
+                    labelRect.background = dbRating.bgTint;
+
+                    const stack = new BABYLON.GUI.StackPanel();
+                    stack.isVertical = true;
+
+                    const nameText = new BABYLON.GUI.TextBlock();
+                    nameText.text = defender.displayName.toUpperCase();
+                    nameText.color = '#ff6666';
+                    nameText.fontSize = 16;
+                    nameText.fontFamily = 'Courier New';
+                    nameText.fontWeight = 'bold';
+                    nameText.outlineWidth = 3;
+                    nameText.outlineColor = '#000000';
+                    nameText.height = '24px';
+
+                    const ovrText = new BABYLON.GUI.TextBlock();
+                    ovrText.text = dbRating.stars ? `${defender.overall} ${dbRating.stars}` : `${defender.overall}`;
+                    ovrText.color = '#ffffff';
+                    ovrText.fontSize = 24;
+                    ovrText.fontFamily = 'Courier New';
+                    ovrText.fontWeight = 'bold';
+                    ovrText.outlineWidth = 4;
+                    ovrText.outlineColor = '#000000';
+                    ovrText.height = '32px';
+
+                    stack.addControl(nameText);
+                    stack.addControl(ovrText);
+                    labelRect.addControl(stack);
+
+                    advancedTexture.addControl(labelRect);
+                    labelRect.linkWithMesh(defender);
+                    labelRect.linkOffsetY = -65;
+                    labelRect.alpha = 1;
+
+                    defender.nameLabel = labelRect;
+                    defender.nameTextBlock = nameText;
+                    defender.ovrTextBlock = ovrText;
+                });
+            }
 
             // Store GUI reference
             scene.gui = advancedTexture;
@@ -10457,6 +10535,7 @@
             const result = startMatch();
             if (result.success) startArcadeGame();
         });
+        document.getElementById('btnPreGameBack').addEventListener('click', () => showScreen('hub'));
         document.getElementById('btnRoster').addEventListener('click', () => showScreen('roster'));
         document.getElementById('btnFreeAgency').addEventListener('click', () => showScreen('free_agency'));
         document.getElementById('btnSchedule').addEventListener('click', () => showScreen('schedule'));
