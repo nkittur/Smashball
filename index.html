@@ -7090,14 +7090,14 @@
             let lastTrailPos = null;
             const trailSpacing = 0.3; // Distance between trail particles
 
-            // Create target circle at landing position
+            // Create target circle at landing position (torus is horizontal by default in XZ plane)
             const targetCircle = BABYLON.MeshBuilder.CreateTorus('targetCircle', {
-                diameter: 2.0,
-                thickness: 0.08,
+                diameter: 1.5,
+                thickness: 0.15,
                 tessellation: 32
             }, scene);
             targetCircle.position = new BABYLON.Vector3(landingPos.x, 0.05, landingPos.z);
-            targetCircle.rotation.x = Math.PI / 2; // Lay flat on ground
+            // No rotation needed - torus is already in XZ plane (horizontal)
             const targetMaterial = new BABYLON.StandardMaterial('targetMat', scene);
             targetMaterial.diffuseColor = new BABYLON.Color3(1, 1, 0.3);
             targetMaterial.emissiveColor = new BABYLON.Color3(1, 0.8, 0);
