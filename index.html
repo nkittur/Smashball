@@ -6432,10 +6432,15 @@
                 }
 
                 // DB coverage penalty if contested
+                // Show the RAW penalty (before shoulder bonus), so the math adds up
                 if (catchInfo.isContested) {
-                    const penalty = Math.round(catchInfo.wideOpenRate - catchInfo.probability + (catchInfo.focusMod || 0));
-                    if (penalty > 0) {
-                        modRows.push(makeRow('DB coverage penalty', `-${penalty}%`, false));
+                    const rawPenalty = Math.round(
+                        catchInfo.wideOpenRate - catchInfo.probability +
+                        (catchInfo.focusMod || 0) +
+                        (catchInfo.shoulderBonusSaved || 0)
+                    );
+                    if (rawPenalty > 0) {
+                        modRows.push(makeRow('DB coverage penalty', `-${rawPenalty}%`, false));
                     }
                 }
 
@@ -7890,11 +7895,15 @@
                     </div>`);
 
                     // If contested, show the DB coverage penalty clearly
+                    // Show the RAW penalty (before shoulder bonus), so the math adds up
                     if (catchInfo.isContested) {
-                        // Show the penalty as the difference from wide open
-                        const penalty = Math.round(catchInfo.wideOpenRate - catchInfo.probability + (catchInfo.focusMod || 0));
-                        if (penalty > 0) {
-                            modRows.push(makeRow('DB coverage penalty', `-${penalty}%`, false));
+                        const rawPenalty = Math.round(
+                            catchInfo.wideOpenRate - catchInfo.probability +
+                            (catchInfo.focusMod || 0) +
+                            (catchInfo.shoulderBonusSaved || 0)
+                        );
+                        if (rawPenalty > 0) {
+                            modRows.push(makeRow('DB coverage penalty', `-${rawPenalty}%`, false));
                         }
                     }
 
