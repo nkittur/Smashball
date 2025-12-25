@@ -10129,7 +10129,11 @@
                 };
 
                 gameState.defenders.forEach((defender, index) => {
-                    const player = oppCBs[index];
+                    // Use opponent CB if available, otherwise generate a walk-on
+                    let player = oppCBs[index];
+                    if (!player) {
+                        player = generateWalkOn('CB');
+                    }
                     if (player && defender) {
                         defender.playerId = player.id;
                         defender.displayName = `${player.firstName} ${player.lastName.charAt(0)}.`;
