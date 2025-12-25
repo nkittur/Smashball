@@ -180,6 +180,7 @@
     <div id="topBar">
         <div id="downDistance">
             <span class="down">1st</span> & <span class="distance">10</span>
+            <span class="field-pos" style="margin-left: 12px; color: #8cf;"></span>
         </div>
         <div id="score">
             <span><span class="label">Catches</span> <span class="catches">0/0</span></span>
@@ -271,18 +272,21 @@
             left: 50%;
             transform: translateX(-50%);
             background: rgba(0,0,0,0.92);
-            padding: 16px 24px;
+            padding: 20px 28px;
             border-radius: 12px;
             color: white;
             font-family: 'Courier New', monospace;
             text-align: center;
             z-index: 1000;
             display: none;
-            min-width: 200px;
+            min-width: 220px;
+            cursor: pointer;
         ">
-            <div id="playResultMain" style="font-size: 36px; font-weight: bold;"></div>
+            <div id="playResultMain" style="font-size: 42px; font-weight: bold;"></div>
             <div id="playResultDetail" style="font-size: 14px; color: #aaa; margin-top: 6px;"></div>
-            <div id="playResultDown" style="font-size: 12px; color: #888; margin-top: 8px;"></div>
+            <div id="playResultDown" style="font-size: 14px; color: #8cf; margin-top: 12px; padding-top: 10px; border-top: 1px solid #444;"></div>
+            <div id="playResultFieldPos" style="font-size: 12px; color: #888; margin-top: 4px;"></div>
+            <div id="playResultTap" style="margin-top: 14px; font-size: 11px; color: #666; text-transform: uppercase; letter-spacing: 1px;">tap to continue</div>
         </div>
     </div>
 
@@ -8402,8 +8406,26 @@
             const yardsToGo = Math.max(1, Math.round(gameState.yardsToGo));
             const distanceText = yardsToGo >= 10 ? '10+' : yardsToGo.toString();
 
+            // Calculate field position (yards from end zone)
+            // lineOfScrimmage goes from about -8 (own goal line) to 11 (opponent end zone)
+            // Convert to standard field position (own 1-50, then opponent 49-1)
+            const END_ZONE_Z = 11;
+            const yardsFromGoal = Math.round(END_ZONE_Z - gameState.lineOfScrimmage);
+            let fieldPosText = '';
+            if (yardsFromGoal <= 0) {
+                fieldPosText = 'GOAL';
+            } else if (yardsFromGoal <= 50) {
+                // In opponent territory or at midfield
+                fieldPosText = yardsFromGoal === 50 ? 'MID' : `OPP ${yardsFromGoal}`;
+            } else {
+                // In own territory
+                const ownYardLine = 100 - yardsFromGoal;
+                fieldPosText = `OWN ${ownYardLine}`;
+            }
+
             ddEl.querySelector('.down').textContent = downText;
             ddEl.querySelector('.distance').textContent = distanceText;
+            ddEl.querySelector('.field-pos').textContent = fieldPosText;
         };
 
         const updateMessage = (msg) => {
@@ -8418,6 +8440,7 @@
             const mainEl = document.getElementById('playResultMain');
             const detailEl = document.getElementById('playResultDetail');
             const downEl = document.getElementById('playResultDown');
+            const fieldPosEl = document.getElementById('playResultFieldPos');
 
             if (result.type === 'incomplete') {
                 mainEl.textContent = 'INCOMPLETE';
@@ -8454,12 +8477,28 @@
                 downEl.style.display = 'none';
             }
 
+            // Calculate and show field position
+            const END_ZONE_Z = 11;
+            const yardsFromGoal = Math.round(END_ZONE_Z - gameState.lineOfScrimmage);
+            let fieldPosText = '';
+            if (yardsFromGoal <= 0) {
+                fieldPosText = 'Ball at: GOAL LINE';
+            } else if (yardsFromGoal <= 50) {
+                fieldPosText = yardsFromGoal === 50 ? 'Ball at: MIDFIELD' : `Ball at: OPP ${yardsFromGoal}`;
+            } else {
+                const ownYardLine = 100 - yardsFromGoal;
+                fieldPosText = `Ball at: OWN ${ownYardLine}`;
+            }
+            fieldPosEl.textContent = fieldPosText;
+
             popup.style.display = 'block';
 
-            // Auto-hide after delay
-            setTimeout(() => {
+            // Require tap to dismiss (like training mode)
+            const dismissPopup = () => {
                 popup.style.display = 'none';
-            }, 1800);
+                popup.removeEventListener('click', dismissPopup);
+            };
+            popup.addEventListener('click', dismissPopup);
         };
 
         // Update debug info display
