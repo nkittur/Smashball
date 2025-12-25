@@ -5107,10 +5107,8 @@
                     return { stars: '★★', starColor: '#ffd700', bgTint: 'rgba(80, 60, 0, 0.85)' };  // Gold double star
                 } else if (overall >= 85) {
                     return { stars: '★', starColor: '#ffd700', bgTint: 'rgba(50, 40, 0, 0.8)' };   // Gold single star
-                } else if (overall >= 80) {
-                    return { stars: '☆', starColor: '#c0c0c0', bgTint: 'rgba(40, 40, 50, 0.75)' }; // Silver hollow star
                 }
-                return { stars: '', starColor: '', bgTint: null };  // No indicator below 80
+                return { stars: '', starColor: '', bgTint: null };  // No indicator below 85
             };
 
             // Add name label to QB (stacked: name on top, OVR below bigger)
@@ -5213,10 +5211,8 @@
                         return { stars: '★★', bgTint: 'rgba(100, 40, 40, 0.9)' };  // Elite - darker red with gold stars
                     } else if (overall >= 85) {
                         return { stars: '★', bgTint: 'rgba(80, 35, 35, 0.85)' };   // Very good
-                    } else if (overall >= 80) {
-                        return { stars: '☆', bgTint: 'rgba(60, 30, 30, 0.8)' };    // Good - silver star
                     }
-                    return { stars: '', bgTint: 'rgba(40, 20, 20, 0.75)' };  // Default
+                    return { stars: '', bgTint: 'rgba(40, 20, 20, 0.75)' };  // Default - no star below 85
                 };
 
                 gameState.defenders.forEach((defender, i) => {
@@ -10197,7 +10193,6 @@
             const getRatingText = (overall) => {
                 if (overall >= 90) return `${overall} ★★`;
                 if (overall >= 85) return `${overall} ★`;
-                if (overall >= 80) return `${overall} ☆`;
                 return `${overall}`;
             };
 
@@ -10205,12 +10200,11 @@
             const getOffenseLabelBg = (overall) => {
                 if (overall >= 90) return 'rgba(80, 60, 0, 0.85)';
                 if (overall >= 85) return 'rgba(50, 40, 0, 0.8)';
-                if (overall >= 80) return 'rgba(40, 40, 50, 0.75)';
-                return null;  // Use default
+                return null;  // Use default - no special background below 85
             };
 
             // Update QB
-            const rosterQB = getDepthChartPlayer('QB1');
+            const rosterQB = getDepthChartPlayer('QB');
             if (rosterQB && scene.qb) {
                 scene.qb.playerId = rosterQB.id;
                 scene.qb.displayName = `${rosterQB.firstName} ${rosterQB.lastName.charAt(0)}.`;
@@ -10264,7 +10258,6 @@
                 const getDefenderLabelBg = (overall) => {
                     if (overall >= 90) return 'rgba(100, 40, 40, 0.9)';
                     if (overall >= 85) return 'rgba(80, 35, 35, 0.85)';
-                    if (overall >= 80) return 'rgba(60, 30, 30, 0.8)';
                     return 'rgba(40, 20, 20, 0.75)';
                 };
 
