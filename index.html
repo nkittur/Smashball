@@ -7107,6 +7107,67 @@
             targetMaterial.alpha = 0.7;
             targetCircle.material = targetMaterial;
 
+            // Find closest receiver to ball landing and show optimal lead marker
+            let optimalLeadMarker = null;
+            let closestReceiver = null;
+            let closestDist = Infinity;
+            gameState.receivers.forEach(receiver => {
+                const pos = gameState.receiverPositionsAtThrow[receiver.name];
+                if (pos) {
+                    const dist = Math.sqrt(
+                        Math.pow(landingPos.x - pos.x, 2) +
+                        Math.pow(landingPos.z - pos.z, 2)
+                    );
+                    if (dist < closestDist) {
+                        closestDist = dist;
+                        closestReceiver = receiver;
+                    }
+                }
+            });
+
+            if (closestReceiver && gameState.trainingMode) {
+                const throwPos = gameState.receiverPositionsAtThrow[closestReceiver.name];
+                const throwVel = gameState.receiverVelocitiesAtThrow[closestReceiver.name];
+                const velMag = Math.sqrt(throwVel.x * throwVel.x + throwVel.z * throwVel.z);
+
+                if (velMag > 0.001) {
+                    // Estimate flight time based on animation speed
+                    const estFlightTime = path.length / (60 * animationSpeed);
+                    const idealLead = velMag * estFlightTime * 0.8;
+
+                    // Optimal position = throw position + velocity direction * ideal lead
+                    const optimalX = throwPos.x + (throwVel.x / velMag) * idealLead;
+                    const optimalZ = throwPos.z + (throwVel.z / velMag) * idealLead;
+
+                    // Create green X marker using two crossed cylinders
+                    const xSize = 0.8;
+                    const xThickness = 0.12;
+                    const bar1 = BABYLON.MeshBuilder.CreateCylinder('optBar1', {
+                        height: xSize, diameter: xThickness
+                    }, scene);
+                    const bar2 = BABYLON.MeshBuilder.CreateCylinder('optBar2', {
+                        height: xSize, diameter: xThickness
+                    }, scene);
+
+                    // Rotate to form X shape lying flat on field
+                    bar1.rotation.x = Math.PI / 2;
+                    bar1.rotation.y = Math.PI / 4;
+                    bar2.rotation.x = Math.PI / 2;
+                    bar2.rotation.y = -Math.PI / 4;
+
+                    bar1.position = new BABYLON.Vector3(optimalX, 0.08, optimalZ);
+                    bar2.position = new BABYLON.Vector3(optimalX, 0.08, optimalZ);
+
+                    const optimalMat = new BABYLON.StandardMaterial('optimalMat', scene);
+                    optimalMat.diffuseColor = new BABYLON.Color3(0.2, 1, 0.2);
+                    optimalMat.emissiveColor = new BABYLON.Color3(0.1, 0.8, 0.1);
+                    bar1.material = optimalMat;
+                    bar2.material = optimalMat;
+
+                    optimalLeadMarker = { bar1, bar2 };
+                }
+            }
+
             const ballAnimation = scene.onBeforeRenderObservable.add(() => {
                 const dt = scene.getEngine().getDeltaTime() * 0.001;
                 time.value += dt;
@@ -7290,12 +7351,16 @@
                 // Check if ball has landed
                 if (frameIndex >= path.length - 1) {
                     scene.onBeforeRenderObservable.remove(ballAnimation);
-                    // Clean up trail particles and target circle
+                    // Clean up trail particles, target circle, and optimal lead marker
                     trailParticles.forEach(p => p.mesh.dispose());
                     trailParticles.length = 0;
                     trailMaterial.dispose();
                     targetCircle.dispose();
                     targetMaterial.dispose();
+                    if (optimalLeadMarker) {
+                        optimalLeadMarker.bar1.dispose();
+                        optimalLeadMarker.bar2.dispose();
+                    }
                     checkCatch(scene, football.position, null);
                 }
             });
