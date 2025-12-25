@@ -7669,16 +7669,25 @@
                     let influence = proximityFactor * proximityFactor * (coverageStat / 100);
                     let sideBonus = false;
 
-                    // Check if ball is on opposite side from defender (shoulder throw bonus)
-                    // This ALWAYS applies - even for close defenders
-                    const defDx = defender.position.x - receiver.position.x;
-                    const defDz = defender.position.z - receiver.position.z;
-                    const ballDx = ballPosition.x - receiver.position.x;
-                    const ballDz = ballPosition.z - receiver.position.z;
+                    // Check if ball was thrown to opposite side from defender (shoulder throw)
+                    // The ball landing position vs defender position relative to receiver
+                    // Use the QB position to determine throw trajectory
+                    const qbPos = gameState.scene?.qb?.position || { x: 0, z: gameState.lineOfScrimmage - 5 };
 
-                    // Dot product: if negative, they're on opposite sides
-                    const dotProduct = defDx * ballDx + defDz * ballDz;
-                    if (dotProduct < 0) {
+                    // Vector from QB to ball landing spot (throw direction)
+                    const throwToX = ballPosition.x - qbPos.x;
+                    const throwToZ = ballPosition.z - qbPos.z;
+
+                    // Vector from QB to defender
+                    const toDefX = defender.position.x - qbPos.x;
+                    const toDefZ = defender.position.z - qbPos.z;
+
+                    // Cross product (2D): positive if defender is LEFT of throw line, negative if RIGHT
+                    const crossProduct = throwToX * toDefZ - throwToZ * toDefX;
+
+                    // If defender is more than 0.5 yards to one side of the throw line,
+                    // the ball went to the opposite shoulder
+                    if (Math.abs(crossProduct) > 0.5 * Math.sqrt(throwToX*throwToX + throwToZ*throwToZ)) {
                         influence *= 0.5;  // Halve DB influence for shoulder throw
                         sideBonus = true;
                     }
