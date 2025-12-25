@@ -237,28 +237,32 @@
         ">TRAINING MODE</div>
         <div id="throwRating" style="
             position: fixed;
-            bottom: 100px;
+            bottom: 80px;
             left: 50%;
             transform: translateX(-50%);
-            background: rgba(0,0,0,0.85);
-            padding: 15px 30px;
-            border-radius: 10px;
+            background: rgba(0,0,0,0.92);
+            padding: 20px 28px;
+            border-radius: 12px;
             color: white;
             font-family: 'Courier New', monospace;
             text-align: center;
             z-index: 1000;
             display: none;
+            min-width: 260px;
+            cursor: pointer;
         ">
             <div id="throwGrade" style="font-size: 48px; font-weight: bold; color: #4f4;"></div>
-            <div id="throwDetails" style="font-size: 14px; color: #aaa; margin-top: 5px;"></div>
-            <div id="throwCatchInfo" style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #444;">
-                <div id="popupCatchHeader" style="font-size: 14px; font-weight: bold; margin-bottom: 6px;">CATCH</div>
-                <div id="popupCatchBar" style="position: relative; width: 150px; height: 16px; background: #222; border-radius: 3px; margin: 0 auto; overflow: visible;">
-                    <div id="popupCatchBase" style="position: absolute; left: 0; top: 0; height: 100%; background: linear-gradient(90deg, #3a3, #4b4); border-radius: 3px;"></div>
-                    <div id="popupCatchPenalty" style="position: absolute; top: 0; height: 100%; background: rgba(0, 0, 0, 0.55); border-left: 1px solid #f55;"></div>
-                    <div id="popupCatchRoll" style="position: absolute; top: -2px; font-size: 14px; font-weight: bold; transform: translateX(-50%); line-height: 16px;">🏈</div>
+            <div id="throwDetails" style="font-size: 13px; color: #aaa; margin-top: 5px;"></div>
+            <div id="throwCatchInfo" style="margin-top: 14px; padding-top: 14px; border-top: 1px solid #444;">
+                <div id="popupCatchHeader" style="font-size: 16px; font-weight: bold; margin-bottom: 8px;">CATCH</div>
+                <div id="popupCatchBar" style="position: relative; width: 200px; height: 18px; background: #222; border-radius: 4px; margin: 0 auto 12px auto; overflow: visible;">
+                    <div id="popupCatchBase" style="position: absolute; left: 0; top: 0; height: 100%; background: linear-gradient(90deg, #3a3, #4b4); border-radius: 4px;"></div>
+                    <div id="popupCatchPenalty" style="position: absolute; top: 0; height: 100%; background: rgba(0, 0, 0, 0.55); border-left: 2px solid #f55;"></div>
+                    <div id="popupCatchRoll" style="position: absolute; top: -2px; font-size: 16px; font-weight: bold; transform: translateX(-50%); line-height: 18px;">🏈</div>
                 </div>
+                <div id="popupModifierList" style="text-align: left; font-size: 13px; margin-top: 10px;"></div>
             </div>
+            <div id="popupTapToContinue" style="margin-top: 16px; font-size: 11px; color: #666; text-transform: uppercase; letter-spacing: 1px;">tap to continue</div>
         </div>
     </div>
 
@@ -913,9 +917,9 @@
             // Down and distance tracking
             down: 1,                // Current down (1-4)
             yardsToGo: 10,          // Yards needed for first down
-            lineOfScrimmage: -5,    // Current field position (Z coordinate) - own 30
-            firstDownMarker: 5,     // Z position where first down is achieved
-            startingLineOfScrimmage: -5,  // Where drive started - own 30 yard line
+            lineOfScrimmage: -54,   // Current field position (Z coordinate) - own 35 yard line
+            firstDownMarker: -44,   // Z position where first down is achieved (10 yards ahead)
+            startingLineOfScrimmage: -54,  // Where drive started - own 35 yard line
             // Training mode
             trainingMode: false,    // Training mode: no defenders, throw ratings
             lastThrowRating: null   // Last throw rating for display
@@ -987,6 +991,7 @@
             SPEED_BURST_MULTIPLIER: 1.5,// Speed boost after D-line wins
             SPEED_BURST_DURATION: 1.5,  // Duration of speed burst
             TACKLE_RANGE: 1.2,          // Distance for QB sack
+            SNAP_DELAY: 1.5,            // Seconds before D-line starts rushing (QB drop-back time)
         };
 
         // Receiver tackling constants
@@ -4535,7 +4540,7 @@
 
         // Constants
         const FIELD_WIDTH = 16;  // Doubled width
-        const FIELD_LENGTH = 20;
+        const FIELD_LENGTH = 70;  // Extended for full 65-yard drive from own 35
         const QB_START_Z = -6;  // Moved back (closer to bottom of screen)
         const MAX_THROW_DISTANCE = 18;  // Can overthrow into endzone
         const MIN_THROW_DISTANCE = 2;
@@ -5236,23 +5241,41 @@
 
         // Create Field
         const createField = (scene, materials) => {
-            // Main field (extended for deeper end zone and own territory)
-            const field = BABYLON.MeshBuilder.CreateGround('field', {
-                width: FIELD_WIDTH + 2,
-                height: FIELD_LENGTH + 12
-            }, scene);
-            field.material = materials.fieldMaterial;
-            field.position.z = -0.5;
+            // Alternating turf stripes (10-yard sections with different shades of green)
+            const lightGreen = new BABYLON.StandardMaterial('lightGreen', scene);
+            lightGreen.diffuseColor = new BABYLON.Color3(0.18, 0.42, 0.18);
+            lightGreen.specularColor = new BABYLON.Color3(0.05, 0.05, 0.05);
 
-            // Yard lines - only 10-yard markers (every 5 units)
-            for (let i = 0; i <= 10; i += 5) {
+            const darkGreen = new BABYLON.StandardMaterial('darkGreen', scene);
+            darkGreen.diffuseColor = new BABYLON.Color3(0.12, 0.32, 0.12);
+            darkGreen.specularColor = new BABYLON.Color3(0.05, 0.05, 0.05);
+
+            // Create alternating 10-yard turf sections from -70 to +20
+            const stripeStart = -70;
+            const stripeEnd = 20;
+            const stripeDepth = 10;
+            let stripeIndex = 0;
+
+            for (let z = stripeStart; z < stripeEnd; z += stripeDepth) {
+                const stripe = BABYLON.MeshBuilder.CreateGround(`turf_${stripeIndex}`, {
+                    width: FIELD_WIDTH + 2,
+                    height: stripeDepth
+                }, scene);
+                stripe.material = (stripeIndex % 2 === 0) ? lightGreen : darkGreen;
+                stripe.position.set(0, 0, z + stripeDepth / 2);
+                stripeIndex++;
+            }
+
+            // Yard lines - white 10-yard markers across the full field
+            // From own territory (-60) to opponent's goal line (10)
+            for (let i = -60; i <= 10; i += 10) {
                 const line = BABYLON.MeshBuilder.CreateBox('yardLine', {
                     width: FIELD_WIDTH,
                     height: 0.02,
-                    depth: 0.1
+                    depth: 0.15
                 }, scene);
                 line.material = materials.lineMaterial;
-                line.position.set(0, 0.01, i);
+                line.position.set(0, 0.012, i);
             }
 
             // End zone (30% deeper)
@@ -5265,34 +5288,25 @@
             endZone.material = endZoneMat;
             endZone.position.set(0, 0.001, 13);
 
-            // Border walls (castle-like)
-            const wallHeight = 0.8;
-            const wallPositions = [
-                { x: -FIELD_WIDTH/2 - 0.5, z: -0.5, width: 1, depth: FIELD_LENGTH + 12 },
-                { x: FIELD_WIDTH/2 + 0.5, z: -0.5, width: 1, depth: FIELD_LENGTH + 12 }
+            // Sideline boundaries (football-style white lines)
+            const sidelinePositions = [
+                { x: -FIELD_WIDTH/2 - 0.15, z: -25 },
+                { x: FIELD_WIDTH/2 + 0.15, z: -25 }
             ];
 
-            wallPositions.forEach((wp, i) => {
-                const wall = BABYLON.MeshBuilder.CreateBox(`wall_${i}`, {
-                    width: wp.width,
-                    height: wallHeight,
-                    depth: wp.depth
-                }, scene);
-                const wallMat = new BABYLON.StandardMaterial(`wallMat_${i}`, scene);
-                wallMat.diffuseColor = new BABYLON.Color3(0.35, 0.3, 0.25);
-                wall.material = wallMat;
-                wall.position.set(wp.x, wallHeight/2, wp.z);
+            const sidelineMat = new BABYLON.StandardMaterial('sidelineMat', scene);
+            sidelineMat.diffuseColor = new BABYLON.Color3(0.95, 0.95, 0.95);
+            sidelineMat.emissiveColor = new BABYLON.Color3(0.1, 0.1, 0.1);
 
-                // Battlements
-                for (let j = 0; j < 13; j++) {
-                    const merlon = BABYLON.MeshBuilder.CreateBox(`merlon_${i}_${j}`, {
-                        width: 0.4,
-                        height: 0.3,
-                        depth: 0.4
-                    }, scene);
-                    merlon.material = wallMat;
-                    merlon.position.set(wp.x, wallHeight + 0.15, -13 + j * 2.2);
-                }
+            sidelinePositions.forEach((sp, i) => {
+                // Main sideline stripe
+                const sideline = BABYLON.MeshBuilder.CreateBox(`sideline_${i}`, {
+                    width: 0.3,
+                    height: 0.02,
+                    depth: FIELD_LENGTH + 12
+                }, scene);
+                sideline.material = sidelineMat;
+                sideline.position.set(sp.x, 0.015, sp.z);
             });
 
             // Line of scrimmage marker (blue)
@@ -5496,10 +5510,16 @@
             const dx = dragStart.x - dragCurrent.x;
             const dy = dragStart.y - dragCurrent.y;
 
+            // Get QB's arm strength (affects max throw distance)
+            // Scales from 12 yards at 50 armStrength to 26 yards at 100 armStrength
+            const qb = gameState.scene?.qb;
+            const armStrength = qb?.stats?.armStrength || 70;
+            const qbMaxThrowDistance = 12 + ((armStrength - 50) / 50) * 14;  // 12-26 range
+
             // Distance dragged determines throw power
             const rawDragDistance = Math.sqrt(dx * dx + dy * dy);
             const dragDistance = rawDragDistance * DRAG_SENSITIVITY;
-            const throwDistance = Math.min(Math.max(dragDistance, MIN_THROW_DISTANCE), MAX_THROW_DISTANCE);
+            const throwDistance = Math.min(Math.max(dragDistance, MIN_THROW_DISTANCE), qbMaxThrowDistance);
 
             // Direction is opposite of drag
             // Negate dy because screen Y is inverted (down = positive) vs world Z (up = positive)
@@ -5512,10 +5532,15 @@
                 angle = lastValidAngle;  // Use last valid angle for very small drags
             }
 
+            // Get QB max throw distance for power calculation
+            const qbForPower = gameState.scene?.qb;
+            const armStrengthForPower = qbForPower?.stats?.armStrength || 70;
+            const maxDistForPower = 12 + ((armStrengthForPower - 50) / 50) * 14;
+
             return {
                 distance: throwDistance,
                 angle: angle,
-                power: throwDistance / MAX_THROW_DISTANCE
+                power: throwDistance / maxDistForPower
             };
         };
 
@@ -5785,6 +5810,14 @@
                 return;
             }
 
+            // Wait for snap delay before D-line starts rushing (gives QB time to drop back)
+            const timeSinceSnap = gameState.playStartTime ?
+                (performance.now() * 0.001 - gameState.playStartTime) : 0;
+            if (timeSinceSnap < LINE_CLASH_CONSTANTS.SNAP_DELAY) {
+                // D-linemen hold position during snap delay
+                return;
+            }
+
             // Get QB position (use current QB position for evasion tracking)
             const qbPos = gameState.scene.qb.position;
 
@@ -5922,6 +5955,13 @@
         // Process line clashes between O-line and D-line
         const processLineClashes = () => {
             const currentTime = gameState.gameTime;
+
+            // Skip clash processing during snap delay
+            const timeSinceSnap = gameState.playStartTime ?
+                (performance.now() * 0.001 - gameState.playStartTime) : 0;
+            if (timeSinceSnap < LINE_CLASH_CONSTANTS.SNAP_DELAY) {
+                return;
+            }
 
             gameState.defensiveLine.forEach(dLineman => {
                 // Skip if knocked down
@@ -6677,6 +6717,10 @@
                 receiver.fillMaterial.diffuseColor = new BABYLON.Color3(1.0, 1.0, 1.0);
                 receiver.fillMaterial.emissiveColor = new BABYLON.Color3(0.5, 0.5, 0.5);
 
+                // Reset body color to original (clear any flash effects from previous play)
+                receiver.bodyMaterial.diffuseColor = receiver.originalColor.clone();
+                receiver.bodyMaterial.emissiveColor = BABYLON.Color3.Black();
+
                 // Tackling state
                 receiver.breakTackleBoostUntil = 0;
 
@@ -7000,11 +7044,14 @@
             gameState.canThrow = false;
             updateMessage('');
 
-            // Capture receiver velocities at throw time for rating calculation
+            // Capture receiver positions and velocities at throw time for rating calculation
             gameState.receiverVelocitiesAtThrow = {};
+            gameState.receiverPositionsAtThrow = {};
             gameState.receivers.forEach(receiver => {
                 gameState.receiverVelocitiesAtThrow[receiver.name] = receiver.velocity ? receiver.velocity.clone() : new BABYLON.Vector3(0, 0, 0);
+                gameState.receiverPositionsAtThrow[receiver.name] = receiver.position.clone();
             });
+            gameState.throwStartTime = performance.now();
 
             // Record throw attempt for QB
             if (scene.qb && scene.qb.playerId) {
@@ -7023,12 +7070,13 @@
             football.position = path[0].clone();
 
             const landingPos = path[path.length - 1];
-            const catchRadius = 1.2;
+            // Catch radius scales with catching stat: 0.8 at 50, 1.2 at 75, 1.8 at 100
+            const baseCatchRadius = 1.2;
 
             let frameIndex = 0;
             // Ball flight speed - short throws faster, long throws slower for arc visibility
-            // Short throws: quick (2.4), long throws: slower (0.8)
-            const animationSpeed = 2.4 - (throwParams.power * 1.6);
+            // Short throws: quick (2.3), long throws: slower (0.7)
+            const animationSpeed = 2.3 - (throwParams.power * 1.6);
             let accumulator = 0;
             const time = { value: 0 };
 
@@ -7044,6 +7092,84 @@
             trailMaterial.alpha = 0.8;
             let lastTrailPos = null;
             const trailSpacing = 0.3; // Distance between trail particles
+
+            // Create target circle at landing position (torus is horizontal by default in XZ plane)
+            const targetCircle = BABYLON.MeshBuilder.CreateTorus('targetCircle', {
+                diameter: 1.5,
+                thickness: 0.15,
+                tessellation: 32
+            }, scene);
+            targetCircle.position = new BABYLON.Vector3(landingPos.x, 0.05, landingPos.z);
+            // No rotation needed - torus is already in XZ plane (horizontal)
+            const targetMaterial = new BABYLON.StandardMaterial('targetMat', scene);
+            targetMaterial.diffuseColor = new BABYLON.Color3(1, 1, 0.3);
+            targetMaterial.emissiveColor = new BABYLON.Color3(1, 0.8, 0);
+            targetMaterial.alpha = 0.7;
+            targetCircle.material = targetMaterial;
+
+            // Find closest receiver to ball landing and show optimal lead marker
+            let optimalLeadMarker = null;
+            let closestReceiver = null;
+            let closestDist = Infinity;
+            gameState.receivers.forEach(receiver => {
+                const pos = gameState.receiverPositionsAtThrow[receiver.name];
+                if (pos) {
+                    const dist = Math.sqrt(
+                        Math.pow(landingPos.x - pos.x, 2) +
+                        Math.pow(landingPos.z - pos.z, 2)
+                    );
+                    if (dist < closestDist) {
+                        closestDist = dist;
+                        closestReceiver = receiver;
+                    }
+                }
+            });
+
+            if (closestReceiver && gameState.trainingMode) {
+                const throwPos = gameState.receiverPositionsAtThrow[closestReceiver.name];
+                const throwVel = gameState.receiverVelocitiesAtThrow[closestReceiver.name];
+                // Velocity is per-frame, convert to per-second by multiplying by 60
+                const velPerSec = { x: throwVel.x * 60, z: throwVel.z * 60 };
+                const velMag = Math.sqrt(velPerSec.x * velPerSec.x + velPerSec.z * velPerSec.z);
+
+                if (velMag > 0.1) {
+                    // Estimate flight time in seconds
+                    const estFlightTime = path.length / (60 * animationSpeed);
+                    // Ideal lead = where receiver will be at catch time (with 0.8 factor for catching room)
+                    const idealLead = velMag * estFlightTime * 0.8;
+
+                    // Optimal position = throw position + velocity direction * ideal lead
+                    const optimalX = throwPos.x + (velPerSec.x / velMag) * idealLead;
+                    const optimalZ = throwPos.z + (velPerSec.z / velMag) * idealLead;
+
+                    // Create white X marker using two crossed cylinders
+                    const xSize = 0.8;
+                    const xThickness = 0.12;
+                    const bar1 = BABYLON.MeshBuilder.CreateCylinder('optBar1', {
+                        height: xSize, diameter: xThickness
+                    }, scene);
+                    const bar2 = BABYLON.MeshBuilder.CreateCylinder('optBar2', {
+                        height: xSize, diameter: xThickness
+                    }, scene);
+
+                    // Rotate to form X shape lying flat on field
+                    bar1.rotation.x = Math.PI / 2;
+                    bar1.rotation.y = Math.PI / 4;
+                    bar2.rotation.x = Math.PI / 2;
+                    bar2.rotation.y = -Math.PI / 4;
+
+                    bar1.position = new BABYLON.Vector3(optimalX, 0.08, optimalZ);
+                    bar2.position = new BABYLON.Vector3(optimalX, 0.08, optimalZ);
+
+                    const optimalMat = new BABYLON.StandardMaterial('optimalMat', scene);
+                    optimalMat.diffuseColor = new BABYLON.Color3(1, 1, 1);
+                    optimalMat.emissiveColor = new BABYLON.Color3(0.9, 0.9, 0.9);
+                    bar1.material = optimalMat;
+                    bar2.material = optimalMat;
+
+                    optimalLeadMarker = { bar1, bar2 };
+                }
+            }
 
             const ballAnimation = scene.onBeforeRenderObservable.add(() => {
                 const dt = scene.getEngine().getDeltaTime() * 0.001;
@@ -7136,19 +7262,34 @@
                         // Check if route is complete
                         const routeComplete = !receiver.route || receiver.routeIndex >= receiver.route.length;
 
-                        // If ball is coming to them (within catch range) OR route is done, move toward ball
-                        // Moving off-route to catch slows the receiver down (allows defenders to close)
-                        if ((distToLanding < catchRadius * 2.5 && frameIndex > 5) || routeComplete) {
-                            if (distToLanding > 0.2) {
-                                // Reduced speed when adjusting to catch (70% of normal)
-                                const catchAdjustSpeed = effectiveSpeed * 0.7;
-                                receiver.position.x += (dx / distToLanding) * catchAdjustSpeed;
-                                receiver.position.z += (dz / distToLanding) * catchAdjustSpeed;
-                                receiver.rotation.y = Math.atan2(dx, dz);
+                        // Calculate this receiver's catch radius based on catching stat
+                        // Scales from 0.8 at 50 catching to 1.8 at 100 catching
+                        const receiverCatchRadius = 0.8 + ((receiver.stats.catching - 50) / 50) * 1.0;
+
+                        // Larger adjustment range so receivers can adjust to the ball
+                        const adjustmentRange = Math.max(5, receiverCatchRadius * 3);
+
+                        // First priority: continue running route if not complete
+                        if (!routeComplete) {
+                            // Ball is close - adjust toward it instead of following route
+                            if (distToLanding < adjustmentRange && frameIndex > 5) {
+                                if (distToLanding > 0.3) {
+                                    const catchAdjustSpeed = effectiveSpeed * 0.8;
+                                    receiver.position.x += (dx / distToLanding) * catchAdjustSpeed;
+                                    receiver.position.z += (dz / distToLanding) * catchAdjustSpeed;
+                                    receiver.rotation.y = Math.atan2(dx, dz);
+                                }
+                            } else {
+                                // Keep running the route
+                                moveReceiverAlongRoute(receiver, effectiveSpeed);
                             }
                         } else {
-                            // Follow their route
-                            moveReceiverAlongRoute(receiver, effectiveSpeed);
+                            // Route complete - move toward ball landing spot
+                            if (distToLanding > 0.3) {
+                                receiver.position.x += (dx / distToLanding) * effectiveSpeed;
+                                receiver.position.z += (dz / distToLanding) * effectiveSpeed;
+                                receiver.rotation.y = Math.atan2(dx, dz);
+                            }
                         }
 
                         // Running animation (bob only, tilt handled by momentum system)
@@ -7213,10 +7354,16 @@
                 // Check if ball has landed
                 if (frameIndex >= path.length - 1) {
                     scene.onBeforeRenderObservable.remove(ballAnimation);
-                    // Clean up trail particles
+                    // Clean up trail particles, target circle, and optimal lead marker
                     trailParticles.forEach(p => p.mesh.dispose());
                     trailParticles.length = 0;
                     trailMaterial.dispose();
+                    targetCircle.dispose();
+                    targetMaterial.dispose();
+                    if (optimalLeadMarker) {
+                        optimalLeadMarker.bar1.dispose();
+                        optimalLeadMarker.bar2.dispose();
+                    }
                     checkCatch(scene, football.position, null);
                 }
             });
@@ -7224,9 +7371,9 @@
 
         // Check for Catch
         const checkCatch = (scene, ballPosition, targetReceiver) => {
-            const catchRadius = 1.2;
             let potentialCatcher = null;
-            let closestDistance = catchRadius;
+            let closestDistance = Infinity;
+            let catcherRadius = 1.2;  // Default
 
             for (const receiver of gameState.receivers) {
                 // Can't catch if knocked down
@@ -7234,20 +7381,29 @@
                     continue;
                 }
 
+                // Each receiver's catch radius depends on their catching stat
+                // Scales from 0.8 at 50 catching to 1.8 at 100 catching
+                const receiverCatchRadius = 0.8 + ((receiver.stats.catching - 50) / 50) * 1.0;
+
                 const distance = BABYLON.Vector3.Distance(
                     new BABYLON.Vector3(receiver.position.x, 0, receiver.position.z),
                     new BABYLON.Vector3(ballPosition.x, 0, ballPosition.z)
                 );
 
-                if (distance < closestDistance) {
+                // Check if within this receiver's catch radius and closer than others
+                if (distance < receiverCatchRadius && distance < closestDistance) {
                     closestDistance = distance;
                     potentialCatcher = receiver;
+                    catcherRadius = receiverCatchRadius;
                 }
             }
 
             if (potentialCatcher) {
-                // Calculate catch probability (returns detailed info)
-                const catchInfo = calculateCatchProbability(potentialCatcher, ballPosition);
+                // Calculate throw rating first (need lead score for catch probability)
+                const throwRating = calculateThrowRating(potentialCatcher, ballPosition, gameState.gameTime);
+
+                // Calculate catch probability (returns detailed info) - pass lead score for shoulder bonus scaling
+                const catchInfo = calculateCatchProbability(potentialCatcher, ballPosition, throwRating.leadScore);
                 const catchRoll = Math.random() * 100;
                 const success = catchRoll < catchInfo.probability;
 
@@ -7256,9 +7412,6 @@
 
                 // Record target for roster player
                 recordPlayerStat(potentialCatcher, 'seasonTargets');
-
-                // Calculate throw rating (always, for display purposes)
-                const throwRating = calculateThrowRating(potentialCatcher, ballPosition, gameState.gameTime);
 
                 // Show the catch probability display with throw rating
                 showCatchDisplay(catchInfo, catchRoll, success, throwRating);
@@ -7300,7 +7453,99 @@
 
                     gradeEl.textContent = throwRating.grade;
                     gradeEl.style.color = gradeColors[throwRating.grade] || '#fff';
+
+                    // Build detailed breakdown for training feedback
                     detailsEl.textContent = throwRating.details;
+
+                    // Build modifier list with right-aligned values and color coding
+                    const modList = document.getElementById('popupModifierList');
+                    const sepYards = catchInfo.separation.toFixed(1);
+
+                    // Helper to create a modifier row
+                    const makeRow = (label, value, isPositive) => {
+                        const color = isPositive ? '#4f4' : '#f66';
+                        const sign = isPositive ? '+' : '';
+                        return `<div style="display:flex; justify-content:space-between; margin: 4px 0;">
+                            <span style="color:#aaa;">${label}</span>
+                            <span style="color:${color}; font-weight:bold;">${sign}${value}</span>
+                        </div>`;
+                    };
+
+                    let modRows = [];
+
+                    // Show separation/coverage
+                    modRows.push(`<div style="display:flex; justify-content:space-between; margin: 4px 0; padding-bottom: 6px; border-bottom: 1px solid #333;">
+                        <span style="color:#888;">Separation</span>
+                        <span style="color:#fff;">${sepYards} yds - ${catchInfo.coverageLevel}</span>
+                    </div>`);
+
+                    // Throw accuracy breakdown (lead components)
+                    const getScoreColor = (score) => score >= 80 ? '#4f4' : score >= 50 ? '#ff4' : '#f66';
+
+                    // Lead distance with context
+                    const leadDist = throwRating.leadDistance || 0;
+                    const leadLabel = leadDist < 0 ? `${leadDist.toFixed(1)}yd behind` : `${leadDist.toFixed(1)}yd ahead`;
+                    modRows.push(`<div style="display:flex; justify-content:space-between; margin: 4px 0;">
+                        <span style="color:#888;">Lead (${leadLabel})</span>
+                        <span style="color:${getScoreColor(throwRating.leadScore)}; font-weight:bold;">${throwRating.leadScore}</span>
+                    </div>`);
+
+                    // Lateral offset
+                    const latOff = throwRating.lateralOffset || 0;
+                    const latLabel = latOff < 0.3 ? 'on target' : `${latOff.toFixed(1)}yd wide`;
+                    modRows.push(`<div style="display:flex; justify-content:space-between; margin: 4px 0;">
+                        <span style="color:#888;">Accuracy (${latLabel})</span>
+                        <span style="color:${getScoreColor(throwRating.lateralScore)}; font-weight:bold;">${throwRating.lateralScore}</span>
+                    </div>`);
+
+                    // Slowdown
+                    const slowPct = throwRating.slowdownScore || 100;
+                    const slowLabel = slowPct >= 90 ? 'in stride' : slowPct >= 70 ? 'adjusted' : 'had to stop';
+                    modRows.push(`<div style="display:flex; justify-content:space-between; margin: 4px 0; padding-bottom: 6px; border-bottom: 1px solid #333;">
+                        <span style="color:#888;">WR speed (${slowLabel})</span>
+                        <span style="color:${getScoreColor(slowPct)}; font-weight:bold;">${Math.round(slowPct)}</span>
+                    </div>`);
+
+                    // Base catch rate (wide open rate based on catching stat)
+                    modRows.push(`<div style="display:flex; justify-content:space-between; margin: 4px 0;">
+                        <span style="color:#aaa;">Base catch (${catchInfo.baseCatch} catching)</span>
+                        <span style="color:#4f4; font-weight:bold;">${Math.round(catchInfo.wideOpenRate)}%</span>
+                    </div>`);
+
+                    // If contested, show the DB coverage penalty clearly
+                    if (catchInfo.isContested) {
+                        // Show the penalty as the difference from wide open
+                        const penalty = Math.round(catchInfo.wideOpenRate - catchInfo.probability + (catchInfo.focusMod || 0));
+                        if (penalty > 0) {
+                            modRows.push(makeRow('DB coverage penalty', `-${penalty}%`, false));
+                        }
+                    }
+
+                    // Shoulder throw bonus - show actual amount saved with lead quality
+                    if (catchInfo.hasSideBonus && catchInfo.shoulderBonusSaved > 0) {
+                        const leadLabel = catchInfo.leadQuality >= 80 ? 'perfect' :
+                                         catchInfo.leadQuality >= 60 ? 'good' :
+                                         catchInfo.leadQuality >= 40 ? 'ok' : 'poor';
+                        modRows.push(makeRow(`Shoulder throw (${leadLabel} lead)`, `${catchInfo.shoulderBonusSaved}%`, true));
+                    } else if (catchInfo.hasSideBonus) {
+                        // Shoulder throw detected but no bonus due to poor lead
+                        modRows.push(makeRow('Shoulder throw (poor lead)', '0%', false));
+                    }
+
+                    // Focus modifier (if any significant effect)
+                    if (catchInfo.focusMod && Math.abs(catchInfo.focusMod) >= 1) {
+                        const focusVal = Math.round(catchInfo.focusMod);
+                        modRows.push(makeRow('Focus stat', `${focusVal}%`, catchInfo.focusMod > 0));
+                    }
+
+                    // Final probability line
+                    const finalColor = catchInfo.probability >= 50 ? '#4f4' : (catchInfo.probability >= 25 ? '#ff4' : '#f66');
+                    modRows.push(`<div style="display:flex; justify-content:space-between; margin: 8px 0 0 0; padding-top: 6px; border-top: 1px solid #333;">
+                        <span style="color:#fff; font-weight:bold;">Final catch rate</span>
+                        <span style="color:${finalColor}; font-weight:bold; font-size: 15px;">${Math.round(catchInfo.probability)}%</span>
+                    </div>`);
+
+                    modList.innerHTML = modRows.join('');
 
                     // Update visual catch bar in popup
                     const popupHeader = document.getElementById('popupCatchHeader');
@@ -7311,10 +7556,11 @@
                     popupHeader.textContent = success ? 'CATCH!' : 'DROPPED';
                     popupHeader.style.color = success ? '#4f4' : '#f66';
 
-                    const rawCatch = Math.min(95, catchInfo.baseCatch + catchInfo.focusMod);
-                    const penaltyWidth = Math.min(catchInfo.defenderPenalty, rawCatch);
+                    // Show wide open rate as base, with penalty overlay
+                    const baseWidth = catchInfo.isContested ? catchInfo.wideOpenRate : catchInfo.wideOpenRate;
+                    const penaltyWidth = Math.max(0, catchInfo.wideOpenRate - catchInfo.probability);
 
-                    popupBase.style.width = `${rawCatch}%`;
+                    popupBase.style.width = `${baseWidth}%`;
 
                     if (penaltyWidth > 0) {
                         popupPenalty.style.display = 'block';
@@ -7330,10 +7576,12 @@
 
                     ratingEl.style.display = 'block';
 
-                    // Hide after 3 seconds
-                    setTimeout(() => {
+                    // Add click handler to dismiss (remove previous handler first)
+                    const dismissPopup = () => {
                         ratingEl.style.display = 'none';
-                    }, 3000);
+                        ratingEl.removeEventListener('click', dismissPopup);
+                    };
+                    ratingEl.addEventListener('click', dismissPopup);
                 }
 
                 if (success) {
@@ -7401,6 +7649,7 @@
                     const detailsEl = document.getElementById('throwDetails');
                     const popupHeader = document.getElementById('popupCatchHeader');
                     const popupBar = document.getElementById('popupCatchBar');
+                    const modList = document.getElementById('popupModifierList');
 
                     gradeEl.textContent = 'INCOMPLETE';
                     gradeEl.style.color = '#f66';
@@ -7409,14 +7658,18 @@
 
                     popupHeader.textContent = '';
                     popupBar.style.display = 'none';
+                    modList.innerHTML = '';
 
                     ratingEl.style.display = 'block';
 
-                    setTimeout(() => {
+                    // Add click handler to dismiss
+                    const dismissPopup = () => {
                         ratingEl.style.display = 'none';
                         gradeEl.style.fontSize = '48px'; // Reset font size
                         popupBar.style.display = 'block'; // Reset bar visibility
-                    }, 3000);
+                        ratingEl.removeEventListener('click', dismissPopup);
+                    };
+                    ratingEl.addEventListener('click', dismissPopup);
                 }
 
                 // Ball bounces and rolls
@@ -7479,12 +7732,10 @@
         };
 
         // Calculate catch probability based on receiver stats and proximity to defenders
-        const calculateCatchProbability = (receiver, ballPosition) => {
-            // Base catch rate from receiver's catching stat
-            let baseCatch = receiver.stats.catching;
-
-            // Find defenders and apply proximity penalty
-            let defenderProximityPenalty = 0;
+        // leadScore (0-100) scales the shoulder throw bonus - perfect lead = full bonus
+        const calculateCatchProbability = (receiver, ballPosition, leadScore = 50) => {
+            // Find defenders and calculate coverage
+            let totalDefenderInfluence = 0;
             let defenderDetails = [];
             let hasNearbyDefender = false;
             const coverageRange = CLASH_CONSTANTS.CLASH_RANGE * 1.5;
@@ -7501,6 +7752,9 @@
                     zoneReceiverCounts.set(defender, Math.max(1, count));
                 }
             });
+
+            let shoulderBonusSaved = 0;  // Track influence saved by shoulder throws
+            let totalInfluenceWithoutShoulder = 0;  // What influence would be without shoulder throw
 
             gameState.defenders.forEach(defender => {
                 if (defender.knockdownUntil > gameState.gameTime) return;
@@ -7519,72 +7773,172 @@
                     // Proximity factor: 1.0 at distance 0, 0.0 at max range
                     const proximityFactor = 1 - (dist / coverageRange);
 
-                    // At distance 0, if coverage equals catching, apply 80% penalty
-                    // penalty = proximityFactor^3 * coverageStat * 0.8
-                    // Cubed for steeper dropoff - separation is rewarded more
-                    let penalty = proximityFactor * proximityFactor * proximityFactor * coverageStat * 0.8;
+                    // Influence is proximity^2 * coverage stat (normalized to 0-1)
+                    let influence = proximityFactor * proximityFactor * (coverageStat / 100);
+                    let sideBonus = false;
 
-                    // Very close defenders (0.6 or closer) have 50% more influence
+                    // For shoulder throw check later
+                    const defDx = defender.position.x - receiver.position.x;
+                    const defDz = defender.position.z - receiver.position.z;
+                    const ballDx = ballPosition.x - receiver.position.x;
+                    const ballDz = ballPosition.z - receiver.position.z;
+
+                    // Very close defenders have more influence
                     const CLOSE_DEFENDER_THRESHOLD = 0.6;
                     if (dist <= CLOSE_DEFENDER_THRESHOLD) {
-                        penalty *= 1.5;
+                        influence *= 1.5;
                     }
 
-                    // Check if ball is on opposite side from defender
-                    // Only applies if defender isn't right on top of receiver (dist > 0.8)
-                    const MIN_DIST_FOR_SIDE_BONUS = 0.8;
-                    if (dist > MIN_DIST_FOR_SIDE_BONUS) {
-                        const defenderSide = Math.sign(defender.position.x - receiver.position.x);
-                        const ballSide = Math.sign(ballPosition.x - receiver.position.x);
-
-                        // If ball and defender are on opposite sides, halve the penalty
-                        if (defenderSide !== 0 && ballSide !== 0 && defenderSide !== ballSide) {
-                            penalty *= 0.5;
-                        }
-                    }
-
-                    // If defender lost a clash (has speed penalty), reduce their coverage effect by 50%
+                    // If defender lost a clash, reduce their coverage effect
                     if (defender.clashSpeedPenaltyUntil && defender.clashSpeedPenaltyUntil > gameState.gameTime) {
-                        penalty *= 0.5;
+                        influence *= 0.5;
                     }
 
                     // For zone defenders covering multiple receivers, split their coverage
                     if (defender.aiType === 'zone') {
                         const receiversInZone = zoneReceiverCounts.get(defender) || 1;
                         if (receiversInZone > 1) {
-                            penalty /= receiversInZone;
+                            influence /= receiversInZone;
                         }
                     }
 
-                    defenderProximityPenalty += penalty;
+                    // Track what influence would be without shoulder throw
+                    const influenceWithoutShoulder = influence;
+                    totalInfluenceWithoutShoulder += influenceWithoutShoulder;
+
+                    // Dot product: if negative, ball is on opposite side from defender
+                    // Apply shoulder throw bonus LAST to truly halve the final DB impact
+                    const dotProduct = defDx * ballDx + defDz * ballDz;
+                    if (dotProduct < 0) {
+                        influence *= 0.5;  // Halve DB influence for shoulder throw
+                        sideBonus = true;
+                        shoulderBonusSaved += influenceWithoutShoulder - influence;
+                    }
+
+                    totalDefenderInfluence += influence;
                     defenderDetails.push({
                         name: defender.name,
                         dist: dist.toFixed(2),
-                        penalty: penalty.toFixed(1),
+                        penalty: (influence * 100).toFixed(1),
                         coverageStat: coverageStat,
-                        aiType: defender.aiType
+                        aiType: defender.aiType,
+                        sideBonus: sideBonus
                     });
                 }
             });
 
-            // Focus stat helps when defenders are nearby (higher focus = better under pressure)
-            const focusMod = hasNearbyDefender ? (receiver.stats.focus - 70) * 0.3 : 0;
+            // Clamp total defender influence to 0-1
+            totalDefenderInfluence = Math.min(1, totalDefenderInfluence);
 
-            // Calculate final probability (clamped between 5% and 95%)
-            const finalProbability = Math.max(5, Math.min(95,
-                baseCatch + focusMod - defenderProximityPenalty
-            ));
+            // NEW CATCH PROBABILITY SYSTEM:
+            // - Wide open (no defenders): 95% catch rate
+            // - Contested: base 25%, catching stat adds up to +10% (at 100 catching) = 35% max
+            // - Defender influence reduces the catch probability
+
+            let finalProbability;
+            const catchingStat = receiver.stats.catching;
+
+            if (!hasNearbyDefender || totalDefenderInfluence < 0.1) {
+                // Wide open - catching stat matters but with bonus
+                // 60 catching = 80%, 80+ catching = 95% (capped)
+                const wideOpenBase = 80 + (catchingStat - 60) * 0.75;
+                finalProbability = Math.min(95, wideOpenBase);
+            } else {
+                // Contested catch formula:
+                // 50 catching = 10%, 100 catching = 35%
+                // Then reduced by defender influence
+                const contestedBase = 10;
+                const catchingBonus = (catchingStat - 50) * 0.5;  // +0.5% per point above 50
+                const rawContestedProb = contestedBase + catchingBonus;  // 10-35% range
+
+                // Focus helps under pressure
+                const focusBonus = (receiver.stats.focus - 50) * 0.2;  // -10 to +10
+
+                // Defender influence reduces probability
+                // Use the FULL influence (without shoulder bonus) for base calculation
+                const fullInfluence = Math.min(1, totalInfluenceWithoutShoulder);
+                const defenderReduction = fullInfluence * 40;
+
+                // Calculate what probability would be without shoulder throw
+                const probWithoutShoulder = rawContestedProb + focusBonus - defenderReduction;
+
+                // If shoulder throw applies, reduce the DB impact based on lead quality
+                // Perfect lead (100) = 50% reduction, bad lead (0) = 0% reduction
+                if (shoulderBonusSaved > 0) {
+                    // The DB penalty is the drop from wide open to contested result
+                    const wideOpen = Math.min(95, 80 + (catchingStat - 60) * 0.75);
+                    const fullPenalty = wideOpen - probWithoutShoulder;
+                    // Scale the bonus by lead quality (0-100 -> 0-0.5 reduction)
+                    const leadMultiplier = (leadScore / 100) * 0.5;  // 0 to 0.5
+                    const reducedPenalty = fullPenalty * (1 - leadMultiplier);
+                    finalProbability = wideOpen - reducedPenalty;
+                } else {
+                    finalProbability = probWithoutShoulder;
+                }
+            }
+
+            // Clamp between 5% and 95%
+            finalProbability = Math.max(5, Math.min(95, finalProbability));
 
             // Store for visual display
             receiver.lastCatchProbability = finalProbability;
 
-            // Return detailed info for UI display
+            // Calculate closest defender distance (separation)
+            let closestDefenderDist = coverageRange;
+            let hasSideBonus = false;
+            defenderDetails.forEach(d => {
+                const dist = parseFloat(d.dist);
+                if (dist < closestDefenderDist) closestDefenderDist = dist;
+                if (d.sideBonus) hasSideBonus = true;
+            });
+
+            // Determine coverage level
+            let coverageLevel = 'Wide Open';
+            if (hasNearbyDefender) {
+                if (closestDefenderDist <= 0.6) coverageLevel = 'Blanketed';
+                else if (closestDefenderDist <= 1.5) coverageLevel = 'Tight Coverage';
+                else if (closestDefenderDist <= 2.5) coverageLevel = 'Contested';
+                else coverageLevel = 'Light Coverage';
+            }
+
+            // Calculate penalty for display (difference from wide open)
+            const wideOpenRate = Math.min(95, 80 + (catchingStat - 60) * 0.75);
+            const defenderPenalty = hasNearbyDefender ? (wideOpenRate - finalProbability) : 0;
+
+            // Calculate the shoulder throw bonus (scaled by lead quality)
+            let shoulderBonusCatchSaved = 0;
+            let leadQualityPercent = 0;
+            if (hasSideBonus && hasNearbyDefender) {
+                // Calculate what the full penalty would have been
+                const fullInfluence = Math.min(1, totalInfluenceWithoutShoulder);
+                const contestedBase = 10;
+                const catchingBonus = (catchingStat - 50) * 0.5;
+                const rawContestedProb = contestedBase + catchingBonus;
+                const focusBonus = (receiver.stats.focus - 50) * 0.2;
+                const defenderReduction = fullInfluence * 40;
+                const probWithoutShoulder = Math.max(5, rawContestedProb + focusBonus - defenderReduction);
+                const fullPenalty = wideOpenRate - probWithoutShoulder;
+                // Shoulder throw bonus scaled by lead quality (0-100 -> 0-50% reduction)
+                const leadMultiplier = (leadScore / 100) * 0.5;
+                shoulderBonusCatchSaved = Math.round(fullPenalty * leadMultiplier);
+                leadQualityPercent = Math.round(leadScore);
+            }
+
             return {
                 probability: finalProbability,
-                baseCatch: baseCatch,
-                focusMod: focusMod,
-                defenderPenalty: defenderProximityPenalty,
-                defenderDetails: defenderDetails
+                baseCatch: catchingStat,
+                focusMod: hasNearbyDefender ? (receiver.stats.focus - 50) * 0.2 : 0,
+                defenderPenalty: defenderPenalty,
+                defenderDetails: defenderDetails,
+                // New detailed info
+                separation: closestDefenderDist,
+                coverageLevel: coverageLevel,
+                defenderInfluence: totalDefenderInfluence,
+                hasSideBonus: hasSideBonus,
+                shoulderBonusSaved: shoulderBonusCatchSaved,  // How much catch % was saved
+                leadQuality: leadQualityPercent,  // Lead quality (0-100)
+                isContested: hasNearbyDefender && totalDefenderInfluence >= 0.1,
+                wideOpenRate: wideOpenRate
             };
         };
 
@@ -7784,8 +8138,8 @@
 
             // Reset QB position (relative to line of scrimmage, randomized depth behind it)
             const qbDepthBehindLine = 2 + Math.random() * 2;  // 2-4 yards behind LOS
-            // Clamp QB Z position to stay on visible field (min -14 with extended field)
-            const qbZ = Math.max(-14, gameState.lineOfScrimmage - qbDepthBehindLine);
+            // Clamp QB Z position to stay on visible field (min -60 for own 35 start)
+            const qbZ = Math.max(-60, gameState.lineOfScrimmage - qbDepthBehindLine);
             gameState.qbStartZ = qbZ;
             scene.qb.position.x = 0;
             scene.qb.position.z = qbZ;
@@ -7806,8 +8160,8 @@
                 const camera = scene.activeCamera;
 
                 // Target centered on the line of scrimmage
-                // Allow camera to follow into own territory (-10) and into end zone (Z = 14)
-                const cameraTargetZ = Math.max(-10, Math.min(14, gameState.lineOfScrimmage + 2));
+                // Allow camera to follow full field from own 35 (-60) to end zone (Z = 14)
+                const cameraTargetZ = Math.max(-60, Math.min(14, gameState.lineOfScrimmage + 2));
                 camera.target = new BABYLON.Vector3(0, 0, cameraTargetZ);
 
                 // Reset camera to current view mode settings (alpha, beta, radius)
@@ -8199,24 +8553,8 @@
                     // Update debug display
                     updateDebugInfo();
 
-                    // Fade out name labels after 1 second
-                    const timeSinceStart = time - gameState.playStartTime;
-                    if (timeSinceStart > 1.0 && timeSinceStart < 2.0) {
-                        // Fade over 1 second (from t=1 to t=2)
-                        const fadeProgress = timeSinceStart - 1.0;
-                        gameState.receivers.forEach(receiver => {
-                            if (receiver.nameLabel) {
-                                receiver.nameLabel.alpha = 1 - fadeProgress;
-                            }
-                        });
-                    } else if (timeSinceStart >= 2.0) {
-                        // Fully hidden
-                        gameState.receivers.forEach(receiver => {
-                            if (receiver.nameLabel) {
-                                receiver.nameLabel.alpha = 0;
-                            }
-                        });
-                    }
+                    // Name labels are hidden by hidePlayerLabels() when play starts
+                    // No additional fade logic needed here
                 }
             });
         };
@@ -8247,9 +8585,9 @@
 
         // Calculate real-time catch probability for a receiver (for visual display)
         const calculateRealtimeCatchProb = (receiver) => {
-            const baseCatch = receiver.stats.catching;
+            const catchingStat = receiver.stats.catching;
             const coverageRange = CLASH_CONSTANTS.CLASH_RANGE * 1.5;
-            let defenderPenalty = 0;
+            let totalDefenderInfluence = 0;
             let hasNearbyDefender = false;
 
             gameState.defenders.forEach(defender => {
@@ -8264,13 +8602,27 @@
                     const coverageStat = defender.aiType === 'zone' ?
                         defender.stats.zoneCoverage : defender.stats.manCoverage;
                     const proximityFactor = 1 - (dist / coverageRange);
-                    // Match the catch calculation: cubed for steeper dropoff
-                    defenderPenalty += proximityFactor * proximityFactor * proximityFactor * coverageStat * 0.8;
+                    let influence = proximityFactor * proximityFactor * (coverageStat / 100);
+                    if (dist <= 0.6) influence *= 1.5;
+                    totalDefenderInfluence += influence;
                 }
             });
 
-            const focusMod = hasNearbyDefender ? (receiver.stats.focus - 70) * 0.3 : 0;
-            return Math.max(5, Math.min(95, baseCatch + focusMod - defenderPenalty));
+            totalDefenderInfluence = Math.min(1, totalDefenderInfluence);
+
+            // Match the new catch system: wide open uses catching stat with bonus, contested 25-35%
+            if (!hasNearbyDefender || totalDefenderInfluence < 0.1) {
+                // Wide open: 60 catching = 80%, 80+ catching = 95% (capped)
+                const wideOpenBase = 80 + (catchingStat - 60) * 0.75;
+                return Math.min(95, wideOpenBase);
+            } else {
+                // 50 catching = 10%, 100 catching = 35%
+                const contestedBase = 10;
+                const catchingBonus = (catchingStat - 50) * 0.5;
+                const focusBonus = (receiver.stats.focus - 50) * 0.2;
+                const defenderReduction = totalDefenderInfluence * 40;
+                return Math.max(5, Math.min(95, contestedBase + catchingBonus + focusBonus - defenderReduction));
+            }
         };
 
         // Update zone fills based on proximity between receivers and defenders
@@ -9395,10 +9747,17 @@
             gameState.catches = 0;
             gameState.attempts = 0;
             gameState.touchdowns = 0;
+            gameState.lineOfScrimmage = gameState.startingLineOfScrimmage;
+            gameState.firstDownMarker = gameState.startingLineOfScrimmage + 10;
             gameStats.reset();  // Reset per-game stats
 
             // Update game meshes with roster player data
             updateGamePlayersFromRoster();
+
+            // Reset play to position all players at the line of scrimmage
+            if (gameState.scene) {
+                resetPlay(gameState.scene);
+            }
         }
 
         // Start training mode (no defenders, throw ratings)
@@ -9420,8 +9779,8 @@
             gameState.catches = 0;
             gameState.attempts = 0;
             gameState.touchdowns = 0;
-            gameState.lineOfScrimmage = -5;
-            gameState.firstDownMarker = 5;
+            gameState.lineOfScrimmage = gameState.startingLineOfScrimmage;
+            gameState.firstDownMarker = gameState.startingLineOfScrimmage + 10;
 
             // Keep defensive backs visible but hide offensive and defensive lines
             gameState.offensiveLine.forEach(lineman => lineman.setEnabled(false));
@@ -9460,101 +9819,142 @@
             }
         }
 
-        // Calculate throw rating based on route proximity and leading
+        // Calculate throw rating based on lead accuracy, lateral offset, and receiver slowdown
         function calculateThrowRating(receiver, ballLandingPos, catchTime) {
-            // Get the receiver's route waypoints
-            const route = receiver.route || [];
-            if (route.length === 0) return { grade: 'C', score: 50, details: 'No route data' };
+            // Get receiver's position and velocity at THROW time (not catch time)
+            const throwPos = gameState.receiverPositionsAtThrow && gameState.receiverPositionsAtThrow[receiver.name];
+            const throwVelocity = gameState.receiverVelocitiesAtThrow && gameState.receiverVelocitiesAtThrow[receiver.name];
 
-            // Find the closest point on the route to where the ball landed
-            let minDist = Infinity;
-            let closestRoutePoint = null;
-
-            // Check distance to each route waypoint
-            route.forEach(waypoint => {
-                const dist = Math.sqrt(
-                    Math.pow(ballLandingPos.x - waypoint.x, 2) +
-                    Math.pow(ballLandingPos.z - waypoint.z, 2)
-                );
-                if (dist < minDist) {
-                    minDist = dist;
-                    closestRoutePoint = waypoint;
-                }
-            });
-
-            // Also check current receiver position at catch time
-            const receiverPos = receiver.position;
-            const distToReceiver = Math.sqrt(
-                Math.pow(ballLandingPos.x - receiverPos.x, 2) +
-                Math.pow(ballLandingPos.z - receiverPos.z, 2)
-            );
-
-            // Calculate lead accuracy: was the ball thrown ahead of the receiver?
-            // Positive lead = thrown ahead (good), negative = thrown behind (bad)
-            // Use velocity captured at throw time, not current velocity (receiver may have stopped)
-            const storedVelocity = gameState.receiverVelocitiesAtThrow && gameState.receiverVelocitiesAtThrow[receiver.name];
-            const receiverVelocity = storedVelocity || receiver.velocity || new BABYLON.Vector3(0, 0, 0);
-            const leadVector = new BABYLON.Vector3(
-                ballLandingPos.x - receiverPos.x,
-                0,
-                ballLandingPos.z - receiverPos.z
-            );
-
-            // Dot product with velocity direction (positive = leading, negative = behind)
-            const velocityMagnitude = Math.sqrt(receiverVelocity.x * receiverVelocity.x + receiverVelocity.z * receiverVelocity.z);
-            let leadScore = 50; // Default neutral
-            let leadDistance = 0; // Actual lead distance (positive = ahead, negative = behind)
-            const idealLead = 1.0; // Ideal lead distance in units
-
-            if (velocityMagnitude > 0.001) {
-                const leadDot = (leadVector.x * receiverVelocity.x + leadVector.z * receiverVelocity.z) / velocityMagnitude;
-                leadDistance = leadDot;
-                // Good lead is 0.5-2 units ahead
-                if (leadDot > 0 && leadDot < 3) {
-                    leadScore = 100 - Math.abs(leadDot - idealLead) * 20; // Best at 1 unit lead
-                } else if (leadDot < 0) {
-                    leadScore = Math.max(0, 50 + leadDot * 20); // Penalty for behind
-                } else {
-                    leadScore = Math.max(30, 100 - leadDot * 15); // Too far ahead
-                }
+            if (!throwPos || !throwVelocity) {
+                return { grade: 'C', score: 50, details: 'No throw data', leadScore: 50 };
             }
 
-            // Route accuracy score (how close to the route) - less strict
-            const routeScore = Math.max(0, 100 - minDist * 20);
+            // Calculate ball flight time
+            const flightTime = gameState.throwStartTime ?
+                (performance.now() - gameState.throwStartTime) / 1000 : 1.5;
 
-            // Combine scores (lead accuracy weighted more heavily)
-            const totalScore = Math.round(routeScore * 0.3 + leadScore * 0.7);
+            // Get velocity magnitude at throw time (velocity is per-frame, convert to per-second)
+            const velPerSec = { x: throwVelocity.x * 60, z: throwVelocity.z * 60 };
+            const velocityMagnitude = Math.sqrt(
+                velPerSec.x * velPerSec.x + velPerSec.z * velPerSec.z
+            );
 
-            // Determine grade (minimum C, no D or F)
+            // Vector from receiver (at throw time) to ball landing
+            const toBall = new BABYLON.Vector3(
+                ballLandingPos.x - throwPos.x,
+                0,
+                ballLandingPos.z - throwPos.z
+            );
+            const distToBall = Math.sqrt(toBall.x * toBall.x + toBall.z * toBall.z);
+
+            let leadScore = 50;
+            let lateralScore = 100;
+            let slowdownScore = 100;
+            let leadDistance = 0;
+            let lateralOffset = 0;
+
+            if (velocityMagnitude > 0.1) {
+                // Normalize velocity direction
+                const velDir = new BABYLON.Vector3(
+                    velPerSec.x / velocityMagnitude,
+                    0,
+                    velPerSec.z / velocityMagnitude
+                );
+
+                // 1. LEAD DISTANCE: Dot product gives distance along velocity direction
+                leadDistance = toBall.x * velDir.x + toBall.z * velDir.z;
+
+                // 2. LATERAL OFFSET: Cross product magnitude gives perpendicular distance
+                // In 2D (XZ plane): |A × B| = Ax*Bz - Az*Bx
+                lateralOffset = Math.abs(toBall.x * velDir.z - toBall.z * velDir.x);
+
+                // Ideal lead scales with flight time and receiver speed
+                // If receiver runs at speed S for time T, ideal lead = S * T
+                const idealLead = velocityMagnitude * flightTime * 0.8; // 80% to give catching room
+
+                // Score lead accuracy (how close to ideal)
+                // More lenient: 1.5 yard buffer for full score, gentler dropoff
+                const leadError = Math.abs(leadDistance - idealLead);
+                if (leadDistance < 0) {
+                    // Ball thrown behind - bad but not catastrophic for small amounts
+                    // 0 to -1 yard: 80-100, beyond that drops faster
+                    leadScore = Math.max(0, 100 + leadDistance * 20);
+                } else if (leadDistance > idealLead * 2.5) {
+                    // Way too far ahead - receiver can't reach
+                    leadScore = Math.max(10, 60 - (leadDistance - idealLead * 2) * 8);
+                } else if (leadError <= 1.5) {
+                    // Within 1.5 yards of ideal = full score
+                    leadScore = 100;
+                } else {
+                    // Outside buffer but reasonable range - gentle dropoff
+                    leadScore = Math.max(40, 100 - (leadError - 1.5) * 12);
+                }
+
+                // Lateral offset penalty - each yard off costs points
+                // Perfect = on the line, 3+ yards off = significant penalty
+                lateralScore = Math.max(0, 100 - lateralOffset * 25);
+
+                // 3. SLOWDOWN MEASUREMENT: Compare expected vs actual distance traveled
+                // Expected: receiver running at full speed for flight time
+                const expectedDistance = velocityMagnitude * flightTime;
+                // Actual: where receiver ended up vs where they started
+                const actualPos = receiver.position;
+                const actualDistance = Math.sqrt(
+                    Math.pow(actualPos.x - throwPos.x, 2) +
+                    Math.pow(actualPos.z - throwPos.z, 2)
+                );
+
+                // Slowdown ratio: 1.0 = full speed, 0.5 = half speed
+                const speedRatio = expectedDistance > 0.1 ?
+                    Math.min(1, actualDistance / expectedDistance) : 1;
+
+                // Perfect throw = receiver maintained speed (ratio ~1)
+                // Bad throw = receiver had to slow/stop (ratio < 1)
+                slowdownScore = speedRatio * 100;
+            } else {
+                // Stationary receiver - just measure distance to ball
+                const directDist = distToBall;
+                leadScore = Math.max(0, 100 - directDist * 30);
+                lateralScore = 100; // No direction, so no lateral concept
+            }
+
+            // Combine scores: lead most important, then slowdown, then lateral
+            // Lead 40%, Slowdown 35%, Lateral 25%
+            const totalScore = Math.round(
+                leadScore * 0.40 +
+                slowdownScore * 0.35 +
+                lateralScore * 0.25
+            );
+
+            // Determine grade
             let grade;
             if (totalScore >= 90) grade = 'A+';
             else if (totalScore >= 80) grade = 'A';
             else if (totalScore >= 65) grade = 'B';
             else grade = 'C';
 
-            // Format lead deviation from ideal
-            const leadDeviation = leadDistance - idealLead;
+            // Format details
             let leadText;
-            if (Math.abs(leadDistance) < 0.1 && velocityMagnitude < 0.001) {
+            if (velocityMagnitude < 0.001) {
                 leadText = 'stationary';
-            } else if (leadDeviation > 0.1) {
-                leadText = `+${leadDeviation.toFixed(1)} (too far ahead)`;
-            } else if (leadDeviation < -0.1 && leadDistance >= 0) {
-                leadText = `${leadDeviation.toFixed(1)} (short lead)`;
             } else if (leadDistance < 0) {
-                leadText = `${leadDistance.toFixed(1)} (behind)`;
+                leadText = `${leadDistance.toFixed(1)}yd behind`;
             } else {
-                leadText = `${leadDeviation.toFixed(1)} (good)`;
+                leadText = `${leadDistance.toFixed(1)}yd ahead`;
             }
+
+            const lateralText = lateralOffset > 0.3 ? `, ${lateralOffset.toFixed(1)}yd wide` : '';
 
             return {
                 grade,
                 score: totalScore,
-                routeScore: Math.round(routeScore),
                 leadScore: Math.round(leadScore),
-                distToRoute: minDist.toFixed(1),
-                leadText: leadText,
-                details: `Route: ${minDist.toFixed(1)} yds off | Lead: ${leadText}`
+                lateralScore: Math.round(lateralScore),
+                slowdownScore: Math.round(slowdownScore),
+                leadDistance: leadDistance,
+                lateralOffset: lateralOffset,
+                leadText: leadText + lateralText,
+                details: `Lead: ${leadText}${lateralText} | Slowdown: ${Math.round(slowdownScore)}%`
             };
         }
 
