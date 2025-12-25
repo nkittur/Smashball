@@ -7425,7 +7425,7 @@
 
                     // Shoulder throw bonus - show actual amount saved
                     if (catchInfo.hasSideBonus && catchInfo.shoulderBonusSaved > 0) {
-                        modRows.push(makeRow('Shoulder throw bonus', `+${catchInfo.shoulderBonusSaved}%`, true));
+                        modRows.push(makeRow('Shoulder throw bonus', `${catchInfo.shoulderBonusSaved}%`, true));
                     }
 
                     // Focus modifier (if any significant effect)
@@ -7669,25 +7669,15 @@
 
                     // Influence is proximity^2 * coverage stat (normalized to 0-1)
                     let influence = proximityFactor * proximityFactor * (coverageStat / 100);
-                    const influenceBeforeBonus = influence;
                     let sideBonus = false;
 
-                    // Check if ball is on opposite side from defender (shoulder throw bonus)
-                    // This ALWAYS applies - even for close defenders
+                    // For shoulder throw check later
                     const defDx = defender.position.x - receiver.position.x;
                     const defDz = defender.position.z - receiver.position.z;
                     const ballDx = ballPosition.x - receiver.position.x;
                     const ballDz = ballPosition.z - receiver.position.z;
 
-                    // Dot product: if negative, they're on opposite sides
-                    const dotProduct = defDx * ballDx + defDz * ballDz;
-                    if (dotProduct < 0) {
-                        influence *= 0.5;  // Halve DB influence for shoulder throw
-                        sideBonus = true;
-                        shoulderBonusSaved += influenceBeforeBonus - influence;
-                    }
-
-                    // Very close defenders have more influence (but shoulder bonus still applies first)
+                    // Very close defenders have more influence
                     const CLOSE_DEFENDER_THRESHOLD = 0.6;
                     if (dist <= CLOSE_DEFENDER_THRESHOLD) {
                         influence *= 1.5;
@@ -7704,6 +7694,16 @@
                         if (receiversInZone > 1) {
                             influence /= receiversInZone;
                         }
+                    }
+
+                    // Dot product: if negative, ball is on opposite side from defender
+                    // Apply shoulder throw bonus LAST to truly halve the final DB impact
+                    const dotProduct = defDx * ballDx + defDz * ballDz;
+                    if (dotProduct < 0) {
+                        const influenceBeforeShoulder = influence;
+                        influence *= 0.5;  // Halve DB influence for shoulder throw
+                        sideBonus = true;
+                        shoulderBonusSaved += influenceBeforeShoulder - influence;
                     }
 
                     totalDefenderInfluence += influence;
