@@ -7409,15 +7409,18 @@
             updateMessage('');
             clearThrowHeatMap();
 
-            // Capture receiver positions, velocities, and speeds at throw time for rating calculation
+            // Capture receiver positions, velocities, speeds, and momentum at throw time for rating calculation
             gameState.receiverVelocitiesAtThrow = {};
             gameState.receiverPositionsAtThrow = {};
             gameState.receiverSpeedsAtThrow = {};
+            gameState.receiverMomentumAtThrow = {};
             gameState.receivers.forEach(receiver => {
                 gameState.receiverVelocitiesAtThrow[receiver.name] = receiver.velocity ? receiver.velocity.clone() : new BABYLON.Vector3(0, 0, 0);
                 gameState.receiverPositionsAtThrow[receiver.name] = receiver.position.clone();
                 // Capture current speed (includes any active boost)
                 gameState.receiverSpeedsAtThrow[receiver.name] = receiver.speed || receiver.baseSpeed;
+                // Capture runMomentum (smoothed 0-1 value indicating if at full running speed)
+                gameState.receiverMomentumAtThrow[receiver.name] = receiver.runMomentum || 0;
             });
             gameState.throwStartTime = performance.now();
 
@@ -7872,16 +7875,16 @@
                         <span style="color:${getScoreColor(slowPct)}; font-weight:bold;">${Math.round(slowPct)}</span>
                     </div>`);
 
-                    // Debug info for slowdown calculation
+                    // Debug info for slowdown calculation (momentum-based)
                     if (throwRating.debugInfo) {
                         const dbg = throwRating.debugInfo;
                         modRows.push(`<div style="display:flex; justify-content:space-between; margin: 2px 0; font-size: 11px;">
-                            <span style="color:#666;">Flight: ${dbg.flightTime}s @ ${dbg.receiverSpeed}yd/s</span>
-                            <span style="color:#666;">Exp: ${dbg.expectedDist}yd</span>
+                            <span style="color:#666;">Flight: ${dbg.flightTime}s</span>
+                            <span style="color:#666;">Throw momentum: ${dbg.throwMomentum}</span>
                         </div>`);
                         modRows.push(`<div style="display:flex; justify-content:space-between; margin: 2px 0; padding-bottom: 6px; border-bottom: 1px solid #333; font-size: 11px;">
-                            <span style="color:#666;">Actual: ${dbg.actualDist}yd</span>
-                            <span style="color:#666;">Ratio: ${dbg.speedRatio}</span>
+                            <span style="color:#666;">Catch momentum: ${dbg.catchMomentum}</span>
+                            <span style="color:#666;">Ratio: ${dbg.momentumRatio}</span>
                         </div>`);
                     } else {
                         modRows.push(`<div style="padding-bottom: 6px; border-bottom: 1px solid #333;"></div>`);
@@ -10238,29 +10241,31 @@
                 // Perfect = on the line, 3+ yards off = significant penalty
                 lateralScore = Math.max(0, 100 - lateralOffset * 25);
 
-                // 3. SLOWDOWN MEASUREMENT: Compare expected vs actual distance traveled
-                // Expected: receiver running at their current speed (including boosts) for flight time
-                const expectedDistance = receiverSpeed * flightTime;
-                // Actual: where receiver ended up vs where they started
-                const actualPos = receiver.position;
-                const actualDistance = Math.sqrt(
-                    Math.pow(actualPos.x - throwPos.x, 2) +
-                    Math.pow(actualPos.z - throwPos.z, 2)
-                );
+                // 3. SLOWDOWN MEASUREMENT: Compare momentum at throw vs catch
+                // runMomentum is a smoothed 0-1 value (builds 0.15/frame when running, decays 0.9x when stopped)
+                // This is more reliable than distance because speed fluctuates with DB closeness
+                const throwMomentum = gameState.receiverMomentumAtThrow && gameState.receiverMomentumAtThrow[receiver.name];
+                const catchMomentum = receiver.runMomentum || 0;
 
-                // Slowdown ratio: 1.0 = full speed, 0.5 = half speed
-                const speedRatio = expectedDistance > 0.1 ?
-                    Math.min(1, actualDistance / expectedDistance) : 1;
+                // Calculate momentum ratio: how much momentum was maintained
+                // If throwMomentum was low (receiver wasn't running), don't penalize
+                let momentumRatio;
+                if (throwMomentum !== undefined && throwMomentum > 0.2) {
+                    // Receiver was running at throw - compare to catch momentum
+                    momentumRatio = Math.min(1, catchMomentum / throwMomentum);
+                } else {
+                    // Receiver was stationary or just starting - no penalty
+                    momentumRatio = 1;
+                }
 
-                slowdownScore = speedRatio * 100;
+                slowdownScore = momentumRatio * 100;
 
                 // Store debug info for display
                 debugInfo = {
                     flightTime: flightTime.toFixed(2),
-                    receiverSpeed: receiverSpeed.toFixed(1),
-                    expectedDist: expectedDistance.toFixed(1),
-                    actualDist: actualDistance.toFixed(1),
-                    speedRatio: speedRatio.toFixed(2)
+                    throwMomentum: throwMomentum !== undefined ? throwMomentum.toFixed(2) : 'N/A',
+                    catchMomentum: catchMomentum.toFixed(2),
+                    momentumRatio: momentumRatio.toFixed(2)
                 };
             } else {
                 // Stationary receiver - just measure distance to ball
