@@ -957,7 +957,10 @@
             startingLineOfScrimmage: -54,  // Where drive started - own 35 yard line
             // Training mode
             trainingMode: false,    // Training mode: no defenders, throw ratings
-            lastThrowRating: null   // Last throw rating for display
+            lastThrowRating: null,  // Last throw rating for display
+            // Debug visualization
+            showThrowHeatMap: false,
+            heatMapMeshes: []
         };
 
         // Per-game stats tracking (reset each match)
@@ -7406,6 +7409,7 @@
             gameState.ballInFlight = true;
             gameState.canThrow = false;
             updateMessage('');
+            clearThrowHeatMap();
 
             // Capture receiver positions and velocities at throw time for rating calculation
             gameState.receiverVelocitiesAtThrow = {};
@@ -7869,10 +7873,25 @@
                     // Slowdown
                     const slowPct = throwRating.slowdownScore || 100;
                     const slowLabel = slowPct >= 90 ? 'in stride' : slowPct >= 70 ? 'adjusted' : 'had to stop';
-                    modRows.push(`<div style="display:flex; justify-content:space-between; margin: 4px 0; padding-bottom: 6px; border-bottom: 1px solid #333;">
+                    modRows.push(`<div style="display:flex; justify-content:space-between; margin: 4px 0;">
                         <span style="color:#888;">WR speed (${slowLabel})</span>
                         <span style="color:${getScoreColor(slowPct)}; font-weight:bold;">${Math.round(slowPct)}</span>
                     </div>`);
+
+                    // Debug info for slowdown calculation
+                    if (throwRating.debugInfo) {
+                        const dbg = throwRating.debugInfo;
+                        modRows.push(`<div style="display:flex; justify-content:space-between; margin: 2px 0; font-size: 11px;">
+                            <span style="color:#666;">Flight: ${dbg.flightTime}s @ ${dbg.receiverSpeed}yd/s</span>
+                            <span style="color:#666;">Exp: ${dbg.expectedDist}yd</span>
+                        </div>`);
+                        modRows.push(`<div style="display:flex; justify-content:space-between; margin: 2px 0; padding-bottom: 6px; border-bottom: 1px solid #333; font-size: 11px;">
+                            <span style="color:#666;">Actual: ${dbg.actualDist}yd</span>
+                            <span style="color:#666;">Ratio: ${dbg.speedRatio}</span>
+                        </div>`);
+                    } else {
+                        modRows.push(`<div style="padding-bottom: 6px; border-bottom: 1px solid #333;"></div>`);
+                    }
 
                     // Base catch rate (from catching stat)
                     modRows.push(`<div style="display:flex; justify-content:space-between; margin: 4px 0;">
@@ -8763,6 +8782,11 @@
                             receiver.bodyMaterial.emissiveColor = BABYLON.Color3.Black();
                         }
                     });
+
+                    // Update throw heat map if enabled
+                    if (gameState.showThrowHeatMap) {
+                        updateThrowHeatMap();
+                    }
 
                     // Route completion no longer triggers reset - play continues normally
 
@@ -10149,6 +10173,7 @@
             let slowdownScore = 100;
             let leadDistance = 0;
             let lateralOffset = 0;
+            let debugInfo = null;
 
             if (velocityMagnitude > 0.1) {
                 // Normalize velocity direction
@@ -10205,9 +10230,16 @@
                 const speedRatio = expectedDistance > 0.1 ?
                     Math.min(1, actualDistance / expectedDistance) : 1;
 
-                // Perfect throw = receiver maintained speed (ratio ~1)
-                // Bad throw = receiver had to slow/stop (ratio < 1)
                 slowdownScore = speedRatio * 100;
+
+                // Store debug info for display
+                debugInfo = {
+                    flightTime: flightTime.toFixed(2),
+                    receiverSpeed: velocityMagnitude.toFixed(1),
+                    expectedDist: expectedDistance.toFixed(1),
+                    actualDist: actualDistance.toFixed(1),
+                    speedRatio: speedRatio.toFixed(2)
+                };
             } else {
                 // Stationary receiver - just measure distance to ball
                 const directDist = distToBall;
@@ -10251,8 +10283,59 @@
                 leadDistance: leadDistance,
                 lateralOffset: lateralOffset,
                 leadText: leadText + lateralText,
-                details: `Lead: ${leadText}${lateralText} | Slowdown: ${Math.round(slowdownScore)}%`
+                details: `Lead: ${leadText}${lateralText} | Slowdown: ${Math.round(slowdownScore)}%`,
+                debugInfo: debugInfo
             };
+        }
+
+        // Clear heat map meshes
+        function clearThrowHeatMap() {
+            if (gameState.heatMapMeshes) {
+                gameState.heatMapMeshes.forEach(mesh => mesh.dispose());
+                gameState.heatMapMeshes = [];
+            }
+        }
+
+        // Draw throw heat map showing ideal/medium/poor zones for each receiver
+        function updateThrowHeatMap() {
+            if (!gameState.showThrowHeatMap || !gameState.scene) return;
+            clearThrowHeatMap();
+
+            const scene = gameState.scene;
+            const qbPos = scene.qb ? scene.qb.position : new BABYLON.Vector3(0, 0, gameState.qbStartZ);
+
+            gameState.receivers.forEach((receiver, idx) => {
+                if (!receiver.velocity) return;
+                const pos = receiver.position;
+                const vel = { x: receiver.velocity.x * 60, z: receiver.velocity.z * 60 };
+                const speed = Math.sqrt(vel.x * vel.x + vel.z * vel.z);
+                if (speed < 0.1) return;
+
+                const throwSpeed = 25;
+                for (let t = 0.3; t <= 2.0; t += 0.2) {
+                    const futureX = pos.x + vel.x * t;
+                    const futureZ = pos.z + vel.z * t;
+                    const distToQB = Math.sqrt(Math.pow(futureX - qbPos.x, 2) + Math.pow(futureZ - qbPos.z, 2));
+                    const ballFlightTime = distToQB / throwSpeed;
+                    const timeDiff = Math.abs(t - ballFlightTime);
+
+                    let color;
+                    if (timeDiff < 0.15) color = new BABYLON.Color3(0, 1, 0);
+                    else if (timeDiff < 0.35) color = new BABYLON.Color3(1, 1, 0);
+                    else if (timeDiff < 0.6) color = new BABYLON.Color3(1, 0.5, 0);
+                    else color = new BABYLON.Color3(1, 0, 0);
+
+                    const zoneMesh = BABYLON.MeshBuilder.CreateDisc(`heatZone_${idx}_${t}`, { radius: 0.3, tessellation: 16 }, scene);
+                    zoneMesh.position = new BABYLON.Vector3(futureX, 0.02, futureZ);
+                    zoneMesh.rotation.x = Math.PI / 2;
+                    const zoneMat = new BABYLON.StandardMaterial(`heatZoneMat_${idx}_${t}`, scene);
+                    zoneMat.diffuseColor = color;
+                    zoneMat.emissiveColor = color.scale(0.5);
+                    zoneMat.alpha = 0.4;
+                    zoneMesh.material = zoneMat;
+                    gameState.heatMapMeshes.push(zoneMesh);
+                }
+            });
         }
 
         // Update game player meshes with roster data
@@ -10862,6 +10945,15 @@
         document.getElementById('viewIso').addEventListener('click', () => setCameraView('iso'));
         document.getElementById('viewOverhead').addEventListener('click', () => setCameraView('overhead'));
         document.getElementById('viewShoulder').addEventListener('click', () => setCameraView('shoulder'));
+
+        // Keyboard shortcuts - 'H' toggles throw heat map
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'h' || e.key === 'H') {
+                gameState.showThrowHeatMap = !gameState.showThrowHeatMap;
+                if (!gameState.showThrowHeatMap) clearThrowHeatMap();
+                console.log('Throw heat map:', gameState.showThrowHeatMap ? 'ON' : 'OFF');
+            }
+        });
 
         engine.runRenderLoop(() => {
             scene.render();
