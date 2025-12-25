@@ -7875,16 +7875,32 @@
                         <span style="color:${getScoreColor(slowPct)}; font-weight:bold;">${Math.round(slowPct)}</span>
                     </div>`);
 
-                    // Debug info for slowdown calculation (momentum-based)
+                    // Momentum and boost info display
                     if (throwRating.debugInfo) {
                         const dbg = throwRating.debugInfo;
+                        // Momentum values
                         modRows.push(`<div style="display:flex; justify-content:space-between; margin: 2px 0; font-size: 11px;">
-                            <span style="color:#666;">Flight: ${dbg.flightTime}s</span>
-                            <span style="color:#666;">Throw momentum: ${dbg.throwMomentum}</span>
+                            <span style="color:#888;">Momentum @ throw</span>
+                            <span style="color:#aaa;">${dbg.throwMomentum}</span>
                         </div>`);
+                        modRows.push(`<div style="display:flex; justify-content:space-between; margin: 2px 0; font-size: 11px;">
+                            <span style="color:#888;">Momentum @ catch</span>
+                            <span style="color:#aaa;">${dbg.catchMomentum}</span>
+                        </div>`);
+
+                        // Speed boost/penalty indicator
+                        let boostText = 'None';
+                        let boostColor = '#666';
+                        if (throwRating.hasSpeedBoost) {
+                            boostText = '★ Speed Boost (won clash)';
+                            boostColor = '#4f4';
+                        } else if (throwRating.hasSpeedPenalty) {
+                            boostText = '✖ Speed Penalty (lost clash)';
+                            boostColor = '#f66';
+                        }
                         modRows.push(`<div style="display:flex; justify-content:space-between; margin: 2px 0; padding-bottom: 6px; border-bottom: 1px solid #333; font-size: 11px;">
-                            <span style="color:#666;">Catch momentum: ${dbg.catchMomentum}</span>
-                            <span style="color:#666;">Ratio: ${dbg.momentumRatio}</span>
+                            <span style="color:#888;">Clash bonus</span>
+                            <span style="color:${boostColor};">${boostText}</span>
                         </div>`);
                     } else {
                         modRows.push(`<div style="padding-bottom: 6px; border-bottom: 1px solid #333;"></div>`);
@@ -10301,6 +10317,10 @@
 
             const lateralText = lateralOffset > 0.3 ? `, ${lateralOffset.toFixed(1)}yd wide` : '';
 
+            // Check if receiver has active speed boost or penalty
+            const hasSpeedBoost = receiver.clashSpeedBoostUntil > gameState.gameTime;
+            const hasSpeedPenalty = receiver.clashSpeedPenaltyUntil > gameState.gameTime;
+
             return {
                 grade,
                 score: totalScore,
@@ -10311,7 +10331,9 @@
                 lateralOffset: lateralOffset,
                 leadText: leadText + lateralText,
                 details: `Lead: ${leadText}${lateralText} | Slowdown: ${Math.round(slowdownScore)}%`,
-                debugInfo: debugInfo
+                debugInfo: debugInfo,
+                hasSpeedBoost: hasSpeedBoost,
+                hasSpeedPenalty: hasSpeedPenalty
             };
         }
 
