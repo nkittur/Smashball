@@ -7411,6 +7411,33 @@
                         <span style="color:#fff;">${sepYards} yds - ${catchInfo.coverageLevel}</span>
                     </div>`);
 
+                    // Throw accuracy breakdown (lead components)
+                    const getScoreColor = (score) => score >= 80 ? '#4f4' : score >= 50 ? '#ff4' : '#f66';
+
+                    // Lead distance with context
+                    const leadDist = throwRating.leadDistance || 0;
+                    const leadLabel = leadDist < 0 ? `${leadDist.toFixed(1)}yd behind` : `${leadDist.toFixed(1)}yd ahead`;
+                    modRows.push(`<div style="display:flex; justify-content:space-between; margin: 4px 0;">
+                        <span style="color:#888;">Lead (${leadLabel})</span>
+                        <span style="color:${getScoreColor(throwRating.leadScore)}; font-weight:bold;">${throwRating.leadScore}</span>
+                    </div>`);
+
+                    // Lateral offset
+                    const latOff = throwRating.lateralOffset || 0;
+                    const latLabel = latOff < 0.3 ? 'on target' : `${latOff.toFixed(1)}yd wide`;
+                    modRows.push(`<div style="display:flex; justify-content:space-between; margin: 4px 0;">
+                        <span style="color:#888;">Accuracy (${latLabel})</span>
+                        <span style="color:${getScoreColor(throwRating.lateralScore)}; font-weight:bold;">${throwRating.lateralScore}</span>
+                    </div>`);
+
+                    // Slowdown
+                    const slowPct = throwRating.slowdownScore || 100;
+                    const slowLabel = slowPct >= 90 ? 'in stride' : slowPct >= 70 ? 'adjusted' : 'had to stop';
+                    modRows.push(`<div style="display:flex; justify-content:space-between; margin: 4px 0; padding-bottom: 6px; border-bottom: 1px solid #333;">
+                        <span style="color:#888;">WR speed (${slowLabel})</span>
+                        <span style="color:${getScoreColor(slowPct)}; font-weight:bold;">${Math.round(slowPct)}</span>
+                    </div>`);
+
                     // Base catch rate (wide open rate based on catching stat)
                     modRows.push(`<div style="display:flex; justify-content:space-between; margin: 4px 0;">
                         <span style="color:#aaa;">Base catch (${catchInfo.baseCatch} catching)</span>
