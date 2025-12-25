@@ -9777,16 +9777,21 @@
                 const idealLead = velocityMagnitude * flightTime * 0.8; // 80% to give catching room
 
                 // Score lead accuracy (how close to ideal)
+                // More lenient: 1.5 yard buffer for full score, gentler dropoff
                 const leadError = Math.abs(leadDistance - idealLead);
                 if (leadDistance < 0) {
-                    // Ball thrown behind - very bad
-                    leadScore = Math.max(0, 30 + leadDistance * 15);
-                } else if (leadDistance > idealLead * 2) {
-                    // Too far ahead - receiver can't reach
-                    leadScore = Math.max(20, 80 - (leadDistance - idealLead) * 10);
+                    // Ball thrown behind - bad but not catastrophic for small amounts
+                    // 0 to -1 yard: 80-100, beyond that drops faster
+                    leadScore = Math.max(0, 100 + leadDistance * 20);
+                } else if (leadDistance > idealLead * 2.5) {
+                    // Way too far ahead - receiver can't reach
+                    leadScore = Math.max(10, 60 - (leadDistance - idealLead * 2) * 8);
+                } else if (leadError <= 1.5) {
+                    // Within 1.5 yards of ideal = full score
+                    leadScore = 100;
                 } else {
-                    // Near ideal range
-                    leadScore = Math.max(0, 100 - leadError * 15);
+                    // Outside buffer but reasonable range - gentle dropoff
+                    leadScore = Math.max(40, 100 - (leadError - 1.5) * 12);
                 }
 
                 // Lateral offset penalty - each yard off costs points
