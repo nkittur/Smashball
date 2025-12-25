@@ -7128,18 +7128,21 @@
             if (closestReceiver && gameState.trainingMode) {
                 const throwPos = gameState.receiverPositionsAtThrow[closestReceiver.name];
                 const throwVel = gameState.receiverVelocitiesAtThrow[closestReceiver.name];
-                const velMag = Math.sqrt(throwVel.x * throwVel.x + throwVel.z * throwVel.z);
+                // Velocity is per-frame, convert to per-second by multiplying by 60
+                const velPerSec = { x: throwVel.x * 60, z: throwVel.z * 60 };
+                const velMag = Math.sqrt(velPerSec.x * velPerSec.x + velPerSec.z * velPerSec.z);
 
-                if (velMag > 0.001) {
-                    // Estimate flight time based on animation speed
+                if (velMag > 0.1) {
+                    // Estimate flight time in seconds
                     const estFlightTime = path.length / (60 * animationSpeed);
+                    // Ideal lead = where receiver will be at catch time (with 0.8 factor for catching room)
                     const idealLead = velMag * estFlightTime * 0.8;
 
                     // Optimal position = throw position + velocity direction * ideal lead
-                    const optimalX = throwPos.x + (throwVel.x / velMag) * idealLead;
-                    const optimalZ = throwPos.z + (throwVel.z / velMag) * idealLead;
+                    const optimalX = throwPos.x + (velPerSec.x / velMag) * idealLead;
+                    const optimalZ = throwPos.z + (velPerSec.z / velMag) * idealLead;
 
-                    // Create green X marker using two crossed cylinders
+                    // Create white X marker using two crossed cylinders
                     const xSize = 0.8;
                     const xThickness = 0.12;
                     const bar1 = BABYLON.MeshBuilder.CreateCylinder('optBar1', {
@@ -7159,8 +7162,8 @@
                     bar2.position = new BABYLON.Vector3(optimalX, 0.08, optimalZ);
 
                     const optimalMat = new BABYLON.StandardMaterial('optimalMat', scene);
-                    optimalMat.diffuseColor = new BABYLON.Color3(0.2, 1, 0.2);
-                    optimalMat.emissiveColor = new BABYLON.Color3(0.1, 0.8, 0.1);
+                    optimalMat.diffuseColor = new BABYLON.Color3(1, 1, 1);
+                    optimalMat.emissiveColor = new BABYLON.Color3(0.9, 0.9, 0.9);
                     bar1.material = optimalMat;
                     bar2.material = optimalMat;
 
@@ -9830,9 +9833,10 @@
             const flightTime = gameState.throwStartTime ?
                 (performance.now() - gameState.throwStartTime) / 1000 : 1.5;
 
-            // Get velocity magnitude at throw time
+            // Get velocity magnitude at throw time (velocity is per-frame, convert to per-second)
+            const velPerSec = { x: throwVelocity.x * 60, z: throwVelocity.z * 60 };
             const velocityMagnitude = Math.sqrt(
-                throwVelocity.x * throwVelocity.x + throwVelocity.z * throwVelocity.z
+                velPerSec.x * velPerSec.x + velPerSec.z * velPerSec.z
             );
 
             // Vector from receiver (at throw time) to ball landing
@@ -9849,12 +9853,12 @@
             let leadDistance = 0;
             let lateralOffset = 0;
 
-            if (velocityMagnitude > 0.001) {
+            if (velocityMagnitude > 0.1) {
                 // Normalize velocity direction
                 const velDir = new BABYLON.Vector3(
-                    throwVelocity.x / velocityMagnitude,
+                    velPerSec.x / velocityMagnitude,
                     0,
-                    throwVelocity.z / velocityMagnitude
+                    velPerSec.z / velocityMagnitude
                 );
 
                 // 1. LEAD DISTANCE: Dot product gives distance along velocity direction
