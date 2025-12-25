@@ -264,6 +264,26 @@
             </div>
             <div id="popupTapToContinue" style="margin-top: 16px; font-size: 11px; color: #666; text-transform: uppercase; letter-spacing: 1px;">tap to continue</div>
         </div>
+        <!-- Game Mode Play Result Popup -->
+        <div id="playResultPopup" style="
+            position: fixed;
+            bottom: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.92);
+            padding: 16px 24px;
+            border-radius: 12px;
+            color: white;
+            font-family: 'Courier New', monospace;
+            text-align: center;
+            z-index: 1000;
+            display: none;
+            min-width: 200px;
+        ">
+            <div id="playResultMain" style="font-size: 36px; font-weight: bold;"></div>
+            <div id="playResultDetail" style="font-size: 14px; color: #aaa; margin-top: 6px;"></div>
+            <div id="playResultDown" style="font-size: 12px; color: #888; margin-top: 8px;"></div>
+        </div>
     </div>
 
     <!-- Management UI Overlay -->
@@ -1902,10 +1922,11 @@
             roster.push(generatePlayer('WR', pickTier(weights)));            // WR2 - normal
             roster.push(generatePlayer('WR', pickTier(rolePlayerWeights)));  // WR3 - depth
 
-            // CBs: CB1 is key player, CB2-3 are role players
+            // CBs: CB1 is key player, CB2-4 are role players (4 needed for 3 man + 1 zone)
             roster.push(generatePlayer('CB', pickTier(keyPlayerWeights)));   // CB1 - star
             roster.push(generatePlayer('CB', pickTier(weights)));            // CB2 - normal
             roster.push(generatePlayer('CB', pickTier(rolePlayerWeights)));  // CB3 - depth
+            roster.push(generatePlayer('CB', pickTier(rolePlayerWeights)));  // CB4 - safety/zone
 
             // OL: 1 anchor, rest are role players
             roster.push(generatePlayer('OL', pickTier(keyPlayerWeights)));   // LT - anchor
@@ -6306,6 +6327,10 @@
             gameState.qbSacked = true;
             gameState.canThrow = false;
 
+            // Calculate yards lost before updating
+            const oldLOS = gameState.lineOfScrimmage;
+            const yardsLost = Math.round(scene.qb.position.z - oldLOS);
+
             // Record sack for roster player
             recordPlayerStat(tackler, 'seasonSacks');
 
@@ -6318,6 +6343,17 @@
             handleSackFieldPosition(scene.qb.position.z);
 
             updateMessage(`SACK by ${tackler.displayName}!`);
+
+            // Show play result popup
+            const downNames = ['1st', '2nd', '3rd', '4th'];
+            const nextDownText = gameState.down <= 4 ?
+                `${downNames[gameState.down - 1]} & ${Math.round(gameState.yardsToGo)}` : '';
+            showPlayResult({
+                type: 'sack',
+                yards: yardsLost,
+                detail: `${tackler.displayName}`,
+                nextDown: nextDownText
+            });
 
             // QB falls down animation
             const qb = scene.qb;
@@ -6426,6 +6462,10 @@
 
             gameState.playEnded = true;
 
+            // Calculate yards gained before advancing
+            const oldLOS = gameState.lineOfScrimmage;
+            const yardsGained = Math.round(receiver.position.z - oldLOS);
+
             // Record tackle for roster player
             recordPlayerStat(defender, 'seasonTackles');
 
@@ -6444,6 +6484,17 @@
             advanceBall(receiver.position.z);
 
             updateMessage(`TACKLED by ${defender.displayName}!`);
+
+            // Show play result popup
+            const downNames = ['1st', '2nd', '3rd', '4th'];
+            const nextDownText = gameState.down <= 4 ?
+                `${downNames[gameState.down - 1]} & ${Math.round(gameState.yardsToGo)}` : '';
+            showPlayResult({
+                type: 'catch',
+                yards: yardsGained,
+                detail: `Tackled by ${defender.displayName}`,
+                nextDown: nextDownText
+            });
 
             // Receiver falls down
             receiver.rotation.x = Math.PI / 3;
@@ -6544,8 +6595,24 @@
         };
 
         // Handle incomplete pass (same line of scrimmage, next down)
-        const handleIncomplete = () => {
+        const handleIncomplete = (detail) => {
             gameState.down++;
+
+            // Show play result popup (before checking turnover so we can show correct down)
+            if (gameState.down <= 4) {
+                const downNames = ['1st', '2nd', '3rd', '4th'];
+                showPlayResult({
+                    type: 'incomplete',
+                    detail: detail || '',
+                    nextDown: `${downNames[gameState.down - 1]} & ${Math.round(gameState.yardsToGo)}`
+                });
+            } else {
+                showPlayResult({
+                    type: 'incomplete',
+                    detail: 'TURNOVER ON DOWNS'
+                });
+            }
+
             if (gameState.down > 4) {
                 updateMessage('TURNOVER ON DOWNS!');
                 resetDrive();
@@ -6604,6 +6671,12 @@
 
             updateMessage(`TOUCHDOWN by ${receiver.displayName}!`);
 
+            // Show play result popup
+            showPlayResult({
+                type: 'touchdown',
+                detail: `${receiver.displayName} scores!`
+            });
+
             // Celebration
             celebrateReceiver(receiver, gameState.scene);
 
@@ -6632,10 +6705,25 @@
 
             gameState.playEnded = true;
 
+            // Calculate yards gained before advancing
+            const oldLOS = gameState.lineOfScrimmage;
+            const yardsGained = Math.round(receiver.position.z - oldLOS);
+
             // Advance ball to where receiver went out
             advanceBall(receiver.position.z);
 
             updateMessage(`OUT OF BOUNDS`);
+
+            // Show play result popup
+            const downNames = ['1st', '2nd', '3rd', '4th'];
+            const nextDownText = gameState.down <= 4 ?
+                `${downNames[gameState.down - 1]} & ${Math.round(gameState.yardsToGo)}` : '';
+            showPlayResult({
+                type: 'catch',
+                yards: yardsGained,
+                detail: 'Out of bounds',
+                nextDown: nextDownText
+            });
 
             // Detach ball
             const scene = gameState.scene;
@@ -7688,9 +7776,9 @@
                     startRunAfterCatch(scene);
                 } else {
                     // Dropped or defended - incomplete pass
-                    handleIncomplete();
-                    updateScore();
                     const wasDefended = potentialCatcher.separationState === 'covered';
+                    handleIncomplete(wasDefended ? 'Pass defended' : 'Dropped');
+                    updateScore();
                     updateMessage(wasDefended ? 'DEFENDED!' : 'Dropped...');
 
                     // Record pass defended for nearest defender if it was defended
@@ -7717,7 +7805,7 @@
                 }
             } else {
                 // No receiver nearby - incomplete pass
-                handleIncomplete();
+                handleIncomplete('Overthrown');
                 updateMessage('Incomplete...');
 
                 // In training mode, show incomplete grade
@@ -8311,6 +8399,58 @@
 
         const updateMessage = (msg) => {
             // Message display removed
+        };
+
+        // Show play result popup (game mode - not training)
+        const showPlayResult = (result) => {
+            if (gameState.trainingMode) return;  // Training mode has its own popup
+
+            const popup = document.getElementById('playResultPopup');
+            const mainEl = document.getElementById('playResultMain');
+            const detailEl = document.getElementById('playResultDetail');
+            const downEl = document.getElementById('playResultDown');
+
+            if (result.type === 'incomplete') {
+                mainEl.textContent = 'INCOMPLETE';
+                mainEl.style.color = '#f66';
+                detailEl.textContent = result.detail || '';
+            } else if (result.type === 'touchdown') {
+                mainEl.textContent = 'TOUCHDOWN!';
+                mainEl.style.color = '#4f4';
+                detailEl.textContent = result.detail || '';
+            } else if (result.type === 'catch') {
+                const yards = result.yards;
+                if (yards > 0) {
+                    mainEl.textContent = `+${yards} YDS`;
+                    mainEl.style.color = '#4f4';
+                } else if (yards < 0) {
+                    mainEl.textContent = `${yards} YDS`;
+                    mainEl.style.color = '#f66';
+                } else {
+                    mainEl.textContent = 'NO GAIN';
+                    mainEl.style.color = '#ff4';
+                }
+                detailEl.textContent = result.detail || '';
+            } else if (result.type === 'sack') {
+                mainEl.textContent = `${result.yards} YDS`;
+                mainEl.style.color = '#f66';
+                detailEl.textContent = 'SACKED!';
+            }
+
+            // Show next down info
+            if (result.nextDown) {
+                downEl.textContent = result.nextDown;
+                downEl.style.display = 'block';
+            } else {
+                downEl.style.display = 'none';
+            }
+
+            popup.style.display = 'block';
+
+            // Auto-hide after delay
+            setTimeout(() => {
+                popup.style.display = 'none';
+            }, 1800);
         };
 
         // Update debug info display
@@ -10129,11 +10269,7 @@
                 };
 
                 gameState.defenders.forEach((defender, index) => {
-                    // Use opponent CB if available, otherwise generate a walk-on
-                    let player = oppCBs[index];
-                    if (!player) {
-                        player = generateWalkOn('CB');
-                    }
+                    const player = oppCBs[index];
                     if (player && defender) {
                         defender.playerId = player.id;
                         defender.displayName = `${player.firstName} ${player.lastName.charAt(0)}.`;
