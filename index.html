@@ -263,48 +263,84 @@
             </div>
             <div id="popupTapToContinue" style="margin-top: 16px; font-size: 11px; color: #666; text-transform: uppercase; letter-spacing: 1px;">tap to continue</div>
         </div>
-        <!-- Speed Control Buttons -->
-        <div id="speedControlPanel" style="
+        <!-- Settings Button -->
+        <button id="btnTrainingSettings" style="
             position: fixed;
             bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            display: flex;
-            gap: 8px;
-            align-items: center;
+            right: 20px;
+            width: 44px;
+            height: 44px;
+            font-size: 22px;
             background: rgba(0,0,0,0.7);
-            padding: 8px 16px;
+            color: #888;
+            border: 1px solid #555;
             border-radius: 8px;
+            cursor: pointer;
             z-index: 1001;
+        ">⚙</button>
+        <!-- Settings Panel -->
+        <div id="trainingSettingsPanel" style="
+            display: none;
+            position: fixed;
+            bottom: 80px;
+            right: 20px;
+            background: rgba(0,0,0,0.92);
+            padding: 16px;
+            border-radius: 10px;
+            border: 1px solid #444;
+            z-index: 1002;
+            font-family: 'Courier New', monospace;
+            min-width: 220px;
         ">
-            <span style="color: #888; font-size: 12px; font-family: 'Courier New', monospace;">Speed:</span>
-            <button id="btnSpeedDown" style="
-                width: 32px;
-                height: 32px;
-                font-size: 18px;
-                background: #333;
-                color: #fff;
-                border: 1px solid #555;
-                border-radius: 4px;
-                cursor: pointer;
-            ">-</button>
-            <span id="speedDisplay" style="
-                color: #4f4;
-                font-size: 14px;
-                font-family: 'Courier New', monospace;
-                min-width: 50px;
-                text-align: center;
-            ">1.0x</span>
-            <button id="btnSpeedUp" style="
-                width: 32px;
-                height: 32px;
-                font-size: 18px;
-                background: #333;
-                color: #fff;
-                border: 1px solid #555;
-                border-radius: 4px;
-                cursor: pointer;
-            ">+</button>
+            <div style="color: #fff; font-size: 14px; font-weight: bold; margin-bottom: 12px; border-bottom: 1px solid #444; padding-bottom: 8px;">Training Settings</div>
+
+            <!-- Game Speed -->
+            <div style="margin-bottom: 12px;">
+                <div style="color: #888; font-size: 11px; margin-bottom: 4px;">GAME SPEED</div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <button id="btnGameSpeedDown" style="width: 28px; height: 28px; background: #333; color: #fff; border: 1px solid #555; border-radius: 4px; cursor: pointer;">-</button>
+                    <span id="gameSpeedDisplay" style="color: #4f4; font-size: 14px; min-width: 45px; text-align: center;">1.0x</span>
+                    <button id="btnGameSpeedUp" style="width: 28px; height: 28px; background: #333; color: #fff; border: 1px solid #555; border-radius: 4px; cursor: pointer;">+</button>
+                </div>
+            </div>
+
+            <!-- Ball Speed -->
+            <div style="margin-bottom: 12px;">
+                <div style="color: #888; font-size: 11px; margin-bottom: 4px;">BALL SPEED</div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <button id="btnBallSpeedDown" style="width: 28px; height: 28px; background: #333; color: #fff; border: 1px solid #555; border-radius: 4px; cursor: pointer;">-</button>
+                    <span id="ballSpeedDisplay" style="color: #4f4; font-size: 14px; min-width: 45px; text-align: center;">1.0x</span>
+                    <button id="btnBallSpeedUp" style="width: 28px; height: 28px; background: #333; color: #fff; border: 1px solid #555; border-radius: 4px; cursor: pointer;">+</button>
+                </div>
+            </div>
+
+            <!-- Receiver Speed Preset -->
+            <div style="margin-bottom: 12px;">
+                <div style="color: #888; font-size: 11px; margin-bottom: 4px;">RECEIVER SPEED</div>
+                <div style="display: flex; gap: 4px;">
+                    <button class="rcvr-speed-btn" data-speed="90" style="flex: 1; padding: 6px; background: #333; color: #fff; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 12px;">90</button>
+                    <button class="rcvr-speed-btn" data-speed="80" style="flex: 1; padding: 6px; background: #4a4; color: #fff; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 12px;">80</button>
+                    <button class="rcvr-speed-btn" data-speed="70" style="flex: 1; padding: 6px; background: #333; color: #fff; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 12px;">70</button>
+                    <button class="rcvr-speed-btn" data-speed="mixed" style="flex: 1; padding: 6px; background: #333; color: #fff; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 11px;">Mix</button>
+                </div>
+            </div>
+
+            <!-- DB Speed Preset -->
+            <div style="margin-bottom: 12px;">
+                <div style="color: #888; font-size: 11px; margin-bottom: 4px;">DB SPEED</div>
+                <div style="display: flex; gap: 4px;">
+                    <button class="db-speed-btn" data-speed="90" style="flex: 1; padding: 6px; background: #333; color: #fff; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 12px;">90</button>
+                    <button class="db-speed-btn" data-speed="80" style="flex: 1; padding: 6px; background: #4a4; color: #fff; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 12px;">80</button>
+                    <button class="db-speed-btn" data-speed="70" style="flex: 1; padding: 6px; background: #333; color: #fff; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 12px;">70</button>
+                    <button class="db-speed-btn" data-speed="mixed" style="flex: 1; padding: 6px; background: #333; color: #fff; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 11px;">Mix</button>
+                </div>
+            </div>
+
+            <!-- Show Grade Popup Toggle -->
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="color: #888; font-size: 11px;">SHOW GRADE POPUP</span>
+                <button id="btnToggleGradePopup" style="padding: 4px 12px; background: #4a4; color: #fff; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 12px;">ON</button>
+            </div>
         </div>
     </div>
 
@@ -992,6 +1028,10 @@
             currentView: 'iso',     // Camera view: 'iso', 'overhead', 'shoulder'
             // Game speed control
             gameSpeedMultiplier: 1.0, // Adjustable game speed (0.5 = slow, 1.0 = normal, 1.5 = fast)
+            ballSpeedMultiplier: 1.0, // Adjustable ball speed
+            showGradePopup: true,     // Whether to show the grade popup after throws
+            receiverSpeedPreset: 80,  // Receiver speed preset (90, 80, 70, or 'mixed')
+            dbSpeedPreset: 80,        // DB speed preset (90, 80, 70, or 'mixed')
             // Down and distance tracking
             down: 1,                // Current down (1-4)
             yardsToGo: 10,          // Yards needed for first down
@@ -7506,7 +7546,9 @@
             let frameIndex = 0;
             // Ball flight speed - short throws faster, long throws slower for arc visibility
             // Short throws: quick (2.3), long throws: slower (0.7)
-            const animationSpeed = 2.3 - (throwParams.power * 1.6);
+            // Apply ball speed multiplier from training settings
+            const baseAnimationSpeed = 2.3 - (throwParams.power * 1.6);
+            const animationSpeed = baseAnimationSpeed * gameState.ballSpeedMultiplier;
             let accumulator = 0;
             const time = { value: 0 };
 
@@ -7995,19 +8037,22 @@
                     popupRoll.style.filter = success ? 'none' : 'grayscale(100%)';
                     popupRoll.style.left = `${catchRoll}%`;
 
-                    ratingEl.style.display = 'block';
+                    // Only show popup if setting is enabled
+                    if (gameState.showGradePopup) {
+                        ratingEl.style.display = 'block';
 
-                    // Dismiss on any click anywhere on screen
-                    const dismissPopup = () => {
-                        ratingEl.style.display = 'none';
-                        document.removeEventListener('click', dismissPopup);
-                        document.removeEventListener('touchstart', dismissPopup);
-                    };
-                    // Small delay to prevent immediate dismissal from the same click
-                    setTimeout(() => {
-                        document.addEventListener('click', dismissPopup);
-                        document.addEventListener('touchstart', dismissPopup);
-                    }, 100);
+                        // Dismiss on any click anywhere on screen
+                        const dismissPopup = () => {
+                            ratingEl.style.display = 'none';
+                            document.removeEventListener('click', dismissPopup);
+                            document.removeEventListener('touchstart', dismissPopup);
+                        };
+                        // Small delay to prevent immediate dismissal from the same click
+                        setTimeout(() => {
+                            document.addEventListener('click', dismissPopup);
+                            document.addEventListener('touchstart', dismissPopup);
+                        }, 100);
+                    }
                 }
 
                 if (success) {
@@ -8074,8 +8119,8 @@
                 handleIncomplete('Overthrown');
                 updateMessage('Incomplete...');
 
-                // In training mode, show incomplete grade
-                if (gameState.trainingMode) {
+                // In training mode, show incomplete grade (if popup enabled)
+                if (gameState.trainingMode && gameState.showGradePopup) {
                     const ratingEl = document.getElementById('throwRating');
                     const gradeEl = document.getElementById('throwGrade');
                     const detailsEl = document.getElementById('throwDetails');
@@ -10243,13 +10288,38 @@
                 lineman.speed = lineman.baseSpeed;
             });
             // Update display
-            document.getElementById('speedDisplay').textContent = gameState.gameSpeedMultiplier.toFixed(1) + 'x';
+            const speedDisplay = document.getElementById('gameSpeedDisplay');
+            if (speedDisplay) speedDisplay.textContent = gameState.gameSpeedMultiplier.toFixed(1) + 'x';
         }
 
         // Adjust game speed multiplier
         function adjustGameSpeed(delta) {
             gameState.gameSpeedMultiplier = Math.max(0.5, Math.min(2.0, gameState.gameSpeedMultiplier + delta));
             updateAllPlayerSpeeds();
+        }
+
+        // Apply receiver speed preset to all receivers
+        function applyReceiverSpeedPreset() {
+            const preset = gameState.receiverSpeedPreset;
+            const speeds = preset === 'mixed' ? [90, 80, 70] : [preset, preset, preset];
+            gameState.receivers.forEach((receiver, i) => {
+                const speedStat = speeds[i % speeds.length];
+                receiver.stats.speed = speedStat;
+                receiver.baseSpeed = speedStat * SPEED_CONSTANTS.RECEIVER_FACTOR * gameState.gameSpeedMultiplier;
+                receiver.speed = receiver.baseSpeed;
+            });
+        }
+
+        // Apply DB speed preset to all defenders
+        function applyDbSpeedPreset() {
+            const preset = gameState.dbSpeedPreset;
+            const speeds = preset === 'mixed' ? [90, 80, 70] : [preset, preset, preset];
+            gameState.defenders.forEach((defender, i) => {
+                const speedStat = speeds[i % speeds.length];
+                defender.stats.speed = speedStat;
+                defender.baseSpeed = speedStat * SPEED_CONSTANTS.DEFENDER_FACTOR * gameState.gameSpeedMultiplier;
+                defender.speed = defender.baseSpeed;
+            });
         }
 
         // Calculate throw rating based on lead accuracy, lateral offset, and receiver slowdown
@@ -10989,11 +11059,55 @@
         document.getElementById('btnExitTraining').addEventListener('click', () => {
             exitTrainingMode();
         });
-        document.getElementById('btnSpeedDown').addEventListener('click', () => {
-            adjustGameSpeed(-0.1);
+        // Training settings panel toggle
+        document.getElementById('btnTrainingSettings').addEventListener('click', () => {
+            const panel = document.getElementById('trainingSettingsPanel');
+            panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
         });
-        document.getElementById('btnSpeedUp').addEventListener('click', () => {
+        // Game speed controls
+        document.getElementById('btnGameSpeedDown').addEventListener('click', () => {
+            adjustGameSpeed(-0.1);
+            document.getElementById('gameSpeedDisplay').textContent = gameState.gameSpeedMultiplier.toFixed(1) + 'x';
+        });
+        document.getElementById('btnGameSpeedUp').addEventListener('click', () => {
             adjustGameSpeed(0.1);
+            document.getElementById('gameSpeedDisplay').textContent = gameState.gameSpeedMultiplier.toFixed(1) + 'x';
+        });
+        // Ball speed controls
+        document.getElementById('btnBallSpeedDown').addEventListener('click', () => {
+            gameState.ballSpeedMultiplier = Math.max(0.5, gameState.ballSpeedMultiplier - 0.1);
+            document.getElementById('ballSpeedDisplay').textContent = gameState.ballSpeedMultiplier.toFixed(1) + 'x';
+        });
+        document.getElementById('btnBallSpeedUp').addEventListener('click', () => {
+            gameState.ballSpeedMultiplier = Math.min(2.0, gameState.ballSpeedMultiplier + 0.1);
+            document.getElementById('ballSpeedDisplay').textContent = gameState.ballSpeedMultiplier.toFixed(1) + 'x';
+        });
+        // Grade popup toggle
+        document.getElementById('btnToggleGradePopup').addEventListener('click', () => {
+            gameState.showGradePopup = !gameState.showGradePopup;
+            const btn = document.getElementById('btnToggleGradePopup');
+            btn.textContent = gameState.showGradePopup ? 'ON' : 'OFF';
+            btn.style.background = gameState.showGradePopup ? '#4a4' : '#444';
+        });
+        // Receiver speed preset buttons
+        document.querySelectorAll('.rcvr-speed-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const speed = btn.dataset.speed;
+                gameState.receiverSpeedPreset = speed === 'mixed' ? 'mixed' : parseInt(speed);
+                document.querySelectorAll('.rcvr-speed-btn').forEach(b => b.style.background = '#333');
+                btn.style.background = '#4a4';
+                applyReceiverSpeedPreset();
+            });
+        });
+        // DB speed preset buttons
+        document.querySelectorAll('.db-speed-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const speed = btn.dataset.speed;
+                gameState.dbSpeedPreset = speed === 'mixed' ? 'mixed' : parseInt(speed);
+                document.querySelectorAll('.db-speed-btn').forEach(b => b.style.background = '#333');
+                btn.style.background = '#4a4';
+                applyDbSpeedPreset();
+            });
         });
         document.getElementById('btnPlayGame').addEventListener('click', () => {
             if (!managementState.season || managementState.season.week > SEASON.WEEKS) return;
