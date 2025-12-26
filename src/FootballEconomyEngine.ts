@@ -196,12 +196,12 @@ export const ECONOMY_CONSTANTS = {
 
     /** Player generation tiers with stat ranges [min, max] */
     PLAYER_TIERS: {
-        elite: { min: 85, max: 95 },
-        veteran: { min: 78, max: 88 },
-        average: { min: 68, max: 80 },
-        below_average: { min: 58, max: 72 },
-        rookie: { min: 55, max: 75 },
-        backup: { min: 50, max: 65 },
+        elite: { min: 88, max: 96 },       // 90s overall with primary boost
+        veteran: { min: 78, max: 86 },     // high 70s to mid 80s
+        average: { min: 70, max: 80 },     // 70s overall
+        below_average: { min: 62, max: 70 }, // mid-high 60s overall
+        rookie: { min: 58, max: 72 },      // varied prospects
+        backup: { min: 50, max: 62 },      // low 50s-60s
     },
 
     /** Weights for random tier selection (creates natural distribution) */
@@ -459,37 +459,43 @@ function calculatePlayerCostFromStats(player: EconomyPlayer): number {
 
 /**
  * Generate a full roster with realistic tier distribution
+ * Target: 2-3 players at 90s, most at 70s-80s, 2-3 at mid-high 60s
  */
 export function generateRoster(): EconomyPlayer[] {
     const roster: EconomyPlayer[] = [];
 
-    // QB: 1 (random tier weighted toward average+)
-    const qbTier = Math.random() < 0.3 ? 'veteran' : (Math.random() < 0.5 ? 'average' : selectRandomTier());
-    roster.push(generatePlayer('QB', qbTier));
+    // Positions to fill
+    const positions: Position[] = [
+        'QB',
+        'WR', 'WR', 'WR',
+        'CB', 'CB', 'CB', 'CB',
+        'OL', 'OL', 'OL', 'OL', 'OL',
+        'DL', 'DL', 'DL', 'DL'
+    ];
 
-    // WR: 3 (1 good, 2 varied)
-    roster.push(generatePlayer('WR', Math.random() < 0.4 ? 'veteran' : 'average'));
-    roster.push(generatePlayer('WR', selectRandomTier()));
-    roster.push(generatePlayer('WR', selectRandomTier()));
+    // Shuffle positions for random star distribution
+    const shuffled = [...positions].sort(() => Math.random() - 0.5);
 
-    // CB: 4 (1 good, 3 varied)
-    roster.push(generatePlayer('CB', Math.random() < 0.4 ? 'veteran' : 'average'));
-    roster.push(generatePlayer('CB', selectRandomTier()));
-    roster.push(generatePlayer('CB', selectRandomTier()));
-    roster.push(generatePlayer('CB', selectRandomTier()));
+    // Assign tiers: 2-3 elite (90s), 2-3 below_average (60s), rest are 70s-80s
+    const numElite = randomInt(2, 3);
+    const numWeak = randomInt(2, 3);
 
-    // OL: 5 (1 anchor, 4 varied)
-    roster.push(generatePlayer('OL', Math.random() < 0.4 ? 'veteran' : 'average'));
-    roster.push(generatePlayer('OL', selectRandomTier()));
-    roster.push(generatePlayer('OL', selectRandomTier()));
-    roster.push(generatePlayer('OL', selectRandomTier()));
-    roster.push(generatePlayer('OL', selectRandomTier()));
+    shuffled.forEach((position, index) => {
+        let tier: PlayerTier;
 
-    // DL: 4 (1 pass rusher, 3 varied)
-    roster.push(generatePlayer('DL', Math.random() < 0.4 ? 'veteran' : 'average'));
-    roster.push(generatePlayer('DL', selectRandomTier()));
-    roster.push(generatePlayer('DL', selectRandomTier()));
-    roster.push(generatePlayer('DL', selectRandomTier()));
+        if (index < numElite) {
+            // Elite players (90s overall)
+            tier = 'elite';
+        } else if (index < numElite + numWeak) {
+            // Weaker players (mid-high 60s)
+            tier = 'below_average';
+        } else {
+            // Core players (70s-80s) - mix of veteran and average
+            tier = Math.random() < 0.4 ? 'veteran' : 'average';
+        }
+
+        roster.push(generatePlayer(position, tier));
+    });
 
     return roster;
 }
