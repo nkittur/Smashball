@@ -13,6 +13,9 @@
 /** Player position types */
 export type Position = 'QB' | 'WR' | 'CB' | 'OL' | 'DL';
 
+/** Player tier for generation */
+export type PlayerTier = 'elite' | 'veteran' | 'average' | 'below_average' | 'rookie' | 'backup';
+
 /** Player stats structure */
 export interface PlayerStats {
     speed: number;
@@ -190,6 +193,26 @@ export const ECONOMY_CONSTANTS = {
         TEAMS_QUALIFY: 8,
         REGULAR_SEASON_WEEKS: 17,
     },
+
+    /** Player generation tiers with stat ranges [min, max] */
+    PLAYER_TIERS: {
+        elite: { min: 85, max: 95 },
+        veteran: { min: 78, max: 88 },
+        average: { min: 68, max: 80 },
+        below_average: { min: 58, max: 72 },
+        rookie: { min: 55, max: 75 },
+        backup: { min: 50, max: 65 },
+    },
+
+    /** Weights for random tier selection (creates natural distribution) */
+    TIER_WEIGHTS: {
+        elite: 0.05,        // 5% - rare stars
+        veteran: 0.15,      // 15% - solid starters
+        average: 0.35,      // 35% - most common
+        below_average: 0.25, // 25% - depth players
+        rookie: 0.15,       // 15% - young prospects
+        backup: 0.05,       // 5% - practice squad level
+    },
 };
 
 // ============================================================================
@@ -231,6 +254,244 @@ export function generateId(): string {
  */
 export function clamp(value: number, min: number, max: number): number {
     return Math.max(min, Math.min(max, value));
+}
+
+// ============================================================================
+// PLAYER GENERATION
+// ============================================================================
+
+/** Primary stats by position - these get boosted for the position */
+const POSITION_PRIMARY_STATS: Record<Position, (keyof PlayerStats)[]> = {
+    WR: ['speed', 'catching', 'routeRunning', 'release', 'agility'],
+    CB: ['speed', 'tackling', 'awareness', 'agility', 'pursuit'],
+    OL: ['passBlock', 'strength', 'balance', 'awareness'],
+    DL: ['passRush', 'strength', 'tackling', 'hitPower', 'pursuit'],
+    QB: ['throwing', 'awareness', 'agility', 'strength'],
+};
+
+/** First names for player generation */
+const FIRST_NAMES = [
+    'Aldric', 'Baldwin', 'Cedric', 'Drake', 'Edmund', 'Finnian', 'Gareth',
+    'Hadrian', 'Ivan', 'Jasper', 'Kendrick', 'Lionel', 'Magnus', 'Nathaniel',
+    'Oswald', 'Percival', 'Quentin', 'Roland', 'Sebastian', 'Thaddeus',
+    'Ulric', 'Vincent', 'Wallace', 'Xavier', 'York', 'Zephyr',
+];
+
+/** Last names for player generation */
+const LAST_NAMES = [
+    'Blackwood', 'Ironforge', 'Stoneheart', 'Wolfsbane', 'Dragonfire',
+    'Thunderbolt', 'Nightshade', 'Bloodmoon', 'Frostborne', 'Stormwind',
+    'Shadowmere', 'Goldcrest', 'Silvervale', 'Bronzehelm', 'Steelgrave',
+    'Darkhollow', 'Brightwater', 'Redmane', 'Whitefang', 'Greymoor',
+];
+
+/**
+ * Select a random tier based on weighted distribution
+ */
+export function selectRandomTier(): PlayerTier {
+    const weights = ECONOMY_CONSTANTS.TIER_WEIGHTS;
+    const roll = Math.random();
+    let cumulative = 0;
+
+    for (const [tier, weight] of Object.entries(weights)) {
+        cumulative += weight;
+        if (roll < cumulative) {
+            return tier as PlayerTier;
+        }
+    }
+
+    return 'average'; // fallback
+}
+
+/**
+ * Generate random stats for a player based on tier
+ */
+export function generateRandomStats(position: Position, tier: PlayerTier): PlayerStats {
+    const tierRange = ECONOMY_CONSTANTS.PLAYER_TIERS[tier];
+    const primaryStats = POSITION_PRIMARY_STATS[position];
+
+    // Generate base stats with some variance
+    const generateStat = (isPrimary: boolean): number => {
+        const { min, max } = tierRange;
+        // Primary stats get a boost, secondary stats are slightly lower
+        const boost = isPrimary ? 5 : -5;
+        const base = randomInt(min, max);
+        return clamp(base + boost + randomInt(-3, 3), 40, 99);
+    };
+
+    const stats: PlayerStats = {
+        speed: generateStat(primaryStats.includes('speed')),
+        acceleration: generateStat(primaryStats.includes('acceleration')),
+        agility: generateStat(primaryStats.includes('agility')),
+        catching: generateStat(primaryStats.includes('catching')),
+        routeRunning: generateStat(primaryStats.includes('routeRunning')),
+        release: generateStat(primaryStats.includes('release')),
+        focus: generateStat(primaryStats.includes('focus')),
+        tackling: generateStat(primaryStats.includes('tackling')),
+        hitPower: generateStat(primaryStats.includes('hitPower')),
+        pursuit: generateStat(primaryStats.includes('pursuit')),
+        awareness: generateStat(primaryStats.includes('awareness')),
+        passBlock: generateStat(primaryStats.includes('passBlock')),
+        passRush: generateStat(primaryStats.includes('passRush')),
+        strength: generateStat(primaryStats.includes('strength')),
+        balance: generateStat(primaryStats.includes('balance')),
+        aggression: generateStat(primaryStats.includes('aggression')),
+        stamina: generateStat(primaryStats.includes('stamina')),
+    };
+
+    // Add throwing for QB
+    if (position === 'QB') {
+        stats.throwing = generateStat(true);
+    }
+
+    return stats;
+}
+
+/**
+ * Generate age based on tier (veterans are older, rookies younger)
+ */
+export function generateAge(tier: PlayerTier): number {
+    switch (tier) {
+        case 'elite':
+            return randomInt(26, 32);
+        case 'veteran':
+            return randomInt(28, 34);
+        case 'average':
+            return randomInt(24, 30);
+        case 'below_average':
+            return randomInt(23, 32);
+        case 'rookie':
+            return randomInt(21, 24);
+        case 'backup':
+            return randomInt(22, 35);
+        default:
+            return randomInt(22, 30);
+    }
+}
+
+/**
+ * Generate potential grade based on age and tier
+ */
+export function generatePotential(age: number, tier: PlayerTier): number {
+    // Young players have higher potential, veterans have realized potential
+    let basePotential: number;
+
+    if (age <= 24) {
+        basePotential = randomInt(1, 3);
+    } else if (age <= 27) {
+        basePotential = randomInt(0, 2);
+    } else {
+        basePotential = randomInt(0, 1);
+    }
+
+    // Elite players might have already hit potential
+    if (tier === 'elite' && age > 26) {
+        basePotential = Math.max(0, basePotential - 1);
+    }
+
+    // Rookies get bonus potential
+    if (tier === 'rookie') {
+        basePotential = Math.min(3, basePotential + 1);
+    }
+
+    return basePotential;
+}
+
+/**
+ * Generate a complete player with randomized attributes
+ */
+export function generatePlayer(
+    position: Position,
+    tier: PlayerTier = 'average'
+): EconomyPlayer {
+    const firstName = FIRST_NAMES[randomInt(0, FIRST_NAMES.length - 1)];
+    const lastName = LAST_NAMES[randomInt(0, LAST_NAMES.length - 1)];
+    const age = generateAge(tier);
+    const peakAge = randomInt(28, 32);
+    const potentialGrade = generatePotential(age, tier);
+    const stats = generateRandomStats(position, tier);
+
+    const primaryStats = POSITION_PRIMARY_STATS[position];
+    const total = primaryStats.reduce((sum, stat) => sum + (stats[stat] || 0), 0);
+    const overall = Math.floor(total / primaryStats.length);
+
+    const player: EconomyPlayer = {
+        id: generateId(),
+        firstName,
+        lastName,
+        age,
+        position,
+        stats,
+        overall,
+        peakAge,
+        potentialGrade,
+        yearsInLeague: Math.max(0, age - 21),
+        salaryCost: 0,
+        hypeData: initializeHypeData(),
+    };
+
+    // Calculate salary based on overall and tier
+    player.salaryCost = calculatePlayerCostFromStats(player);
+
+    return player;
+}
+
+/**
+ * Calculate player cost from their stats (used during generation)
+ */
+function calculatePlayerCostFromStats(player: EconomyPlayer): number {
+    const pc = ECONOMY_CONSTANTS.PLAYER_PRICING;
+    let baseCost = player.overall * pc.BASE_COST_PER_OVERALL;
+
+    // Age adjustments
+    if (player.age >= pc.AGE_PENALTY_START) {
+        const yearsOver = player.age - pc.AGE_PENALTY_START;
+        baseCost *= (1 - yearsOver * pc.AGE_PENALTY_PER_YEAR);
+    } else if (player.age <= pc.YOUNG_PREMIUM_END) {
+        baseCost *= (1 + pc.YOUNG_PREMIUM_BONUS);
+    }
+
+    // Factor in potential
+    baseCost *= (1 + player.potentialGrade * 0.1);
+
+    return Math.max(50, Math.floor(baseCost));
+}
+
+/**
+ * Generate a full roster with realistic tier distribution
+ */
+export function generateRoster(): EconomyPlayer[] {
+    const roster: EconomyPlayer[] = [];
+
+    // QB: 1 (random tier weighted toward average+)
+    const qbTier = Math.random() < 0.3 ? 'veteran' : (Math.random() < 0.5 ? 'average' : selectRandomTier());
+    roster.push(generatePlayer('QB', qbTier));
+
+    // WR: 3 (1 good, 2 varied)
+    roster.push(generatePlayer('WR', Math.random() < 0.4 ? 'veteran' : 'average'));
+    roster.push(generatePlayer('WR', selectRandomTier()));
+    roster.push(generatePlayer('WR', selectRandomTier()));
+
+    // CB: 4 (1 good, 3 varied)
+    roster.push(generatePlayer('CB', Math.random() < 0.4 ? 'veteran' : 'average'));
+    roster.push(generatePlayer('CB', selectRandomTier()));
+    roster.push(generatePlayer('CB', selectRandomTier()));
+    roster.push(generatePlayer('CB', selectRandomTier()));
+
+    // OL: 5 (1 anchor, 4 varied)
+    roster.push(generatePlayer('OL', Math.random() < 0.4 ? 'veteran' : 'average'));
+    roster.push(generatePlayer('OL', selectRandomTier()));
+    roster.push(generatePlayer('OL', selectRandomTier()));
+    roster.push(generatePlayer('OL', selectRandomTier()));
+    roster.push(generatePlayer('OL', selectRandomTier()));
+
+    // DL: 4 (1 pass rusher, 3 varied)
+    roster.push(generatePlayer('DL', Math.random() < 0.4 ? 'veteran' : 'average'));
+    roster.push(generatePlayer('DL', selectRandomTier()));
+    roster.push(generatePlayer('DL', selectRandomTier()));
+    roster.push(generatePlayer('DL', selectRandomTier()));
+
+    return roster;
 }
 
 // ============================================================================
