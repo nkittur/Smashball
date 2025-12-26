@@ -7853,97 +7853,54 @@
 
                     let modRows = [];
 
-                    // Show separation/coverage
-                    modRows.push(`<div style="display:flex; justify-content:space-between; margin: 4px 0; padding-bottom: 6px; border-bottom: 1px solid #333;">
-                        <span style="color:#888;">Separation</span>
-                        <span style="color:#fff;">${sepYards} yds - ${catchInfo.coverageLevel}</span>
-                    </div>`);
-
-                    // Throw accuracy breakdown (lead components)
+                    // Helper for score coloring
                     const getScoreColor = (score) => score >= 80 ? '#4f4' : score >= 50 ? '#ff4' : '#f66';
 
-                    // Lead distance with context
-                    const leadDist = throwRating.leadDistance || 0;
-                    const leadLabel = leadDist < 0 ? `${leadDist.toFixed(1)}yd behind` : `${leadDist.toFixed(1)}yd ahead`;
+                    // === 1. BASE CATCH RATE ===
                     modRows.push(`<div style="display:flex; justify-content:space-between; margin: 4px 0;">
-                        <span style="color:#888;">Lead (${leadLabel})</span>
-                        <span style="color:${getScoreColor(throwRating.leadScore)}; font-weight:bold;">${throwRating.leadScore}</span>
-                    </div>`);
-
-                    // Lateral offset
-                    const latOff = throwRating.lateralOffset || 0;
-                    const latLabel = latOff < 0.3 ? 'on target' : `${latOff.toFixed(1)}yd wide`;
-                    modRows.push(`<div style="display:flex; justify-content:space-between; margin: 4px 0;">
-                        <span style="color:#888;">Accuracy (${latLabel})</span>
-                        <span style="color:${getScoreColor(throwRating.lateralScore)}; font-weight:bold;">${throwRating.lateralScore}</span>
-                    </div>`);
-
-                    // Slowdown
-                    const slowPct = throwRating.slowdownScore || 100;
-                    const slowLabel = slowPct >= 90 ? 'in stride' : slowPct >= 70 ? 'adjusted' : 'had to stop';
-                    modRows.push(`<div style="display:flex; justify-content:space-between; margin: 4px 0;">
-                        <span style="color:#888;">WR speed (${slowLabel})</span>
-                        <span style="color:${getScoreColor(slowPct)}; font-weight:bold;">${Math.round(slowPct)}</span>
-                    </div>`);
-
-                    // Momentum and boost info display
-                    if (throwRating.debugInfo) {
-                        const dbg = throwRating.debugInfo;
-                        // Momentum values
-                        modRows.push(`<div style="display:flex; justify-content:space-between; margin: 2px 0; font-size: 11px;">
-                            <span style="color:#888;">Momentum @ throw</span>
-                            <span style="color:#aaa;">${dbg.throwMomentum}</span>
-                        </div>`);
-                        modRows.push(`<div style="display:flex; justify-content:space-between; margin: 2px 0; font-size: 11px;">
-                            <span style="color:#888;">Momentum @ catch</span>
-                            <span style="color:#aaa;">${dbg.catchMomentum}</span>
-                        </div>`);
-
-                        // Speed boost/penalty indicator
-                        let boostText = 'None';
-                        let boostColor = '#666';
-                        if (throwRating.hasSpeedBoost) {
-                            boostText = '★ Speed Boost (won clash)';
-                            boostColor = '#4f4';
-                        } else if (throwRating.hasSpeedPenalty) {
-                            boostText = '✖ Speed Penalty (lost clash)';
-                            boostColor = '#f66';
-                        }
-                        modRows.push(`<div style="display:flex; justify-content:space-between; margin: 2px 0; padding-bottom: 6px; border-bottom: 1px solid #333; font-size: 11px;">
-                            <span style="color:#888;">Clash bonus</span>
-                            <span style="color:${boostColor};">${boostText}</span>
-                        </div>`);
-                    } else {
-                        modRows.push(`<div style="padding-bottom: 6px; border-bottom: 1px solid #333;"></div>`);
-                    }
-
-                    // Base catch rate (from catching stat)
-                    modRows.push(`<div style="display:flex; justify-content:space-between; margin: 4px 0;">
-                        <span style="color:#aaa;">Base rate (${catchInfo.baseCatch} catch)</span>
+                        <span style="color:#fff; font-weight:bold;">Base catch rate</span>
                         <span style="color:#4f4; font-weight:bold;">${Math.round(catchInfo.wideOpenRate)}%</span>
                     </div>`);
+                    modRows.push(`<div style="font-size: 11px; color:#666; margin-bottom: 8px;">
+                        Catching stat: ${catchInfo.baseCatch}
+                    </div>`);
 
-                    // DB penalty (raw, before shoulder reduction)
+                    // === 2. SEPARATION -> DB PENALTY ===
+                    const sepYards = catchInfo.separation.toFixed(1);
+                    modRows.push(`<div style="display:flex; justify-content:space-between; margin: 4px 0;">
+                        <span style="color:#fff; font-weight:bold;">Separation</span>
+                        <span style="color:#fff;">${sepYards} yds</span>
+                    </div>`);
                     if (catchInfo.isContested && catchInfo.dbPenalty > 0) {
-                        modRows.push(makeRow('DB penalty', `-${catchInfo.dbPenalty}%`, false));
+                        modRows.push(`<div style="display:flex; justify-content:space-between; margin: 2px 0; font-size: 12px;">
+                            <span style="color:#888;">${catchInfo.coverageLevel}</span>
+                            <span style="color:#f66; font-weight:bold;">-${catchInfo.dbPenalty}%</span>
+                        </div>`);
+                    } else {
+                        modRows.push(`<div style="font-size: 11px; color:#4f4; margin-bottom: 8px;">
+                            Wide Open - no penalty
+                        </div>`);
                     }
 
-                    // Lead bonus (reduction of DB penalty based on throw quality)
-                    if (catchInfo.hasSideBonus && catchInfo.shoulderBonusSaved > 0) {
-                        const leadLabel = catchInfo.leadQuality >= 80 ? 'perfect' :
-                                         catchInfo.leadQuality >= 60 ? 'good' :
-                                         catchInfo.leadQuality >= 40 ? 'ok' : 'poor';
-                        modRows.push(makeRow(`Lead bonus (${leadLabel})`, `${catchInfo.shoulderBonusSaved}%`, true));
-                    } else if (catchInfo.hasSideBonus) {
-                        // Lead bonus detected but no reduction due to poor lead
-                        modRows.push(makeRow('Lead bonus (poor)', '0%', false));
-                    }
+                    // === 3. MOMENTUM -> LEAD BONUS ===
+                    const momentumScore = throwRating.slowdownScore || 100;
+                    const momentumLabel = momentumScore >= 90 ? 'in stride' : momentumScore >= 70 ? 'adjusted' : 'slowed down';
+                    modRows.push(`<div style="display:flex; justify-content:space-between; margin: 8px 0 4px 0;">
+                        <span style="color:#fff; font-weight:bold;">Momentum</span>
+                        <span style="color:${getScoreColor(momentumScore)}; font-weight:bold;">${Math.round(momentumScore)}%</span>
+                    </div>`);
+                    modRows.push(`<div style="display:flex; justify-content:space-between; margin: 2px 0; font-size: 12px;">
+                        <span style="color:#888;">${momentumLabel}</span>
+                        <span style="color:${catchInfo.shoulderBonusSaved > 0 ? '#4f4' : '#666'};">
+                            ${catchInfo.shoulderBonusSaved > 0 ? `+${catchInfo.shoulderBonusSaved}% lead bonus` : 'no lead bonus'}
+                        </span>
+                    </div>`);
 
-                    // Final probability line
+                    // === 4. FINAL CATCH RATE ===
                     const finalColor = catchInfo.probability >= 50 ? '#4f4' : (catchInfo.probability >= 25 ? '#ff4' : '#f66');
-                    modRows.push(`<div style="display:flex; justify-content:space-between; margin: 8px 0 0 0; padding-top: 6px; border-top: 1px solid #333;">
-                        <span style="color:#fff; font-weight:bold;">Final catch rate</span>
-                        <span style="color:${finalColor}; font-weight:bold; font-size: 15px;">${Math.round(catchInfo.probability)}%</span>
+                    modRows.push(`<div style="display:flex; justify-content:space-between; margin: 12px 0 0 0; padding-top: 8px; border-top: 1px solid #444;">
+                        <span style="color:#fff; font-weight:bold; font-size: 14px;">Final catch rate</span>
+                        <span style="color:${finalColor}; font-weight:bold; font-size: 16px;">${Math.round(catchInfo.probability)}%</span>
                     </div>`);
 
                     modList.innerHTML = modRows.join('');
