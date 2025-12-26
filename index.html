@@ -10307,12 +10307,12 @@
                 receiver.stats.speed = speedStat;
                 receiver.baseSpeed = speedStat * SPEED_CONSTANTS.RECEIVER_FACTOR * gameState.gameSpeedMultiplier;
                 receiver.speed = receiver.baseSpeed;
-                // Recalculate overall based on new speed (using actual stat names with fallbacks)
+                // Recalculate overall based on new speed
                 const stats = receiver.stats;
-                const catching = stats.catching || 80;
-                const routeRunning = stats.routeRunning || 80;
-                const release = stats.release || 80;
-                receiver.overall = Math.round((speedStat + catching + routeRunning + release) / 4);
+                if (stats.catching === undefined) console.error(`[STATS ERROR] ${receiver.displayName} missing stats.catching`);
+                if (stats.routeRunning === undefined) console.error(`[STATS ERROR] ${receiver.displayName} missing stats.routeRunning`);
+                if (stats.release === undefined) console.error(`[STATS ERROR] ${receiver.displayName} missing stats.release`);
+                receiver.overall = Math.round((speedStat + stats.catching + stats.routeRunning + stats.release) / 4);
                 // Update visual label
                 if (receiver.ovrTextBlock) {
                     const stars = receiver.overall >= 90 ? ' ★★' : receiver.overall >= 85 ? ' ★' : '';
@@ -10330,12 +10330,12 @@
                 defender.stats.speed = speedStat;
                 defender.baseSpeed = speedStat * SPEED_CONSTANTS.DEFENDER_FACTOR * gameState.gameSpeedMultiplier;
                 defender.speed = defender.baseSpeed;
-                // Recalculate overall based on new speed (using actual stat names with fallbacks)
+                // Recalculate overall based on new speed
                 const stats = defender.stats;
-                const manCoverage = stats.manCoverage || 80;
-                const zoneCoverage = stats.zoneCoverage || 80;
-                const tackling = stats.tackling || 80;
-                defender.overall = Math.round((speedStat + manCoverage + zoneCoverage + tackling) / 4);
+                if (stats.manCoverage === undefined) console.error(`[STATS ERROR] ${defender.displayName} missing stats.manCoverage`);
+                if (stats.zoneCoverage === undefined) console.error(`[STATS ERROR] ${defender.displayName} missing stats.zoneCoverage`);
+                if (stats.tackling === undefined) console.error(`[STATS ERROR] ${defender.displayName} missing stats.tackling`);
+                defender.overall = Math.round((speedStat + stats.manCoverage + stats.zoneCoverage + stats.tackling) / 4);
                 // Update visual label
                 if (defender.ovrTextBlock) {
                     const stars = defender.overall >= 90 ? ' ★★' : defender.overall >= 85 ? ' ★' : '';
