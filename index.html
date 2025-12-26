@@ -263,6 +263,49 @@
             </div>
             <div id="popupTapToContinue" style="margin-top: 16px; font-size: 11px; color: #666; text-transform: uppercase; letter-spacing: 1px;">tap to continue</div>
         </div>
+        <!-- Speed Control Buttons -->
+        <div id="speedControlPanel" style="
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            background: rgba(0,0,0,0.7);
+            padding: 8px 16px;
+            border-radius: 8px;
+            z-index: 1001;
+        ">
+            <span style="color: #888; font-size: 12px; font-family: 'Courier New', monospace;">Speed:</span>
+            <button id="btnSpeedDown" style="
+                width: 32px;
+                height: 32px;
+                font-size: 18px;
+                background: #333;
+                color: #fff;
+                border: 1px solid #555;
+                border-radius: 4px;
+                cursor: pointer;
+            ">-</button>
+            <span id="speedDisplay" style="
+                color: #4f4;
+                font-size: 14px;
+                font-family: 'Courier New', monospace;
+                min-width: 50px;
+                text-align: center;
+            ">1.0x</span>
+            <button id="btnSpeedUp" style="
+                width: 32px;
+                height: 32px;
+                font-size: 18px;
+                background: #333;
+                color: #fff;
+                border: 1px solid #555;
+                border-radius: 4px;
+                cursor: pointer;
+            ">+</button>
+        </div>
     </div>
 
     <!-- Game Mode Play Result Popup (outside trainingModeUI so it's visible in games) -->
@@ -947,6 +990,8 @@
             qbSacked: false,        // Track if QB was sacked
             qbStartZ: -6,           // QB's randomized starting position (set each play)
             currentView: 'iso',     // Camera view: 'iso', 'overhead', 'shoulder'
+            // Game speed control
+            gameSpeedMultiplier: 1.0, // Adjustable game speed (0.5 = slow, 1.0 = normal, 1.5 = fast)
             // Down and distance tracking
             down: 1,                // Current down (1-4)
             yardsToGo: 10,          // Yards needed for first down
@@ -959,6 +1004,14 @@
             // Debug visualization
             showThrowHeatMap: false,
             heatMapMeshes: []
+        };
+
+        // Base speed factors - all player speeds are relative to these
+        const SPEED_CONSTANTS = {
+            RECEIVER_FACTOR: 0.00064,   // Base: speed stat 80 = 0.0512 units/frame
+            DEFENDER_FACTOR: 0.00064,   // Same as receivers for fair matchups
+            O_LINE_FACTOR: 0.0004,      // Slower for linemen
+            D_LINE_FACTOR: 0.0005       // Slightly faster rush
         };
 
         // Per-game stats tracking (reset each match)
@@ -4792,7 +4845,8 @@
                 receiver.stats = config.stats;
 
                 // Derive base speed from stats (normalized to game units)
-                receiver.baseSpeed = config.stats.speed * 0.00064;  // Balanced pace
+                // Speed stat 80 at 1.0x multiplier = 0.0512 units/frame
+                receiver.baseSpeed = config.stats.speed * SPEED_CONSTANTS.RECEIVER_FACTOR * gameState.gameSpeedMultiplier;
                 receiver.speed = receiver.baseSpeed;
 
                 // Clash system runtime state
@@ -4911,7 +4965,7 @@
                 defender.startPos = startPos.clone();
 
                 // Derive base speed from stats
-                defender.baseSpeed = config.stats.speed * 0.00064;  // Matches receiver pace
+                defender.baseSpeed = config.stats.speed * SPEED_CONSTANTS.DEFENDER_FACTOR * gameState.gameSpeedMultiplier;
                 defender.speed = defender.baseSpeed;
 
                 // Clash system runtime state
@@ -5025,7 +5079,7 @@
                 oLineman.position_label = config.position;
                 oLineman.stats = config.stats;
                 oLineman.startPos = startPos.clone();
-                oLineman.baseSpeed = config.stats.speed * 0.0004;
+                oLineman.baseSpeed = config.stats.speed * SPEED_CONSTANTS.O_LINE_FACTOR * gameState.gameSpeedMultiplier;
                 oLineman.speed = oLineman.baseSpeed;
 
                 // Blocking state
@@ -5085,7 +5139,7 @@
                 dLineman.position_label = config.position;
                 dLineman.stats = config.stats;
                 dLineman.startPos = startPos.clone();
-                dLineman.baseSpeed = config.stats.speed * 0.0005;
+                dLineman.baseSpeed = config.stats.speed * SPEED_CONSTANTS.D_LINE_FACTOR * gameState.gameSpeedMultiplier;
                 dLineman.speed = dLineman.baseSpeed;
 
                 // Pass rush state
@@ -10164,6 +10218,38 @@
             }
         }
 
+        // Update all player speeds when game speed multiplier changes
+        function updateAllPlayerSpeeds() {
+            // Update receivers
+            gameState.receivers.forEach(receiver => {
+                receiver.baseSpeed = receiver.stats.speed * SPEED_CONSTANTS.RECEIVER_FACTOR * gameState.gameSpeedMultiplier;
+                receiver.speed = receiver.baseSpeed;
+            });
+            // Update defenders
+            gameState.defenders.forEach(defender => {
+                defender.baseSpeed = defender.stats.speed * SPEED_CONSTANTS.DEFENDER_FACTOR * gameState.gameSpeedMultiplier;
+                defender.speed = defender.baseSpeed;
+            });
+            // Update O-line
+            gameState.offensiveLine.forEach(lineman => {
+                lineman.baseSpeed = lineman.stats.speed * SPEED_CONSTANTS.O_LINE_FACTOR * gameState.gameSpeedMultiplier;
+                lineman.speed = lineman.baseSpeed;
+            });
+            // Update D-line
+            gameState.defensiveLine.forEach(lineman => {
+                lineman.baseSpeed = lineman.stats.speed * SPEED_CONSTANTS.D_LINE_FACTOR * gameState.gameSpeedMultiplier;
+                lineman.speed = lineman.baseSpeed;
+            });
+            // Update display
+            document.getElementById('speedDisplay').textContent = gameState.gameSpeedMultiplier.toFixed(1) + 'x';
+        }
+
+        // Adjust game speed multiplier
+        function adjustGameSpeed(delta) {
+            gameState.gameSpeedMultiplier = Math.max(0.5, Math.min(2.0, gameState.gameSpeedMultiplier + delta));
+            updateAllPlayerSpeeds();
+        }
+
         // Calculate throw rating based on lead accuracy, lateral offset, and receiver slowdown
         function calculateThrowRating(receiver, ballLandingPos, catchTime) {
             // Get receiver's position, velocity, and speed at THROW time (not catch time)
@@ -10900,6 +10986,12 @@
         });
         document.getElementById('btnExitTraining').addEventListener('click', () => {
             exitTrainingMode();
+        });
+        document.getElementById('btnSpeedDown').addEventListener('click', () => {
+            adjustGameSpeed(-0.1);
+        });
+        document.getElementById('btnSpeedUp').addEventListener('click', () => {
+            adjustGameSpeed(0.1);
         });
         document.getElementById('btnPlayGame').addEventListener('click', () => {
             if (!managementState.season || managementState.season.week > SEASON.WEEKS) return;
