@@ -6481,12 +6481,17 @@
 
             popup.style.display = 'block';
 
-            // Require tap to dismiss (like training mode)
-            const dismissPopup = () => {
+            // Dismiss on any click anywhere on screen
+            const dismissPopup = (e) => {
                 popup.style.display = 'none';
-                popup.removeEventListener('click', dismissPopup);
+                document.removeEventListener('click', dismissPopup);
+                document.removeEventListener('touchstart', dismissPopup);
             };
-            popup.addEventListener('click', dismissPopup);
+            // Small delay to prevent immediate dismissal from the same click
+            setTimeout(() => {
+                document.addEventListener('click', dismissPopup);
+                document.addEventListener('touchstart', dismissPopup);
+            }, 100);
         };
 
         // Handle QB sack
@@ -7852,53 +7857,58 @@
 
                     let modRows = [];
 
-                    // Helper for score coloring
-                    const getScoreColor = (score) => score >= 80 ? '#4f4' : score >= 50 ? '#ff4' : '#f66';
-
                     // === 1. BASE CATCH RATE ===
                     modRows.push(`<div style="display:flex; justify-content:space-between; margin: 4px 0;">
-                        <span style="color:#fff; font-weight:bold;">Base catch rate</span>
-                        <span style="color:#4f4; font-weight:bold;">${Math.round(catchInfo.wideOpenRate)}%</span>
+                        <span style="color:#fff;">Base catch rate:</span>
+                        <span style="color:#8f8; font-weight:bold;">${Math.round(catchInfo.wideOpenRate)}%</span>
                     </div>`);
-                    modRows.push(`<div style="font-size: 11px; color:#666; margin-bottom: 8px;">
-                        Catching stat: ${catchInfo.baseCatch}
+                    modRows.push(`<div style="font-size: 11px; color:#666; margin-left: 12px; margin-bottom: 6px;">
+                        catching: ${catchInfo.baseCatch}
                     </div>`);
 
-                    // === 2. SEPARATION -> DB PENALTY ===
-                    const sepYards = catchInfo.separation.toFixed(1);
-                    modRows.push(`<div style="display:flex; justify-content:space-between; margin: 4px 0;">
-                        <span style="color:#fff; font-weight:bold;">Separation</span>
-                        <span style="color:#fff;">${sepYards} yds</span>
-                    </div>`);
+                    // === 2. COVERAGE PENALTY ===
                     if (catchInfo.isContested && catchInfo.dbPenalty > 0) {
-                        modRows.push(`<div style="display:flex; justify-content:space-between; margin: 2px 0; font-size: 12px;">
-                            <span style="color:#888;">${catchInfo.coverageLevel}</span>
+                        const sepYards = catchInfo.separation.toFixed(1);
+                        // Find the closest defender's coverage stat
+                        const defCoverage = catchInfo.defenderDetails && catchInfo.defenderDetails.length > 0
+                            ? catchInfo.defenderDetails[0].coverageStat : 0;
+                        modRows.push(`<div style="display:flex; justify-content:space-between; margin: 4px 0;">
+                            <span style="color:#fff;">Coverage penalty:</span>
                             <span style="color:#f66; font-weight:bold;">-${catchInfo.dbPenalty}%</span>
                         </div>`);
-                    } else {
-                        modRows.push(`<div style="font-size: 11px; color:#4f4; margin-bottom: 8px;">
-                            Wide Open - no penalty
+                        modRows.push(`<div style="font-size: 11px; color:#666; margin-left: 12px; margin-bottom: 6px;">
+                            separation: ${sepYards}, coverage: ${defCoverage}
                         </div>`);
                     }
 
-                    // === 3. MOMENTUM -> LEAD BONUS ===
+                    // === 3. LEAD BONUS ===
                     const momentumScore = throwRating.slowdownScore || 100;
                     const momentumLabel = momentumScore >= 90 ? 'in stride' : momentumScore >= 70 ? 'adjusted' : 'slowed down';
-                    modRows.push(`<div style="display:flex; justify-content:space-between; margin: 8px 0 4px 0;">
-                        <span style="color:#fff; font-weight:bold;">Momentum</span>
-                        <span style="color:${getScoreColor(momentumScore)}; font-weight:bold;">${Math.round(momentumScore)}%</span>
-                    </div>`);
-                    modRows.push(`<div style="display:flex; justify-content:space-between; margin: 2px 0; font-size: 12px;">
-                        <span style="color:#888;">${momentumLabel}</span>
-                        <span style="color:${catchInfo.shoulderBonusSaved > 0 ? '#4f4' : '#666'};">
-                            ${catchInfo.shoulderBonusSaved > 0 ? `+${catchInfo.shoulderBonusSaved}% lead bonus` : 'no lead bonus'}
-                        </span>
-                    </div>`);
+                    if (catchInfo.shoulderBonusSaved > 0) {
+                        modRows.push(`<div style="display:flex; justify-content:space-between; margin: 4px 0;">
+                            <span style="color:#fff;">Lead bonus:</span>
+                            <span style="color:#4a4; font-weight:bold;">+${catchInfo.shoulderBonusSaved}%</span>
+                        </div>`);
+                        modRows.push(`<div style="font-size: 11px; color:#666; margin-left: 12px; margin-bottom: 6px;">
+                            ${momentumLabel} (${Math.round(momentumScore)}% momentum)
+                        </div>`);
+                    } else if (catchInfo.isContested) {
+                        modRows.push(`<div style="display:flex; justify-content:space-between; margin: 4px 0;">
+                            <span style="color:#fff;">Lead bonus:</span>
+                            <span style="color:#666;">0%</span>
+                        </div>`);
+                        modRows.push(`<div style="font-size: 11px; color:#666; margin-left: 12px; margin-bottom: 6px;">
+                            ${momentumLabel} (${Math.round(momentumScore)}% momentum)
+                        </div>`);
+                    }
+
+                    // === DIVIDER ===
+                    modRows.push(`<div style="border-top: 1px solid #444; margin: 8px 0;"></div>`);
 
                     // === 4. FINAL CATCH RATE ===
                     const finalColor = catchInfo.probability >= 50 ? '#4f4' : (catchInfo.probability >= 25 ? '#ff4' : '#f66');
-                    modRows.push(`<div style="display:flex; justify-content:space-between; margin: 12px 0 0 0; padding-top: 8px; border-top: 1px solid #444;">
-                        <span style="color:#fff; font-weight:bold; font-size: 14px;">Final catch rate</span>
+                    modRows.push(`<div style="display:flex; justify-content:space-between; margin: 4px 0;">
+                        <span style="color:#fff; font-weight:bold;">Final catch rate:</span>
                         <span style="color:${finalColor}; font-weight:bold; font-size: 16px;">${Math.round(catchInfo.probability)}%</span>
                     </div>`);
 
@@ -7933,12 +7943,17 @@
 
                     ratingEl.style.display = 'block';
 
-                    // Add click handler to dismiss (remove previous handler first)
+                    // Dismiss on any click anywhere on screen
                     const dismissPopup = () => {
                         ratingEl.style.display = 'none';
-                        ratingEl.removeEventListener('click', dismissPopup);
+                        document.removeEventListener('click', dismissPopup);
+                        document.removeEventListener('touchstart', dismissPopup);
                     };
-                    ratingEl.addEventListener('click', dismissPopup);
+                    // Small delay to prevent immediate dismissal from the same click
+                    setTimeout(() => {
+                        document.addEventListener('click', dismissPopup);
+                        document.addEventListener('touchstart', dismissPopup);
+                    }, 100);
                 }
 
                 if (success) {
@@ -8025,14 +8040,19 @@
 
                     ratingEl.style.display = 'block';
 
-                    // Add click handler to dismiss
+                    // Dismiss on any click anywhere on screen
                     const dismissPopup = () => {
                         ratingEl.style.display = 'none';
                         gradeEl.style.fontSize = '48px'; // Reset font size
                         popupBar.style.display = 'block'; // Reset bar visibility
-                        ratingEl.removeEventListener('click', dismissPopup);
+                        document.removeEventListener('click', dismissPopup);
+                        document.removeEventListener('touchstart', dismissPopup);
                     };
-                    ratingEl.addEventListener('click', dismissPopup);
+                    // Small delay to prevent immediate dismissal from the same click
+                    setTimeout(() => {
+                        document.addEventListener('click', dismissPopup);
+                        document.addEventListener('touchstart', dismissPopup);
+                    }, 100);
                 }
 
                 // Ball bounces and rolls
