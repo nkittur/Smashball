@@ -180,6 +180,7 @@
     <div id="topBar">
         <div id="downDistance">
             <span class="down">1st</span> & <span class="distance">10</span>
+            <span class="field-pos" style="margin-left: 12px; color: #8cf;"></span>
         </div>
         <div id="score">
             <span><span class="label">Catches</span> <span class="catches">0/0</span></span>
@@ -197,9 +198,7 @@
         </div>
     </div>
     <div id="viewButtons">
-        <button id="viewIso" class="active">Iso</button>
-        <button id="viewOverhead">Top</button>
-        <button id="viewShoulder">Behind</button>
+        <button id="btnHeatMap">Heat Map: OFF</button>
     </div>
     <div id="debugInfo"></div>
 
@@ -264,6 +263,118 @@
             </div>
             <div id="popupTapToContinue" style="margin-top: 16px; font-size: 11px; color: #666; text-transform: uppercase; letter-spacing: 1px;">tap to continue</div>
         </div>
+        <!-- Settings Button -->
+        <button id="btnTrainingSettings" style="
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 44px;
+            height: 44px;
+            font-size: 22px;
+            background: rgba(0,0,0,0.7);
+            color: #888;
+            border: 1px solid #555;
+            border-radius: 8px;
+            cursor: pointer;
+            z-index: 1001;
+        ">⚙</button>
+        <!-- Settings Panel -->
+        <div id="trainingSettingsPanel" style="
+            display: none;
+            position: fixed;
+            bottom: 80px;
+            right: 20px;
+            background: rgba(0,0,0,0.92);
+            padding: 16px;
+            border-radius: 10px;
+            border: 1px solid #444;
+            z-index: 1002;
+            font-family: 'Courier New', monospace;
+            min-width: 220px;
+        ">
+            <div style="color: #fff; font-size: 14px; font-weight: bold; margin-bottom: 12px; border-bottom: 1px solid #444; padding-bottom: 8px;">Training Settings</div>
+
+            <!-- Game Speed -->
+            <div style="margin-bottom: 12px;">
+                <div style="color: #888; font-size: 11px; margin-bottom: 4px;">GAME SPEED</div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <button id="btnGameSpeedDown" style="width: 28px; height: 28px; background: #333; color: #fff; border: 1px solid #555; border-radius: 4px; cursor: pointer;">-</button>
+                    <span id="gameSpeedDisplay" style="color: #4f4; font-size: 14px; min-width: 45px; text-align: center;">1.5x</span>
+                    <button id="btnGameSpeedUp" style="width: 28px; height: 28px; background: #333; color: #fff; border: 1px solid #555; border-radius: 4px; cursor: pointer;">+</button>
+                </div>
+            </div>
+
+            <!-- Ball Speed -->
+            <div style="margin-bottom: 12px;">
+                <div style="color: #888; font-size: 11px; margin-bottom: 4px;">BALL SPEED</div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <button id="btnBallSpeedDown" style="width: 28px; height: 28px; background: #333; color: #fff; border: 1px solid #555; border-radius: 4px; cursor: pointer;">-</button>
+                    <span id="ballSpeedDisplay" style="color: #4f4; font-size: 14px; min-width: 45px; text-align: center;">1.2x</span>
+                    <button id="btnBallSpeedUp" style="width: 28px; height: 28px; background: #333; color: #fff; border: 1px solid #555; border-radius: 4px; cursor: pointer;">+</button>
+                </div>
+            </div>
+
+            <!-- Receiver Speed Preset -->
+            <div style="margin-bottom: 12px;">
+                <div style="color: #888; font-size: 11px; margin-bottom: 4px;">RECEIVER SPEED</div>
+                <div style="display: flex; gap: 4px;">
+                    <button class="rcvr-speed-btn" data-speed="90" style="flex: 1; padding: 6px; background: #333; color: #fff; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 12px;">90</button>
+                    <button class="rcvr-speed-btn" data-speed="80" style="flex: 1; padding: 6px; background: #4a4; color: #fff; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 12px;">80</button>
+                    <button class="rcvr-speed-btn" data-speed="70" style="flex: 1; padding: 6px; background: #333; color: #fff; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 12px;">70</button>
+                    <button class="rcvr-speed-btn" data-speed="mixed" style="flex: 1; padding: 6px; background: #333; color: #fff; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 11px;">Mix</button>
+                </div>
+            </div>
+
+            <!-- DB Speed Preset -->
+            <div style="margin-bottom: 12px;">
+                <div style="color: #888; font-size: 11px; margin-bottom: 4px;">DB SPEED</div>
+                <div style="display: flex; gap: 4px;">
+                    <button class="db-speed-btn" data-speed="90" style="flex: 1; padding: 6px; background: #333; color: #fff; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 12px;">90</button>
+                    <button class="db-speed-btn" data-speed="80" style="flex: 1; padding: 6px; background: #4a4; color: #fff; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 12px;">80</button>
+                    <button class="db-speed-btn" data-speed="70" style="flex: 1; padding: 6px; background: #333; color: #fff; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 12px;">70</button>
+                    <button class="db-speed-btn" data-speed="mixed" style="flex: 1; padding: 6px; background: #333; color: #fff; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 11px;">Mix</button>
+                </div>
+            </div>
+
+            <!-- Show Grade Popup Toggle -->
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="color: #888; font-size: 11px;">SHOW GRADE POPUP</span>
+                <button id="btnToggleGradePopup" style="padding: 4px 12px; background: #4a4; color: #fff; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 12px;">ON</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Game Mode Play Result Popup (outside trainingModeUI so it's visible in games) -->
+    <div id="playResultPopup" style="
+        position: fixed;
+        bottom: 80px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(0,0,0,0.92);
+        padding: 20px 28px;
+        border-radius: 12px;
+        color: white;
+        font-family: 'Courier New', monospace;
+        text-align: center;
+        z-index: 1000;
+        display: none;
+        min-width: 220px;
+        cursor: pointer;
+    ">
+        <div id="playResultMain" style="font-size: 42px; font-weight: bold;"></div>
+        <div id="playResultDetail" style="font-size: 14px; color: #aaa; margin-top: 6px;"></div>
+        <div id="playResultCatchInfo" style="margin-top: 14px; padding-top: 14px; border-top: 1px solid #444; display: none;">
+            <div id="playResultCatchHeader" style="font-size: 16px; font-weight: bold; margin-bottom: 8px;">CATCH</div>
+            <div id="playResultCatchBar" style="position: relative; width: 200px; height: 18px; background: #222; border-radius: 4px; margin: 0 auto 12px auto; overflow: visible;">
+                <div id="playResultCatchBase" style="position: absolute; left: 0; top: 0; height: 100%; background: linear-gradient(90deg, #3a3, #4b4); border-radius: 4px;"></div>
+                <div id="playResultCatchPenalty" style="position: absolute; top: 0; height: 100%; background: rgba(0, 0, 0, 0.55); border-left: 2px solid #f55;"></div>
+                <div id="playResultCatchRoll" style="position: absolute; top: -2px; font-size: 16px; font-weight: bold; transform: translateX(-50%); line-height: 18px;">🏈</div>
+            </div>
+            <div id="playResultModifierList" style="text-align: left; font-size: 13px; margin-top: 10px;"></div>
+        </div>
+        <div id="playResultDown" style="font-size: 14px; color: #8cf; margin-top: 12px; padding-top: 10px; border-top: 1px solid #444;"></div>
+        <div id="playResultFieldPos" style="font-size: 12px; color: #888; margin-top: 4px;"></div>
+        <div id="playResultTap" style="margin-top: 14px; font-size: 11px; color: #666; text-transform: uppercase; letter-spacing: 1px;">tap to continue</div>
     </div>
 
     <!-- Management UI Overlay -->
@@ -363,6 +474,7 @@
 
         <!-- Pre-Game Matchup Screen -->
         <div id="preGameScreen" class="mgmt-screen" style="display:none;max-width:500px;">
+            <button id="btnPreGameBack" class="mgmt-btn back-btn">←</button>
             <h2 id="preGameOpponent">VS OPPONENT</h2>
             <div id="preGameTeamScores" class="pre-game-team-scores"></div>
             <div id="preGameQBScores" class="pre-game-qb-scores"></div>
@@ -914,6 +1026,12 @@
             qbSacked: false,        // Track if QB was sacked
             qbStartZ: -6,           // QB's randomized starting position (set each play)
             currentView: 'iso',     // Camera view: 'iso', 'overhead', 'shoulder'
+            // Game speed control
+            gameSpeedMultiplier: 1.5, // Adjustable game speed (0.5 = slow, 1.0 = normal, 1.5 = fast)
+            ballSpeedMultiplier: 1.2, // Adjustable ball speed
+            showGradePopup: true,     // Whether to show the grade popup after throws
+            receiverSpeedPreset: 80,  // Receiver speed preset (90, 80, 70, or 'mixed')
+            dbSpeedPreset: 80,        // DB speed preset (90, 80, 70, or 'mixed')
             // Down and distance tracking
             down: 1,                // Current down (1-4)
             yardsToGo: 10,          // Yards needed for first down
@@ -922,7 +1040,18 @@
             startingLineOfScrimmage: -54,  // Where drive started - own 35 yard line
             // Training mode
             trainingMode: false,    // Training mode: no defenders, throw ratings
-            lastThrowRating: null   // Last throw rating for display
+            lastThrowRating: null,  // Last throw rating for display
+            // Debug visualization
+            showThrowHeatMap: false,
+            heatMapMeshes: []
+        };
+
+        // Base speed factors - all player speeds are relative to these
+        const SPEED_CONSTANTS = {
+            RECEIVER_FACTOR: 0.00064,   // Base: speed stat 80 = 0.0512 units/frame
+            DEFENDER_FACTOR: 0.00064,   // Same as receivers for fair matchups
+            O_LINE_FACTOR: 0.0004,      // Slower for linemen
+            D_LINE_FACTOR: 0.0005       // Slightly faster rush
         };
 
         // Per-game stats tracking (reset each match)
@@ -1901,10 +2030,11 @@
             roster.push(generatePlayer('WR', pickTier(weights)));            // WR2 - normal
             roster.push(generatePlayer('WR', pickTier(rolePlayerWeights)));  // WR3 - depth
 
-            // CBs: CB1 is key player, CB2-3 are role players
+            // CBs: CB1 is key player, CB2-4 are role players (4 needed for 3 man + 1 zone)
             roster.push(generatePlayer('CB', pickTier(keyPlayerWeights)));   // CB1 - star
             roster.push(generatePlayer('CB', pickTier(weights)));            // CB2 - normal
             roster.push(generatePlayer('CB', pickTier(rolePlayerWeights)));  // CB3 - depth
+            roster.push(generatePlayer('CB', pickTier(rolePlayerWeights)));  // CB4 - safety/zone
 
             // OL: 1 anchor, rest are role players
             roster.push(generatePlayer('OL', pickTier(keyPlayerWeights)));   // LT - anchor
@@ -4386,6 +4516,7 @@
                 zoneCenter: index === 3 ? new BABYLON.Vector3(0, 0, startZ + 8) : null,
                 zoneRadius: index === 3 ? 6 : 0,
                 zoneColor: zoneColors[index],
+                overall: player.overall,
                 stats: { ...player.stats }
             };
         }
@@ -4754,7 +4885,8 @@
                 receiver.stats = config.stats;
 
                 // Derive base speed from stats (normalized to game units)
-                receiver.baseSpeed = config.stats.speed * 0.00064;  // Balanced pace
+                // Speed stat 80 at 1.0x multiplier = 0.0512 units/frame
+                receiver.baseSpeed = config.stats.speed * SPEED_CONSTANTS.RECEIVER_FACTOR * gameState.gameSpeedMultiplier;
                 receiver.speed = receiver.baseSpeed;
 
                 // Clash system runtime state
@@ -4869,10 +5001,11 @@
                 defender.zoneCenter = config.zoneCenter;
                 defender.zoneRadius = config.zoneRadius || 5;
                 defender.stats = config.stats;
+                defender.overall = config.overall || Math.round(Object.values(config.stats).reduce((a, b) => a + b, 0) / Object.keys(config.stats).length);
                 defender.startPos = startPos.clone();
 
                 // Derive base speed from stats
-                defender.baseSpeed = config.stats.speed * 0.00064;  // Matches receiver pace
+                defender.baseSpeed = config.stats.speed * SPEED_CONSTANTS.DEFENDER_FACTOR * gameState.gameSpeedMultiplier;
                 defender.speed = defender.baseSpeed;
 
                 // Clash system runtime state
@@ -4986,7 +5119,7 @@
                 oLineman.position_label = config.position;
                 oLineman.stats = config.stats;
                 oLineman.startPos = startPos.clone();
-                oLineman.baseSpeed = config.stats.speed * 0.0004;
+                oLineman.baseSpeed = config.stats.speed * SPEED_CONSTANTS.O_LINE_FACTOR * gameState.gameSpeedMultiplier;
                 oLineman.speed = oLineman.baseSpeed;
 
                 // Blocking state
@@ -5046,7 +5179,7 @@
                 dLineman.position_label = config.position;
                 dLineman.stats = config.stats;
                 dLineman.startPos = startPos.clone();
-                dLineman.baseSpeed = config.stats.speed * 0.0005;
+                dLineman.baseSpeed = config.stats.speed * SPEED_CONSTANTS.D_LINE_FACTOR * gameState.gameSpeedMultiplier;
                 dLineman.speed = dLineman.baseSpeed;
 
                 // Pass rush state
@@ -5077,13 +5210,24 @@
             qb.overall = qbPlayer.overall;
             qb.displayName = `${qbPlayer.firstName} ${qbPlayer.lastName.charAt(0)}.`;
 
+            // Helper function to get rating indicator (stars) and styling for high-rated players
+            const getRatingIndicator = (overall) => {
+                if (overall >= 90) {
+                    return { stars: '★★', starColor: '#ffd700', bgTint: 'rgba(80, 60, 0, 0.85)' };  // Gold double star
+                } else if (overall >= 85) {
+                    return { stars: '★', starColor: '#ffd700', bgTint: 'rgba(50, 40, 0, 0.8)' };   // Gold single star
+                }
+                return { stars: '', starColor: '', bgTint: null };  // No indicator below 85
+            };
+
             // Add name label to QB (stacked: name on top, OVR below bigger)
+            const qbRating = getRatingIndicator(qb.overall);
             const qbLabelRect = new BABYLON.GUI.Rectangle();
             qbLabelRect.width = '140px';
             qbLabelRect.height = '70px';
             qbLabelRect.cornerRadius = 6;
             qbLabelRect.thickness = 0;
-            qbLabelRect.background = 'rgba(0, 0, 0, 0.7)';
+            qbLabelRect.background = qbRating.bgTint || 'rgba(0, 0, 0, 0.7)';
 
             const qbStack = new BABYLON.GUI.StackPanel();
             qbStack.isVertical = true;
@@ -5099,7 +5243,7 @@
             qbNameText.height = '28px';
 
             const qbOvrText = new BABYLON.GUI.TextBlock();
-            qbOvrText.text = `${qb.overall}`;
+            qbOvrText.text = qbRating.stars ? `${qb.overall} ${qbRating.stars}` : `${qb.overall}`;
             qbOvrText.color = '#ffffff';
             qbOvrText.fontSize = 28;
             qbOvrText.fontFamily = 'Courier New';
@@ -5123,12 +5267,13 @@
 
             // Add name labels to receivers (stacked: name on top, OVR below bigger)
             gameState.receivers.forEach((receiver, i) => {
+                const wrRating = getRatingIndicator(receiver.overall);
                 const labelRect = new BABYLON.GUI.Rectangle();
                 labelRect.width = '130px';
                 labelRect.height = '65px';
                 labelRect.cornerRadius = 6;
                 labelRect.thickness = 0;
-                labelRect.background = 'rgba(0, 0, 0, 0.65)';
+                labelRect.background = wrRating.bgTint || 'rgba(0, 0, 0, 0.65)';
 
                 const stack = new BABYLON.GUI.StackPanel();
                 stack.isVertical = true;
@@ -5144,7 +5289,7 @@
                 nameText.height = '26px';
 
                 const ovrText = new BABYLON.GUI.TextBlock();
-                ovrText.text = `${receiver.overall}`;
+                ovrText.text = wrRating.stars ? `${receiver.overall} ${wrRating.stars}` : `${receiver.overall}`;
                 ovrText.color = '#ffffff';
                 ovrText.fontSize = 26;
                 ovrText.fontFamily = 'Courier New';
@@ -5166,6 +5311,65 @@
                 receiver.nameTextBlock = nameText;
                 receiver.ovrTextBlock = ovrText;
             });
+
+            // Add name labels to defenders (DBs) - only if not in training mode
+            if (!gameState.trainingMode) {
+                // Defender-specific rating indicator with red theme
+                const getDefenderRatingIndicator = (overall) => {
+                    if (overall >= 90) {
+                        return { stars: '★★', bgTint: 'rgba(100, 40, 40, 0.9)' };  // Elite - darker red with gold stars
+                    } else if (overall >= 85) {
+                        return { stars: '★', bgTint: 'rgba(80, 35, 35, 0.85)' };   // Very good
+                    }
+                    return { stars: '', bgTint: 'rgba(40, 20, 20, 0.75)' };  // Default - no star below 85
+                };
+
+                gameState.defenders.forEach((defender, i) => {
+                    const dbRating = getDefenderRatingIndicator(defender.overall);
+                    const labelRect = new BABYLON.GUI.Rectangle();
+                    labelRect.width = '130px';
+                    labelRect.height = '65px';
+                    labelRect.cornerRadius = 6;
+                    labelRect.thickness = 0;
+                    labelRect.background = dbRating.bgTint;
+
+                    const stack = new BABYLON.GUI.StackPanel();
+                    stack.isVertical = true;
+
+                    const nameText = new BABYLON.GUI.TextBlock();
+                    nameText.text = defender.displayName.toUpperCase();
+                    nameText.color = '#ff6666';
+                    nameText.fontSize = 16;
+                    nameText.fontFamily = 'Courier New';
+                    nameText.fontWeight = 'bold';
+                    nameText.outlineWidth = 3;
+                    nameText.outlineColor = '#000000';
+                    nameText.height = '24px';
+
+                    const ovrText = new BABYLON.GUI.TextBlock();
+                    ovrText.text = dbRating.stars ? `${defender.overall} ${dbRating.stars}` : `${defender.overall}`;
+                    ovrText.color = '#ffffff';
+                    ovrText.fontSize = 24;
+                    ovrText.fontFamily = 'Courier New';
+                    ovrText.fontWeight = 'bold';
+                    ovrText.outlineWidth = 4;
+                    ovrText.outlineColor = '#000000';
+                    ovrText.height = '32px';
+
+                    stack.addControl(nameText);
+                    stack.addControl(ovrText);
+                    labelRect.addControl(stack);
+
+                    advancedTexture.addControl(labelRect);
+                    labelRect.linkWithMesh(defender);
+                    labelRect.linkOffsetY = -65;
+                    labelRect.alpha = 1;
+
+                    defender.nameLabel = labelRect;
+                    defender.nameTextBlock = nameText;
+                    defender.ovrTextBlock = ovrText;
+                });
+            }
 
             // Store GUI reference
             scene.gui = advancedTexture;
@@ -5654,7 +5858,7 @@
             } else {
                 receiver.velocity = new BABYLON.Vector3(0, 0, 0);
                 // Decay forward lean when stopped
-                receiver.runMomentum = (receiver.runMomentum || 0) * 0.9;
+                receiver.runMomentum = (receiver.runMomentum || 0) * 0.95;
                 receiver.rotation.x = (receiver.runMomentum || 0) * 0.15;
             }
             return true;
@@ -5668,7 +5872,7 @@
                 player.rotation.x = (player.runMomentum || 0) * 0.25; // Forward lean when running
             } else {
                 // Decay forward lean when stopped
-                player.runMomentum = (player.runMomentum || 0) * 0.9;
+                player.runMomentum = (player.runMomentum || 0) * 0.95;
                 player.rotation.x = (player.runMomentum || 0) * 0.15;
             }
         };
@@ -6220,6 +6424,170 @@
             }
         };
 
+        // Show play result popup (game mode - not training)
+        const showPlayResult = (result) => {
+            if (gameState.trainingMode) return;  // Training mode has its own popup
+
+            const popup = document.getElementById('playResultPopup');
+            const mainEl = document.getElementById('playResultMain');
+            const detailEl = document.getElementById('playResultDetail');
+            const downEl = document.getElementById('playResultDown');
+            const fieldPosEl = document.getElementById('playResultFieldPos');
+            const catchInfoEl = document.getElementById('playResultCatchInfo');
+
+            if (result.type === 'incomplete') {
+                mainEl.textContent = 'INCOMPLETE';
+                mainEl.style.color = '#f66';
+                detailEl.textContent = result.detail || '';
+            } else if (result.type === 'touchdown') {
+                mainEl.textContent = 'TOUCHDOWN!';
+                mainEl.style.color = '#4f4';
+                detailEl.textContent = result.detail || '';
+            } else if (result.type === 'catch') {
+                const yards = result.yards;
+                if (yards > 0) {
+                    mainEl.textContent = `+${yards} YDS`;
+                    mainEl.style.color = '#4f4';
+                } else if (yards < 0) {
+                    mainEl.textContent = `${yards} YDS`;
+                    mainEl.style.color = '#f66';
+                } else {
+                    mainEl.textContent = 'NO GAIN';
+                    mainEl.style.color = '#ff4';
+                }
+                detailEl.textContent = result.detail || '';
+            } else if (result.type === 'sack') {
+                mainEl.textContent = `${result.yards} YDS`;
+                mainEl.style.color = '#f66';
+                detailEl.textContent = 'SACKED!';
+            }
+
+            // Show catch info if provided
+            if (result.catchInfo && result.catchRoll !== undefined) {
+                const catchInfo = result.catchInfo;
+                const catchRoll = result.catchRoll;
+                const success = result.catchSuccess;
+
+                catchInfoEl.style.display = 'block';
+
+                const headerEl = document.getElementById('playResultCatchHeader');
+                const baseEl = document.getElementById('playResultCatchBase');
+                const penaltyEl = document.getElementById('playResultCatchPenalty');
+                const rollEl = document.getElementById('playResultCatchRoll');
+                const modListEl = document.getElementById('playResultModifierList');
+
+                headerEl.textContent = success ? 'CATCH!' : 'DROPPED';
+                headerEl.style.color = success ? '#4f4' : '#f66';
+
+                // Show wide open rate as base, with penalty overlay
+                const baseWidth = catchInfo.wideOpenRate || 70;
+                const penaltyWidth = Math.max(0, baseWidth - (catchInfo.probability || baseWidth));
+
+                baseEl.style.width = `${baseWidth}%`;
+
+                if (penaltyWidth > 0) {
+                    penaltyEl.style.display = 'block';
+                    penaltyEl.style.left = `${catchInfo.probability}%`;
+                    penaltyEl.style.width = `${penaltyWidth}%`;
+                } else {
+                    penaltyEl.style.display = 'none';
+                }
+
+                rollEl.textContent = '🏈';
+                rollEl.style.filter = success ? 'none' : 'grayscale(100%)';
+                rollEl.style.left = `${catchRoll}%`;
+
+                // Build modifier list - simplified formula display
+                const makeRow = (label, value, isPositive) => {
+                    const color = isPositive ? '#4f4' : '#f66';
+                    const sign = isPositive ? '+' : '';
+                    return `<div style="display:flex; justify-content:space-between; margin: 4px 0;">
+                        <span style="color:#aaa;">${label}</span>
+                        <span style="color:${color}; font-weight:bold;">${sign}${value}</span>
+                    </div>`;
+                };
+
+                let modRows = [];
+
+                // Show separation/coverage
+                if (catchInfo.separation !== undefined) {
+                    const sepYards = catchInfo.separation.toFixed(1);
+                    modRows.push(`<div style="display:flex; justify-content:space-between; margin: 4px 0; padding-bottom: 6px; border-bottom: 1px solid #333;">
+                        <span style="color:#888;">Separation</span>
+                        <span style="color:#fff;">${sepYards} yds - ${catchInfo.coverageLevel || 'open'}</span>
+                    </div>`);
+                }
+
+                // Base catch rate (from catching stat)
+                if (catchInfo.baseCatch !== undefined) {
+                    modRows.push(`<div style="display:flex; justify-content:space-between; margin: 4px 0;">
+                        <span style="color:#aaa;">Base rate (${catchInfo.baseCatch} catch)</span>
+                        <span style="color:#4f4; font-weight:bold;">${Math.round(catchInfo.wideOpenRate)}%</span>
+                    </div>`);
+                }
+
+                // DB penalty (raw, before lead bonus reduction)
+                if (catchInfo.isContested && catchInfo.dbPenalty > 0) {
+                    modRows.push(makeRow('DB penalty', `-${catchInfo.dbPenalty}%`, false));
+                }
+
+                // Lead bonus (reduction of DB penalty based on throw quality)
+                if (catchInfo.hasSideBonus && catchInfo.shoulderBonusSaved > 0) {
+                    const leadLabel = catchInfo.leadQuality >= 80 ? 'perfect' :
+                                     catchInfo.leadQuality >= 60 ? 'good' :
+                                     catchInfo.leadQuality >= 40 ? 'ok' : 'poor';
+                    modRows.push(makeRow(`Lead bonus (${leadLabel})`, `${catchInfo.shoulderBonusSaved}%`, true));
+                }
+
+                // Final probability
+                const finalColor = catchInfo.probability >= 50 ? '#4f4' : (catchInfo.probability >= 25 ? '#ff4' : '#f66');
+                modRows.push(`<div style="display:flex; justify-content:space-between; margin: 8px 0 0 0; padding-top: 6px; border-top: 1px solid #333;">
+                    <span style="color:#fff; font-weight:bold;">Final catch rate</span>
+                    <span style="color:${finalColor}; font-weight:bold; font-size: 15px;">${Math.round(catchInfo.probability)}%</span>
+                </div>`);
+
+                modListEl.innerHTML = modRows.join('');
+            } else {
+                catchInfoEl.style.display = 'none';
+            }
+
+            // Show next down info
+            if (result.nextDown) {
+                downEl.textContent = result.nextDown;
+                downEl.style.display = 'block';
+            } else {
+                downEl.style.display = 'none';
+            }
+
+            // Calculate and show field position
+            const END_ZONE_Z = 11;
+            const yardsFromGoal = Math.round(END_ZONE_Z - gameState.lineOfScrimmage);
+            let fieldPosText = '';
+            if (yardsFromGoal <= 0) {
+                fieldPosText = 'Ball at: GOAL LINE';
+            } else if (yardsFromGoal <= 50) {
+                fieldPosText = yardsFromGoal === 50 ? 'Ball at: MIDFIELD' : `Ball at: OPP ${yardsFromGoal}`;
+            } else {
+                const ownYardLine = 100 - yardsFromGoal;
+                fieldPosText = `Ball at: OWN ${ownYardLine}`;
+            }
+            fieldPosEl.textContent = fieldPosText;
+
+            popup.style.display = 'block';
+
+            // Dismiss on any click anywhere on screen
+            const dismissPopup = (e) => {
+                popup.style.display = 'none';
+                document.removeEventListener('click', dismissPopup);
+                document.removeEventListener('touchstart', dismissPopup);
+            };
+            // Small delay to prevent immediate dismissal from the same click
+            setTimeout(() => {
+                document.addEventListener('click', dismissPopup);
+                document.addEventListener('touchstart', dismissPopup);
+            }, 100);
+        };
+
         // Handle QB sack
         const handleSack = (scene, tackler) => {
             if (gameState.playEnded) return;
@@ -6227,6 +6595,10 @@
             gameState.playEnded = true;
             gameState.qbSacked = true;
             gameState.canThrow = false;
+
+            // Calculate yards lost before updating
+            const oldLOS = gameState.lineOfScrimmage;
+            const yardsLost = Math.round(scene.qb.position.z - oldLOS);
 
             // Record sack for roster player
             recordPlayerStat(tackler, 'seasonSacks');
@@ -6240,6 +6612,17 @@
             handleSackFieldPosition(scene.qb.position.z);
 
             updateMessage(`SACK by ${tackler.displayName}!`);
+
+            // Show play result popup
+            const downNames = ['1st', '2nd', '3rd', '4th'];
+            const nextDownText = gameState.down <= 4 ?
+                `${downNames[gameState.down - 1]} & ${Math.round(gameState.yardsToGo)}` : '';
+            showPlayResult({
+                type: 'sack',
+                yards: yardsLost,
+                detail: `${tackler.displayName}`,
+                nextDown: nextDownText
+            });
 
             // QB falls down animation
             const qb = scene.qb;
@@ -6348,6 +6731,10 @@
 
             gameState.playEnded = true;
 
+            // Calculate yards gained before advancing
+            const oldLOS = gameState.lineOfScrimmage;
+            const yardsGained = Math.round(receiver.position.z - oldLOS);
+
             // Record tackle for roster player
             recordPlayerStat(defender, 'seasonTackles');
 
@@ -6366,6 +6753,20 @@
             advanceBall(receiver.position.z);
 
             updateMessage(`TACKLED by ${defender.displayName}!`);
+
+            // Show play result popup
+            const downNames = ['1st', '2nd', '3rd', '4th'];
+            const nextDownText = gameState.down <= 4 ?
+                `${downNames[gameState.down - 1]} & ${Math.round(gameState.yardsToGo)}` : '';
+            showPlayResult({
+                type: 'catch',
+                yards: yardsGained,
+                detail: `Tackled by ${defender.displayName}`,
+                nextDown: nextDownText,
+                catchInfo: gameState.lastCatchInfo,
+                catchRoll: gameState.lastCatchRoll,
+                catchSuccess: gameState.lastCatchSuccess
+            });
 
             // Receiver falls down
             receiver.rotation.x = Math.PI / 3;
@@ -6466,8 +6867,30 @@
         };
 
         // Handle incomplete pass (same line of scrimmage, next down)
-        const handleIncomplete = () => {
+        const handleIncomplete = (detail) => {
             gameState.down++;
+
+            // Show play result popup (before checking turnover so we can show correct down)
+            if (gameState.down <= 4) {
+                const downNames = ['1st', '2nd', '3rd', '4th'];
+                showPlayResult({
+                    type: 'incomplete',
+                    detail: detail || '',
+                    nextDown: `${downNames[gameState.down - 1]} & ${Math.round(gameState.yardsToGo)}`,
+                    catchInfo: gameState.lastCatchInfo,
+                    catchRoll: gameState.lastCatchRoll,
+                    catchSuccess: gameState.lastCatchSuccess
+                });
+            } else {
+                showPlayResult({
+                    type: 'incomplete',
+                    detail: 'TURNOVER ON DOWNS',
+                    catchInfo: gameState.lastCatchInfo,
+                    catchRoll: gameState.lastCatchRoll,
+                    catchSuccess: gameState.lastCatchSuccess
+                });
+            }
+
             if (gameState.down > 4) {
                 updateMessage('TURNOVER ON DOWNS!');
                 resetDrive();
@@ -6526,6 +6949,15 @@
 
             updateMessage(`TOUCHDOWN by ${receiver.displayName}!`);
 
+            // Show play result popup
+            showPlayResult({
+                type: 'touchdown',
+                detail: `${receiver.displayName} scores!`,
+                catchInfo: gameState.lastCatchInfo,
+                catchRoll: gameState.lastCatchRoll,
+                catchSuccess: gameState.lastCatchSuccess
+            });
+
             // Celebration
             celebrateReceiver(receiver, gameState.scene);
 
@@ -6554,10 +6986,28 @@
 
             gameState.playEnded = true;
 
+            // Calculate yards gained before advancing
+            const oldLOS = gameState.lineOfScrimmage;
+            const yardsGained = Math.round(receiver.position.z - oldLOS);
+
             // Advance ball to where receiver went out
             advanceBall(receiver.position.z);
 
             updateMessage(`OUT OF BOUNDS`);
+
+            // Show play result popup
+            const downNames = ['1st', '2nd', '3rd', '4th'];
+            const nextDownText = gameState.down <= 4 ?
+                `${downNames[gameState.down - 1]} & ${Math.round(gameState.yardsToGo)}` : '';
+            showPlayResult({
+                type: 'catch',
+                yards: yardsGained,
+                detail: 'Out of bounds',
+                nextDown: nextDownText,
+                catchInfo: gameState.lastCatchInfo,
+                catchRoll: gameState.lastCatchRoll,
+                catchSuccess: gameState.lastCatchSuccess
+            });
 
             // Detach ball
             const scene = gameState.scene;
@@ -6605,12 +7055,19 @@
             const END_ZONE_BACK = 15;  // Back of end zone - max Z position
             const SIDELINE = 8;  // Field boundary
             const distToGoal = END_ZONE_Z - lineZ;  // How far from goal line
+
+            // Create shuffled receiver assignment for man coverage DBs
+            const receiverIndices = [0, 1, 2];
+            for (let i = receiverIndices.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [receiverIndices[i], receiverIndices[j]] = [receiverIndices[j], receiverIndices[i]];
+            }
             let manDefenderIndex = 0;
 
             gameState.defenders.forEach((defender, i) => {
                 if (defender.aiType === 'man') {
-                    // Man defenders cover receivers 1-to-1
-                    const receiverIndex = manDefenderIndex % gameState.receivers.length;
+                    // Man defenders cover receivers 1-to-1 (randomized assignment)
+                    const receiverIndex = receiverIndices[manDefenderIndex % receiverIndices.length];
                     defender.assignedReceiver = receiverIndex;
                     const targetReceiver = gameState.receivers[receiverIndex];
 
@@ -6625,12 +7082,14 @@
                     defender.reactionDelay = 0.25;  // Quarter second before reacting
                     manDefenderIndex++;
                 } else if (defender.aiType === 'zone') {
-                    // Zone defender (safety) - stays at normal depth, doesn't move back
+                    // Zone defender (safety) - randomized horizontal position
                     const zoneDepth = 6 + Math.random() * 4;  // 6-10 yards deep
                     const clampedZoneZ = Math.min(END_ZONE_BACK - 1, lineZ + zoneDepth);
-                    defender.zoneCenter = new BABYLON.Vector3(0, 0, clampedZoneZ);
+                    // Safety can line up anywhere from -4 to +4 horizontally
+                    const safetyX = (Math.random() - 0.5) * 8;
+                    defender.zoneCenter = new BABYLON.Vector3(safetyX, 0, clampedZoneZ);
                     defender.zoneRadius = 5 + Math.random() * 2;  // 5-7 yard radius
-                    defender.startPos.x = 0;
+                    defender.startPos.x = safetyX;
                     defender.startPos.z = Math.min(END_ZONE_BACK - 1, clampedZoneZ - 2);
                 }
 
@@ -6661,15 +7120,19 @@
             // Receivers line up at the line of scrimmage
             const receiverLineZ = gameState.lineOfScrimmage;
 
-            // Fixed positions - receivers stay in same relative spots each play
             // Slot receiver lines up just outside the offensive tackle (randomly left or right)
             const slotSide = Math.random() > 0.5 ? 1 : -1;  // Randomly pick left or right side
             const positions = [
-                -(6 + Math.random() * 1.5),   // WR1: Wide left (-6 to -7.5)
-                (6 + Math.random() * 1.5),    // WR2: Wide right (6 to 7.5)
-                slotSide * (4 + Math.random() * 0.5)  // WR3/Slot: Just outside tackle (±4 to ±4.5)
+                -(6 + Math.random() * 1.5),   // Wide left (-6 to -7.5)
+                (6 + Math.random() * 1.5),    // Wide right (6 to 7.5)
+                slotSide * (4 + Math.random() * 0.5)  // Slot: Just outside tackle (±4 to ±4.5)
             ];
-            // No shuffle - receivers stay in consistent positions
+
+            // Shuffle positions so receivers line up in random slots each play
+            for (let i = positions.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [positions[i], positions[j]] = [positions[j], positions[i]];
+            }
 
             // Rarely pick 0-1 receivers to run crossing routes (less overlap)
             const numCrossing = Math.random() < 0.3 ? 1 : 0;  // 30% chance of 1 crossing route
@@ -7043,13 +7506,20 @@
             gameState.ballInFlight = true;
             gameState.canThrow = false;
             updateMessage('');
+            clearThrowHeatMap();
 
-            // Capture receiver positions and velocities at throw time for rating calculation
+            // Capture receiver positions, velocities, speeds, and momentum at throw time for rating calculation
             gameState.receiverVelocitiesAtThrow = {};
             gameState.receiverPositionsAtThrow = {};
+            gameState.receiverSpeedsAtThrow = {};
+            gameState.receiverMomentumAtThrow = {};
             gameState.receivers.forEach(receiver => {
                 gameState.receiverVelocitiesAtThrow[receiver.name] = receiver.velocity ? receiver.velocity.clone() : new BABYLON.Vector3(0, 0, 0);
                 gameState.receiverPositionsAtThrow[receiver.name] = receiver.position.clone();
+                // Capture current speed (includes any active boost)
+                gameState.receiverSpeedsAtThrow[receiver.name] = receiver.speed || receiver.baseSpeed;
+                // Capture runMomentum (smoothed 0-1 value indicating if at full running speed)
+                gameState.receiverMomentumAtThrow[receiver.name] = receiver.runMomentum || 0;
             });
             gameState.throwStartTime = performance.now();
 
@@ -7076,7 +7546,9 @@
             let frameIndex = 0;
             // Ball flight speed - short throws faster, long throws slower for arc visibility
             // Short throws: quick (2.3), long throws: slower (0.7)
-            const animationSpeed = 2.3 - (throwParams.power * 1.6);
+            // Apply ball speed multiplier from training settings
+            const baseAnimationSpeed = 2.3 - (throwParams.power * 1.6);
+            const animationSpeed = baseAnimationSpeed * gameState.ballSpeedMultiplier;
             let accumulator = 0;
             const time = { value: 0 };
 
@@ -7125,7 +7597,7 @@
                 }
             });
 
-            if (closestReceiver && gameState.trainingMode) {
+            if (closestReceiver) {
                 const throwPos = gameState.receiverPositionsAtThrow[closestReceiver.name];
                 const throwVel = gameState.receiverVelocitiesAtThrow[closestReceiver.name];
                 // Velocity is per-frame, convert to per-second by multiplying by 60
@@ -7232,15 +7704,8 @@
                             return;
                         }
 
-                        // Reset speed to base when boost/penalty expires (also during ball flight)
-                        if (receiver.clashSpeedBoostUntil > 0 && receiver.clashSpeedBoostUntil <= gameState.gameTime) {
-                            receiver.speed = receiver.baseSpeed;
-                            receiver.clashSpeedBoostUntil = 0;
-                        }
-                        if (receiver.clashSpeedPenaltyUntil > 0 && receiver.clashSpeedPenaltyUntil <= gameState.gameTime) {
-                            receiver.speed = receiver.baseSpeed;
-                            receiver.clashSpeedPenaltyUntil = 0;
-                        }
+                        // Don't expire speed boosts during ball flight - keep speed locked for accurate throw rating
+                        // Speed boosts will expire after the catch/incompletion
 
                         // Calculate distance to ball landing spot
                         const dx = landingPos.x - receiver.position.x;
@@ -7278,9 +7743,13 @@
                                     receiver.position.x += (dx / distToLanding) * catchAdjustSpeed;
                                     receiver.position.z += (dz / distToLanding) * catchAdjustSpeed;
                                     receiver.rotation.y = Math.atan2(dx, dz);
+                                    // Moving at full speed - maintain momentum (no change)
+                                } else {
+                                    // Waiting at landing spot - decay momentum
+                                    receiver.runMomentum = (receiver.runMomentum || 0) * 0.95;
                                 }
                             } else {
-                                // Keep running the route
+                                // Keep running the route (moveReceiverAlongRoute updates momentum)
                                 moveReceiverAlongRoute(receiver, effectiveSpeed);
                             }
                         } else {
@@ -7289,8 +7758,15 @@
                                 receiver.position.x += (dx / distToLanding) * effectiveSpeed;
                                 receiver.position.z += (dz / distToLanding) * effectiveSpeed;
                                 receiver.rotation.y = Math.atan2(dx, dz);
+                                // Moving at full speed - maintain momentum (no change)
+                            } else {
+                                // Waiting at landing spot - decay momentum
+                                receiver.runMomentum = (receiver.runMomentum || 0) * 0.95;
                             }
                         }
+
+                        // Apply momentum-based forward lean
+                        receiver.rotation.x = (receiver.runMomentum || 0) * 0.25;
 
                         // Running animation (bob only, tilt handled by momentum system)
                         receiver.position.y = Math.abs(Math.sin(time.value * 8 + i)) * 0.08;
@@ -7402,8 +7878,8 @@
                 // Calculate throw rating first (need lead score for catch probability)
                 const throwRating = calculateThrowRating(potentialCatcher, ballPosition, gameState.gameTime);
 
-                // Calculate catch probability (returns detailed info) - pass lead score for shoulder bonus scaling
-                const catchInfo = calculateCatchProbability(potentialCatcher, ballPosition, throwRating.leadScore);
+                // Calculate catch probability (returns detailed info) - pass slowdown score (momentum-based) for lead bonus
+                const catchInfo = calculateCatchProbability(potentialCatcher, ballPosition, throwRating.slowdownScore);
                 const catchRoll = Math.random() * 100;
                 const success = catchRoll < catchInfo.probability;
 
@@ -7415,6 +7891,11 @@
 
                 // Show the catch probability display with throw rating
                 showCatchDisplay(catchInfo, catchRoll, success, throwRating);
+
+                // Store catch info for game mode popup
+                gameState.lastCatchInfo = catchInfo;
+                gameState.lastCatchRoll = catchRoll;
+                gameState.lastCatchSuccess = success;
 
                 // Record per-game catch stats
                 if (potentialCatcher.playerId) {
@@ -7459,7 +7940,6 @@
 
                     // Build modifier list with right-aligned values and color coding
                     const modList = document.getElementById('popupModifierList');
-                    const sepYards = catchInfo.separation.toFixed(1);
 
                     // Helper to create a modifier row
                     const makeRow = (label, value, isPositive) => {
@@ -7473,76 +7953,59 @@
 
                     let modRows = [];
 
-                    // Show separation/coverage
-                    modRows.push(`<div style="display:flex; justify-content:space-between; margin: 4px 0; padding-bottom: 6px; border-bottom: 1px solid #333;">
-                        <span style="color:#888;">Separation</span>
-                        <span style="color:#fff;">${sepYards} yds - ${catchInfo.coverageLevel}</span>
-                    </div>`);
-
-                    // Throw accuracy breakdown (lead components)
-                    const getScoreColor = (score) => score >= 80 ? '#4f4' : score >= 50 ? '#ff4' : '#f66';
-
-                    // Lead distance with context
-                    const leadDist = throwRating.leadDistance || 0;
-                    const leadLabel = leadDist < 0 ? `${leadDist.toFixed(1)}yd behind` : `${leadDist.toFixed(1)}yd ahead`;
+                    // === 1. BASE CATCH RATE ===
                     modRows.push(`<div style="display:flex; justify-content:space-between; margin: 4px 0;">
-                        <span style="color:#888;">Lead (${leadLabel})</span>
-                        <span style="color:${getScoreColor(throwRating.leadScore)}; font-weight:bold;">${throwRating.leadScore}</span>
+                        <span style="color:#fff;">Base catch rate:</span>
+                        <span style="color:#8f8; font-weight:bold;">${Math.round(catchInfo.wideOpenRate)}%</span>
+                    </div>`);
+                    modRows.push(`<div style="font-size: 11px; color:#666; margin-left: 12px; margin-bottom: 6px;">
+                        catching: ${catchInfo.baseCatch}
                     </div>`);
 
-                    // Lateral offset
-                    const latOff = throwRating.lateralOffset || 0;
-                    const latLabel = latOff < 0.3 ? 'on target' : `${latOff.toFixed(1)}yd wide`;
-                    modRows.push(`<div style="display:flex; justify-content:space-between; margin: 4px 0;">
-                        <span style="color:#888;">Accuracy (${latLabel})</span>
-                        <span style="color:${getScoreColor(throwRating.lateralScore)}; font-weight:bold;">${throwRating.lateralScore}</span>
-                    </div>`);
-
-                    // Slowdown
-                    const slowPct = throwRating.slowdownScore || 100;
-                    const slowLabel = slowPct >= 90 ? 'in stride' : slowPct >= 70 ? 'adjusted' : 'had to stop';
-                    modRows.push(`<div style="display:flex; justify-content:space-between; margin: 4px 0; padding-bottom: 6px; border-bottom: 1px solid #333;">
-                        <span style="color:#888;">WR speed (${slowLabel})</span>
-                        <span style="color:${getScoreColor(slowPct)}; font-weight:bold;">${Math.round(slowPct)}</span>
-                    </div>`);
-
-                    // Base catch rate (wide open rate based on catching stat)
-                    modRows.push(`<div style="display:flex; justify-content:space-between; margin: 4px 0;">
-                        <span style="color:#aaa;">Base catch (${catchInfo.baseCatch} catching)</span>
-                        <span style="color:#4f4; font-weight:bold;">${Math.round(catchInfo.wideOpenRate)}%</span>
-                    </div>`);
-
-                    // If contested, show the DB coverage penalty clearly
-                    if (catchInfo.isContested) {
-                        // Show the penalty as the difference from wide open
-                        const penalty = Math.round(catchInfo.wideOpenRate - catchInfo.probability + (catchInfo.focusMod || 0));
-                        if (penalty > 0) {
-                            modRows.push(makeRow('DB coverage penalty', `-${penalty}%`, false));
-                        }
+                    // === 2. COVERAGE PENALTY ===
+                    if (catchInfo.isContested && catchInfo.dbPenalty > 0) {
+                        const sepYards = catchInfo.separation.toFixed(1);
+                        // Find the closest defender's coverage stat
+                        const defCoverage = catchInfo.defenderDetails && catchInfo.defenderDetails.length > 0
+                            ? catchInfo.defenderDetails[0].coverageStat : 0;
+                        modRows.push(`<div style="display:flex; justify-content:space-between; margin: 4px 0;">
+                            <span style="color:#fff;">Coverage penalty:</span>
+                            <span style="color:#f66; font-weight:bold;">-${catchInfo.dbPenalty}%</span>
+                        </div>`);
+                        modRows.push(`<div style="font-size: 11px; color:#666; margin-left: 12px; margin-bottom: 6px;">
+                            separation: ${sepYards}, coverage: ${defCoverage}
+                        </div>`);
                     }
 
-                    // Shoulder throw bonus - show actual amount saved with lead quality
-                    if (catchInfo.hasSideBonus && catchInfo.shoulderBonusSaved > 0) {
-                        const leadLabel = catchInfo.leadQuality >= 80 ? 'perfect' :
-                                         catchInfo.leadQuality >= 60 ? 'good' :
-                                         catchInfo.leadQuality >= 40 ? 'ok' : 'poor';
-                        modRows.push(makeRow(`Shoulder throw (${leadLabel} lead)`, `${catchInfo.shoulderBonusSaved}%`, true));
-                    } else if (catchInfo.hasSideBonus) {
-                        // Shoulder throw detected but no bonus due to poor lead
-                        modRows.push(makeRow('Shoulder throw (poor lead)', '0%', false));
+                    // === 3. LEAD BONUS ===
+                    const momentumScore = throwRating.slowdownScore || 100;
+                    const momentumLabel = momentumScore >= 90 ? 'in stride' : momentumScore >= 70 ? 'adjusted' : 'slowed down';
+                    if (catchInfo.shoulderBonusSaved > 0) {
+                        modRows.push(`<div style="display:flex; justify-content:space-between; margin: 4px 0;">
+                            <span style="color:#fff;">Lead bonus:</span>
+                            <span style="color:#4a4; font-weight:bold;">+${catchInfo.shoulderBonusSaved}%</span>
+                        </div>`);
+                        modRows.push(`<div style="font-size: 11px; color:#666; margin-left: 12px; margin-bottom: 6px;">
+                            ${momentumLabel} (${Math.round(momentumScore)}% momentum)
+                        </div>`);
+                    } else if (catchInfo.isContested) {
+                        modRows.push(`<div style="display:flex; justify-content:space-between; margin: 4px 0;">
+                            <span style="color:#fff;">Lead bonus:</span>
+                            <span style="color:#666;">0%</span>
+                        </div>`);
+                        modRows.push(`<div style="font-size: 11px; color:#666; margin-left: 12px; margin-bottom: 6px;">
+                            ${momentumLabel} (${Math.round(momentumScore)}% momentum)
+                        </div>`);
                     }
 
-                    // Focus modifier (if any significant effect)
-                    if (catchInfo.focusMod && Math.abs(catchInfo.focusMod) >= 1) {
-                        const focusVal = Math.round(catchInfo.focusMod);
-                        modRows.push(makeRow('Focus stat', `${focusVal}%`, catchInfo.focusMod > 0));
-                    }
+                    // === DIVIDER ===
+                    modRows.push(`<div style="border-top: 1px solid #444; margin: 8px 0;"></div>`);
 
-                    // Final probability line
+                    // === 4. FINAL CATCH RATE ===
                     const finalColor = catchInfo.probability >= 50 ? '#4f4' : (catchInfo.probability >= 25 ? '#ff4' : '#f66');
-                    modRows.push(`<div style="display:flex; justify-content:space-between; margin: 8px 0 0 0; padding-top: 6px; border-top: 1px solid #333;">
-                        <span style="color:#fff; font-weight:bold;">Final catch rate</span>
-                        <span style="color:${finalColor}; font-weight:bold; font-size: 15px;">${Math.round(catchInfo.probability)}%</span>
+                    modRows.push(`<div style="display:flex; justify-content:space-between; margin: 4px 0;">
+                        <span style="color:#fff; font-weight:bold;">Final catch rate:</span>
+                        <span style="color:${finalColor}; font-weight:bold; font-size: 16px;">${Math.round(catchInfo.probability)}%</span>
                     </div>`);
 
                     modList.innerHTML = modRows.join('');
@@ -7574,14 +8037,22 @@
                     popupRoll.style.filter = success ? 'none' : 'grayscale(100%)';
                     popupRoll.style.left = `${catchRoll}%`;
 
-                    ratingEl.style.display = 'block';
+                    // Only show popup if setting is enabled
+                    if (gameState.showGradePopup) {
+                        ratingEl.style.display = 'block';
 
-                    // Add click handler to dismiss (remove previous handler first)
-                    const dismissPopup = () => {
-                        ratingEl.style.display = 'none';
-                        ratingEl.removeEventListener('click', dismissPopup);
-                    };
-                    ratingEl.addEventListener('click', dismissPopup);
+                        // Dismiss on any click anywhere on screen
+                        const dismissPopup = () => {
+                            ratingEl.style.display = 'none';
+                            document.removeEventListener('click', dismissPopup);
+                            document.removeEventListener('touchstart', dismissPopup);
+                        };
+                        // Small delay to prevent immediate dismissal from the same click
+                        setTimeout(() => {
+                            document.addEventListener('click', dismissPopup);
+                            document.addEventListener('touchstart', dismissPopup);
+                        }, 100);
+                    }
                 }
 
                 if (success) {
@@ -7606,14 +8077,20 @@
                     gameState.ballCarrier = potentialCatcher;
                     potentialCatcher.breakTackleBoostUntil = 0;
 
+                    // Clean up any speed effects that expired during ball flight
+                    cleanupExpiredSpeedEffects();
+
                     // Start the run-after-catch phase
                     startRunAfterCatch(scene);
                 } else {
                     // Dropped or defended - incomplete pass
-                    handleIncomplete();
-                    updateScore();
                     const wasDefended = potentialCatcher.separationState === 'covered';
+                    handleIncomplete(wasDefended ? 'Pass defended' : 'Dropped');
+                    updateScore();
                     updateMessage(wasDefended ? 'DEFENDED!' : 'Dropped...');
+
+                    // Clean up any speed effects that expired during ball flight
+                    cleanupExpiredSpeedEffects();
 
                     // Record pass defended for nearest defender if it was defended
                     if (wasDefended) {
@@ -7639,11 +8116,11 @@
                 }
             } else {
                 // No receiver nearby - incomplete pass
-                handleIncomplete();
+                handleIncomplete('Overthrown');
                 updateMessage('Incomplete...');
 
-                // In training mode, show incomplete grade
-                if (gameState.trainingMode) {
+                // In training mode, show incomplete grade (if popup enabled)
+                if (gameState.trainingMode && gameState.showGradePopup) {
                     const ratingEl = document.getElementById('throwRating');
                     const gradeEl = document.getElementById('throwGrade');
                     const detailsEl = document.getElementById('throwDetails');
@@ -7662,14 +8139,19 @@
 
                     ratingEl.style.display = 'block';
 
-                    // Add click handler to dismiss
+                    // Dismiss on any click anywhere on screen
                     const dismissPopup = () => {
                         ratingEl.style.display = 'none';
                         gradeEl.style.fontSize = '48px'; // Reset font size
                         popupBar.style.display = 'block'; // Reset bar visibility
-                        ratingEl.removeEventListener('click', dismissPopup);
+                        document.removeEventListener('click', dismissPopup);
+                        document.removeEventListener('touchstart', dismissPopup);
                     };
-                    ratingEl.addEventListener('click', dismissPopup);
+                    // Small delay to prevent immediate dismissal from the same click
+                    setTimeout(() => {
+                        document.addEventListener('click', dismissPopup);
+                        document.addEventListener('touchstart', dismissPopup);
+                    }, 100);
                 }
 
                 // Ball bounces and rolls
@@ -7732,29 +8214,21 @@
         };
 
         // Calculate catch probability based on receiver stats and proximity to defenders
-        // leadScore (0-100) scales the shoulder throw bonus - perfect lead = full bonus
-        const calculateCatchProbability = (receiver, ballPosition, leadScore = 50) => {
-            // Find defenders and calculate coverage
-            let totalDefenderInfluence = 0;
-            let defenderDetails = [];
-            let hasNearbyDefender = false;
+        // NEW SIMPLIFIED FORMULA:
+        // baseCatchRate = (catching - 50) × 2 + 20  -> 70→60%, 80→80%, 90→100%
+        // dbPenalty = dbCoverage × 0.7 × proximity²
+        // leadBonus = up to 50% reduction of DB penalty based on momentum (slowdownScore)
+        // finalRate = baseCatchRate - effectiveDbPenalty
+        const calculateCatchProbability = (receiver, ballPosition, momentumScore = 50) => {
+            const catchingStat = receiver.stats.catching;
             const coverageRange = CLASH_CONSTANTS.CLASH_RANGE * 1.5;
 
-            // For zone defenders, count how many receivers are in their zone to split coverage
-            const zoneReceiverCounts = new Map();
-            gameState.defenders.forEach(defender => {
-                if (defender.aiType === 'zone' && defender.knockdownUntil <= gameState.gameTime) {
-                    let count = 0;
-                    gameState.receivers.forEach(rec => {
-                        const dist = BABYLON.Vector3.Distance(defender.position, rec.position);
-                        if (dist < coverageRange) count++;
-                    });
-                    zoneReceiverCounts.set(defender, Math.max(1, count));
-                }
-            });
-
-            let shoulderBonusSaved = 0;  // Track influence saved by shoulder throws
-            let totalInfluenceWithoutShoulder = 0;  // What influence would be without shoulder throw
+            // Find closest defender and check for shoulder throw
+            let closestDefenderDist = coverageRange;
+            let closestDefenderCoverage = 0;
+            let hasSideBonus = false;
+            let hasNearbyDefender = false;
+            let defenderDetails = [];
 
             gameState.defenders.forEach(defender => {
                 if (defender.knockdownUntil > gameState.gameTime) return;
@@ -7766,179 +8240,93 @@
                 if (dist < coverageRange) {
                     hasNearbyDefender = true;
 
-                    // Get defender's coverage stat based on their type
+                    // Get defender's coverage stat
                     const coverageStat = defender.aiType === 'zone' ?
                         defender.stats.zoneCoverage : defender.stats.manCoverage;
 
-                    // Proximity factor: 1.0 at distance 0, 0.0 at max range
-                    const proximityFactor = 1 - (dist / coverageRange);
+                    // Check if this is the closest defender
+                    if (dist < closestDefenderDist) {
+                        closestDefenderDist = dist;
+                        closestDefenderCoverage = coverageStat;
+                    }
 
-                    // Influence is proximity^2 * coverage stat (normalized to 0-1)
-                    let influence = proximityFactor * proximityFactor * (coverageStat / 100);
-                    let sideBonus = false;
-
-                    // For shoulder throw check later
-                    const defDx = defender.position.x - receiver.position.x;
-                    const defDz = defender.position.z - receiver.position.z;
+                    // Check for shoulder throw (ball on opposite side from defender)
                     const ballDx = ballPosition.x - receiver.position.x;
                     const ballDz = ballPosition.z - receiver.position.z;
+                    const dotProduct = dx * ballDx + dz * ballDz;
+                    const isShoulder = dotProduct < 0;
+                    if (isShoulder) hasSideBonus = true;
 
-                    // Very close defenders have more influence
-                    const CLOSE_DEFENDER_THRESHOLD = 0.6;
-                    if (dist <= CLOSE_DEFENDER_THRESHOLD) {
-                        influence *= 1.5;
-                    }
-
-                    // If defender lost a clash, reduce their coverage effect
-                    if (defender.clashSpeedPenaltyUntil && defender.clashSpeedPenaltyUntil > gameState.gameTime) {
-                        influence *= 0.5;
-                    }
-
-                    // For zone defenders covering multiple receivers, split their coverage
-                    if (defender.aiType === 'zone') {
-                        const receiversInZone = zoneReceiverCounts.get(defender) || 1;
-                        if (receiversInZone > 1) {
-                            influence /= receiversInZone;
-                        }
-                    }
-
-                    // Track what influence would be without shoulder throw
-                    const influenceWithoutShoulder = influence;
-                    totalInfluenceWithoutShoulder += influenceWithoutShoulder;
-
-                    // Dot product: if negative, ball is on opposite side from defender
-                    // Apply shoulder throw bonus LAST to truly halve the final DB impact
-                    const dotProduct = defDx * ballDx + defDz * ballDz;
-                    if (dotProduct < 0) {
-                        influence *= 0.5;  // Halve DB influence for shoulder throw
-                        sideBonus = true;
-                        shoulderBonusSaved += influenceWithoutShoulder - influence;
-                    }
-
-                    totalDefenderInfluence += influence;
                     defenderDetails.push({
                         name: defender.name,
                         dist: dist.toFixed(2),
-                        penalty: (influence * 100).toFixed(1),
                         coverageStat: coverageStat,
                         aiType: defender.aiType,
-                        sideBonus: sideBonus
+                        sideBonus: isShoulder
                     });
                 }
             });
 
-            // Clamp total defender influence to 0-1
-            totalDefenderInfluence = Math.min(1, totalDefenderInfluence);
+            // BASE CATCH RATE: catching stat determines your potential
+            // 70 catch → 70%, 80 catch → 95%, 90 catch → 120%, 100 catch → 145%
+            // Not capped - high catching can exceed 100% to better absorb DB penalty
+            const baseCatchRate = (catchingStat - 50) * 2.5 + 20;
 
-            // NEW CATCH PROBABILITY SYSTEM:
-            // - Wide open (no defenders): 95% catch rate
-            // - Contested: base 25%, catching stat adds up to +10% (at 100 catching) = 35% max
-            // - Defender influence reduces the catch probability
-
-            let finalProbability;
-            const catchingStat = receiver.stats.catching;
-
-            if (!hasNearbyDefender || totalDefenderInfluence < 0.1) {
-                // Wide open - catching stat matters but with bonus
-                // 60 catching = 80%, 80+ catching = 95% (capped)
-                const wideOpenBase = 80 + (catchingStat - 60) * 0.75;
-                finalProbability = Math.min(95, wideOpenBase);
-            } else {
-                // Contested catch formula:
-                // 50 catching = 10%, 100 catching = 35%
-                // Then reduced by defender influence
-                const contestedBase = 10;
-                const catchingBonus = (catchingStat - 50) * 0.5;  // +0.5% per point above 50
-                const rawContestedProb = contestedBase + catchingBonus;  // 10-35% range
-
-                // Focus helps under pressure
-                const focusBonus = (receiver.stats.focus - 50) * 0.2;  // -10 to +10
-
-                // Defender influence reduces probability
-                // Use the FULL influence (without shoulder bonus) for base calculation
-                const fullInfluence = Math.min(1, totalInfluenceWithoutShoulder);
-                const defenderReduction = fullInfluence * 40;
-
-                // Calculate what probability would be without shoulder throw
-                const probWithoutShoulder = rawContestedProb + focusBonus - defenderReduction;
-
-                // If shoulder throw applies, reduce the DB impact based on lead quality
-                // Perfect lead (100) = 50% reduction, bad lead (0) = 0% reduction
-                if (shoulderBonusSaved > 0) {
-                    // The DB penalty is the drop from wide open to contested result
-                    const wideOpen = Math.min(95, 80 + (catchingStat - 60) * 0.75);
-                    const fullPenalty = wideOpen - probWithoutShoulder;
-                    // Scale the bonus by lead quality (0-100 -> 0-0.5 reduction)
-                    const leadMultiplier = (leadScore / 100) * 0.5;  // 0 to 0.5
-                    const reducedPenalty = fullPenalty * (1 - leadMultiplier);
-                    finalProbability = wideOpen - reducedPenalty;
-                } else {
-                    finalProbability = probWithoutShoulder;
-                }
+            // WIDE OPEN: no nearby defender (cap at 98% for actual probability)
+            if (!hasNearbyDefender) {
+                return {
+                    probability: Math.min(98, baseCatchRate),
+                    baseCatch: catchingStat,
+                    wideOpenRate: baseCatchRate,
+                    separation: coverageRange,
+                    coverageLevel: 'Wide Open',
+                    isContested: false,
+                    hasSideBonus: false,
+                    shoulderBonusSaved: 0,
+                    leadQuality: 0,
+                    dbPenalty: 0,
+                    defenderDetails: []
+                };
             }
 
-            // Clamp between 5% and 95%
-            finalProbability = Math.max(5, Math.min(95, finalProbability));
+            // DB PENALTY: coverage stat × proximity²
+            // proximity: 1.0 at distance 0, 0.0 at max range
+            const proximityFactor = Math.max(0, 1 - (closestDefenderDist / coverageRange));
+            const tightCoverageBonus = closestDefenderDist <= 0.7 ? 1.2 : 1.0;  // +20% penalty for tight coverage
+            const rawDbPenalty = closestDefenderCoverage * 1.5 * proximityFactor * proximityFactor * tightCoverageBonus;
 
-            // Store for visual display
-            receiver.lastCatchProbability = finalProbability;
+            // LEAD BONUS: reduces DB penalty by up to 50% based on momentum (receiver in stride)
+            let leadReduction = 0;
+            let leadBonusSaved = 0;
+            if (hasSideBonus) {
+                leadReduction = (momentumScore / 100) * 0.5;  // 0 to 0.5
+                leadBonusSaved = Math.round(rawDbPenalty * leadReduction);
+            }
+            const effectiveDbPenalty = rawDbPenalty * (1 - leadReduction);
 
-            // Calculate closest defender distance (separation)
-            let closestDefenderDist = coverageRange;
-            let hasSideBonus = false;
-            defenderDetails.forEach(d => {
-                const dist = parseFloat(d.dist);
-                if (dist < closestDefenderDist) closestDefenderDist = dist;
-                if (d.sideBonus) hasSideBonus = true;
-            });
+            // FINAL PROBABILITY
+            const finalProbability = Math.max(5, Math.min(98, baseCatchRate - effectiveDbPenalty));
 
-            // Determine coverage level
+            // Determine coverage level for display
             let coverageLevel = 'Wide Open';
-            if (hasNearbyDefender) {
-                if (closestDefenderDist <= 0.6) coverageLevel = 'Blanketed';
-                else if (closestDefenderDist <= 1.5) coverageLevel = 'Tight Coverage';
-                else if (closestDefenderDist <= 2.5) coverageLevel = 'Contested';
-                else coverageLevel = 'Light Coverage';
-            }
-
-            // Calculate penalty for display (difference from wide open)
-            const wideOpenRate = Math.min(95, 80 + (catchingStat - 60) * 0.75);
-            const defenderPenalty = hasNearbyDefender ? (wideOpenRate - finalProbability) : 0;
-
-            // Calculate the shoulder throw bonus (scaled by lead quality)
-            let shoulderBonusCatchSaved = 0;
-            let leadQualityPercent = 0;
-            if (hasSideBonus && hasNearbyDefender) {
-                // Calculate what the full penalty would have been
-                const fullInfluence = Math.min(1, totalInfluenceWithoutShoulder);
-                const contestedBase = 10;
-                const catchingBonus = (catchingStat - 50) * 0.5;
-                const rawContestedProb = contestedBase + catchingBonus;
-                const focusBonus = (receiver.stats.focus - 50) * 0.2;
-                const defenderReduction = fullInfluence * 40;
-                const probWithoutShoulder = Math.max(5, rawContestedProb + focusBonus - defenderReduction);
-                const fullPenalty = wideOpenRate - probWithoutShoulder;
-                // Shoulder throw bonus scaled by lead quality (0-100 -> 0-50% reduction)
-                const leadMultiplier = (leadScore / 100) * 0.5;
-                shoulderBonusCatchSaved = Math.round(fullPenalty * leadMultiplier);
-                leadQualityPercent = Math.round(leadScore);
-            }
+            if (closestDefenderDist <= 0.6) coverageLevel = 'Blanketed';
+            else if (closestDefenderDist <= 1.5) coverageLevel = 'Tight Coverage';
+            else if (closestDefenderDist <= 2.5) coverageLevel = 'Contested';
+            else coverageLevel = 'Light Coverage';
 
             return {
                 probability: finalProbability,
                 baseCatch: catchingStat,
-                focusMod: hasNearbyDefender ? (receiver.stats.focus - 50) * 0.2 : 0,
-                defenderPenalty: defenderPenalty,
-                defenderDetails: defenderDetails,
-                // New detailed info
+                wideOpenRate: baseCatchRate,
                 separation: closestDefenderDist,
                 coverageLevel: coverageLevel,
-                defenderInfluence: totalDefenderInfluence,
+                isContested: true,
                 hasSideBonus: hasSideBonus,
-                shoulderBonusSaved: shoulderBonusCatchSaved,  // How much catch % was saved
-                leadQuality: leadQualityPercent,  // Lead quality (0-100)
-                isContested: hasNearbyDefender && totalDefenderInfluence >= 0.1,
-                wideOpenRate: wideOpenRate
+                shoulderBonusSaved: leadBonusSaved,
+                leadQuality: Math.round(momentumScore),
+                dbPenalty: Math.round(rawDbPenalty),
+                effectiveDbPenalty: Math.round(effectiveDbPenalty),
+                defenderDetails: defenderDetails
             };
         };
 
@@ -8088,6 +8476,11 @@
                     receiver.nameLabel.alpha = 0;
                 }
             });
+            gameState.defenders.forEach(defender => {
+                if (defender.nameLabel) {
+                    defender.nameLabel.alpha = 0;
+                }
+            });
         };
 
         // Show player labels when play is frozen
@@ -8098,6 +8491,11 @@
             gameState.receivers.forEach(receiver => {
                 if (receiver.nameLabel) {
                     receiver.nameLabel.alpha = 1;
+                }
+            });
+            gameState.defenders.forEach(defender => {
+                if (defender.nameLabel) {
+                    defender.nameLabel.alpha = 1;
                 }
             });
         };
@@ -8127,6 +8525,11 @@
             gameState.playEnded = false;
             gameState.qbSacked = false;
             gameState.playFrozen = true;  // Freeze until player holds screen
+
+            // Clear catch info from previous play
+            gameState.lastCatchInfo = null;
+            gameState.lastCatchRoll = null;
+            gameState.lastCatchSuccess = null;
 
             // Reset receiver and defender positions
             resetReceivers();
@@ -8217,8 +8620,26 @@
             const yardsToGo = Math.max(1, Math.round(gameState.yardsToGo));
             const distanceText = yardsToGo >= 10 ? '10+' : yardsToGo.toString();
 
+            // Calculate field position (yards from end zone)
+            // lineOfScrimmage goes from about -8 (own goal line) to 11 (opponent end zone)
+            // Convert to standard field position (own 1-50, then opponent 49-1)
+            const END_ZONE_Z = 11;
+            const yardsFromGoal = Math.round(END_ZONE_Z - gameState.lineOfScrimmage);
+            let fieldPosText = '';
+            if (yardsFromGoal <= 0) {
+                fieldPosText = 'GOAL';
+            } else if (yardsFromGoal <= 50) {
+                // In opponent territory or at midfield
+                fieldPosText = yardsFromGoal === 50 ? 'MID' : `OPP ${yardsFromGoal}`;
+            } else {
+                // In own territory
+                const ownYardLine = 100 - yardsFromGoal;
+                fieldPosText = `OWN ${ownYardLine}`;
+            }
+
             ddEl.querySelector('.down').textContent = downText;
             ddEl.querySelector('.distance').textContent = distanceText;
+            ddEl.querySelector('.field-pos').textContent = fieldPosText;
         };
 
         const updateMessage = (msg) => {
@@ -8466,6 +8887,11 @@
                             receiver.bodyMaterial.emissiveColor = BABYLON.Color3.Black();
                         }
                     });
+
+                    // Update throw heat map if enabled
+                    if (gameState.showThrowHeatMap) {
+                        updateThrowHeatMap();
+                    }
 
                     // Route completion no longer triggers reset - play continues normally
 
@@ -8836,8 +9262,10 @@
                 result.winner = 'receiver';
                 result.type = 'separation';
                 // Receiver wins - gets speed boost for 1 second
+                // Scale boost down at higher game speeds to prevent excessive speed
+                const scaledBoost = 1 + (CLASH_SPEED_BOOST - 1) / gameState.gameSpeedMultiplier;
                 receiver.clashSpeedBoostUntil = currentTime + CLASH_SPEED_EFFECT_DURATION;
-                receiver.speed = receiver.baseSpeed * CLASH_SPEED_BOOST;
+                receiver.speed = receiver.baseSpeed * scaledBoost;
                 // DB gets catch-up boost 2 seconds after clash
                 defender.catchupBoostStart = currentTime + DB_CATCHUP_DELAY;
                 defender.catchupBoostUntil = currentTime + DB_CATCHUP_DELAY + DB_CATCHUP_BOOST_DURATION;
@@ -8932,6 +9360,9 @@
 
         // Process all clashes in the game
         const processClashes = () => {
+            // Skip clashes during ball flight to keep speed/distance calculations accurate
+            if (gameState.ballInFlight) return;
+
             gameState.receivers.forEach((receiver, rIndex) => {
                 gameState.defenders.forEach((defender, dIndex) => {
                     const clashCheck = shouldTriggerClash(receiver, defender);
@@ -8940,6 +9371,21 @@
                         resolveClash(receiver, defender, clashCheck.reason);
                     }
                 });
+            });
+        };
+
+        // Clean up any expired speed boosts/penalties (called when ball lands)
+        const cleanupExpiredSpeedEffects = () => {
+            const currentTime = gameState.gameTime;
+            gameState.receivers.forEach(receiver => {
+                if (receiver.clashSpeedBoostUntil > 0 && receiver.clashSpeedBoostUntil <= currentTime) {
+                    receiver.speed = receiver.baseSpeed;
+                    receiver.clashSpeedBoostUntil = 0;
+                }
+                if (receiver.clashSpeedPenaltyUntil > 0 && receiver.clashSpeedPenaltyUntil <= currentTime) {
+                    receiver.speed = receiver.baseSpeed;
+                    receiver.clashSpeedPenaltyUntil = 0;
+                }
             });
         };
 
@@ -9819,11 +10265,91 @@
             }
         }
 
+        // Update all player speeds when game speed multiplier changes
+        function updateAllPlayerSpeeds() {
+            // Update receivers
+            gameState.receivers.forEach(receiver => {
+                receiver.baseSpeed = receiver.stats.speed * SPEED_CONSTANTS.RECEIVER_FACTOR * gameState.gameSpeedMultiplier;
+                receiver.speed = receiver.baseSpeed;
+            });
+            // Update defenders
+            gameState.defenders.forEach(defender => {
+                defender.baseSpeed = defender.stats.speed * SPEED_CONSTANTS.DEFENDER_FACTOR * gameState.gameSpeedMultiplier;
+                defender.speed = defender.baseSpeed;
+            });
+            // Update O-line
+            gameState.offensiveLine.forEach(lineman => {
+                lineman.baseSpeed = lineman.stats.speed * SPEED_CONSTANTS.O_LINE_FACTOR * gameState.gameSpeedMultiplier;
+                lineman.speed = lineman.baseSpeed;
+            });
+            // Update D-line
+            gameState.defensiveLine.forEach(lineman => {
+                lineman.baseSpeed = lineman.stats.speed * SPEED_CONSTANTS.D_LINE_FACTOR * gameState.gameSpeedMultiplier;
+                lineman.speed = lineman.baseSpeed;
+            });
+            // Update display
+            const speedDisplay = document.getElementById('gameSpeedDisplay');
+            if (speedDisplay) speedDisplay.textContent = gameState.gameSpeedMultiplier.toFixed(1) + 'x';
+        }
+
+        // Adjust game speed multiplier
+        function adjustGameSpeed(delta) {
+            gameState.gameSpeedMultiplier = Math.max(0.5, Math.min(2.0, gameState.gameSpeedMultiplier + delta));
+            updateAllPlayerSpeeds();
+        }
+
+        // Apply receiver speed preset to all receivers
+        function applyReceiverSpeedPreset() {
+            const preset = gameState.receiverSpeedPreset;
+            const speeds = preset === 'mixed' ? [90, 80, 70] : [preset, preset, preset];
+            gameState.receivers.forEach((receiver, i) => {
+                const speedStat = speeds[i % speeds.length];
+                receiver.stats.speed = speedStat;
+                receiver.baseSpeed = speedStat * SPEED_CONSTANTS.RECEIVER_FACTOR * gameState.gameSpeedMultiplier;
+                receiver.speed = receiver.baseSpeed;
+                // Recalculate overall based on new speed
+                const stats = receiver.stats;
+                if (stats.catching === undefined) console.error(`[STATS ERROR] ${receiver.displayName} missing stats.catching`);
+                if (stats.routeRunning === undefined) console.error(`[STATS ERROR] ${receiver.displayName} missing stats.routeRunning`);
+                if (stats.release === undefined) console.error(`[STATS ERROR] ${receiver.displayName} missing stats.release`);
+                receiver.overall = Math.round((speedStat + stats.catching + stats.routeRunning + stats.release) / 4);
+                // Update visual label
+                if (receiver.ovrTextBlock) {
+                    const stars = receiver.overall >= 90 ? ' ★★' : receiver.overall >= 85 ? ' ★' : '';
+                    receiver.ovrTextBlock.text = `${receiver.overall}${stars}`;
+                }
+            });
+        }
+
+        // Apply DB speed preset to all defenders
+        function applyDbSpeedPreset() {
+            const preset = gameState.dbSpeedPreset;
+            const speeds = preset === 'mixed' ? [90, 80, 70] : [preset, preset, preset];
+            gameState.defenders.forEach((defender, i) => {
+                const speedStat = speeds[i % speeds.length];
+                defender.stats.speed = speedStat;
+                defender.baseSpeed = speedStat * SPEED_CONSTANTS.DEFENDER_FACTOR * gameState.gameSpeedMultiplier;
+                defender.speed = defender.baseSpeed;
+                // Recalculate overall based on new speed
+                const stats = defender.stats;
+                if (stats.manCoverage === undefined) console.error(`[STATS ERROR] ${defender.displayName} missing stats.manCoverage`);
+                if (stats.zoneCoverage === undefined) console.error(`[STATS ERROR] ${defender.displayName} missing stats.zoneCoverage`);
+                if (stats.tackling === undefined) console.error(`[STATS ERROR] ${defender.displayName} missing stats.tackling`);
+                defender.overall = Math.round((speedStat + stats.manCoverage + stats.zoneCoverage + stats.tackling) / 4);
+                // Update visual label
+                if (defender.ovrTextBlock) {
+                    const stars = defender.overall >= 90 ? ' ★★' : defender.overall >= 85 ? ' ★' : '';
+                    defender.ovrTextBlock.text = `${defender.overall}${stars}`;
+                }
+            });
+        }
+
         // Calculate throw rating based on lead accuracy, lateral offset, and receiver slowdown
         function calculateThrowRating(receiver, ballLandingPos, catchTime) {
-            // Get receiver's position and velocity at THROW time (not catch time)
+            // Get receiver's position, velocity, and speed at THROW time (not catch time)
             const throwPos = gameState.receiverPositionsAtThrow && gameState.receiverPositionsAtThrow[receiver.name];
             const throwVelocity = gameState.receiverVelocitiesAtThrow && gameState.receiverVelocitiesAtThrow[receiver.name];
+            const throwSpeed = gameState.receiverSpeedsAtThrow && gameState.receiverSpeedsAtThrow[receiver.name];
 
             if (!throwPos || !throwVelocity) {
                 return { grade: 'C', score: 50, details: 'No throw data', leadScore: 50 };
@@ -9833,11 +10359,14 @@
             const flightTime = gameState.throwStartTime ?
                 (performance.now() - gameState.throwStartTime) / 1000 : 1.5;
 
-            // Get velocity magnitude at throw time (velocity is per-frame, convert to per-second)
+            // Get velocity direction at throw time (velocity is per-frame, convert to per-second)
             const velPerSec = { x: throwVelocity.x * 60, z: throwVelocity.z * 60 };
             const velocityMagnitude = Math.sqrt(
                 velPerSec.x * velPerSec.x + velPerSec.z * velPerSec.z
             );
+
+            // Use stored speed (includes boosts) for expected distance, fallback to velocity magnitude
+            const receiverSpeed = throwSpeed || velocityMagnitude;
 
             // Vector from receiver (at throw time) to ball landing
             const toBall = new BABYLON.Vector3(
@@ -9852,6 +10381,7 @@
             let slowdownScore = 100;
             let leadDistance = 0;
             let lateralOffset = 0;
+            let debugInfo = null;
 
             if (velocityMagnitude > 0.1) {
                 // Normalize velocity direction
@@ -9894,23 +10424,32 @@
                 // Perfect = on the line, 3+ yards off = significant penalty
                 lateralScore = Math.max(0, 100 - lateralOffset * 25);
 
-                // 3. SLOWDOWN MEASUREMENT: Compare expected vs actual distance traveled
-                // Expected: receiver running at full speed for flight time
-                const expectedDistance = velocityMagnitude * flightTime;
-                // Actual: where receiver ended up vs where they started
-                const actualPos = receiver.position;
-                const actualDistance = Math.sqrt(
-                    Math.pow(actualPos.x - throwPos.x, 2) +
-                    Math.pow(actualPos.z - throwPos.z, 2)
-                );
+                // 3. SLOWDOWN MEASUREMENT: Compare momentum at throw vs catch
+                // runMomentum is a smoothed 0-1 value (builds 0.15/frame when running, decays 0.9x when stopped)
+                // This is more reliable than distance because speed fluctuates with DB closeness
+                const throwMomentum = gameState.receiverMomentumAtThrow && gameState.receiverMomentumAtThrow[receiver.name];
+                const catchMomentum = receiver.runMomentum || 0;
 
-                // Slowdown ratio: 1.0 = full speed, 0.5 = half speed
-                const speedRatio = expectedDistance > 0.1 ?
-                    Math.min(1, actualDistance / expectedDistance) : 1;
+                // Calculate momentum ratio: how much momentum was maintained
+                // If throwMomentum was low (receiver wasn't running), don't penalize
+                let momentumRatio;
+                if (throwMomentum !== undefined && throwMomentum > 0.2) {
+                    // Receiver was running at throw - compare to catch momentum
+                    momentumRatio = Math.min(1, catchMomentum / throwMomentum);
+                } else {
+                    // Receiver was stationary or just starting - no penalty
+                    momentumRatio = 1;
+                }
 
-                // Perfect throw = receiver maintained speed (ratio ~1)
-                // Bad throw = receiver had to slow/stop (ratio < 1)
-                slowdownScore = speedRatio * 100;
+                slowdownScore = momentumRatio * 100;
+
+                // Store debug info for display
+                debugInfo = {
+                    flightTime: flightTime.toFixed(2),
+                    throwMomentum: throwMomentum !== undefined ? throwMomentum.toFixed(2) : 'N/A',
+                    catchMomentum: catchMomentum.toFixed(2),
+                    momentumRatio: momentumRatio.toFixed(2)
+                };
             } else {
                 // Stationary receiver - just measure distance to ball
                 const directDist = distToBall;
@@ -9945,6 +10484,10 @@
 
             const lateralText = lateralOffset > 0.3 ? `, ${lateralOffset.toFixed(1)}yd wide` : '';
 
+            // Check if receiver has active speed boost or penalty
+            const hasSpeedBoost = receiver.clashSpeedBoostUntil > gameState.gameTime;
+            const hasSpeedPenalty = receiver.clashSpeedPenaltyUntil > gameState.gameTime;
+
             return {
                 grade,
                 score: totalScore,
@@ -9954,8 +10497,61 @@
                 leadDistance: leadDistance,
                 lateralOffset: lateralOffset,
                 leadText: leadText + lateralText,
-                details: `Lead: ${leadText}${lateralText} | Slowdown: ${Math.round(slowdownScore)}%`
+                details: `Lead: ${leadText}${lateralText} | Slowdown: ${Math.round(slowdownScore)}%`,
+                debugInfo: debugInfo,
+                hasSpeedBoost: hasSpeedBoost,
+                hasSpeedPenalty: hasSpeedPenalty
             };
+        }
+
+        // Clear heat map meshes
+        function clearThrowHeatMap() {
+            if (gameState.heatMapMeshes) {
+                gameState.heatMapMeshes.forEach(mesh => mesh.dispose());
+                gameState.heatMapMeshes = [];
+            }
+        }
+
+        // Draw throw heat map showing ideal/medium/poor zones for each receiver
+        function updateThrowHeatMap() {
+            if (!gameState.showThrowHeatMap || !gameState.scene) return;
+            clearThrowHeatMap();
+
+            const scene = gameState.scene;
+            const qbPos = scene.qb ? scene.qb.position : new BABYLON.Vector3(0, 0, gameState.qbStartZ);
+
+            gameState.receivers.forEach((receiver, idx) => {
+                if (!receiver.velocity) return;
+                const pos = receiver.position;
+                const vel = { x: receiver.velocity.x * 60, z: receiver.velocity.z * 60 };
+                const speed = Math.sqrt(vel.x * vel.x + vel.z * vel.z);
+                if (speed < 0.1) return;
+
+                const throwSpeed = 25;
+                for (let t = 0.3; t <= 2.0; t += 0.2) {
+                    const futureX = pos.x + vel.x * t;
+                    const futureZ = pos.z + vel.z * t;
+                    const distToQB = Math.sqrt(Math.pow(futureX - qbPos.x, 2) + Math.pow(futureZ - qbPos.z, 2));
+                    const ballFlightTime = distToQB / throwSpeed;
+                    const timeDiff = Math.abs(t - ballFlightTime);
+
+                    let color;
+                    if (timeDiff < 0.15) color = new BABYLON.Color3(0, 1, 0);
+                    else if (timeDiff < 0.35) color = new BABYLON.Color3(1, 1, 0);
+                    else if (timeDiff < 0.6) color = new BABYLON.Color3(1, 0.5, 0);
+                    else color = new BABYLON.Color3(1, 0, 0);
+
+                    const zoneMesh = BABYLON.MeshBuilder.CreateDisc(`heatZone_${idx}_${t}`, { radius: 0.3, tessellation: 16 }, scene);
+                    zoneMesh.position = new BABYLON.Vector3(futureX, 0.02, futureZ);
+                    zoneMesh.rotation.x = Math.PI / 2;
+                    const zoneMat = new BABYLON.StandardMaterial(`heatZoneMat_${idx}_${t}`, scene);
+                    zoneMat.diffuseColor = color;
+                    zoneMat.emissiveColor = color.scale(0.5);
+                    zoneMat.alpha = 0.4;
+                    zoneMesh.material = zoneMat;
+                    gameState.heatMapMeshes.push(zoneMesh);
+                }
+            });
         }
 
         // Update game player meshes with roster data
@@ -9965,8 +10561,22 @@
             const scene = gameState.scene;
             if (!scene) return;
 
+            // Helper for rating indicator text
+            const getRatingText = (overall) => {
+                if (overall >= 90) return `${overall} ★★`;
+                if (overall >= 85) return `${overall} ★`;
+                return `${overall}`;
+            };
+
+            // Helper to get label background based on rating (for offense - gold tint)
+            const getOffenseLabelBg = (overall) => {
+                if (overall >= 90) return 'rgba(80, 60, 0, 0.85)';
+                if (overall >= 85) return 'rgba(50, 40, 0, 0.8)';
+                return null;  // Use default - no special background below 85
+            };
+
             // Update QB
-            const rosterQB = getDepthChartPlayer('QB1');
+            const rosterQB = getDepthChartPlayer('QB');
             if (rosterQB && scene.qb) {
                 scene.qb.playerId = rosterQB.id;
                 scene.qb.displayName = `${rosterQB.firstName} ${rosterQB.lastName.charAt(0)}.`;
@@ -9978,7 +10588,10 @@
                     scene.qb.nameTextBlock.text = rosterQB.lastName.toUpperCase();
                 }
                 if (scene.qb.ovrTextBlock) {
-                    scene.qb.ovrTextBlock.text = `${rosterQB.overall}`;
+                    scene.qb.ovrTextBlock.text = getRatingText(rosterQB.overall);
+                }
+                if (scene.qb.nameLabel) {
+                    scene.qb.nameLabel.background = getOffenseLabelBg(rosterQB.overall) || 'rgba(0, 0, 0, 0.7)';
                 }
             }
 
@@ -9997,7 +10610,10 @@
                         receiver.nameTextBlock.text = player.lastName.toUpperCase();
                     }
                     if (receiver.ovrTextBlock) {
-                        receiver.ovrTextBlock.text = `${player.overall}`;
+                        receiver.ovrTextBlock.text = getRatingText(player.overall);
+                    }
+                    if (receiver.nameLabel) {
+                        receiver.nameLabel.background = getOffenseLabelBg(player.overall) || 'rgba(0, 0, 0, 0.65)';
                     }
                 }
             });
@@ -10010,12 +10626,30 @@
                     .filter(p => p.position === 'CB')
                     .sort((a, b) => b.overall - a.overall);
 
+                // Helper for defender label background (red theme)
+                const getDefenderLabelBg = (overall) => {
+                    if (overall >= 90) return 'rgba(100, 40, 40, 0.9)';
+                    if (overall >= 85) return 'rgba(80, 35, 35, 0.85)';
+                    return 'rgba(40, 20, 20, 0.75)';
+                };
+
                 gameState.defenders.forEach((defender, index) => {
                     const player = oppCBs[index];
                     if (player && defender) {
                         defender.playerId = player.id;
                         defender.displayName = `${player.firstName} ${player.lastName.charAt(0)}.`;
                         defender.stats = { ...player.stats };
+                        defender.overall = player.overall;
+                        // Update name label TextBlocks
+                        if (defender.nameTextBlock) {
+                            defender.nameTextBlock.text = defender.displayName.toUpperCase();
+                        }
+                        if (defender.ovrTextBlock) {
+                            defender.ovrTextBlock.text = getRatingText(player.overall);
+                        }
+                        if (defender.nameLabel) {
+                            defender.nameLabel.background = getDefenderLabelBg(player.overall);
+                        }
                     }
                 });
             }
@@ -10447,6 +11081,56 @@
         document.getElementById('btnExitTraining').addEventListener('click', () => {
             exitTrainingMode();
         });
+        // Training settings panel toggle
+        document.getElementById('btnTrainingSettings').addEventListener('click', () => {
+            const panel = document.getElementById('trainingSettingsPanel');
+            panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+        });
+        // Game speed controls
+        document.getElementById('btnGameSpeedDown').addEventListener('click', () => {
+            adjustGameSpeed(-0.1);
+            document.getElementById('gameSpeedDisplay').textContent = gameState.gameSpeedMultiplier.toFixed(1) + 'x';
+        });
+        document.getElementById('btnGameSpeedUp').addEventListener('click', () => {
+            adjustGameSpeed(0.1);
+            document.getElementById('gameSpeedDisplay').textContent = gameState.gameSpeedMultiplier.toFixed(1) + 'x';
+        });
+        // Ball speed controls
+        document.getElementById('btnBallSpeedDown').addEventListener('click', () => {
+            gameState.ballSpeedMultiplier = Math.max(0.5, gameState.ballSpeedMultiplier - 0.1);
+            document.getElementById('ballSpeedDisplay').textContent = gameState.ballSpeedMultiplier.toFixed(1) + 'x';
+        });
+        document.getElementById('btnBallSpeedUp').addEventListener('click', () => {
+            gameState.ballSpeedMultiplier = Math.min(2.0, gameState.ballSpeedMultiplier + 0.1);
+            document.getElementById('ballSpeedDisplay').textContent = gameState.ballSpeedMultiplier.toFixed(1) + 'x';
+        });
+        // Grade popup toggle
+        document.getElementById('btnToggleGradePopup').addEventListener('click', () => {
+            gameState.showGradePopup = !gameState.showGradePopup;
+            const btn = document.getElementById('btnToggleGradePopup');
+            btn.textContent = gameState.showGradePopup ? 'ON' : 'OFF';
+            btn.style.background = gameState.showGradePopup ? '#4a4' : '#444';
+        });
+        // Receiver speed preset buttons
+        document.querySelectorAll('.rcvr-speed-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const speed = btn.dataset.speed;
+                gameState.receiverSpeedPreset = speed === 'mixed' ? 'mixed' : parseInt(speed);
+                document.querySelectorAll('.rcvr-speed-btn').forEach(b => b.style.background = '#333');
+                btn.style.background = '#4a4';
+                applyReceiverSpeedPreset();
+            });
+        });
+        // DB speed preset buttons
+        document.querySelectorAll('.db-speed-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const speed = btn.dataset.speed;
+                gameState.dbSpeedPreset = speed === 'mixed' ? 'mixed' : parseInt(speed);
+                document.querySelectorAll('.db-speed-btn').forEach(b => b.style.background = '#333');
+                btn.style.background = '#4a4';
+                applyDbSpeedPreset();
+            });
+        });
         document.getElementById('btnPlayGame').addEventListener('click', () => {
             if (!managementState.season || managementState.season.week > SEASON.WEEKS) return;
             const game = managementState.season.schedule[managementState.season.week - 1];
@@ -10457,6 +11141,7 @@
             const result = startMatch();
             if (result.success) startArcadeGame();
         });
+        document.getElementById('btnPreGameBack').addEventListener('click', () => showScreen('hub'));
         document.getElementById('btnRoster').addEventListener('click', () => showScreen('roster'));
         document.getElementById('btnFreeAgency').addEventListener('click', () => showScreen('free_agency'));
         document.getElementById('btnSchedule').addEventListener('click', () => showScreen('schedule'));
@@ -10495,37 +11180,18 @@
         // Show initial screen
         showScreen(managementState.currentScreen);
 
-        // Camera view switching
-        const setCameraView = (viewType) => {
-            const camera = scene.activeCamera;
-            if (!camera) return;
-            gameState.currentView = viewType;
-            document.querySelectorAll('#viewButtons button').forEach(btn => btn.classList.remove('active'));
-            switch(viewType) {
-                case 'iso':
-                    camera.alpha = -Math.PI / 2;
-                    camera.beta = Math.PI / 3.5;
-                    camera.radius = 32;
-                    document.getElementById('viewIso').classList.add('active');
-                    break;
-                case 'overhead':
-                    camera.alpha = -Math.PI / 2;
-                    camera.beta = 0.1;
-                    camera.radius = 28;
-                    document.getElementById('viewOverhead').classList.add('active');
-                    break;
-                case 'shoulder':
-                    camera.alpha = -Math.PI / 2;
-                    camera.beta = Math.PI / 2.5;
-                    camera.radius = 18;
-                    document.getElementById('viewShoulder').classList.add('active');
-                    break;
-            }
+        // Heat map toggle button
+        const heatMapBtn = document.getElementById('btnHeatMap');
+        const updateHeatMapButton = () => {
+            heatMapBtn.textContent = gameState.showThrowHeatMap ? 'Heat Map: ON' : 'Heat Map: OFF';
+            heatMapBtn.classList.toggle('active', gameState.showThrowHeatMap);
         };
-
-        document.getElementById('viewIso').addEventListener('click', () => setCameraView('iso'));
-        document.getElementById('viewOverhead').addEventListener('click', () => setCameraView('overhead'));
-        document.getElementById('viewShoulder').addEventListener('click', () => setCameraView('shoulder'));
+        heatMapBtn.addEventListener('click', () => {
+            gameState.showThrowHeatMap = !gameState.showThrowHeatMap;
+            if (!gameState.showThrowHeatMap) clearThrowHeatMap();
+            updateHeatMapButton();
+        });
+        updateHeatMapButton();
 
         engine.runRenderLoop(() => {
             scene.render();
