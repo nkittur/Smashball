@@ -6432,17 +6432,17 @@
                     </div>`);
                 }
 
-                // DB penalty (raw, before shoulder reduction)
+                // DB penalty (raw, before lead bonus reduction)
                 if (catchInfo.isContested && catchInfo.dbPenalty > 0) {
                     modRows.push(makeRow('DB penalty', `-${catchInfo.dbPenalty}%`, false));
                 }
 
-                // Shoulder throw bonus (reduction of DB penalty)
+                // Lead bonus (reduction of DB penalty based on throw quality)
                 if (catchInfo.hasSideBonus && catchInfo.shoulderBonusSaved > 0) {
                     const leadLabel = catchInfo.leadQuality >= 80 ? 'perfect' :
                                      catchInfo.leadQuality >= 60 ? 'good' :
                                      catchInfo.leadQuality >= 40 ? 'ok' : 'poor';
-                    modRows.push(makeRow(`Shoulder (${leadLabel} lead)`, `${catchInfo.shoulderBonusSaved}%`, true));
+                    modRows.push(makeRow(`Lead bonus (${leadLabel})`, `${catchInfo.shoulderBonusSaved}%`, true));
                 }
 
                 // Final probability
@@ -7642,8 +7642,7 @@
                                     receiver.position.x += (dx / distToLanding) * catchAdjustSpeed;
                                     receiver.position.z += (dz / distToLanding) * catchAdjustSpeed;
                                     receiver.rotation.y = Math.atan2(dx, dz);
-                                    // Still moving - build momentum
-                                    receiver.runMomentum = Math.min((receiver.runMomentum || 0) + 0.15, 1);
+                                    // Moving at full speed - maintain momentum (no change)
                                 } else {
                                     // Waiting at landing spot - decay momentum
                                     receiver.runMomentum = (receiver.runMomentum || 0) * 0.9;
@@ -7658,8 +7657,7 @@
                                 receiver.position.x += (dx / distToLanding) * effectiveSpeed;
                                 receiver.position.z += (dz / distToLanding) * effectiveSpeed;
                                 receiver.rotation.y = Math.atan2(dx, dz);
-                                // Still moving - build momentum
-                                receiver.runMomentum = Math.min((receiver.runMomentum || 0) + 0.15, 1);
+                                // Moving at full speed - maintain momentum (no change)
                             } else {
                                 // Waiting at landing spot - decay momentum
                                 receiver.runMomentum = (receiver.runMomentum || 0) * 0.9;
@@ -7930,15 +7928,15 @@
                         modRows.push(makeRow('DB penalty', `-${catchInfo.dbPenalty}%`, false));
                     }
 
-                    // Shoulder throw bonus (reduction of DB penalty)
+                    // Lead bonus (reduction of DB penalty based on throw quality)
                     if (catchInfo.hasSideBonus && catchInfo.shoulderBonusSaved > 0) {
                         const leadLabel = catchInfo.leadQuality >= 80 ? 'perfect' :
                                          catchInfo.leadQuality >= 60 ? 'good' :
                                          catchInfo.leadQuality >= 40 ? 'ok' : 'poor';
-                        modRows.push(makeRow(`Shoulder (${leadLabel} lead)`, `${catchInfo.shoulderBonusSaved}%`, true));
+                        modRows.push(makeRow(`Lead bonus (${leadLabel})`, `${catchInfo.shoulderBonusSaved}%`, true));
                     } else if (catchInfo.hasSideBonus) {
-                        // Shoulder throw detected but no bonus due to poor lead
-                        modRows.push(makeRow('Shoulder (poor lead)', '0%', false));
+                        // Lead bonus detected but no reduction due to poor lead
+                        modRows.push(makeRow('Lead bonus (poor)', '0%', false));
                     }
 
                     // Final probability line
