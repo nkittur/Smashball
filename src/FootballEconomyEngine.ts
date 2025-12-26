@@ -457,11 +457,17 @@ function calculatePlayerCostFromStats(player: EconomyPlayer): number {
     return Math.max(50, Math.floor(baseCost));
 }
 
+/** Team strength level for roster generation */
+export type TeamStrength = 'elite' | 'good' | 'average' | 'weak';
+
 /**
- * Generate a full roster with realistic tier distribution
- * Target: 2-3 players at 90s, most at 70s-80s, 2-3 at mid-high 60s
+ * Generate a full roster based on team strength level
+ * - elite teams: mostly veteran/elite players (90s team overall)
+ * - good teams: mix of veteran/average (80s team overall)
+ * - average teams: mostly average players (70s team overall)
+ * - weak teams: below_average/backup players (60s team overall)
  */
-export function generateRoster(): EconomyPlayer[] {
+export function generateRoster(teamStrength: TeamStrength = 'average'): EconomyPlayer[] {
     const roster: EconomyPlayer[] = [];
 
     // Positions to fill
@@ -473,31 +479,118 @@ export function generateRoster(): EconomyPlayer[] {
         'DL', 'DL', 'DL', 'DL'
     ];
 
-    // Shuffle positions for random star distribution
-    const shuffled = [...positions].sort(() => Math.random() - 0.5);
+    // Determine tier distribution based on team strength
+    const getTierForTeam = (): PlayerTier => {
+        const roll = Math.random();
 
-    // Assign tiers: 2-3 elite (90s), 2-3 below_average (60s), rest are 70s-80s
-    const numElite = randomInt(2, 3);
-    const numWeak = randomInt(2, 3);
+        switch (teamStrength) {
+            case 'elite':
+                // 90s team: mostly elite/veteran
+                if (roll < 0.4) return 'elite';
+                if (roll < 0.8) return 'veteran';
+                return 'average';
 
-    shuffled.forEach((position, index) => {
-        let tier: PlayerTier;
+            case 'good':
+                // 80s team: mix of veteran/average with some elite
+                if (roll < 0.15) return 'elite';
+                if (roll < 0.5) return 'veteran';
+                if (roll < 0.85) return 'average';
+                return 'below_average';
 
-        if (index < numElite) {
-            // Elite players (90s overall)
-            tier = 'elite';
-        } else if (index < numElite + numWeak) {
-            // Weaker players (mid-high 60s)
-            tier = 'below_average';
-        } else {
-            // Core players (70s-80s) - mix of veteran and average
-            tier = Math.random() < 0.4 ? 'veteran' : 'average';
+            case 'average':
+                // 70s team: mostly average with some variety
+                if (roll < 0.05) return 'veteran';
+                if (roll < 0.7) return 'average';
+                if (roll < 0.9) return 'below_average';
+                return 'rookie';
+
+            case 'weak':
+                // 60s team: below_average/backup
+                if (roll < 0.1) return 'average';
+                if (roll < 0.5) return 'below_average';
+                if (roll < 0.8) return 'rookie';
+                return 'backup';
+
+            default:
+                return 'average';
         }
+    };
 
-        roster.push(generatePlayer(position, tier));
+    positions.forEach(position => {
+        roster.push(generatePlayer(position, getTierForTeam()));
     });
 
     return roster;
+}
+
+/**
+ * Generate a league of teams with realistic strength distribution
+ * Target: 2-3 elite teams (90s), most in 70s-80s, 2-3 weak teams (60s)
+ */
+export function generateLeague(numTeams: number = 12): Team[] {
+    const teams: Team[] = [];
+
+    // Determine distribution: 2-3 elite, 2-3 weak, rest are average/good
+    const numElite = randomInt(2, 3);
+    const numWeak = randomInt(2, 3);
+    const numGood = Math.floor((numTeams - numElite - numWeak) / 2);
+    const numAverage = numTeams - numElite - numWeak - numGood;
+
+    // Create strength assignments and shuffle
+    const strengths: TeamStrength[] = [
+        ...Array(numElite).fill('elite'),
+        ...Array(numGood).fill('good'),
+        ...Array(numAverage).fill('average'),
+        ...Array(numWeak).fill('weak'),
+    ];
+
+    // Shuffle to randomize which teams get which strength
+    const shuffledStrengths = strengths.sort(() => Math.random() - 0.5);
+
+    // Team name components
+    const cities = [
+        'Ironhold', 'Stormgate', 'Shadowmere', 'Goldcrest', 'Darkhollow',
+        'Frostpeak', 'Thundervale', 'Crimsonfort', 'Silverlake', 'Blackmoor',
+        'Dragonspire', 'Wolfhaven', 'Ravencliff', 'Stonekeep', 'Fireforge',
+        'Northwatch', 'Eastmarch', 'Westfall', 'Southshore', 'Highgarden',
+    ];
+
+    const mascots = [
+        'Knights', 'Dragons', 'Wolves', 'Ravens', 'Titans',
+        'Warriors', 'Crusaders', 'Gladiators', 'Sentinels', 'Guardians',
+        'Berserkers', 'Paladins', 'Warlords', 'Champions', 'Legends',
+    ];
+
+    // Shuffle cities for unique names
+    const shuffledCities = [...cities].sort(() => Math.random() - 0.5);
+
+    for (let i = 0; i < numTeams; i++) {
+        const city = shuffledCities[i % shuffledCities.length];
+        const mascot = mascots[randomInt(0, mascots.length - 1)];
+        const teamStrength = shuffledStrengths[i];
+
+        const team: Team = {
+            id: generateId(),
+            name: `${city} ${mascot}`,
+            fameBudget: ECONOMY_CONSTANTS.STARTING_FAME,
+            coachVP: 0,
+            roster: generateRoster(teamStrength),
+            record: { wins: 0, losses: 0 },
+        };
+
+        teams.push(team);
+    }
+
+    return teams;
+}
+
+/**
+ * Calculate a team's overall rating from its roster
+ */
+export function calculateTeamOverall(team: Team): number {
+    if (team.roster.length === 0) return 0;
+    const total = team.roster.reduce((sum, player) => sum + player.overall, 0);
+    return Math.floor(total / team.roster.length);
 }
 
 // ============================================================================
