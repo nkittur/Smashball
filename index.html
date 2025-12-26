@@ -10307,6 +10307,14 @@
                 receiver.stats.speed = speedStat;
                 receiver.baseSpeed = speedStat * SPEED_CONSTANTS.RECEIVER_FACTOR * gameState.gameSpeedMultiplier;
                 receiver.speed = receiver.baseSpeed;
+                // Recalculate overall based on new speed
+                const stats = receiver.stats;
+                receiver.overall = Math.round((stats.speed + stats.catching + stats.route + stats.release) / 4);
+                // Update visual label
+                if (receiver.ovrTextBlock) {
+                    const stars = receiver.overall >= 90 ? ' ★★' : receiver.overall >= 85 ? ' ★' : '';
+                    receiver.ovrTextBlock.text = `${receiver.overall}${stars}`;
+                }
             });
         }
 
@@ -10319,6 +10327,14 @@
                 defender.stats.speed = speedStat;
                 defender.baseSpeed = speedStat * SPEED_CONSTANTS.DEFENDER_FACTOR * gameState.gameSpeedMultiplier;
                 defender.speed = defender.baseSpeed;
+                // Recalculate overall based on new speed
+                const stats = defender.stats;
+                defender.overall = Math.round((stats.speed + stats.coverage + stats.tackling + stats.awareness) / 4);
+                // Update visual label
+                if (defender.ovrTextBlock) {
+                    const stars = defender.overall >= 90 ? ' ★★' : defender.overall >= 85 ? ' ★' : '';
+                    defender.ovrTextBlock.text = `${defender.overall}${stars}`;
+                }
             });
         }
 
