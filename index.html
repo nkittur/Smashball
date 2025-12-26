@@ -9217,8 +9217,10 @@
                 result.winner = 'receiver';
                 result.type = 'separation';
                 // Receiver wins - gets speed boost for 1 second
+                // Scale boost down at higher game speeds to prevent excessive speed
+                const scaledBoost = 1 + (CLASH_SPEED_BOOST - 1) / gameState.gameSpeedMultiplier;
                 receiver.clashSpeedBoostUntil = currentTime + CLASH_SPEED_EFFECT_DURATION;
-                receiver.speed = receiver.baseSpeed * CLASH_SPEED_BOOST;
+                receiver.speed = receiver.baseSpeed * scaledBoost;
                 // DB gets catch-up boost 2 seconds after clash
                 defender.catchupBoostStart = currentTime + DB_CATCHUP_DELAY;
                 defender.catchupBoostUntil = currentTime + DB_CATCHUP_DELAY + DB_CATCHUP_BOOST_DURATION;
