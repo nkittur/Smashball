@@ -135,12 +135,6 @@ export interface HarvestResult {
     success: boolean;
     famePayout: number;
     player: EconomyPlayer;
-    breakdown: {
-        baseFame: number;
-        hypeBonus: number;
-        ageModifier: number;
-        total: number;
-    };
 }
 
 // ============================================================================
@@ -189,17 +183,6 @@ export const ECONOMY_CONSTANTS = {
         AGE_PENALTY_PER_YEAR: 0.1,
         YOUNG_PREMIUM_END: 24,
         YOUNG_PREMIUM_BONUS: 0.15,
-    },
-
-    /** Harvest (trade) configuration */
-    HARVEST: {
-        /** Percentage of accumulated fame bank returned */
-        BANK_RETURN_RATE: 0.75,
-        /** Bonus for high hype players */
-        HIGH_HYPE_THRESHOLD: 1.2,
-        HIGH_HYPE_BONUS: 0.2,
-        /** Minimum payout */
-        MIN_PAYOUT: 10,
     },
 
     /** Playoff configuration */
@@ -385,41 +368,15 @@ export function calculateRawPerformancePoints(stats: {
 
 /**
  * Calculate the harvest (trade) value for a player.
- * Returns fame payout based on their AccumulatedFameBank.
+ * Returns the full AccumulatedFameBank - no modifiers or deductions.
  */
 export function calculateHarvestValue(player: EconomyPlayer): number {
-    const hc = ECONOMY_CONSTANTS.HARVEST;
-    const accumulatedFame = player.hypeData.accumulatedFameBank;
-
-    // Base return from fame bank
-    let baseFame = Math.floor(accumulatedFame * hc.BANK_RETURN_RATE);
-
-    // Hype bonus for high-hype players
-    const currentMultiplier = calculateCurrentMultiplier(player);
-    let hypeBonus = 0;
-    if (currentMultiplier >= hc.HIGH_HYPE_THRESHOLD) {
-        hypeBonus = Math.floor(baseFame * hc.HIGH_HYPE_BONUS);
-    }
-
-    // Age modifier (younger players are more valuable)
-    let ageModifier = 1.0;
-    if (player.age < 25) {
-        ageModifier = 1.1; // 10% bonus for young players
-    } else if (player.age > 30) {
-        ageModifier = 0.8; // 20% penalty for older players
-    }
-
-    const total = Math.max(
-        hc.MIN_PAYOUT,
-        Math.floor((baseFame + hypeBonus) * ageModifier)
-    );
-
-    return total;
+    return player.hypeData.accumulatedFameBank;
 }
 
 /**
  * Harvest a player - trade them for fame payout.
- * Returns the fame earned and removes player from team.
+ * Returns the full AccumulatedFameBank and removes player from team.
  */
 export function harvestPlayer(
     team: Team,
@@ -431,45 +388,18 @@ export function harvestPlayer(
     }
 
     const player = team.roster[playerIndex];
-    const hc = ECONOMY_CONSTANTS.HARVEST;
-
-    // Calculate breakdown
-    const accumulatedFame = player.hypeData.accumulatedFameBank;
-    const baseFame = Math.floor(accumulatedFame * hc.BANK_RETURN_RATE);
-
-    const currentMultiplier = calculateCurrentMultiplier(player);
-    const hypeBonus = currentMultiplier >= hc.HIGH_HYPE_THRESHOLD
-        ? Math.floor(baseFame * hc.HIGH_HYPE_BONUS)
-        : 0;
-
-    let ageModifier = 1.0;
-    if (player.age < 25) {
-        ageModifier = 1.1;
-    } else if (player.age > 30) {
-        ageModifier = 0.8;
-    }
-
-    const total = Math.max(
-        hc.MIN_PAYOUT,
-        Math.floor((baseFame + hypeBonus) * ageModifier)
-    );
+    const famePayout = player.hypeData.accumulatedFameBank;
 
     // Remove player from roster
     team.roster.splice(playerIndex, 1);
 
     // Add fame to team budget
-    team.fameBudget += total;
+    team.fameBudget += famePayout;
 
     return {
         success: true,
-        famePayout: total,
+        famePayout,
         player,
-        breakdown: {
-            baseFame,
-            hypeBonus,
-            ageModifier,
-            total,
-        },
     };
 }
 
