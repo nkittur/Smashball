@@ -5764,7 +5764,7 @@
             } else {
                 receiver.velocity = new BABYLON.Vector3(0, 0, 0);
                 // Decay forward lean when stopped
-                receiver.runMomentum = (receiver.runMomentum || 0) * 0.9;
+                receiver.runMomentum = (receiver.runMomentum || 0) * 0.95;
                 receiver.rotation.x = (receiver.runMomentum || 0) * 0.15;
             }
             return true;
@@ -5778,7 +5778,7 @@
                 player.rotation.x = (player.runMomentum || 0) * 0.25; // Forward lean when running
             } else {
                 // Decay forward lean when stopped
-                player.runMomentum = (player.runMomentum || 0) * 0.9;
+                player.runMomentum = (player.runMomentum || 0) * 0.95;
                 player.rotation.x = (player.runMomentum || 0) * 0.15;
             }
         };
@@ -7645,7 +7645,7 @@
                                     // Moving at full speed - maintain momentum (no change)
                                 } else {
                                     // Waiting at landing spot - decay momentum
-                                    receiver.runMomentum = (receiver.runMomentum || 0) * 0.9;
+                                    receiver.runMomentum = (receiver.runMomentum || 0) * 0.95;
                                 }
                             } else {
                                 // Keep running the route (moveReceiverAlongRoute updates momentum)
@@ -7660,7 +7660,7 @@
                                 // Moving at full speed - maintain momentum (no change)
                             } else {
                                 // Waiting at landing spot - decay momentum
-                                receiver.runMomentum = (receiver.runMomentum || 0) * 0.9;
+                                receiver.runMomentum = (receiver.runMomentum || 0) * 0.95;
                             }
                         }
 
@@ -7777,8 +7777,8 @@
                 // Calculate throw rating first (need lead score for catch probability)
                 const throwRating = calculateThrowRating(potentialCatcher, ballPosition, gameState.gameTime);
 
-                // Calculate catch probability (returns detailed info) - pass lead score for shoulder bonus scaling
-                const catchInfo = calculateCatchProbability(potentialCatcher, ballPosition, throwRating.leadScore);
+                // Calculate catch probability (returns detailed info) - pass slowdown score (momentum-based) for lead bonus
+                const catchInfo = calculateCatchProbability(potentialCatcher, ballPosition, throwRating.slowdownScore);
                 const catchRoll = Math.random() * 100;
                 const success = catchRoll < catchInfo.probability;
 
@@ -8142,9 +8142,9 @@
         // NEW SIMPLIFIED FORMULA:
         // baseCatchRate = (catching - 50) × 2 + 20  -> 70→60%, 80→80%, 90→100%
         // dbPenalty = dbCoverage × 0.7 × proximity²
-        // shoulderReduction = up to 50% of DB penalty with perfect lead
+        // leadBonus = up to 50% reduction of DB penalty based on momentum (slowdownScore)
         // finalRate = baseCatchRate - effectiveDbPenalty
-        const calculateCatchProbability = (receiver, ballPosition, leadScore = 50) => {
+        const calculateCatchProbability = (receiver, ballPosition, momentumScore = 50) => {
             const catchingStat = receiver.stats.catching;
             const coverageRange = CLASH_CONSTANTS.CLASH_RANGE * 1.5;
 
@@ -8220,14 +8220,14 @@
             const tightCoverageBonus = closestDefenderDist <= 0.7 ? 1.2 : 1.0;  // +20% penalty for tight coverage
             const rawDbPenalty = closestDefenderCoverage * 1.5 * proximityFactor * proximityFactor * tightCoverageBonus;
 
-            // SHOULDER THROW: reduces DB penalty by up to 50% based on lead quality
-            let shoulderReduction = 0;
-            let shoulderBonusSaved = 0;
+            // LEAD BONUS: reduces DB penalty by up to 50% based on momentum (receiver in stride)
+            let leadReduction = 0;
+            let leadBonusSaved = 0;
             if (hasSideBonus) {
-                shoulderReduction = (leadScore / 100) * 0.5;  // 0 to 0.5
-                shoulderBonusSaved = Math.round(rawDbPenalty * shoulderReduction);
+                leadReduction = (momentumScore / 100) * 0.5;  // 0 to 0.5
+                leadBonusSaved = Math.round(rawDbPenalty * leadReduction);
             }
-            const effectiveDbPenalty = rawDbPenalty * (1 - shoulderReduction);
+            const effectiveDbPenalty = rawDbPenalty * (1 - leadReduction);
 
             // FINAL PROBABILITY
             const finalProbability = Math.max(5, Math.min(98, baseCatchRate - effectiveDbPenalty));
@@ -8247,8 +8247,8 @@
                 coverageLevel: coverageLevel,
                 isContested: true,
                 hasSideBonus: hasSideBonus,
-                shoulderBonusSaved: shoulderBonusSaved,
-                leadQuality: Math.round(leadScore),
+                shoulderBonusSaved: leadBonusSaved,
+                leadQuality: Math.round(momentumScore),
                 dbPenalty: Math.round(rawDbPenalty),
                 effectiveDbPenalty: Math.round(effectiveDbPenalty),
                 defenderDetails: defenderDetails
