@@ -4233,6 +4233,8 @@
                         if (player) {
                             if (player.seasonSacks === undefined) player.seasonSacks = 0;
                             player.seasonSacks++;
+                            // Record for fame calculation
+                            gameStats.getPlayer(player.id, player.name).sacks++;
                         }
                     }
                 } else if (play.type === 'complete') {
@@ -4243,6 +4245,17 @@
                     if (yardsFromGoal <= 0) {
                         driveResult = { points: 7, type: 'TD' };
                         play.isTouchdown = true;
+                    } else {
+                        // Not a touchdown - CB made the tackle
+                        if (play.catchInfo && play.catchInfo.cb && play.catchInfo.cb.id) {
+                            const tackler = playerTeam.roster.find(p => p.id === play.catchInfo.cb.id);
+                            if (tackler) {
+                                if (tackler.seasonTackles === undefined) tackler.seasonTackles = 0;
+                                tackler.seasonTackles++;
+                                // Record for fame calculation
+                                gameStats.getPlayer(tackler.id, tackler.name).tackles++;
+                            }
+                        }
                     }
 
                     // First down check
@@ -4262,6 +4275,8 @@
                         if (player) {
                             if (player.seasonPassesDefended === undefined) player.seasonPassesDefended = 0;
                             player.seasonPassesDefended++;
+                            // Record for fame calculation
+                            gameStats.getPlayer(player.id, player.name).passesDefended++;
                         }
                     }
                 }
