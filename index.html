@@ -2937,7 +2937,7 @@
 
         // Process OL/DL clashes for a single round
         function processLineClashesRound(state) {
-            const roundBonus = (state.round - 1) * 5;  // DL gets +5 per round
+            const roundBonus = (state.round - 1) * 3;  // DL gets +3 per round (was +5)
             let totalPressure = 0;
 
             // Reset pressure contributions
@@ -2974,8 +2974,8 @@
                         pressure: 40
                     });
 
-                    // High sack chance for unblocked rusher
-                    if (Math.random() < 0.35) {
+                    // Sack chance for unblocked rusher (reduced from 35%)
+                    if (Math.random() < 0.20) {
                         state.sacked = true;
                         state.sackingPlayer = dl.player;
                     }
@@ -2990,10 +2990,10 @@
                 let result = 'held';
                 // Determine outcome based on margin
                 if (margin > 18) {
-                    // DL dominant win - sack chance
+                    // DL dominant win - sack chance (reduced from 25%)
                     dl.pressureContribution = 35;
                     result = 'beaten badly';
-                    if (Math.random() < 0.25) {
+                    if (Math.random() < 0.15) {
                         state.sacked = true;
                         state.sackingPlayer = dl.player;
                     }
