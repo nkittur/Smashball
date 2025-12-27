@@ -1575,11 +1575,12 @@
             'Berserkers', 'Wardens', 'Lancers', 'Reavers'
         ];
 
-        // Economy constants
+        // Economy constants (salaries in millions)
         const ECONOMY = {
             STARTING_FAME: 1000,
-            SALARY_CAP: 12000,  // Slightly higher than typical team salary (~11.5k)
-            SALARY_MULTIPLIER: 10,  // salary = sum(stats) * 10
+            SALARY_CAP: 60,  // $60M salary cap
+            MIN_SALARY: 1,   // $1M minimum salary
+            MAX_SALARY: 30,  // $30M for 100 OVR player
 
             // Revenue
             HOME_GAME_BASE: 50,
@@ -1593,7 +1594,7 @@
 
             // Other
             BRIBE_COST: 1000,
-            BRIBE_CAP_BONUS: 500,
+            BRIBE_CAP_BONUS: 3,  // $3M cap increase per bribe
 
             // Fame performance points
             FAME_POINTS: {
@@ -1717,9 +1718,12 @@
             return Math.floor(Math.random() * (max - min + 1)) + min;
         }
 
-        // Format salary in millions (e.g., 5000 -> "$5M")
+        // Format salary in millions (e.g., 5.5 -> "$5.5M", 10 -> "$10M")
         function formatSalary(amount) {
-            return amount.toLocaleString();
+            if (amount % 1 === 0) {
+                return `$${amount}M`;
+            }
+            return `$${amount.toFixed(1)}M`;
         }
 
         // Shuffle array (Fisher-Yates)
@@ -1893,15 +1897,22 @@
             return Math.round(total / primaryStats.length);
         }
 
-        // Calculate salary based on overall rating (quadratic scaling)
+        // Calculate salary based on overall rating (exponential scaling in $M)
+        // 60 OVR = $1M, 80 OVR = $8M, 100 OVR = $30M
         function calculateSalary(stats, position = 'WR') {
             const positionData = POSITIONS[position];
             const primaryStats = positionData.primaryStats;
             const total = primaryStats.reduce((sum, stat) => sum + (stats[stat] || 0), 0);
             const overall = Math.round(total / primaryStats.length);
-            // Quadratic scaling: 60 OVR = 200, 80 OVR = 800, 95 OVR = 1512
-            const base = 0.5 * Math.pow(overall - 40, 2);
-            return Math.floor(base);
+
+            // Exponential scaling: salary = MIN + (MAX - MIN) * ((OVR - 60) / 40)^2
+            const minOvr = 60;
+            const maxOvr = 100;
+            const normalizedOvr = Math.max(0, Math.min(1, (overall - minOvr) / (maxOvr - minOvr)));
+            const rawSalary = ECONOMY.MIN_SALARY + (ECONOMY.MAX_SALARY - ECONOMY.MIN_SALARY) * Math.pow(normalizedOvr, 2);
+
+            // Round to nearest 0.5M for cleaner numbers
+            return Math.round(rawSalary * 2) / 2;
         }
 
         // Calculate trade value (fame received for trading a player)
