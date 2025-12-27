@@ -469,7 +469,14 @@
             <p id="matchScore" class="match-score">21 - 14</p>
             <p id="matchRevenue" class="match-revenue"></p>
             <div id="postGameStats" class="post-game-stats"></div>
-            <button id="btnMatchContinue" class="mgmt-btn primary">CONTINUE</button>
+            <div class="match-end-buttons">
+                <button id="btnMatchContinue" class="mgmt-btn primary">CONTINUE</button>
+                <button id="btnShowSimLog" class="mgmt-btn secondary" style="display:none;">VIEW LOG</button>
+            </div>
+            <div id="simLogContainer" style="display:none;margin-top:15px;">
+                <pre id="simLogContent" style="background:#1a1a2e;padding:10px;border-radius:4px;max-height:300px;overflow:auto;font-size:11px;white-space:pre-wrap;text-align:left;"></pre>
+                <button id="btnCopySimLog" class="mgmt-btn" style="margin-top:8px;">COPY TO CLIPBOARD</button>
+            </div>
         </div>
 
         <!-- Pre-Game Matchup Screen -->
@@ -557,12 +564,12 @@
         .mgmt-btn:disabled { opacity: 0.5; }
         .mgmt-btn.primary { background: #3a3a60; }
         .mgmt-btn.secondary { background: #2a4a2a; }
-        .pre-game-buttons {
+        .pre-game-buttons, .match-end-buttons {
             display: flex;
             gap: 10px;
             margin-top: 20px;
         }
-        .pre-game-buttons .mgmt-btn {
+        .pre-game-buttons .mgmt-btn, .match-end-buttons .mgmt-btn {
             flex: 1;
         }
         .mgmt-btn.back-btn {
@@ -4139,6 +4146,7 @@
             managementState.matchInProgress = true;
             managementState.currentPossession = 0;
             managementState.matchScore = { player: 0, opponent: 0 };
+            managementState.simulationLog = null;  // Clear sim log for regular games
             managementState.currentScreen = 'game';
             managementState.gamePhase = 'regulation';  // regulation, twoMinuteDrill, overtime
             managementState.overtimePossession = 0;
@@ -4164,6 +4172,15 @@
             const playerTeam = managementState.team;
             const opponent = game.opponent;
 
+            // Initialize simulation log
+            managementState.simulationLog = [];
+            const log = (msg) => managementState.simulationLog.push(msg);
+
+            log(`=== GAME SIMULATION: ${playerTeam.name} vs ${opponent.name} ===`);
+            log(`Player Team OVR: ${Math.round(playerTeam.roster.reduce((s,p) => s + p.overall, 0) / playerTeam.roster.length)}`);
+            log(`Opponent OVR: ${opponent.offenseRating}/${opponent.defenseRating}`);
+            log('');
+
             // Reset per-game stats
             Object.keys(gameStats.players).forEach(key => delete gameStats.players[key]);
             managementState.fameAddedThisGame = false;
@@ -4171,6 +4188,22 @@
             let playerScore = 0;
             let opponentScore = 0;
             const possessionResults = [];
+
+            // Helper to log drive details
+            const logDrive = (drive, team, driveNum) => {
+                log(`--- ${team} Drive #${driveNum} ---`);
+                log(`Result: ${drive.type} (${drive.points || 0} pts)`);
+                if (drive.plays) {
+                    drive.plays.forEach((play, idx) => {
+                        const down = play.down || '?';
+                        const toGo = play.yardsToGo || '?';
+                        const fromGoal = play.yardsFromGoal || '?';
+                        log(`  Play ${idx+1}: ${down}&${toGo} at ${fromGoal}yd - ${play.type} for ${play.yardsGained || 0} yds`);
+                        if (play.description) log(`    ${play.description}`);
+                    });
+                }
+                log('');
+            };
 
             // Simulate regulation possessions
             for (let i = 0; i < SEASON.POSSESSIONS_PER_GAME; i++) {
@@ -4180,6 +4213,7 @@
                                     playerDrive.type === 'field_goal' ? 3 : 0;
                 playerScore += playerPoints;
                 possessionResults.push({ team: 'player', result: playerDrive, points: playerPoints });
+                logDrive(playerDrive, 'PLAYER OFFENSE', i + 1);
 
                 // Enemy offense
                 const enemyDrive = simulateEnemyDriveHighFidelity(opponent, playerTeam);
@@ -4187,6 +4221,10 @@
                                    enemyDrive.type === 'field_goal' ? 3 : 0;
                 opponentScore += enemyPoints;
                 possessionResults.push({ team: 'opponent', result: enemyDrive, points: enemyPoints });
+                logDrive(enemyDrive, 'OPPONENT OFFENSE', i + 1);
+
+                log(`Score after possession ${i+1}: Player ${playerScore} - Opponent ${opponentScore}`);
+                log('');
             }
 
             // Handle overtime if tied
@@ -4214,6 +4252,9 @@
             managementState.matchScore = { player: playerScore, opponent: opponentScore };
             managementState.currentPossession = SEASON.POSSESSIONS_PER_GAME;
 
+            log(`=== FINAL SCORE: Player ${playerScore} - Opponent ${opponentScore} ===`);
+            if (overtime) log('(Overtime)');
+
             return {
                 success: true,
                 playerScore,
@@ -4222,6 +4263,11 @@
                 possessionResults,
                 opponent
             };
+        }
+
+        // Get simulation log as text
+        function getSimulationLog() {
+            return (managementState.simulationLog || []).join('\n');
         }
 
         // Record possession result (called after each arcade possession)
@@ -9979,6 +10025,17 @@
                 statsContainer.innerHTML = '<p style="color:#888;text-align:center;">No player stats recorded</p>';
             }
 
+            // Show simulation log button if there's a log
+            const logBtn = document.getElementById('btnShowSimLog');
+            const logContainer = document.getElementById('simLogContainer');
+            if (managementState.simulationLog && managementState.simulationLog.length > 0) {
+                logBtn.style.display = 'block';
+                document.getElementById('simLogContent').textContent = getSimulationLog();
+            } else {
+                logBtn.style.display = 'none';
+            }
+            logContainer.style.display = 'none';
+
             showScreen('match_end');
         }
 
@@ -11172,6 +11229,28 @@
         document.getElementById('btnScheduleBack').addEventListener('click', () => showScreen('hub'));
         document.getElementById('btnFacilitiesBack').addEventListener('click', () => showScreen('hub'));
         document.getElementById('btnMatchContinue').addEventListener('click', () => showScreen('hub'));
+        document.getElementById('btnShowSimLog').addEventListener('click', () => {
+            const container = document.getElementById('simLogContainer');
+            const btn = document.getElementById('btnShowSimLog');
+            if (container.style.display === 'none') {
+                container.style.display = 'block';
+                btn.textContent = 'HIDE LOG';
+            } else {
+                container.style.display = 'none';
+                btn.textContent = 'VIEW LOG';
+            }
+        });
+        document.getElementById('btnCopySimLog').addEventListener('click', () => {
+            const logText = getSimulationLog();
+            navigator.clipboard.writeText(logText).then(() => {
+                const btn = document.getElementById('btnCopySimLog');
+                btn.textContent = 'COPIED!';
+                setTimeout(() => { btn.textContent = 'COPY TO CLIPBOARD'; }, 1500);
+            }).catch(err => {
+                console.error('Failed to copy:', err);
+                alert('Failed to copy to clipboard');
+            });
+        });
         document.getElementById('btnUpgradeArena').addEventListener('click', () => {
             upgradeFacility('stadium');
             refreshFacilitiesScreen();
