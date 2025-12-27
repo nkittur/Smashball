@@ -3891,6 +3891,41 @@
             // Run the new high-fidelity simulation
             const result = simulateDriveRoundBased(offense, defense, startingFieldPosition);
 
+            // Record defensive stats for player's team
+            if (result.plays && roster) {
+                result.plays.forEach(play => {
+                    // Sack - credit DL player
+                    if (play.type === 'sack' && play.sackingPlayer && play.sackingPlayer.id) {
+                        const dlPlayer = roster.find(p => p.id === play.sackingPlayer.id);
+                        if (dlPlayer) {
+                            if (dlPlayer.seasonSacks === undefined) dlPlayer.seasonSacks = 0;
+                            dlPlayer.seasonSacks++;
+                            gameStats.getPlayer(dlPlayer.id, `${dlPlayer.firstName} ${dlPlayer.lastName}`).sacks++;
+                        }
+                    }
+
+                    // Pass defended - credit CB
+                    if (play.type === 'incomplete' && play.catchInfo && play.catchInfo.cb && play.catchInfo.cb.id) {
+                        const cbPlayer = roster.find(p => p.id === play.catchInfo.cb.id);
+                        if (cbPlayer) {
+                            if (cbPlayer.seasonPassesDefended === undefined) cbPlayer.seasonPassesDefended = 0;
+                            cbPlayer.seasonPassesDefended++;
+                            gameStats.getPlayer(cbPlayer.id, `${cbPlayer.firstName} ${cbPlayer.lastName}`).passesDefended++;
+                        }
+                    }
+
+                    // Tackle - credit CB when completion is not a TD
+                    if (play.type === 'complete' && play.catchInfo && play.catchInfo.cb && play.catchInfo.cb.id) {
+                        const cbPlayer = roster.find(p => p.id === play.catchInfo.cb.id);
+                        if (cbPlayer) {
+                            if (cbPlayer.seasonTackles === undefined) cbPlayer.seasonTackles = 0;
+                            cbPlayer.seasonTackles++;
+                            gameStats.getPlayer(cbPlayer.id, `${cbPlayer.firstName} ${cbPlayer.lastName}`).tackles++;
+                        }
+                    }
+                });
+            }
+
             // Add opponent reference for compatibility
             result.opponent = opponent;
 
