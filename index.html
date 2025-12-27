@@ -691,6 +691,12 @@
             font-size: 11px;
             font-style: italic;
         }
+        .post-game-stat.fame-stat .post-game-stat-value {
+            color: #ffd700;
+        }
+        .post-game-stat.fame-stat .post-game-stat-label {
+            color: #ffd700;
+        }
 
         /* Pre-game matchups */
         .pre-game-matchups {
@@ -1568,8 +1574,74 @@
 
             // Other
             BRIBE_COST: 1000,
-            BRIBE_CAP_BONUS: 500
+            BRIBE_CAP_BONUS: 500,
+
+            // Fame performance points
+            FAME_POINTS: {
+                CATCH: 5,
+                TOUCHDOWN: 50,
+                TACKLE: 3,
+                SACK: 15,
+                INTERCEPTION: 25,
+                PASS_DEFENDED: 8,
+                YARDS_GAINED: 0.5,
+                COMPLETION: 3,
+                CLASH_WON: 2
+            },
+
+            // Hype multiplier settings
+            HYPE: {
+                DECLINE_RATE_PER_YEAR: 0.25,  // 25% decline per year after cliff
+                FLOOR: 0.1                     // Minimum multiplier
+            }
         };
+
+        // Calculate current hype multiplier for a player
+        function getCurrentHypeMultiplier(player) {
+            if (!player.hypeData) return 1.0;
+
+            const cliffAge = player.peakAge - player.hypeData.yearsBeforePrimeCliff;
+
+            // Before cliff: full multiplier
+            if (player.age < cliffAge) {
+                return player.hypeData.baseHypeMultiplier;
+            }
+
+            // After cliff: decline each year
+            const yearsAfterCliff = player.age - cliffAge;
+            const declinedMultiplier = player.hypeData.baseHypeMultiplier *
+                Math.pow(1 - ECONOMY.HYPE.DECLINE_RATE_PER_YEAR, yearsAfterCliff);
+
+            return Math.max(ECONOMY.HYPE.FLOOR, declinedMultiplier);
+        }
+
+        // Calculate fame earned from game stats for a player
+        function calculateGameFame(player, pStats) {
+            if (!pStats) return 0;
+
+            const fp = ECONOMY.FAME_POINTS;
+            let rawPoints = 0;
+
+            // Receiver stats
+            rawPoints += (pStats.catches || 0) * fp.CATCH;
+            rawPoints += (pStats.touchdowns || 0) * fp.TOUCHDOWN;
+            rawPoints += (pStats.yardsAfterCatch || 0) * fp.YARDS_GAINED;
+
+            // QB stats
+            rawPoints += (pStats.completions || 0) * fp.COMPLETION;
+
+            // Defense stats
+            rawPoints += (pStats.tackles || 0) * fp.TACKLE;
+            rawPoints += (pStats.sacks || 0) * fp.SACK;
+            rawPoints += (pStats.passesDefended || 0) * fp.PASS_DEFENDED;
+
+            // Clash wins
+            rawPoints += (pStats.clashesWon || 0) * fp.CLASH_WON;
+
+            // Apply hype multiplier
+            const multiplier = getCurrentHypeMultiplier(player);
+            return Math.floor(rawPoints * multiplier);
+        }
 
         // Progression constants
         const PROGRESSION = {
@@ -1858,6 +1930,13 @@
                 seasonClashesLost: 0,
                 seasonSacks: 0,
                 seasonPassesDefended: 0,
+                // Fame/Hype system
+                hypeData: {
+                    baseHypeMultiplier: Math.max(0.1, 1.0 + (Math.random() - 0.5) * 0.4), // Normal-ish distribution around 1.0
+                    yearsBeforePrimeCliff: randomInt(0, 5), // Secret: when decline starts
+                    accumulatedFameBank: 0, // Total fame earned over career
+                    seasonFameEarnings: 0   // Fame earned this season
+                },
                 // Career history (array of season snapshots)
                 careerHistory: [{
                     season: 0,
@@ -9562,11 +9641,15 @@
                         potentialDisplay = '★'.repeat(player.potentialGrade);
                     }
 
+                    // Fame bank display
+                    const fameBank = player.hypeData ? player.hypeData.accumulatedFameBank : 0;
+                    const fameDisplay = fameBank > 0 ? `<span style="color:#ffd700;font-size:11px;">[${fameBank}]</span>` : '';
+
                     const item = document.createElement('div');
                     item.className = 'roster-item';
                     item.innerHTML = `
                         <div>
-                            <div class="name">${player.firstName} ${player.lastName}</div>
+                            <div class="name">${player.firstName} ${player.lastName} ${fameDisplay}</div>
                             <div class="stats">Age ${player.age} | ${formatSalary(player.salaryCost)}</div>
                         </div>
                         <div style="display:flex;align-items:center;gap:8px;">
@@ -9608,24 +9691,31 @@
             // Player info
             const tradeValue = calculateTradeValue(player);
             const tradeText = tradeValue > 0 ? `Trade Value: ${tradeValue}` : 'No Trade Value';
+
+            // Fame/Hype info
+            const fameBank = player.hypeData ? player.hypeData.accumulatedFameBank : 0;
+            const hypeMultiplier = getCurrentHypeMultiplier(player);
+            const hypeDisplay = hypeMultiplier.toFixed(2) + 'x';
+
             const infoHtml = `
                 <div><span class="ovr-big">${player.overall}</span>${overallChangeText}</div>
                 <div style="margin-top:10px;">
                     ${POSITIONS[player.position].name} | Age ${player.age} | Peak ${player.peakAge}<br>
                     Salary: ${formatSalary(player.salaryCost)} | Potential: ${'★'.repeat(player.potentialGrade + 1)}<br>
+                    <span style="color:#ffd700;">Fame Bank: ${fameBank}</span> | <span style="color:#4af;">Hype: ${hypeDisplay}</span><br>
                     <span style="color:${tradeValue > 0 ? '#4f4' : '#888'}">${tradeText}</span>
                 </div>
             `;
             document.getElementById('playerInfo').innerHTML = infoHtml;
 
-            // Update trade button
+            // Update trade button - use fame bank directly
             const tradeBtn = document.getElementById('btnTradePlayer');
-            if (tradeValue > 0) {
-                tradeBtn.textContent = `TRADE (+${tradeValue} Fame)`;
+            if (fameBank > 0) {
+                tradeBtn.textContent = `HARVEST (+${fameBank} Fame)`;
                 tradeBtn.disabled = false;
                 tradeBtn.style.opacity = '1';
             } else {
-                tradeBtn.textContent = 'NO TRADE VALUE';
+                tradeBtn.textContent = 'NO FAME TO HARVEST';
                 tradeBtn.disabled = true;
                 tradeBtn.style.opacity = '0.5';
             }
@@ -9757,17 +9847,17 @@
             }
         }
 
-        // Trade player for fame from detail view
+        // Harvest player for fame from detail view (returns their accumulated fame bank)
         function tradePlayerFromDetail() {
             if (!managementState.selectedPlayerId) return;
             const player = managementState.team.roster.find(p => p.id === managementState.selectedPlayerId);
             if (!player) return;
 
-            const tradeValue = calculateTradeValue(player);
-            if (tradeValue <= 0) return;
+            const fameBank = player.hypeData ? player.hypeData.accumulatedFameBank : 0;
+            if (fameBank <= 0) return;
 
-            if (confirm(`Trade ${player.firstName} ${player.lastName} for ${tradeValue} Fame?`)) {
-                managementState.team.fame += tradeValue;
+            if (confirm(`Harvest ${player.firstName} ${player.lastName} for ${fameBank} Fame?`)) {
+                managementState.team.fame += fameBank;
                 cutPlayer(managementState.selectedPlayerId);
                 closePlayerDetail();
                 refreshRosterScreen();
@@ -9967,16 +10057,36 @@
 
             // Helper to render a player row
             const renderPlayerRow = (player) => {
+                const pStats = gameStats.players[player.id];
                 const statItems = getPlayerGameStats(player);
+
+                // Calculate fame earned this game
+                const fameEarned = calculateGameFame(player, pStats);
+
+                // Update player's fame bank
+                if (fameEarned > 0 && player.hypeData) {
+                    player.hypeData.accumulatedFameBank += fameEarned;
+                    player.hypeData.seasonFameEarnings += fameEarned;
+                }
+
+                // Add fame to stats display if earned
+                if (fameEarned > 0) {
+                    statItems.push({ label: 'FAME', value: `+${fameEarned}`, highlight: true });
+                }
+
                 const statsHtml = statItems.length > 0
-                    ? statItems.map(s => `<div class="post-game-stat"><span class="post-game-stat-value">${s.value}</span><span class="post-game-stat-label">${s.label}</span></div>`).join('')
+                    ? statItems.map(s => `<div class="post-game-stat${s.highlight ? ' fame-stat' : ''}"><span class="post-game-stat-value">${s.value}</span><span class="post-game-stat-label">${s.label}</span></div>`).join('')
                     : '<span class="post-game-no-stats">No stats</span>';
+
+                // Show accumulated fame bank
+                const fameBank = player.hypeData ? player.hypeData.accumulatedFameBank : 0;
 
                 const div = document.createElement('div');
                 div.className = 'post-game-player';
                 div.innerHTML = `
                     <div class="post-game-player-header">
                         <span class="post-game-player-name">${player.firstName} ${player.lastName}</span>
+                        <span class="post-game-player-fame" style="color:#ffd700;font-size:11px;margin-left:8px;">${fameBank > 0 ? `[${fameBank}]` : ''}</span>
                         <span class="post-game-player-ovr">${player.overall}</span>
                     </div>
                     <div class="post-game-player-stats">${statsHtml}</div>
