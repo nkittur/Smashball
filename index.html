@@ -3944,8 +3944,8 @@
                 }
             });
 
-            // Fill walk-ons if needed
-            while (playerCBs.length < 3) playerCBs.push(generateWalkOn('CB'));
+            // Fill walk-ons if needed (4 CBs to match opponent defense setup)
+            while (playerCBs.length < 4) playerCBs.push(generateWalkOn('CB'));
             while (playerDL.length < 4) playerDL.push(generateWalkOn('DL'));
             while (oppWRs.length < 3) oppWRs.push(generateWalkOn('WR'));
             while (oppOL.length < 5) oppOL.push(generateWalkOn('OL'));
@@ -4186,6 +4186,24 @@
             log(`=== GAME SIMULATION: ${playerTeam.name} vs ${opponent.name} ===`);
             log(`Player Team OVR: ${Math.round(playerTeam.roster.reduce((s,p) => s + p.overall, 0) / playerTeam.roster.length)}`);
             log(`Opponent OVR: ${opponent.offenseRating}/${opponent.defenseRating}`);
+
+            // Log team compositions for debugging
+            const getAvgOvr = (players) => players.length ? Math.round(players.reduce((s,p) => s + (p.overall || 70), 0) / players.length) : 0;
+            const playerWRs = playerTeam.roster.filter(p => p.position === 'WR');
+            const playerCBs = playerTeam.roster.filter(p => p.position === 'CB');
+            const playerOL = playerTeam.roster.filter(p => p.position === 'OL');
+            const playerDL = playerTeam.roster.filter(p => p.position === 'DL');
+            const playerQB = playerTeam.roster.find(p => p.position === 'QB');
+            const oppWRs = opponent.roster.filter(p => p.position === 'WR');
+            const oppCBs = opponent.roster.filter(p => p.position === 'CB');
+            const oppOL = opponent.roster.filter(p => p.position === 'OL');
+            const oppDL = opponent.roster.filter(p => p.position === 'DL');
+            const oppQB = opponent.roster.find(p => p.position === 'QB');
+
+            log(`Player Offense: QB:${playerQB?.overall || 'walk-on'} WRs:${getAvgOvr(playerWRs)}(${playerWRs.length}) OL:${getAvgOvr(playerOL)}(${playerOL.length})`);
+            log(`Player Defense: CBs:${getAvgOvr(playerCBs)}(${playerCBs.length}) DL:${getAvgOvr(playerDL)}(${playerDL.length})`);
+            log(`Opp Offense: QB:${oppQB?.overall || 'walk-on'} WRs:${getAvgOvr(oppWRs)}(${oppWRs.length}) OL:${getAvgOvr(oppOL)}(${oppOL.length})`);
+            log(`Opp Defense: CBs:${getAvgOvr(oppCBs)}(${oppCBs.length}) DL:${getAvgOvr(oppDL)}(${oppDL.length})`);
             log('');
 
             // Reset per-game stats
