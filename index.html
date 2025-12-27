@@ -3104,14 +3104,16 @@
                 let receiverRoll = weightedStatRoll(receiver.stats, CLASH_WEIGHTS.separation.receiver);
 
                 // Crossing route bonus - route running helps execute cuts cleanly
+                // Reduced from 0.3 to 0.10 for better balance
                 if (isCrossing) {
-                    const crossingBonus = receiver.stats.routeRunning * 0.3;
+                    const crossingBonus = receiver.stats.routeRunning * 0.10;
                     receiverRoll += crossingBonus;
                 }
 
                 // Break round bonus (the "snap" of the route creates separation)
+                // Reduced from 0.25 to 0.08 for better balance
                 if (isBreakRound) {
-                    const breakBonus = receiver.stats.routeRunning * 0.25;
+                    const breakBonus = receiver.stats.routeRunning * 0.08;
                     receiverRoll += breakBonus;
                 }
 
@@ -3119,6 +3121,17 @@
                 // DEFENDER ROLL
                 // ========================================
                 let defenderRoll = weightedStatRoll(defender.stats, CLASH_WEIGHTS.separation.defender);
+
+                // Defender counter-bonuses to balance WR route bonuses
+                // Awareness helps read the route and anticipate breaks
+                const awarenessBonus = (defender.stats.awareness || 70) * 0.08;
+                defenderRoll += awarenessBonus;
+
+                // Man coverage helps track the receiver through cuts
+                if (isCrossing || isBreakRound) {
+                    const trackingBonus = (defender.stats.manCoverage || 70) * 0.06;
+                    defenderRoll += trackingBonus;
+                }
 
                 // ========================================
                 // APPLY MOMENTUM ADVANTAGE
