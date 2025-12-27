@@ -3448,7 +3448,12 @@
         function simResolveTackleAttempt(receiver, tackler, safetyBonus) {
             const evasionRoll = weightedStatRoll(receiver.stats, CLASH_WEIGHTS.tackle.ballCarrier);
             let tackleRoll = weightedStatRoll(tackler.stats, CLASH_WEIGHTS.tackle.tackler);
-            tackleRoll += safetyBonus;
+
+            // Tackler advantage: WRs have natural +7 advantage from primary stat bonuses
+            // on speed/agility, while CBs don't get bonuses on tackling/pursuit/hitPower.
+            // Add a base tackler bonus to compensate and make tackling realistic.
+            const tacklerBonus = 10;
+            tackleRoll += tacklerBonus + safetyBonus;
 
             const margin = tackleRoll - evasionRoll;
             const breakTackleThreshold = -12;
@@ -6810,8 +6815,14 @@
             defender.lastTackleTime = currentTime;
 
             // Roll for tackle
-            const tackleRoll = weightedRoll(defender.stats, CLASH_WEIGHTS.tackle.tackler);
+            let tackleRoll = weightedRoll(defender.stats, CLASH_WEIGHTS.tackle.tackler);
             const evasionRoll = weightedRoll(receiver.stats, CLASH_WEIGHTS.tackle.ballCarrier);
+
+            // Tackler advantage: WRs have natural +7 advantage from primary stat bonuses
+            // on speed/agility, while CBs don't get bonuses on tackling/pursuit/hitPower.
+            // Add a base tackler bonus to compensate and make tackling realistic.
+            const tacklerBonus = 10;
+            tackleRoll += tacklerBonus;
 
             const margin = tackleRoll - evasionRoll;
 
