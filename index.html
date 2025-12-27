@@ -3421,11 +3421,7 @@
             }
 
             // YAC phase - up to 3 tackle attempts
-            // Separation gives initial advantage (open receivers have more room to run)
-            const separationAdvantage = Math.max(0, receiver.separation * 0.3);
             let tackled = false;
-            let yacDetails = [];
-
             for (let attempt = 0; attempt < 3 && !tackled; attempt++) {
                 // YAC yards proportional to receiver stats
                 const yacRoll = weightedStatRoll(receiver.stats, {
@@ -3442,25 +3438,20 @@
 
                 if (!tackler) {
                     totalYards += segmentYards;
-                    yacDetails.push(`+${segmentYards}(no tackler)`);
                     continue;
                 }
 
-                // Reduced pursuit bonus on later attempts (was 10 + attempt*5, now 4 + attempt*2)
-                const pursuitBonus = (tackler.position === 'S' || attempt > 0) ? (4 + attempt * 2) : 0;
-                // Separation advantage decreases each attempt as defenders close in
-                const sepBonus = Math.max(0, separationAdvantage - attempt * 2);
-                const tackleResult = simResolveTackleAttempt(receiver, tackler, pursuitBonus - sepBonus);
+                // Safety bonus on later attempts
+                const safetyBonus = (tackler.position === 'S' || attempt > 0) ? (10 + attempt * 5) : 0;
+                const tackleResult = simResolveTackleAttempt(receiver, tackler, safetyBonus);
 
                 if (tackleResult.tackled) {
                     totalYards += Math.floor(segmentYards * 0.5);
                     tackled = true;
                     yacEvents.push(tackleResult);
-                    yacDetails.push(`+${Math.floor(segmentYards * 0.5)}(tackled, margin:${tackleResult.margin})`);
                 } else {
                     totalYards += segmentYards;
                     yacEvents.push(tackleResult);
-                    yacDetails.push(`+${segmentYards}(broke, margin:${tackleResult.margin})`);
                 }
             }
 
@@ -3473,7 +3464,6 @@
                 caughtBy: receiver.player,
                 tackledBy: yacEvents.find(e => e.tackled)?.tackler || null,
                 yac: totalYards - receiver.currentDepth,
-                yacDetails: yacDetails.join(' '),
                 description: isTouchdown ?
                     `TOUCHDOWN! ${totalYards} yard catch and run!` :
                     `Caught for ${receiver.currentDepth} yards, ${totalYards - receiver.currentDepth} YAC`
@@ -4221,10 +4211,6 @@
                         if (play.catchInfo) {
                             const ci = play.catchInfo;
                             log(`    [Sep:${ci.separationMargin || 0} Catch%:${ci.effectiveCatchPct || ci.catchProb || 0}]`);
-                        }
-                        // Add YAC breakdown if available
-                        if (play.yacDetails) {
-                            log(`    [YAC: ${play.yacDetails}]`);
                         }
                     });
                 }
