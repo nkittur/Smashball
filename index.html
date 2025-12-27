@@ -3396,9 +3396,16 @@
             const defenderIndex = state.receivers.indexOf(receiver);
             const nearestDB = state.defenders[defenderIndex] || state.defenders[0];
 
-            // Immediate tackle attempt if covered
-            if (nearestDB && receiver.separation < 10) {
-                const tackleResult = simResolveTackleAttempt(receiver, nearestDB, 0);
+            // Immediate tackle attempt if tightly covered (separation < 5)
+            // Separation 5-15: chance to avoid immediate tackle based on separation
+            // Separation 15+: skip immediate tackle, go straight to YAC
+            const skipImmediateTackle = receiver.separation >= 15 ||
+                (receiver.separation >= 5 && Math.random() * 100 < receiver.separation * 5);
+
+            if (nearestDB && !skipImmediateTackle) {
+                // Separation gives evasion bonus (less covered = harder to tackle)
+                const separationBonus = Math.max(0, receiver.separation * 0.5);
+                const tackleResult = simResolveTackleAttempt(receiver, nearestDB, -separationBonus);
 
                 if (tackleResult.tackled) {
                     return {
@@ -4200,6 +4207,11 @@
                         const fromGoal = play.yardsFromGoal || '?';
                         log(`  Play ${idx+1}: ${down}&${toGo} at ${fromGoal}yd - ${play.type} for ${play.yardsGained || 0} yds`);
                         if (play.description) log(`    ${play.description}`);
+                        // Add catch details if available
+                        if (play.catchInfo) {
+                            const ci = play.catchInfo;
+                            log(`    [Sep:${ci.separationMargin || 0} Catch%:${ci.effectiveCatchPct || ci.catchProb || 0}]`);
+                        }
                     });
                 }
                 log('');
