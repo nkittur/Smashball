@@ -11141,10 +11141,13 @@
             if (result.success) startArcadeGame();
         });
         document.getElementById('btnSimulateGame').addEventListener('click', () => {
-            const result = simulateFullGame();
-            if (result.success) {
-                // Show match end screen with simulated results
-                showMatchEnd();
+            const simResult = simulateFullGame();
+            if (simResult.success) {
+                // End match to record result and get matchResult object
+                const matchResult = endMatch();
+                if (matchResult) {
+                    showMatchEnd(matchResult);
+                }
             }
         });
         document.getElementById('btnPreGameBack').addEventListener('click', () => showScreen('hub'));
