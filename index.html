@@ -4448,6 +4448,10 @@
             managementState.currentScreen = 'game';
             managementState.gamePhase = 'regulation';  // regulation, twoMinuteDrill, overtime
             managementState.overtimePossession = 0;
+            managementState.fameAddedThisGame = false;  // Track if fame was already added
+
+            // Reset per-game stats (critical: prevents stats from accumulating across games)
+            Object.keys(gameStats.players).forEach(key => delete gameStats.players[key]);
 
             return { success: true, opponent: game.opponent, isHome: game.isHome };
         }
@@ -10077,6 +10081,21 @@
             document.getElementById('matchScore').textContent = `${result.playerScore} - ${result.opponentScore}`;
             document.getElementById('matchRevenue').textContent = `+${matchResult.revenue.toLocaleString()} Fame`;
 
+            // Add fame to players ONCE per game (prevent double-counting on re-render)
+            if (!managementState.fameAddedThisGame && managementState.team && managementState.team.roster) {
+                managementState.fameAddedThisGame = true;
+                managementState.team.roster.forEach(player => {
+                    const pStats = gameStats.players[player.id];
+                    if (pStats && player.hypeData) {
+                        const fameEarned = calculateGameFame(player, pStats);
+                        if (fameEarned > 0) {
+                            player.hypeData.accumulatedFameBank += fameEarned;
+                            player.hypeData.seasonFameEarnings += fameEarned;
+                        }
+                    }
+                });
+            }
+
             // Build post-game stats display using roster layout
             const statsContainer = document.getElementById('postGameStats');
             statsContainer.innerHTML = '';
@@ -10132,13 +10151,7 @@
                 // Calculate fame earned this game
                 const fameEarned = calculateGameFame(player, pStats);
 
-                // Update player's fame bank
-                if (fameEarned > 0 && player.hypeData) {
-                    player.hypeData.accumulatedFameBank += fameEarned;
-                    player.hypeData.seasonFameEarnings += fameEarned;
-                }
-
-                // Add fame to stats display if earned
+                // Add fame to stats display if earned (always show, even if already added)
                 if (fameEarned > 0) {
                     statItems.push({ label: 'FAME', value: `+${fameEarned}`, highlight: true });
                 }
