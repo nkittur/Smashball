@@ -3533,20 +3533,53 @@
         function simulatePlayRoundBased(offense, defense, fieldPosition) {
             const state = initializePlayState(offense, defense, fieldPosition);
 
+            // Track round-by-round events for debugging display
+            state.roundEvents = [];
+
             while (state.round < state.maxRounds && !state.result) {
                 state.round++;
+                const roundEvent = { round: state.round, events: [] };
 
                 // Phase 1: OL/DL Clashes
                 processLineClashesRound(state);
 
+                // Track line clash results
+                if (state.lineMatchups && state.lineMatchups.length > 0) {
+                    const lastMatchup = state.lineMatchups[state.lineMatchups.length - 1];
+                    if (lastMatchup && lastMatchup.result !== 'held' && lastMatchup.result !== 'stonewalled') {
+                        roundEvent.events.push({
+                            type: 'pressure',
+                            player: lastMatchup.dl?.firstName || 'DL',
+                            result: lastMatchup.result,
+                            pressure: state.totalPressure
+                        });
+                    }
+                }
+
                 // Check for sack
                 if (state.sacked) {
+                    roundEvent.events.push({ type: 'sack', player: state.sackingPlayer?.firstName || 'DL' });
+                    state.roundEvents.push(roundEvent);
                     state.result = simResolveSack(state);
                     break;
                 }
 
                 // Phase 2: WR/DB Separation
                 processReceiverClashesRound(state);
+
+                // Track separation changes for each receiver
+                state.receivers.forEach((rec, i) => {
+                    const sep = Math.round(rec.separation || 0);
+                    const status = sep > 15 ? 'open' : sep > 5 ? 'space' : sep > -5 ? 'contested' : 'covered';
+                    if (rec.momentumAdvantage && rec.momentumAdvantage > 5) {
+                        roundEvent.events.push({
+                            type: 'route_break',
+                            wr: i + 1,
+                            momentum: rec.momentumAdvantage,
+                            status: status
+                        });
+                    }
+                });
 
                 // Phase 3: Calculate catch probabilities
                 simCalculateCatchProbabilities(state);
@@ -3555,8 +3588,19 @@
                 const decision = processQBDecision(state);
 
                 if (decision.shouldThrow) {
+                    roundEvent.events.push({
+                        type: 'throw',
+                        target: decision.targetIndex + 1,
+                        catchProb: Math.round(decision.target?.catchProbability || 0)
+                    });
+                    state.roundEvents.push(roundEvent);
                     state.result = simResolveThrow(state, decision.target);
                     break;
+                }
+
+                // Only add round if something notable happened
+                if (roundEvent.events.length > 0) {
+                    state.roundEvents.push(roundEvent);
                 }
             }
 
@@ -3567,6 +3611,7 @@
 
             state.result.roundsElapsed = state.round;
             state.result.finalPressure = state.totalPressure;
+            state.result.roundEvents = state.roundEvents || [];
 
             // ========================================
             // BUILD LEGACY-COMPATIBLE DISPLAY PROPERTIES
@@ -10965,72 +11010,105 @@
 
             // Format a detailed play display
             const formatPlayDetails = (play, playNum) => {
-                if (!play) return '<div style="color: #888;">Loading...</div>';
+                if (!play) return '<div style="color: #ccc;">Loading...</div>';
 
                 const opponent = result.enemyResult.opponent || game.opponent;
                 const teamShort = (opponent?.name || 'Enemy').split(' ')[0];
                 const qbName = play.qb ? getPlayerFullName(play.qb) : `${teamShort} QB`;
 
-                let html = `<div style="background: #252540; border-radius: 6px; padding: 10px; margin-bottom: 8px; border-left: 3px solid #444;">`;
+                // Determine border color based on play result
+                const borderColor = play.type === 'sack' ? '#4f4' :
+                                   play.type === 'interception' ? '#4f4' :
+                                   play.type === 'incomplete' ? '#4af' :
+                                   play.type === 'touchdown' ? '#f44' :
+                                   play.type === 'complete' ? '#fa4' : '#555';
 
-                // Play number and down/distance header
+                let html = `<div style="background: #202038; border-radius: 6px; padding: 10px; margin-bottom: 8px; border-left: 4px solid ${borderColor};">`;
+
+                // Play number and down/distance header - improved contrast
                 const downStr = getDownString(play.down);
                 const fieldPos = 100 - play.yardsFromGoal;
-                html += `<div style="color: #aaa; font-size: 12px; margin-bottom: 6px; display: flex; justify-content: space-between;">
-                    <span><span style="color: #666;">Play ${playNum}:</span> <span style="color: #fff; font-weight: bold;">${downStr}</span> & ${play.yardsToGo}</span>
-                    <span style="color: #555;">Ball at ${fieldPos > 50 ? 'OPP ' + (100 - fieldPos) : 'OWN ' + fieldPos}</span>
+                const fieldPosStr = fieldPos > 50 ? `OPP ${100 - fieldPos}` : `OWN ${fieldPos}`;
+                html += `<div style="color: #ddd; font-size: 12px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
+                    <span><span style="color: #888;">Play ${playNum}:</span> <span style="color: #fff; font-weight: bold;">${downStr} & ${play.yardsToGo}</span></span>
+                    <span style="color: #aaa; background: #333; padding: 2px 6px; border-radius: 3px; font-size: 10px;">${fieldPosStr}</span>
                 </div>`;
+
+                // Round events timeline (compact format)
+                if (play.roundEvents && play.roundEvents.length > 0) {
+                    html += `<div style="display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; font-size: 10px;">`;
+                    play.roundEvents.forEach(re => {
+                        re.events.forEach(ev => {
+                            let badge = '';
+                            if (ev.type === 'pressure') {
+                                const pColor = ev.result === 'beaten badly' ? '#f44' : ev.result === 'beaten' ? '#f84' : '#fa4';
+                                badge = `<span style="background: ${pColor}22; color: ${pColor}; padding: 2px 5px; border-radius: 3px; border: 1px solid ${pColor}44;">R${re.round} ⚡${ev.player} ${ev.result}</span>`;
+                            } else if (ev.type === 'route_break') {
+                                badge = `<span style="background: #4af22; color: #4af; padding: 2px 5px; border-radius: 3px; border: 1px solid #4af44;">R${re.round} WR${ev.wr} +${ev.momentum} sep</span>`;
+                            } else if (ev.type === 'sack') {
+                                badge = `<span style="background: #4f422; color: #4f4; padding: 2px 5px; border-radius: 3px; border: 1px solid #4f444; font-weight: bold;">R${re.round} SACK!</span>`;
+                            } else if (ev.type === 'throw') {
+                                const throwColor = ev.catchProb > 70 ? '#4f4' : ev.catchProb > 40 ? '#fa4' : '#f44';
+                                badge = `<span style="background: ${throwColor}22; color: ${throwColor}; padding: 2px 5px; border-radius: 3px; border: 1px solid ${throwColor}44;">R${re.round} → WR${ev.target} (${ev.catchProb}%)</span>`;
+                            }
+                            html += badge;
+                        });
+                    });
+                    html += `</div>`;
+                }
 
                 if (play.type === 'sack') {
                     // Sack play
                     const dlName = play.sackingPlayer ? getPlayerFullName(play.sackingPlayer) : 'Your DL';
                     html += createPressureBarHTML(play.pressureInfo);
-                    html += `<div style="margin-top: 6px;">`;
-                    html += `<div style="color: #4f4; font-size: 13px; font-weight: bold;">SACK! ${dlName} breaks through!</div>`;
-                    html += `<div style="color: #888; font-size: 10px; margin-top: 2px;">${qbName} taken down for ${Math.abs(play.yardsGained)} yard loss</div>`;
+                    html += `<div style="margin-top: 8px; padding: 8px; background: #203a2a; border-radius: 4px;">`;
+                    html += `<div style="color: #44ff44; font-size: 14px; font-weight: bold;">🔥 SACK! ${dlName} breaks through!</div>`;
+                    html += `<div style="color: #aaa; font-size: 11px; margin-top: 4px;">${qbName} taken down for <span style="color: #44ff44; font-weight: bold;">${Math.abs(play.yardsGained)} yard loss</span></div>`;
 
-                    // DL matchup details
+                    // DL matchup details - collapsible
                     if (play.pressureInfo?.matchups) {
-                        html += `<div style="margin-top: 6px; padding: 6px; background: #1a1a2e; border-radius: 4px; font-size: 10px;">`;
-                        html += `<div style="color: #666; margin-bottom: 3px;">LINE MATCHUPS:</div>`;
+                        html += `<details style="margin-top: 6px;">`;
+                        html += `<summary style="color: #888; cursor: pointer; font-size: 10px;">View line matchups</summary>`;
+                        html += `<div style="margin-top: 4px; padding: 6px; background: #1e1e35; border-radius: 4px; font-size: 10px;">`;
                         play.pressureInfo.matchups.slice(0, 3).forEach(m => {
-                            const resultColor = m.result === 'beaten badly' ? '#f44' : m.result === 'beaten' ? '#f84' : m.result === 'pressured' ? '#aa4' : '#4a4';
-                            html += `<div style="display: flex; justify-content: space-between; color: #888; margin: 1px 0;">
-                                <span>${getPlayerFullName(m.dl)} vs ${getPlayerFullName(m.ol)}</span>
-                                <span style="color: ${resultColor};">${m.dlRoll} vs ${m.olRoll} → ${m.result}</span>
+                            const resultColor = m.result === 'beaten badly' ? '#ff4444' : m.result === 'beaten' ? '#ff8844' : m.result === 'pressured' ? '#ffaa44' : '#44aa44';
+                            html += `<div style="display: flex; justify-content: space-between; color: #ccc; margin: 2px 0; padding: 2px 4px; background: #252545; border-radius: 2px;">
+                                <span style="color: #44aaff;">${getPlayerFullName(m.dl)}</span>
+                                <span><span style="color: #44aaff;">${m.dlRoll}</span> vs <span style="color: #ff9944;">${m.olRoll}</span> → <span style="color: ${resultColor}; font-weight: bold;">${m.result}</span></span>
                             </div>`;
                         });
-                        html += `</div>`;
+                        html += `</div></details>`;
                     }
                     html += `</div>`;
                 } else if (play.fieldGoalAttempt) {
                     // Field goal attempt
                     const distance = play.yardsFromGoal + 17;
-                    const successColor = play.fieldGoalSuccess ? '#4f4' : '#f44';
-                    html += `<div style="color: ${successColor}; font-size: 13px; font-weight: bold;">`;
-                    html += play.fieldGoalSuccess ? `Field Goal GOOD from ${distance} yards!` : `Field Goal MISSED from ${distance} yards!`;
+                    const successColor = play.fieldGoalSuccess ? '#44ff44' : '#ff4444';
+                    const emoji = play.fieldGoalSuccess ? '✓' : '✗';
+                    html += `<div style="margin-top: 8px; padding: 8px; background: ${play.fieldGoalSuccess ? '#3a2a20' : '#203a2a'}; border-radius: 4px;">`;
+                    html += `<div style="color: ${successColor}; font-size: 14px; font-weight: bold;">${emoji} Field Goal ${play.fieldGoalSuccess ? 'GOOD' : 'MISSED'} from ${distance} yards!</div>`;
                     html += `</div>`;
                 } else if (play.type === 'scramble') {
                     // QB scramble
                     html += createPressureBarHTML(play.pressureInfo);
-                    html += `<div style="margin-top: 6px;">`;
-                    html += `<div style="color: #fa4; font-size: 13px; font-weight: bold;">QB Scramble!</div>`;
-                    html += `<div style="color: #888; font-size: 10px; margin-top: 2px;">${qbName} takes off for ${play.yardsGained} yards</div>`;
+                    html += `<div style="margin-top: 8px; padding: 8px; background: #3a3a20; border-radius: 4px;">`;
+                    html += `<div style="color: #ffaa44; font-size: 13px; font-weight: bold;">🏃 QB Scramble!</div>`;
+                    html += `<div style="color: #ccc; font-size: 11px; margin-top: 4px;">${qbName} takes off for <span style="color: #ffaa44; font-weight: bold;">${play.yardsGained} yards</span></div>`;
                     html += `</div>`;
                 } else if (play.type === 'throwaway') {
                     // Throwaway
                     html += createPressureBarHTML(play.pressureInfo);
-                    html += `<div style="margin-top: 6px;">`;
-                    html += `<div style="color: #888; font-size: 13px;">Throwaway</div>`;
-                    html += `<div style="color: #666; font-size: 10px; margin-top: 2px;">${qbName} throws it away under pressure</div>`;
+                    html += `<div style="margin-top: 8px; padding: 8px; background: #252540; border-radius: 4px;">`;
+                    html += `<div style="color: #aaa; font-size: 13px;">📤 Throwaway</div>`;
+                    html += `<div style="color: #888; font-size: 11px; margin-top: 4px;">${qbName} throws it away under pressure</div>`;
                     html += `</div>`;
                 } else if (play.type === 'interception') {
                     // Interception
                     html += createPressureBarHTML(play.pressureInfo);
                     const interceptedBy = play.interceptedBy ? getPlayerFullName(play.interceptedBy) : 'Your DB';
-                    html += `<div style="margin-top: 6px;">`;
-                    html += `<div style="color: #4f4; font-size: 13px; font-weight: bold;">INTERCEPTION!</div>`;
-                    html += `<div style="color: #888; font-size: 10px; margin-top: 2px;">Picked off by ${interceptedBy}!</div>`;
+                    html += `<div style="margin-top: 8px; padding: 8px; background: #203a2a; border-radius: 4px;">`;
+                    html += `<div style="color: #44ff44; font-size: 14px; font-weight: bold;">🎯 INTERCEPTION!</div>`;
+                    html += `<div style="color: #aaa; font-size: 11px; margin-top: 4px;">Picked off by <span style="color: #44aaff; font-weight: bold;">${interceptedBy}</span>!</div>`;
                     html += `</div>`;
                 } else {
                     // Pass play (complete/incomplete)
@@ -11041,96 +11119,93 @@
                     // Pressure bar
                     html += createPressureBarHTML(play.pressureInfo);
 
-                    // Target info
-                    html += `<div style="margin: 6px 0; font-size: 11px;">`;
-                    html += `<span style="color: #888;">Target:</span> <span style="color: #f94;">${wrName}</span>`;
-                    if (play.targetSlot) html += ` <span style="color: #555;">(${play.targetSlot})</span>`;
-                    html += ` <span style="color: #888;">vs</span> <span style="color: #4af;">${cbName}</span>`;
+                    // Target info - improved contrast
+                    html += `<div style="margin: 8px 0; font-size: 12px; padding: 6px; background: #282848; border-radius: 4px;">`;
+                    html += `<span style="color: #bbb;">Target:</span> <span style="color: #ff9944; font-weight: bold;">${wrName}</span>`;
+                    if (play.targetSlot) html += ` <span style="color: #888;">(${play.targetSlot})</span>`;
+                    html += ` <span style="color: #bbb;">vs</span> <span style="color: #44aaff; font-weight: bold;">${cbName}</span>`;
                     html += `</div>`;
 
-                    // Show line matchups for pass plays too (not just sacks)
+                    // Show line matchups in compact format
                     if (play.pressureInfo?.matchups && play.pressureInfo.matchups.length > 0) {
-                        html += `<div style="margin-top: 6px; padding: 6px; background: #1a1a2e; border-radius: 4px; font-size: 10px;">`;
-                        html += `<div style="color: #666; margin-bottom: 3px;">LINE CLASHES:</div>`;
+                        html += `<details style="margin-top: 6px; background: #1e1e35; border-radius: 4px; padding: 6px;">`;
+                        html += `<summary style="color: #aaa; cursor: pointer; font-size: 11px; user-select: none;">📊 Line Clashes (Pressure: <span style="color: #fff;">${play.pressureInfo.totalPressure}</span>)</summary>`;
+                        html += `<div style="margin-top: 6px; font-size: 10px;">`;
                         play.pressureInfo.matchups.forEach(m => {
                             const resultColor = m.result === 'beaten badly' ? '#f44' : m.result === 'beaten' ? '#f84' : m.result === 'pressured' ? '#fa4' : m.result === 'held' ? '#aa4' : '#4a4';
-                            html += `<div style="display: flex; justify-content: space-between; color: #888; margin: 1px 0;">
-                                <span style="color: #4af;">${getPlayerFullName(m.dl)}</span>
-                                <span><span style="color: #4af;">${m.dlRoll}</span> vs <span style="color: #f94;">${m.olRoll}</span> → <span style="color: ${resultColor};">${m.result}</span> (+${m.pressure})</span>
+                            html += `<div style="display: flex; justify-content: space-between; color: #ccc; margin: 2px 0; padding: 2px 4px; background: #252545; border-radius: 2px;">
+                                <span style="color: #44aaff;">${getPlayerFullName(m.dl)}</span>
+                                <span><span style="color: #44aaff;">${m.dlRoll}</span> vs <span style="color: #ff9944;">${m.olRoll}</span> → <span style="color: ${resultColor}; font-weight: bold;">${m.result}</span></span>
                             </div>`;
                         });
-                        html += `<div style="color: #888; margin-top: 3px; border-top: 1px solid #333; padding-top: 3px;">Total Pressure: <span style="color: #fff;">${play.pressureInfo.totalPressure}</span> (${play.pressureInfo.pressureLevel})</div>`;
-                        html += `</div>`;
+                        html += `</div></details>`;
                     }
 
                     if (catchInfo) {
-                        // Matchup details box - aligned with player offense formula
-                        html += `<div style="background: #1a1a2e; border-radius: 4px; padding: 6px; margin: 6px 0; font-size: 10px;">`;
+                        // Matchup details box - improved contrast
+                        html += `<div style="background: #1e1e35; border-radius: 4px; padding: 8px; margin: 8px 0; font-size: 11px;">`;
+                        html += `<div style="color: #aaa; font-size: 10px; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 1px;">Coverage Matchup</div>`;
 
-                        // WR vs CB separation roll
-                        const sepColor = catchInfo.separationMargin > 5 ? '#4f4' : catchInfo.separationMargin < -5 ? '#f44' : '#aa4';
+                        // WR vs CB separation roll - clearer layout
+                        const sepColor = catchInfo.separationMargin > 5 ? '#44ff44' : catchInfo.separationMargin < -5 ? '#ff4444' : '#ffaa44';
                         const sepLabel = catchInfo.coverageCloseness < 0.2 ? 'OPEN' :
-                                        catchInfo.coverageCloseness < 0.4 ? 'some space' :
-                                        catchInfo.coverageCloseness < 0.6 ? 'contested' :
-                                        catchInfo.coverageCloseness < 0.8 ? 'tight' : 'SMOTHERED';
-                        html += `<div style="display: flex; justify-content: space-between; margin-bottom: 3px;">
-                            <span style="color: #666;">Separation:</span>
-                            <span>WR <span style="color: #f94;">${catchInfo.wrRoll}</span> vs CB <span style="color: #4af;">${catchInfo.cbRoll}</span> → <span style="color: ${sepColor};">${sepLabel}</span></span>
+                                        catchInfo.coverageCloseness < 0.4 ? 'SPACE' :
+                                        catchInfo.coverageCloseness < 0.6 ? 'CONTESTED' :
+                                        catchInfo.coverageCloseness < 0.8 ? 'TIGHT' : 'SMOTHERED';
+                        html += `<div style="display: flex; justify-content: space-between; margin-bottom: 4px; padding: 4px; background: #252545; border-radius: 3px;">
+                            <span style="color: #ccc;">Separation</span>
+                            <span>WR <span style="color: #ff9944; font-weight: bold;">${catchInfo.wrRoll}</span> vs CB <span style="color: #44aaff; font-weight: bold;">${catchInfo.cbRoll}</span> → <span style="color: ${sepColor}; font-weight: bold;">${sepLabel}</span></span>
                         </div>`;
 
                         // Momentum advantage display (if route had direction change)
                         if (catchInfo.momentumAdvantage && catchInfo.momentumAdvantage > 0) {
-                            const momColor = catchInfo.momentumAdvantage >= 15 ? '#4f4' :
-                                           catchInfo.momentumAdvantage >= 8 ? '#8f4' : '#aa4';
-                            const reactionLabel = catchInfo.dbReactionDelay >= 2 ? 'SLOW REACT' :
+                            const momColor = catchInfo.momentumAdvantage >= 15 ? '#44ff44' :
+                                           catchInfo.momentumAdvantage >= 8 ? '#88ff44' : '#ffaa44';
+                            const reactionLabel = catchInfo.dbReactionDelay >= 2 ? 'SLOW' :
                                                  catchInfo.dbReactionDelay >= 1 ? 'delayed' : 'quick';
-                            html += `<div style="display: flex; justify-content: space-between; margin-bottom: 3px;">
-                                <span style="color: #666;">Momentum (DB AWR ${catchInfo.dbAwareness}):</span>
-                                <span style="color: ${momColor};">+${catchInfo.momentumAdvantage} sep <span style="color: #888;">(${reactionLabel})</span></span>
+                            html += `<div style="display: flex; justify-content: space-between; margin-bottom: 4px; padding: 4px; background: #252545; border-radius: 3px;">
+                                <span style="color: #ccc;">Route Break (AWR ${catchInfo.dbAwareness})</span>
+                                <span style="color: ${momColor}; font-weight: bold;">+${catchInfo.momentumAdvantage} <span style="color: #888; font-weight: normal;">(${reactionLabel})</span></span>
                             </div>`;
                         }
 
-                        // Coverage penalty (like player offense defender proximity penalty)
-                        html += `<div style="display: flex; justify-content: space-between; margin-bottom: 3px;">
-                            <span style="color: #666;">CB Penalty (${catchInfo.coverageCloseness}³ × ${catchInfo.cbCoverage} × 0.8):</span>
-                            <span style="color: #f44;">-${catchInfo.defenderPenalty}</span>
+                        // Coverage penalty
+                        const penaltyColor = catchInfo.defenderPenalty > 20 ? '#ff4444' : catchInfo.defenderPenalty > 10 ? '#ffaa44' : '#44ff44';
+                        html += `<div style="display: flex; justify-content: space-between; margin-bottom: 4px; padding: 4px; background: #252545; border-radius: 3px;">
+                            <span style="color: #ccc;">CB Penalty</span>
+                            <span style="color: ${penaltyColor}; font-weight: bold;">-${catchInfo.defenderPenalty}</span>
                         </div>`;
 
-                        // Catch window from WR/CB matchup
-                        const focusStr = catchInfo.focusMod !== 0 ? `+${catchInfo.focusMod}` : '';
-                        html += `<div style="display: flex; justify-content: space-between; margin-bottom: 3px;">
-                            <span style="color: #666;">Catch Window (${catchInfo.baseCatch}${focusStr}-${catchInfo.defenderPenalty}):</span>
-                            <span style="color: #fff;">${catchInfo.catchProb}%</span>
+                        // Catch window
+                        const focusStr = catchInfo.focusMod > 0 ? `+${catchInfo.focusMod}` : '';
+                        const catchColor = catchInfo.catchProb > 70 ? '#44ff44' : catchInfo.catchProb > 40 ? '#ffaa44' : '#ff4444';
+                        html += `<div style="display: flex; justify-content: space-between; margin-bottom: 4px; padding: 4px; background: #303060; border-radius: 3px;">
+                            <span style="color: #ddd;">Catch Window</span>
+                            <span style="color: ${catchColor}; font-weight: bold; font-size: 13px;">${catchInfo.catchProb}%</span>
                         </div>`;
 
-                        // QB throw quality with exponential distribution
-                        const qbColor = catchInfo.catchSuccess ? '#4f4' : '#f44';
-                        html += `<div style="display: flex; justify-content: space-between; margin-bottom: 3px;">
-                            <span style="color: #666;">QB (${catchInfo.qbAccuracy} acc, ${catchInfo.pressure} pres → μ=${catchInfo.rollMean}):</span>
-                            <span style="color: ${qbColor};">roll ${catchInfo.qbRoll} ${catchInfo.catchSuccess ? '<' : '≥'} ${catchInfo.catchProb}</span>
-                        </div>`;
-
-                        // Effective catch % after QB modifier
-                        html += `<div style="display: flex; justify-content: space-between;">
-                            <span style="color: #666;">Effective Catch:</span>
-                            <span style="color: #fff; font-weight: bold;">${catchInfo.effectiveCatchPct}%</span>
+                        // QB throw quality - simplified display
+                        const qbColor = catchInfo.catchSuccess ? '#44ff44' : '#ff4444';
+                        html += `<div style="display: flex; justify-content: space-between; margin-bottom: 4px; padding: 4px; background: #252545; border-radius: 3px;">
+                            <span style="color: #ccc;">QB Roll (ACC ${catchInfo.qbAccuracy})</span>
+                            <span style="color: ${qbColor}; font-weight: bold;">${catchInfo.qbRoll} ${catchInfo.catchSuccess ? '< ' + catchInfo.catchProb + ' ✓' : '≥ ' + catchInfo.catchProb + ' ✗'}</span>
                         </div>`;
 
                         html += `</div>`;
                     }
 
-                    // Result with catch bar
-                    html += `<div style="margin-top: 6px;">`;
+                    // Result with catch bar - improved styling
+                    html += `<div style="margin-top: 8px; padding: 8px; background: ${play.type === 'complete' || play.type === 'touchdown' ? '#3a2a20' : '#203a2a'}; border-radius: 4px;">`;
                     if (play.type === 'complete' || play.type === 'touchdown') {
                         if (play.type === 'touchdown' || play.isTouchdown) {
-                            html += `<div style="color: #f44; font-size: 13px; font-weight: bold;">TOUCHDOWN! ${wrName} catches it for ${play.yardsGained} yards!</div>`;
+                            html += `<div style="color: #ff4444; font-size: 14px; font-weight: bold;">🏈 TOUCHDOWN! ${play.yardsGained} yards!</div>`;
                         } else {
-                            html += `<div style="color: #ccc; font-size: 12px;">${wrName} catches for <span style="color: #f94;">${play.yardsGained} yards</span></div>`;
+                            html += `<div style="color: #ffcc88; font-size: 12px;">${wrName} catches for <span style="color: #ff9944; font-weight: bold;">${play.yardsGained} yards</span></div>`;
                         }
-                        html += `<div style="margin-top: 4px;">${createCatchBarHTML(catchInfo, true)}</div>`;
+                        html += `<div style="margin-top: 6px;">${createCatchBarHTML(catchInfo, true)}</div>`;
                     } else {
-                        html += `<div style="color: #4f4; font-size: 12px;">Pass broken up by ${cbName}!</div>`;
-                        html += `<div style="margin-top: 4px;">${createCatchBarHTML(catchInfo, true)}</div>`;
+                        html += `<div style="color: #44ff44; font-size: 12px; font-weight: bold;">🛡️ Pass broken up by ${cbName}!</div>`;
+                        html += `<div style="margin-top: 6px;">${createCatchBarHTML(catchInfo, true)}</div>`;
                     }
                     html += `</div>`;
                 }
