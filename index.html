@@ -1813,16 +1813,42 @@
 
         // Generate base stats for a tier
         function getBaseStatsForTier(tier) {
+            // Note: Primary stats get +10 bonus in generatePositionStats
+            // So actual overall = base + 10 for primary stats
+            // Tier -> approximate overall after +10 bonus:
+            // rookie: 55-72 -> ~63 OVR
+            // below_average: 60-78 -> ~69 OVR
+            // average: 68-85 -> ~76 OVR
+            // veteran: 78-92 -> ~85 OVR
+            // star: 88-99 -> ~93 OVR
+            // elite: 98-99 -> ~99 OVR
             const ranges = {
-                rookie: { min: 45, max: 62 },        // Raw talent, inconsistent
-                below_average: { min: 50, max: 68 }, // Backup caliber
-                average: { min: 58, max: 75 },       // Solid starter
-                veteran: { min: 68, max: 82 },       // Reliable contributor
-                star: { min: 78, max: 90 },          // Pro Bowl caliber
-                elite: { min: 88, max: 99 }          // All-Pro / HOF caliber
+                rookie: { min: 45, max: 62 },        // ~63 OVR
+                below_average: { min: 50, max: 68 }, // ~69 OVR
+                average: { min: 58, max: 75 },       // ~76 OVR
+                veteran: { min: 68, max: 82 },       // ~85 OVR
+                star: { min: 78, max: 90 },          // ~93 OVR
+                elite: { min: 88, max: 99 }          // ~99 OVR
             };
             const range = ranges[tier] || ranges.average;
             return { min: range.min, max: range.max };
+        }
+
+        // Get base stat range for a target overall rating
+        // Accounts for the +10 primary stat bonus
+        function getBaseRangeForTargetOverall(targetOverall, variance = 5) {
+            // Primary stats get +10 bonus, so base should be lower
+            const targetPrimaryBase = targetOverall - 10;
+
+            // Add variance for realistic spread
+            const minBase = targetPrimaryBase - variance;
+            const maxBase = targetPrimaryBase + variance;
+
+            // Clamp to valid ranges (40-89 base -> 50-99 with bonus)
+            return {
+                min: Math.max(40, minBase),
+                max: Math.min(89, maxBase)
+            };
         }
 
         // Roll age based on tier
@@ -2003,6 +2029,81 @@
             return player;
         }
 
+        // Generate a player targeting a specific overall rating
+        function generatePlayerWithTargetOverall(position, targetOverall, variance = 5) {
+            const baseRange = getBaseRangeForTargetOverall(targetOverall, variance);
+            const age = randomInt(22, 32);
+            const peakAge = randomInt(28, 32);
+            const stats = generatePositionStats(position, baseRange);
+
+            // Estimate tier based on target for age/potential logic
+            let estimatedTier = 'average';
+            if (targetOverall >= 93) estimatedTier = 'elite';
+            else if (targetOverall >= 85) estimatedTier = 'star';
+            else if (targetOverall >= 78) estimatedTier = 'veteran';
+            else if (targetOverall >= 72) estimatedTier = 'average';
+            else if (targetOverall >= 65) estimatedTier = 'below_average';
+            else estimatedTier = 'rookie';
+
+            const yearsInLeague = Math.max(0, age - 22);
+
+            const player = {
+                id: generateUUID(),
+                firstName: randomFrom(FIRST_NAMES),
+                lastName: randomFrom(LAST_NAMES),
+                age,
+                position,
+                stats,
+                potentialGrade: rollPotential(age, estimatedTier),
+                yearsInLeague,
+                peakAge,
+                salaryCost: calculateSalary(stats, position),
+                seasonStartStats: { ...stats },
+                gamesPlayed: 0,
+                seasonTDs: 0,
+                seasonCatches: 0,
+                seasonTargets: 0,
+                seasonTackles: 0,
+                seasonClashesWon: 0,
+                seasonClashesLost: 0,
+                seasonSacks: 0,
+                seasonPassesDefended: 0,
+                hypeData: {
+                    baseHypeMultiplier: Math.max(0.1, 1.0 + (Math.random() - 0.5) * 0.4),
+                    yearsBeforePrimeCliff: randomInt(0, 5),
+                    accumulatedFameBank: 0,
+                    seasonFameEarnings: 0
+                },
+                careerHistory: [{
+                    season: 0,
+                    overall: Math.round(Object.values(stats).reduce((a, b) => a + b, 0) / Object.keys(stats).length),
+                    potential: rollPotential(age, estimatedTier)
+                }]
+            };
+
+            player.overall = calculateOverall(player);
+
+            // Assign QB trait
+            if (position === 'QB') {
+                const awareness = stats.awareness || 70;
+                const agility = stats.agility || 70;
+                const speed = stats.speed || 70;
+                const throwing = stats.throwing || 70;
+
+                if (agility > 78 && speed > 75) {
+                    player.qbTrait = 'scrambler';
+                } else if (awareness > 80 && throwing < 75) {
+                    player.qbTrait = 'game_manager';
+                } else if (throwing > 82) {
+                    player.qbTrait = 'gunslinger';
+                } else {
+                    player.qbTrait = 'balanced';
+                }
+            }
+
+            return player;
+        }
+
         // Generate initial roster for new game
         function generateInitialRoster() {
             const roster = [];
@@ -2097,67 +2198,56 @@
         // MANAGEMENT LAYER - OPPONENT GENERATION
         // ========================================
 
-        // Generate a roster for an opponent team based on difficulty
-        function generateOpponentRoster(difficulty) {
-            // Helper to pick a random tier based on weighted probabilities
-            const pickTier = (weights) => {
-                const tiers = ['rookie', 'below_average', 'average', 'veteran', 'star', 'elite'];
-                const total = weights.reduce((a, b) => a + b, 0);
-                let roll = Math.random() * total;
-                for (let i = 0; i < tiers.length; i++) {
-                    roll -= weights[i];
-                    if (roll <= 0) return tiers[i];
-                }
-                return 'average';
-            };
-
-            // Weights for each tier: [rookie, below_average, average, veteran, star, elite]
-            // Each team has a spread from poor to elite, but difficulty shifts the distribution
-            // Easy teams average low 70s, elite teams average low 90s
-            const tierWeights = {
-                'easy':   [2, 8, 35, 45, 8, 2],      // Avg ~72: mostly average/veteran
-                'medium': [1, 5, 25, 50, 15, 4],    // Avg ~75: solid veterans with stars
-                'hard':   [0, 2, 15, 45, 30, 8],    // Avg ~79: veteran-heavy with stars
-                'elite':  [0, 0, 0, 5, 30, 65]      // Avg ~91: almost all stars/elites
-            };
-            const weights = tierWeights[difficulty] || tierWeights['medium'];
-
-            // Create weighted tiers for key vs role players
-            // Key players: boosted toward star/elite
-            // Role players: can be average/veteran (depth pieces)
-            const keyPlayerWeights = weights.map((w, i) => i >= 4 ? w * 2.5 : i >= 3 ? w * 1.2 : w * 0.3);
-            const rolePlayerWeights = weights.map((w, i) => i <= 3 ? w * 1.5 : w * 0.5);
+        // Generate a roster targeting a specific team overall rating
+        // Creates diverse rosters: key players above average, role players below
+        function generateRosterWithTargetOverall(teamOverall) {
+            // Position slots with their offset from team average and importance weight
+            // Key players (QB, WR1, CB1, edge) get boosted, depth players get reduced
+            // This creates realistic roster diversity while hitting the target average
+            const positionSlots = [
+                // Offense
+                { pos: 'QB', offset: +6, weight: 3.0 },   // Franchise QB, most important
+                { pos: 'WR', offset: +4, weight: 2.0 },   // WR1 - primary target
+                { pos: 'WR', offset: 0, weight: 1.0 },    // WR2 - solid contributor
+                { pos: 'WR', offset: -4, weight: 1.0 },   // WR3 - depth
+                { pos: 'OL', offset: +2, weight: 1.5 },   // LT - protects blind side
+                { pos: 'OL', offset: -2, weight: 1.0 },   // LG
+                { pos: 'OL', offset: -2, weight: 1.0 },   // C
+                { pos: 'OL', offset: -3, weight: 1.0 },   // RG/RT
+                // Defense
+                { pos: 'CB', offset: +4, weight: 2.0 },   // CB1 - shutdown corner
+                { pos: 'CB', offset: 0, weight: 1.0 },    // CB2
+                { pos: 'CB', offset: -3, weight: 1.0 },   // CB3 - nickel
+                { pos: 'CB', offset: -5, weight: 1.0 },   // CB4 - safety/zone
+                { pos: 'DL', offset: +4, weight: 1.5 },   // Edge rusher
+                { pos: 'DL', offset: 0, weight: 1.0 },    // DT
+                { pos: 'DL', offset: -2, weight: 1.0 },   // DT
+                { pos: 'DL', offset: -4, weight: 1.0 },   // Rotational
+            ];
 
             const roster = [];
-
-            // QB - franchise player, heavily boosted
-            const qbWeights = weights.map((w, i) => i >= 4 ? w * 3 : i >= 3 ? w * 1.5 : w * 0.2);
-            roster.push(generatePlayer('QB', pickTier(qbWeights)));
-
-            // WRs: WR1 is key player, WR2-3 are role players
-            roster.push(generatePlayer('WR', pickTier(keyPlayerWeights)));   // WR1 - star
-            roster.push(generatePlayer('WR', pickTier(weights)));            // WR2 - normal
-            roster.push(generatePlayer('WR', pickTier(rolePlayerWeights)));  // WR3 - depth
-
-            // CBs: CB1 is key player, CB2-4 are role players (4 needed for 3 man + 1 zone)
-            roster.push(generatePlayer('CB', pickTier(keyPlayerWeights)));   // CB1 - star
-            roster.push(generatePlayer('CB', pickTier(weights)));            // CB2 - normal
-            roster.push(generatePlayer('CB', pickTier(rolePlayerWeights)));  // CB3 - depth
-            roster.push(generatePlayer('CB', pickTier(rolePlayerWeights)));  // CB4 - safety/zone
-
-            // OL: 1 anchor, rest are role players
-            roster.push(generatePlayer('OL', pickTier(keyPlayerWeights)));   // LT - anchor
-            roster.push(generatePlayer('OL', pickTier(rolePlayerWeights)));  // LG
-            roster.push(generatePlayer('OL', pickTier(rolePlayerWeights)));  // C
-            roster.push(generatePlayer('OL', pickTier(rolePlayerWeights)));  // RG/RT
-
-            // DL: 1-2 pass rushers, rest are role players
-            roster.push(generatePlayer('DL', pickTier(keyPlayerWeights)));   // Edge rusher
-            roster.push(generatePlayer('DL', pickTier(weights)));            // DT
-            roster.push(generatePlayer('DL', pickTier(rolePlayerWeights)));  // DT
-            roster.push(generatePlayer('DL', pickTier(rolePlayerWeights)));  // Rotational
+            for (const slot of positionSlots) {
+                // Calculate target overall for this position
+                // Clamp between 60 (minimum viable) and 99 (maximum)
+                const targetOvr = Math.max(60, Math.min(99, teamOverall + slot.offset));
+                // Use variance of 4 for some natural spread
+                const player = generatePlayerWithTargetOverall(slot.pos, targetOvr, 4);
+                roster.push(player);
+            }
 
             return roster;
+        }
+
+        // Legacy function for backward compatibility - maps difficulty to target overall
+        function generateOpponentRoster(difficulty) {
+            const targetOveralls = {
+                'easy': 72,    // Low 70s team
+                'medium': 77,  // High 70s team
+                'hard': 83,    // Low 80s team
+                'elite': 91    // Elite team
+            };
+            const target = targetOveralls[difficulty] || 77;
+            return generateRosterWithTargetOverall(target);
         }
 
         // Calculate team ratings from roster (weighted by key positions)
@@ -2211,12 +2301,37 @@
 
         // Pre-defined opponents with varying difficulty
         function generateOpponents() {
-            const difficulties = ['easy', 'medium', 'hard', 'elite'];
-
             const opponents = [];
             const usedNames = new Set();
 
+            // Team overall targets: 8 teams in 70s (half), rest spread across 80s and 90s
+            // Distribution: 4 low-70s, 4 high-70s, 4 low-80s, 2 mid-80s, 2 elite
+            const teamOveralls = [
+                // Low 70s (4 teams)
+                70, 71, 72, 73,
+                // High 70s (4 teams)
+                75, 76, 78, 79,
+                // Low 80s (4 teams)
+                81, 82, 83, 84,
+                // Mid-high 80s (2 teams)
+                86, 88,
+                // Elite (2 teams)
+                91, 94
+            ];
+
+            // Shuffle target overalls for variety
+            const shuffledOveralls = shuffleArray([...teamOveralls]);
+
+            // Map overall to difficulty label for display
+            const getDifficulty = (ovr) => {
+                if (ovr <= 74) return 'easy';
+                if (ovr <= 79) return 'medium';
+                if (ovr <= 85) return 'hard';
+                return 'elite';
+            };
+
             // Generate 16 unique opponents
+            let overallIndex = 0;
             while (opponents.length < 16) {
                 const city = randomFrom(TEAM_CITIES);
                 const teamName = randomFrom(TEAM_NAMES);
@@ -2225,21 +2340,18 @@
                 if (usedNames.has(fullName)) continue;
                 usedNames.add(fullName);
 
-                // Distribute difficulty: 4 easy, 6 medium, 4 hard, 2 elite
-                let difficulty;
-                if (opponents.length < 4) difficulty = 'easy';
-                else if (opponents.length < 10) difficulty = 'medium';
-                else if (opponents.length < 14) difficulty = 'hard';
-                else difficulty = 'elite';
+                const targetOverall = shuffledOveralls[overallIndex++];
+                const difficulty = getDifficulty(targetOverall);
 
-                // Generate roster and calculate ratings from it
-                const roster = generateOpponentRoster(difficulty);
+                // Generate roster targeting this overall
+                const roster = generateRosterWithTargetOverall(targetOverall);
                 const ratings = calculateTeamRatings(roster);
 
                 opponents.push({
                     id: generateUUID(),
                     name: fullName,
                     difficulty,
+                    targetOverall,  // Store for debugging/display
                     roster,
                     offenseRating: ratings.offenseRating,
                     defenseRating: ratings.defenseRating,
@@ -4034,7 +4146,12 @@
                 // Generate roster if missing
                 if (opponent && !opponent.roster) {
                     console.log('Generating missing roster for opponent:', opponent.name);
-                    opponent.roster = generateOpponentRoster(opponent.difficulty || 'medium');
+                    // Use targetOverall if available, otherwise fall back to difficulty-based
+                    if (opponent.targetOverall) {
+                        opponent.roster = generateRosterWithTargetOverall(opponent.targetOverall);
+                    } else {
+                        opponent.roster = generateOpponentRoster(opponent.difficulty || 'medium');
+                    }
                 }
 
                 // Validate required data
