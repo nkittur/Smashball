@@ -5931,6 +5931,25 @@
 
         // Zone coverage AI - patrol assigned area, react to nearby receivers
         const moveDefenderZoneCoverage = (defender, speed) => {
+            const timeSincePlayStart = gameState.gameTime - (gameState.playStartTime || 0);
+
+            // Safety backpedal phase: first 1 second after reaction delay, move slowly backward
+            const backpedalDuration = 1.0;
+            const backpedalPhase = timeSincePlayStart < (defender.reactionDelay || 0) + backpedalDuration;
+
+            if (backpedalPhase) {
+                // Move backward slowly if there's room (not too close to end zone)
+                const distToEndZone = END_ZONE_BACK - defender.position.z;
+                if (distToEndZone > 3) {
+                    // Backpedal at 30% speed
+                    const backpedalSpeed = speed * 0.3;
+                    defender.position.z += backpedalSpeed;
+                    // Face forward (toward line of scrimmage)
+                    defender.rotation.y = Math.PI;
+                }
+                return;  // Don't do normal zone movement during backpedal
+            }
+
             // Find nearest receiver in zone
             let nearestReceiver = null;
             let nearestDist = defender.zoneRadius;
