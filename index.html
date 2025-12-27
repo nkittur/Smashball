@@ -5939,7 +5939,8 @@
 
             if (backpedalPhase) {
                 // Move backward slowly if there's room (not too close to end zone)
-                const distToEndZone = END_ZONE_BACK - defender.position.z;
+                const endZoneBack = 15;  // Back of end zone
+                const distToEndZone = endZoneBack - defender.position.z;
                 if (distToEndZone > 3) {
                     // Backpedal at 30% speed
                     const backpedalSpeed = speed * 0.3;
