@@ -195,13 +195,14 @@ export const ECONOMY_CONSTANTS = {
     },
 
     /** Player generation tiers with stat ranges [min, max] */
+    /** Note: Primary stats get +5 boost, so actual overall ≈ base + 5 */
     PLAYER_TIERS: {
-        elite: { min: 88, max: 96 },       // 90s overall with primary boost
-        veteran: { min: 78, max: 86 },     // high 70s to mid 80s
-        average: { min: 70, max: 80 },     // 70s overall
-        below_average: { min: 62, max: 70 }, // mid-high 60s overall
-        rookie: { min: 58, max: 72 },      // varied prospects
-        backup: { min: 50, max: 62 },      // low 50s-60s
+        elite: { min: 83, max: 91 },       // → 88-96 overall (90s)
+        veteran: { min: 73, max: 81 },     // → 78-86 overall (80s)
+        average: { min: 63, max: 73 },     // → 68-78 overall (70s)
+        below_average: { min: 53, max: 63 }, // → 58-68 overall (60s)
+        rookie: { min: 55, max: 68 },      // → 60-73 overall (varied)
+        backup: { min: 45, max: 55 },      // → 50-60 overall (50s)
     },
 
     /** Weights for random tier selection (creates natural distribution) */
