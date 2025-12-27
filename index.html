@@ -1035,9 +1035,9 @@
             // Down and distance tracking
             down: 1,                // Current down (1-4)
             yardsToGo: 10,          // Yards needed for first down
-            lineOfScrimmage: -54,   // Current field position (Z coordinate) - own 35 yard line
-            firstDownMarker: -44,   // Z position where first down is achieved (10 yards ahead)
-            startingLineOfScrimmage: -54,  // Where drive started - own 35 yard line
+            lineOfScrimmage: -29,   // Current field position (Z coordinate) - opponent 40 yard line
+            firstDownMarker: -19,   // Z position where first down is achieved (10 yards ahead)
+            startingLineOfScrimmage: -29,  // Where drive started - opponent 40 yard line
             // Training mode
             trainingMode: false,    // Training mode: no defenders, throw ratings
             lastThrowRating: null,  // Last throw rating for display
@@ -4012,13 +4012,22 @@
             // Calculate yards gained on catch
             let yardsGained = 0;
             if (catchInfo.catchSuccess) {
-                // Base yards from coverage margin and receiver speed
-                const baseYards = 5 + (catchInfo.coverageMargin > 0 ? catchInfo.coverageMargin * 0.3 : 0);
-                yardsGained = Math.round(baseYards + Math.random() * 8);
-                // Big play potential on strong WR wins
-                if (catchInfo.coverageMargin > 15) {
-                    yardsGained += Math.round(Math.random() * 15);
+                // Base yards: 2-6 for any catch (allows short gains)
+                const baseYards = 2 + Math.random() * 4;
+
+                // Separation bonus: only if WR clearly wins coverage
+                const separationBonus = Math.max(0, catchInfo.coverageMargin * 0.2);
+
+                // Small random variance
+                const variance = Math.random() * 5;
+
+                yardsGained = Math.round(baseYards + separationBonus + variance);
+
+                // Big play: only on dominant separation (margin > 25) with 30% chance
+                if (catchInfo.coverageMargin > 25 && Math.random() < 0.3) {
+                    yardsGained += Math.round(10 + Math.random() * 15);
                 }
+
                 // Cap at yards from goal for TD
                 yardsGained = Math.min(yardsGained, yardsFromGoal);
             }
