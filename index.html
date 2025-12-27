@@ -479,7 +479,10 @@
             <div id="preGameTeamScores" class="pre-game-team-scores"></div>
             <div id="preGameQBScores" class="pre-game-qb-scores"></div>
             <div id="preGameMatchups" class="pre-game-matchups"></div>
-            <button id="btnStartGame" class="mgmt-btn primary">START GAME</button>
+            <div class="pre-game-buttons">
+                <button id="btnStartGame" class="mgmt-btn primary">PLAY GAME</button>
+                <button id="btnSimulateGame" class="mgmt-btn secondary">SIMULATE</button>
+            </div>
         </div>
 
         <!-- Player Detail Modal -->
@@ -553,6 +556,15 @@
         .mgmt-btn:active { background: #3a3a50; }
         .mgmt-btn:disabled { opacity: 0.5; }
         .mgmt-btn.primary { background: #3a3a60; }
+        .mgmt-btn.secondary { background: #2a4a2a; }
+        .pre-game-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        .pre-game-buttons .mgmt-btn {
+            flex: 1;
+        }
         .mgmt-btn.back-btn {
             position: absolute;
             top: 10px;
@@ -3828,6 +3840,60 @@
             // Run the high-fidelity simulation
             const result = simulateDriveRoundBased(offense, defense, startingFieldPosition);
 
+            // Record offensive stats for player's team
+            if (result.plays && roster) {
+                result.plays.forEach(play => {
+                    // QB stats - completions/incompletions
+                    if (playerQB && playerQB.id) {
+                        if (play.type === 'complete' || play.type === 'touchdown') {
+                            gameStats.getPlayer(playerQB.id, `${playerQB.firstName} ${playerQB.lastName}`).completions++;
+                        } else if (play.type === 'incomplete' || play.type === 'interception') {
+                            gameStats.getPlayer(playerQB.id, `${playerQB.firstName} ${playerQB.lastName}`).incompletions++;
+                        }
+                    }
+
+                    // Receiver stats - catches, yards, TDs
+                    if ((play.type === 'complete' || play.type === 'touchdown') && play.catchInfo && play.catchInfo.receiver) {
+                        const receiver = play.catchInfo.receiver;
+                        if (receiver.id) {
+                            const rosterPlayer = roster.find(p => p.id === receiver.id);
+                            if (rosterPlayer) {
+                                const rStats = gameStats.getPlayer(rosterPlayer.id, `${rosterPlayer.firstName} ${rosterPlayer.lastName}`);
+                                rStats.catches++;
+                                rStats.yardsAfterCatch += (play.yac || 0);
+                                if (play.type === 'touchdown') {
+                                    rStats.touchdowns++;
+                                }
+                                // Update season stats
+                                if (rosterPlayer.seasonCatches === undefined) rosterPlayer.seasonCatches = 0;
+                                rosterPlayer.seasonCatches++;
+                                if (play.type === 'touchdown') {
+                                    if (rosterPlayer.seasonTDs === undefined) rosterPlayer.seasonTDs = 0;
+                                    rosterPlayer.seasonTDs++;
+                                }
+                            }
+                        }
+                    }
+
+                    // OL clash stats
+                    if (play.pressureInfo && play.pressureInfo.matchups) {
+                        play.pressureInfo.matchups.forEach(matchup => {
+                            if (matchup.ol && matchup.ol.id) {
+                                const olPlayer = roster.find(p => p.id === matchup.ol.id);
+                                if (olPlayer) {
+                                    const olStats = gameStats.getPlayer(olPlayer.id, `${olPlayer.firstName} ${olPlayer.lastName}`);
+                                    if (matchup.margin < -2) {
+                                        olStats.clashesWon++;
+                                    } else if (matchup.margin > 5) {
+                                        olStats.clashesLost++;
+                                    }
+                                }
+                            }
+                        });
+                    }
+                });
+            }
+
             // Add team reference
             result.team = playerTeam;
 
@@ -4082,6 +4148,80 @@
             Object.keys(gameStats.players).forEach(key => delete gameStats.players[key]);
 
             return { success: true, opponent: game.opponent, isHome: game.isHome };
+        }
+
+        // Simulate entire game without playing arcade mode
+        function simulateFullGame() {
+            if (!managementState.season || managementState.season.week > SEASON.WEEKS) {
+                return { success: false, error: 'Season is over' };
+            }
+
+            const game = managementState.season.schedule[managementState.season.week - 1];
+            if (game.result) {
+                return { success: false, error: 'Game already played' };
+            }
+
+            const playerTeam = managementState.team;
+            const opponent = game.opponent;
+
+            // Reset per-game stats
+            Object.keys(gameStats.players).forEach(key => delete gameStats.players[key]);
+            managementState.fameAddedThisGame = false;
+
+            let playerScore = 0;
+            let opponentScore = 0;
+            const possessionResults = [];
+
+            // Simulate regulation possessions
+            for (let i = 0; i < SEASON.POSSESSIONS_PER_GAME; i++) {
+                // Player offense
+                const playerDrive = simulatePlayerDriveHighFidelity(playerTeam, opponent);
+                const playerPoints = playerDrive.type === 'touchdown' ? 7 :
+                                    playerDrive.type === 'field_goal' ? 3 : 0;
+                playerScore += playerPoints;
+                possessionResults.push({ team: 'player', result: playerDrive, points: playerPoints });
+
+                // Enemy offense
+                const enemyDrive = simulateEnemyDriveHighFidelity(opponent, playerTeam);
+                const enemyPoints = enemyDrive.type === 'touchdown' ? 7 :
+                                   enemyDrive.type === 'field_goal' ? 3 : 0;
+                opponentScore += enemyPoints;
+                possessionResults.push({ team: 'opponent', result: enemyDrive, points: enemyPoints });
+            }
+
+            // Handle overtime if tied
+            let overtime = false;
+            while (playerScore === opponentScore) {
+                overtime = true;
+                // Player gets one possession
+                const playerOT = simulatePlayerDriveHighFidelity(playerTeam, opponent);
+                const playerOTPoints = playerOT.type === 'touchdown' ? 7 :
+                                       playerOT.type === 'field_goal' ? 3 : 0;
+                playerScore += playerOTPoints;
+
+                // Opponent gets one possession
+                const enemyOT = simulateEnemyDriveHighFidelity(opponent, playerTeam);
+                const enemyOTPoints = enemyOT.type === 'touchdown' ? 7 :
+                                      enemyOT.type === 'field_goal' ? 3 : 0;
+                opponentScore += enemyOTPoints;
+
+                // Max 3 OT periods
+                if (possessionResults.length > SEASON.POSSESSIONS_PER_GAME * 2 + 6) break;
+            }
+
+            // Set match state for showMatchEnd
+            managementState.matchInProgress = true;
+            managementState.matchScore = { player: playerScore, opponent: opponentScore };
+            managementState.currentPossession = SEASON.POSSESSIONS_PER_GAME;
+
+            return {
+                success: true,
+                playerScore,
+                opponentScore,
+                overtime,
+                possessionResults,
+                opponent
+            };
         }
 
         // Record possession result (called after each arcade possession)
@@ -10999,6 +11139,13 @@
         document.getElementById('btnStartGame').addEventListener('click', () => {
             const result = startMatch();
             if (result.success) startArcadeGame();
+        });
+        document.getElementById('btnSimulateGame').addEventListener('click', () => {
+            const result = simulateFullGame();
+            if (result.success) {
+                // Show match end screen with simulated results
+                showMatchEnd();
+            }
         });
         document.getElementById('btnPreGameBack').addEventListener('click', () => showScreen('hub'));
         document.getElementById('btnRoster').addEventListener('click', () => showScreen('roster'));
