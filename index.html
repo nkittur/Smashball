@@ -2850,14 +2850,32 @@
             PLAYERS_PER_ROUND: 10,  // Players available each round (50 total)
             NUM_TEAMS: 12,          // Teams in the league for draft order calculation
             BASE_PICK_COST: 1000,   // Cost of #1 pick
-            COST_DECAY: 0.75        // Each subsequent pick costs 75% of previous
+            STEEP_DECAY: 0.75,      // 75% decay for first 10 picks
+            MIN_COST: 10            // Minimum draft cost
         };
 
         // Calculate cost of a draft pick based on position in pool
+        // First 10 picks: steep 75% decay
+        // After pick 10: increasingly gentle decay (rate approaches 1.0)
         function calculatePickCost(pickPosition) {
-            // Exponential decay: cost = BASE * DECAY^(pick-1)
-            // Pick 1: 1000, Pick 2: 750, Pick 3: 562, Pick 4: 422, etc.
-            return Math.floor(DRAFT.BASE_PICK_COST * Math.pow(DRAFT.COST_DECAY, pickPosition - 1));
+            if (pickPosition <= 10) {
+                // Steep decay: 1000, 750, 562, 422, 316, 237, 178, 133, 100, 75
+                const cost = Math.floor(DRAFT.BASE_PICK_COST * Math.pow(DRAFT.STEEP_DECAY, pickPosition - 1));
+                return Math.max(DRAFT.MIN_COST, cost);
+            }
+
+            // After pick 10: start from pick 10's value with gentler, increasing decay
+            // Decay rate starts at 0.90 and increases by 0.5% per pick (capped at 0.99)
+            const pick10Cost = Math.floor(DRAFT.BASE_PICK_COST * Math.pow(DRAFT.STEEP_DECAY, 9)); // = 75
+
+            let cost = pick10Cost;
+            for (let i = 11; i <= pickPosition; i++) {
+                // Decay rate increases: 0.90, 0.905, 0.91, 0.915... up to 0.99
+                const decayRate = Math.min(0.99, 0.90 + (i - 11) * 0.005);
+                cost = cost * decayRate;
+            }
+
+            return Math.max(DRAFT.MIN_COST, Math.floor(cost));
         }
 
         // Calculate draft budget based on team's season finish ranking
