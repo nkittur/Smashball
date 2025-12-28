@@ -507,6 +507,21 @@
                 </div>
             </div>
         </div>
+
+        <!-- Draft Screen -->
+        <div id="draftScreen" class="mgmt-screen" style="display:none;max-width:600px;">
+            <h2>DRAFT</h2>
+            <p id="draftBudget" class="draft-budget">Draft Points: 1500</p>
+            <p id="draftStatus" class="draft-status">Round 1 of 5</p>
+            <div class="draft-toggle-buttons">
+                <button id="btnDraftPoolView" class="mgmt-btn toggle-btn active">DRAFT POOL</button>
+                <button id="btnDraftRosterView" class="mgmt-btn toggle-btn">MY ROSTER</button>
+            </div>
+            <div id="draftPlayerList" class="roster-list draft-list"></div>
+            <div id="draftRosterList" class="roster-list draft-list" style="display:none;"></div>
+            <button id="btnSkipRound" class="mgmt-btn secondary" style="margin-top: 15px;">NEXT ROUND</button>
+            <button id="btnFinishDraft" class="mgmt-btn primary" style="margin-top: 10px; display: none;">FINISH DRAFT</button>
+        </div>
     </div>
 
     <style>
@@ -636,6 +651,19 @@
         .fac-desc { color: #888; font-size: 12px; margin: 8px 0; }
         .fac-credits { color: #ffd700; font-size: 18px; }
         .fa-status { color: #aaa; font-size: 14px; }
+        .draft-budget { color: #4f4; font-size: 20px; font-weight: bold; margin-bottom: 5px; }
+        .draft-status { color: #aaa; font-size: 14px; margin-bottom: 10px; }
+        .draft-toggle-buttons { display: flex; gap: 10px; margin-bottom: 15px; justify-content: center; }
+        .draft-toggle-buttons .toggle-btn { flex: 1; max-width: 150px; padding: 8px 12px; font-size: 12px; background: #2a2a3a; }
+        .draft-toggle-buttons .toggle-btn.active { background: #4a4a6a; border-color: #ffd700; }
+        .draft-list { max-height: 320px; overflow-y: auto; overflow-x: hidden; }
+        .draft-list .roster-item { border-left: 3px solid #333; transition: border-color 0.2s; flex-wrap: nowrap; }
+        .draft-list .roster-item:hover { border-left-color: #ffd700; background: #2a2a3a; }
+        .draft-list .roster-item.drafted { opacity: 0.4; pointer-events: none; }
+        .draft-list .roster-item.unaffordable { opacity: 0.5; border-left-color: #633; }
+        .draft-list .roster-item.unaffordable:hover { border-left-color: #833; }
+        .draft-cost { color: #4f4; font-size: 12px; font-weight: bold; }
+        .draft-cost.expensive { color: #f84; }
         .fa-btn { padding: 8px 16px; font-size: 14px; }
         .match-score { font-size: 36px; margin: 20px 0; }
         .match-revenue { color: #4f4; font-size: 18px; margin-bottom: 15px; }
@@ -858,35 +886,33 @@
             margin-left: 10px;
         }
         .player-stats {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
         }
         .stat-row {
             background: #1a1a2a;
-            padding: 8px 12px;
+            padding: 10px 12px;
             border-radius: 4px;
             display: flex;
             justify-content: space-between;
-            font-size: 12px;
+            font-size: 14px;
         }
-        .stat-row .stat-name { color: #888; }
+        .stat-row .stat-name { color: #aaa; }
         .stat-row .stat-values {
             display: flex;
             align-items: center;
-            min-width: 60px;
-            justify-content: flex-end;
+            gap: 8px;
         }
         .stat-row .stat-value {
-            display: inline-block;
-            width: 24px;
+            font-weight: bold;
+            min-width: 24px;
             text-align: right;
         }
         .stat-row .stat-change {
-            display: inline-block;
-            width: 28px;
+            font-size: 12px;
+            min-width: 28px;
             text-align: right;
-            font-size: 11px;
         }
         /* Stat color coding by value */
         .stat-elite { color: #4f4; }      /* 90+ green */
@@ -1503,11 +1529,12 @@
                 autoSave: true
             },
             initialized: false,
-            currentScreen: 'main_menu',  // main_menu, hub, roster, player_detail, free_agency, facilities, schedule, game
+            currentScreen: 'main_menu',  // main_menu, hub, roster, player_detail, free_agency, facilities, schedule, game, draft
             selectedPlayerId: null,
             matchInProgress: false,
             currentPossession: 0,
-            matchScore: { player: 0, opponent: 0 }
+            matchScore: { player: 0, opponent: 0 },
+            seasonJustEnded: false  // Flag to trigger draft after match end screen
         };
 
         // Position definitions with stat priorities
@@ -2176,6 +2203,8 @@
 
         // Create a new team
         function createNewTeam(name = 'Your Team') {
+            // New teams get last-place draft budget (best picks available)
+            const defaultRank = DRAFT.NUM_TEAMS;
             const team = {
                 name,
                 fame: ECONOMY.STARTING_FAME,
@@ -2187,7 +2216,8 @@
                     stadium: { level: 1, maxLevel: 5 },
                     trainingCenter: { level: 1, maxLevel: 5 }
                 },
-                record: { wins: 0, losses: 0 }
+                record: { wins: 0, losses: 0 },
+                draftPoints: calculateDraftBudget(defaultRank)
             };
 
             autoAssignDepthChart(team);
@@ -2808,6 +2838,505 @@
                 const tier = rollFreeAgentTier();
                 managementState.freeAgents.push(generatePlayer(position, tier));
             }
+        }
+
+        // ========================================
+        // MANAGEMENT LAYER - DRAFT SYSTEM
+        // ========================================
+
+        // Draft constants
+        const DRAFT = {
+            ROUNDS: 5,
+            PLAYERS_PER_ROUND: 10,  // Players available each round (50 total)
+            NUM_TEAMS: 12,          // Teams in the league for draft order calculation
+            MIN_COST: 10,           // Minimum draft cost
+            // Exact costs for first 7 picks as specified
+            EARLY_COSTS: [1000, 800, 700, 600, 520, 450, 390],
+            ROUND_2_START: 13,      // First pick of round 2 (in 12-team league)
+            ROUND_3_START: 25,      // First pick of round 3
+            ROUND_DROP: 0.70        // 30% drop at round boundaries
+        };
+
+        // Calculate cost of a draft pick based on position in pool
+        // Picks 1-7: Exact values from EARLY_COSTS
+        // Picks 8-12: Continue with decreasing drops
+        // Pick 13, 25: Sharp 30% drop at round boundaries
+        function calculatePickCost(pickPosition) {
+            // Picks 1-7: Use exact specified values
+            if (pickPosition <= DRAFT.EARLY_COSTS.length) {
+                return DRAFT.EARLY_COSTS[pickPosition - 1];
+            }
+
+            // Picks 8-12: Continue with decreasing drops from pick 7's value
+            // Drops: ~45, 38, 32, 27, 23 (shrinking by ~15% each)
+            if (pickPosition <= 12) {
+                let cost = DRAFT.EARLY_COSTS[6]; // Start from 390
+                let drop = 45;
+                for (let i = 8; i <= pickPosition; i++) {
+                    cost -= drop;
+                    drop = Math.floor(drop * 0.85);
+                }
+                return Math.max(DRAFT.MIN_COST, cost);
+            }
+
+            // Get pick 12's cost as baseline
+            let pick12Cost = DRAFT.EARLY_COSTS[6];
+            let drop = 45;
+            for (let i = 8; i <= 12; i++) {
+                pick12Cost -= drop;
+                drop = Math.floor(drop * 0.85);
+            }
+            // pick12Cost is ~254
+
+            // Pick 13: Sharp drop at round 2 start
+            if (pickPosition === DRAFT.ROUND_2_START) {
+                return Math.max(DRAFT.MIN_COST, Math.floor(pick12Cost * DRAFT.ROUND_DROP));
+            }
+
+            // Picks 14-24: Gradual 94% decay
+            if (pickPosition < DRAFT.ROUND_3_START) {
+                let cost = Math.floor(pick12Cost * DRAFT.ROUND_DROP); // Start from pick 13 value
+                for (let i = 14; i <= pickPosition; i++) {
+                    cost = Math.floor(cost * 0.94);
+                }
+                return Math.max(DRAFT.MIN_COST, cost);
+            }
+
+            // Calculate pick 24's value
+            let pick24Cost = Math.floor(pick12Cost * DRAFT.ROUND_DROP);
+            for (let i = 14; i <= 24; i++) {
+                pick24Cost = Math.floor(pick24Cost * 0.94);
+            }
+
+            // Pick 25: Sharp drop at round 3 start
+            if (pickPosition === DRAFT.ROUND_3_START) {
+                return Math.max(DRAFT.MIN_COST, Math.floor(pick24Cost * DRAFT.ROUND_DROP));
+            }
+
+            // Picks 26+: Gentler 96% decay
+            let cost = Math.floor(pick24Cost * DRAFT.ROUND_DROP);
+            for (let i = 26; i <= pickPosition; i++) {
+                cost = Math.floor(cost * 0.96);
+            }
+
+            return Math.max(DRAFT.MIN_COST, cost);
+        }
+
+        // Calculate draft budget based on team's season finish ranking
+        // Worse teams get more points (higher picks in each round)
+        function calculateDraftBudget(teamRank, totalTeams = DRAFT.NUM_TEAMS) {
+            // teamRank: 1 = best record, totalTeams = worst record
+            // Worst team picks at position 1, 13, 25, 37, 49 (every 12 picks in 5 rounds)
+            // Best team picks at position 12, 24, 36, 48, 60
+
+            let budget = 0;
+            const pickPosition = totalTeams - teamRank + 1;  // Convert rank to pick order (worst=1st pick)
+
+            for (let round = 0; round < DRAFT.ROUNDS; round++) {
+                const overallPick = round * totalTeams + pickPosition;
+                budget += calculatePickCost(overallPick);
+            }
+
+            return budget;
+        }
+
+        // Get team's rank based on record (1 = best, NUM_TEAMS = worst)
+        function getTeamSeasonRank() {
+            if (!managementState.team || !managementState.season) {
+                // Default to middle ranking for new games
+                return Math.ceil(DRAFT.NUM_TEAMS / 2);
+            }
+
+            const teamWins = managementState.team.record.wins;
+            const teamLosses = managementState.team.record.losses;
+
+            // Compare against other teams in schedule
+            const schedule = managementState.season.schedule || [];
+            let betterTeams = 0;
+
+            const opponents = new Set();
+            schedule.forEach(game => {
+                if (game.opponent && !opponents.has(game.opponent.id)) {
+                    opponents.add(game.opponent.id);
+                    const oppWins = game.opponent.record?.wins || 0;
+                    const oppLosses = game.opponent.record?.losses || 0;
+
+                    // Higher wins = better rank (lower number)
+                    if (oppWins > teamWins || (oppWins === teamWins && oppLosses < teamLosses)) {
+                        betterTeams++;
+                    }
+                }
+            });
+
+            // Rank is 1 + number of teams with better records
+            return Math.min(betterTeams + 1, DRAFT.NUM_TEAMS);
+        }
+
+        // Draft state
+        const draftState = {
+            active: false,
+            round: 1,
+            pick: 1,
+            draftPool: [],
+            draftedPlayers: [],
+            isNewGame: false,  // Track if this is a new game draft
+            viewingRoster: false,  // Toggle between draft pool and roster view
+            selectedDraftPlayer: null  // Currently selected draft player for details
+        };
+
+        // Generate draft class with realistic ratings
+        // Most players 65-82, a few standouts at 83-84, rare gems at 90-91
+        function generateDraftClass() {
+            const draftClass = [];
+            const totalPlayers = DRAFT.ROUNDS * DRAFT.PLAYERS_PER_ROUND;
+            const positions = ['QB', 'WR', 'WR', 'WR', 'CB', 'CB', 'OL', 'DL']; // Weighted towards skill positions
+
+            for (let i = 0; i < totalPlayers; i++) {
+                const position = positions[i % positions.length];
+
+                // Custom tier distribution for draft prospects
+                // Most are developmental, few are ready contributors
+                const roll = Math.random();
+                let tier;
+                if (roll < 0.50) tier = 'rookie';        // 50% - developmental (60-73 overall)
+                else if (roll < 0.85) tier = 'average';  // 35% - solid prospect (68-78 overall)
+                else if (roll < 0.97) tier = 'below_average'; // 12% - raw talent (58-68 overall)
+                else tier = 'veteran';                    // 3% - ready to contribute (78-86 overall)
+
+                const player = generatePlayer(position, tier);
+
+                // Draft prospects are younger (21-23)
+                player.age = randomInt(21, 23);
+                player.yearsInLeague = 0;
+
+                // Cap overall for most players, allow 1-2 standouts
+                // Apply soft cap at 84, hard cap at 91
+                if (player.overall > 91) {
+                    // Scale down stats proportionally to target 91
+                    const scale = 91 / player.overall;
+                    Object.keys(player.stats).forEach(stat => {
+                        player.stats[stat] = Math.floor(player.stats[stat] * scale);
+                    });
+                    // Recalculate overall from position stats
+                    player.overall = calculateOverall(player);
+                } else if (player.overall > 84 && Math.random() > 0.04) {
+                    // 96% chance to cap at 84 if above
+                    const scale = randomInt(78, 84) / player.overall;
+                    Object.keys(player.stats).forEach(stat => {
+                        player.stats[stat] = Math.floor(player.stats[stat] * scale);
+                    });
+                    // Recalculate overall from position stats
+                    player.overall = calculateOverall(player);
+                }
+
+                // Recalculate salary for young age
+                player.salaryCost = calculateSalary(player.stats, player.position);
+
+                draftClass.push(player);
+            }
+
+            // Sort by overall rating descending
+            const sorted = draftClass.sort((a, b) => b.overall - a.overall);
+
+            // Assign draft cost based on position in pool (best = most expensive)
+            sorted.forEach((player, index) => {
+                player.draftCost = calculatePickCost(index + 1);
+            });
+
+            return sorted;
+        }
+
+        // Start the draft
+        function startDraft(isNewGame = false) {
+            draftState.active = true;
+            draftState.round = 1;
+            draftState.pick = 1;
+            draftState.draftPool = generateDraftClass();
+            draftState.draftedPlayers = [];
+            draftState.isNewGame = isNewGame;
+            draftState.viewingRoster = false;
+            draftState.selectedDraftPlayer = null;
+
+            // Calculate and set draft budget based on season ranking
+            if (!isNewGame && managementState.team) {
+                const teamRank = getTeamSeasonRank();
+                managementState.team.draftPoints = calculateDraftBudget(teamRank);
+            } else if (managementState.team && !managementState.team.draftPoints) {
+                // Fallback for new games without draft points (last place = best picks)
+                const defaultRank = DRAFT.NUM_TEAMS;
+                managementState.team.draftPoints = calculateDraftBudget(defaultRank);
+            }
+
+            showScreen('draft');
+        }
+
+        // Get available players for current round
+        function getAvailableDraftPlayers() {
+            const startIdx = (draftState.round - 1) * DRAFT.PLAYERS_PER_ROUND;
+            const endIdx = startIdx + DRAFT.PLAYERS_PER_ROUND;
+            return draftState.draftPool
+                .slice(startIdx, endIdx)
+                .filter(p => !draftState.draftedPlayers.includes(p.id));
+        }
+
+        // Check if team can afford a player
+        function canAffordDraftPlayer(playerId) {
+            const player = draftState.draftPool.find(p => p.id === playerId);
+            if (!player || !managementState.team) return false;
+            return (managementState.team.draftPoints || 0) >= player.draftCost;
+        }
+
+        // Draft a player
+        function draftPlayer(playerId) {
+            const player = draftState.draftPool.find(p => p.id === playerId);
+            if (!player || draftState.draftedPlayers.includes(playerId)) return false;
+
+            // Check if team can afford this player
+            if (!canAffordDraftPlayer(playerId)) {
+                return false;  // Can't afford
+            }
+
+            // Deduct draft points
+            managementState.team.draftPoints -= player.draftCost;
+
+            // Add to team roster
+            managementState.team.roster.push(player);
+            draftState.draftedPlayers.push(playerId);
+
+            // Update depth chart
+            updateDepthChart(managementState.team);
+
+            // Refresh the screen (don't auto-advance, let player keep picking)
+            refreshDraftScreen();
+
+            return true;
+        }
+
+        // Skip current round
+        function skipDraftPick() {
+            advanceDraft();
+        }
+
+        // Advance to next round
+        function advanceDraft() {
+            draftState.round++;
+            draftState.pick = 1;
+
+            if (draftState.round > DRAFT.ROUNDS) {
+                // Draft complete
+                finishDraft();
+                return;
+            }
+
+            refreshDraftScreen();
+        }
+
+        // Finish the draft
+        function finishDraft() {
+            draftState.active = false;
+
+            // Save game
+            if (managementState.settings.autoSave) SaveSystem.save();
+
+            // Show hub
+            showScreen('hub');
+        }
+
+        // Toggle draft view between pool and roster
+        function toggleDraftView(showRoster) {
+            draftState.viewingRoster = showRoster;
+            refreshDraftScreen();
+        }
+
+        // Show player detail for draft player
+        function showDraftPlayerDetail(playerId) {
+            const player = draftState.draftPool.find(p => p.id === playerId);
+            if (!player) return;
+
+            draftState.selectedDraftPlayer = player;
+
+            // Set player name
+            document.getElementById('playerName').textContent = `${player.firstName} ${player.lastName}`;
+
+            // Check if can afford
+            const draftPoints = managementState.team?.draftPoints || 0;
+            const canAfford = draftPoints >= player.draftCost;
+            const costColor = canAfford ? '#4f4' : '#f84';
+
+            // Player info - draft version with cost
+            const infoHtml = `
+                <div><span class="ovr-big">${player.overall}</span></div>
+                <div style="margin-top:10px;">
+                    ${POSITIONS[player.position].name} | Age ${player.age} | Peak ${player.peakAge}<br>
+                    Salary: ${formatSalary(player.salaryCost)} | Potential: ${'★'.repeat(player.potentialGrade + 1)}<br>
+                    <span style="color:${costColor};font-weight:bold;">Draft Cost: ${player.draftCost}</span>
+                </div>
+            `;
+            document.getElementById('playerInfo').innerHTML = infoHtml;
+
+            // Hide cut button, show draft button with cost
+            const tradeBtn = document.getElementById('btnTradePlayer');
+            const cutBtn = document.getElementById('btnCutPlayer');
+            const alreadyDrafted = draftState.draftedPlayers.includes(playerId);
+            const canDraft = canAfford && !alreadyDrafted;
+
+            tradeBtn.textContent = alreadyDrafted ? 'ALREADY DRAFTED' : `DRAFT (${player.draftCost} pts)`;
+            tradeBtn.disabled = !canDraft;
+            tradeBtn.style.opacity = canDraft ? '1' : '0.5';
+            cutBtn.style.display = 'none';
+
+            // Only show position-relevant stats
+            const positionStats = POSITIONS[player.position].primaryStats;
+
+            const statsHtml = positionStats.map(stat => {
+                const current = Math.floor(player.stats[stat] || 0);
+                const statColorClass = current >= 90 ? 'stat-elite' :
+                                       current >= 80 ? 'stat-good' :
+                                       current >= 70 ? 'stat-average' :
+                                       current >= 60 ? 'stat-below' : 'stat-poor';
+                const statName = stat.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase());
+
+                return `<div class="stat-row">
+                    <span class="stat-name">${statName}</span>
+                    <span class="stat-values">
+                        <span class="stat-value ${statColorClass}">${current}</span>
+                    </span>
+                </div>`;
+            }).join('');
+            document.getElementById('playerStats').innerHTML = statsHtml;
+
+            // Hide season stats and career graph for draft prospects
+            document.getElementById('playerSeasonStats').innerHTML = '';
+            document.getElementById('playerCareerGraph').innerHTML = '';
+
+            document.getElementById('playerDetailModal').style.display = 'flex';
+        }
+
+        // Refresh draft screen
+        function refreshDraftScreen() {
+            const budgetEl = document.getElementById('draftBudget');
+            const statusEl = document.getElementById('draftStatus');
+            const poolListEl = document.getElementById('draftPlayerList');
+            const rosterListEl = document.getElementById('draftRosterList');
+            const skipBtn = document.getElementById('btnSkipRound');
+            const finishBtn = document.getElementById('btnFinishDraft');
+            const poolBtn = document.getElementById('btnDraftPoolView');
+            const rosterBtn = document.getElementById('btnDraftRosterView');
+
+            // Update budget display
+            const draftPoints = managementState.team?.draftPoints || 0;
+            budgetEl.textContent = `Draft Points: ${draftPoints}`;
+
+            // Update toggle button states
+            poolBtn.classList.toggle('active', !draftState.viewingRoster);
+            rosterBtn.classList.toggle('active', draftState.viewingRoster);
+
+            // Show/hide appropriate list
+            poolListEl.style.display = draftState.viewingRoster ? 'none' : 'block';
+            rosterListEl.style.display = draftState.viewingRoster ? 'block' : 'none';
+
+            if (!draftState.active) {
+                finishBtn.style.display = 'block';
+                skipBtn.style.display = 'none';
+                statusEl.textContent = 'Draft Complete!';
+                poolListEl.innerHTML = '<p style="color:#4f4;">Your draft picks have been added to the roster.</p>';
+                return;
+            }
+
+            const pickedThisSession = draftState.draftedPlayers.length;
+            statusEl.textContent = `Round ${draftState.round} of ${DRAFT.ROUNDS} | Drafted: ${pickedThisSession}`;
+            skipBtn.style.display = draftState.viewingRoster ? 'none' : 'block';
+            finishBtn.style.display = 'none';
+
+            if (draftState.viewingRoster) {
+                // Show current roster
+                refreshDraftRosterView(rosterListEl);
+            } else {
+                // Show draft pool
+                refreshDraftPoolView(poolListEl);
+            }
+        }
+
+        // Refresh draft pool view
+        function refreshDraftPoolView(listEl) {
+            const available = getAvailableDraftPlayers();
+            const draftPoints = managementState.team?.draftPoints || 0;
+            listEl.innerHTML = '';
+
+            if (available.length === 0) {
+                listEl.innerHTML = '<p style="color:#888;">No more players available this round.</p>';
+                return;
+            }
+
+            available.forEach(player => {
+                let potentialDisplay = '';
+                if (player.potentialGrade > 0) {
+                    potentialDisplay = '★'.repeat(player.potentialGrade);
+                }
+
+                const canAfford = draftPoints >= player.draftCost;
+                const costClass = canAfford ? 'draft-cost' : 'draft-cost expensive';
+
+                const item = document.createElement('div');
+                item.className = 'roster-item' + (canAfford ? '' : ' unaffordable');
+                item.innerHTML = `
+                    <div style="flex:1;">
+                        <div class="name">${player.firstName} ${player.lastName}</div>
+                        <div class="stats">${POSITIONS[player.position].name} | Age ${player.age} | ${formatSalary(player.salaryCost)}</div>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        <span class="${costClass}">${player.draftCost}</span>
+                        <span class="ovr" style="min-width:28px;text-align:right;">${player.overall}</span>
+                        <span class="potential-ind" style="min-width:30px;color:#ffd700;font-size:14px;">${potentialDisplay}</span>
+                    </div>
+                `;
+                item.addEventListener('click', () => showDraftPlayerDetail(player.id));
+                listEl.appendChild(item);
+            });
+        }
+
+        // Refresh draft roster view
+        function refreshDraftRosterView(listEl) {
+            listEl.innerHTML = '';
+
+            if (!managementState.team || managementState.team.roster.length === 0) {
+                listEl.innerHTML = '<p style="color:#888;">No players on roster yet.</p>';
+                return;
+            }
+
+            const positions = ['QB', 'WR', 'CB', 'OL', 'DL'];
+            positions.forEach(pos => {
+                const players = managementState.team.roster.filter(p => p.position === pos);
+                if (players.length === 0) return;
+
+                const header = document.createElement('div');
+                header.className = 'position-header';
+                header.textContent = POSITIONS[pos].name;
+                listEl.appendChild(header);
+
+                players.sort((a, b) => b.overall - a.overall);
+                players.forEach(player => {
+                    let potentialDisplay = '';
+                    if (player.potentialGrade > 0) {
+                        potentialDisplay = '★'.repeat(player.potentialGrade);
+                    }
+
+                    const item = document.createElement('div');
+                    item.className = 'roster-item';
+                    item.innerHTML = `
+                        <div>
+                            <div class="name">${player.firstName} ${player.lastName}</div>
+                            <div class="stats">Age ${player.age} | ${formatSalary(player.salaryCost)}</div>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:8px;">
+                            <span class="ovr" style="min-width:28px;text-align:right;">${player.overall}</span>
+                            <span class="potential-ind" style="min-width:36px;color:#ffd700;font-size:14px;">${potentialDisplay}</span>
+                        </div>
+                    `;
+                    item.addEventListener('click', () => showPlayerDetail(player.id));
+                    listEl.appendChild(item);
+                });
+            });
         }
 
         // ========================================
@@ -4557,6 +5086,7 @@
             if (managementState.season.week > SEASON.WEEKS) {
                 processEndOfSeason();
                 seasonEnded = true;
+                managementState.seasonJustEnded = true;  // Flag for draft trigger
             }
 
             managementState.matchInProgress = false;
@@ -4791,9 +5321,9 @@
             managementState.season = createNewSeason();
             refreshFreeAgents();
             managementState.initialized = true;
-            managementState.currentScreen = 'hub';
 
-            SaveSystem.save();
+            // Start with the draft
+            startDraft(true);
         }
 
         // Constants
@@ -5004,7 +5534,9 @@
                 // Store config data on receiver
                 receiver.displayName = config.name;
                 receiver.lastName = config.lastName || config.name.split(' ').pop();  // Extract last name from display name if not provided
-                receiver.overall = config.overall || Math.round(Object.values(config.stats).reduce((a, b) => a + b, 0) / Object.keys(config.stats).length);
+                // Calculate overall from WR position stats
+                const wrStats = POSITIONS.WR.primaryStats;
+                receiver.overall = config.overall || Math.round(wrStats.reduce((sum, stat) => sum + (config.stats[stat] || 0), 0) / wrStats.length);
                 receiver.playerId = config.playerId || null;  // Link to roster player
                 receiver.route = config.route;
                 receiver.routeIndex = 0;
@@ -5128,7 +5660,9 @@
                 defender.zoneCenter = config.zoneCenter;
                 defender.zoneRadius = config.zoneRadius || 5;
                 defender.stats = config.stats;
-                defender.overall = config.overall || Math.round(Object.values(config.stats).reduce((a, b) => a + b, 0) / Object.keys(config.stats).length);
+                // Calculate overall from CB position stats
+                const cbStats = POSITIONS.CB.primaryStats;
+                defender.overall = config.overall || Math.round(cbStats.reduce((sum, stat) => sum + (config.stats[stat] || 0), 0) / cbStats.length);
                 defender.startPos = startPos.clone();
 
                 // Derive base speed from stats
@@ -9628,6 +10162,10 @@
                     case 'pre_game':
                         document.getElementById('preGameScreen').style.display = 'block';
                         break;
+                    case 'draft':
+                        document.getElementById('draftScreen').style.display = 'block';
+                        refreshDraftScreen();
+                        break;
                 }
             }
 
@@ -9775,6 +10313,8 @@
 
             // Update trade button - use fame bank directly
             const tradeBtn = document.getElementById('btnTradePlayer');
+            const cutBtn = document.getElementById('btnCutPlayer');
+            cutBtn.style.display = 'block';  // Ensure cut button is visible for roster players
             if (fameBank > 0) {
                 tradeBtn.textContent = `HARVEST (+${fameBank} Fame)`;
                 tradeBtn.disabled = false;
@@ -9785,15 +10325,10 @@
                 tradeBtn.style.opacity = '0.5';
             }
 
-            // All stats with changes
-            const allStats = [
-                'speed', 'acceleration', 'agility', 'strength', 'stamina', 'balance',
-                'catching', 'throwing', 'routeRunning', 'release', 'jumping', 'focus',
-                'manCoverage', 'zoneCoverage', 'press', 'tackling', 'hitPower', 'pursuit', 'awareness',
-                'passBlock', 'passRush', 'aggression'
-            ];
+            // Only show position-relevant stats with changes
+            const positionStats = POSITIONS[player.position].primaryStats;
 
-            const statsHtml = allStats.map(stat => {
+            const statsHtml = positionStats.map(stat => {
                 const currentRaw = player.stats[stat] || 0;
                 const startRaw = player.seasonStartStats ? (player.seasonStartStats[stat] || 0) : currentRaw;
                 const current = Math.floor(currentRaw);
@@ -10511,12 +11046,11 @@
                 receiver.stats.speed = speedStat;
                 receiver.baseSpeed = speedStat * SPEED_CONSTANTS.RECEIVER_FACTOR * gameState.gameSpeedMultiplier;
                 receiver.speed = receiver.baseSpeed;
-                // Recalculate overall based on new speed
+                // Recalculate overall based on new speed using WR position stats
                 const stats = receiver.stats;
-                if (stats.catching === undefined) console.error(`[STATS ERROR] ${receiver.displayName} missing stats.catching`);
-                if (stats.routeRunning === undefined) console.error(`[STATS ERROR] ${receiver.displayName} missing stats.routeRunning`);
-                if (stats.release === undefined) console.error(`[STATS ERROR] ${receiver.displayName} missing stats.release`);
-                receiver.overall = Math.round((speedStat + stats.catching + stats.routeRunning + stats.release) / 4);
+                stats.speed = speedStat;  // Update speed stat
+                const wrPrimaryStats = POSITIONS.WR.primaryStats;
+                receiver.overall = Math.round(wrPrimaryStats.reduce((sum, stat) => sum + (stats[stat] || 0), 0) / wrPrimaryStats.length);
                 // Update visual label
                 if (receiver.ovrTextBlock) {
                     const stars = receiver.overall >= 90 ? ' ★★' : receiver.overall >= 85 ? ' ★' : '';
@@ -10534,12 +11068,11 @@
                 defender.stats.speed = speedStat;
                 defender.baseSpeed = speedStat * SPEED_CONSTANTS.DEFENDER_FACTOR * gameState.gameSpeedMultiplier;
                 defender.speed = defender.baseSpeed;
-                // Recalculate overall based on new speed
+                // Recalculate overall based on new speed using CB position stats
                 const stats = defender.stats;
-                if (stats.manCoverage === undefined) console.error(`[STATS ERROR] ${defender.displayName} missing stats.manCoverage`);
-                if (stats.zoneCoverage === undefined) console.error(`[STATS ERROR] ${defender.displayName} missing stats.zoneCoverage`);
-                if (stats.tackling === undefined) console.error(`[STATS ERROR] ${defender.displayName} missing stats.tackling`);
-                defender.overall = Math.round((speedStat + stats.manCoverage + stats.zoneCoverage + stats.tackling) / 4);
+                stats.speed = speedStat;  // Update speed stat
+                const cbPrimaryStats = POSITIONS.CB.primaryStats;
+                defender.overall = Math.round(cbPrimaryStats.reduce((sum, stat) => sum + (stats[stat] || 0), 0) / cbPrimaryStats.length);
                 // Update visual label
                 if (defender.ovrTextBlock) {
                     const stars = defender.overall >= 90 ? ' ★★' : defender.overall >= 85 ? ' ★' : '';
@@ -11304,7 +11837,7 @@
         // Setup HTML button handlers
         document.getElementById('btnNewGame').addEventListener('click', () => {
             startNewGame();
-            showScreen('hub');
+            // Draft screen is shown by startNewGame() via startDraft()
         });
         document.getElementById('btnContinue').addEventListener('click', () => {
             if (managementState.initialized) showScreen('hub');
@@ -11399,14 +11932,21 @@
                 managementState.season = null;
                 managementState.freeAgents = [];
                 startNewGame();
-                showScreen('hub');
+                // Draft screen is shown by startNewGame() via startDraft()
             }
         });
         document.getElementById('btnRosterBack').addEventListener('click', () => showScreen('hub'));
         document.getElementById('btnFABack').addEventListener('click', () => showScreen('hub'));
         document.getElementById('btnScheduleBack').addEventListener('click', () => showScreen('hub'));
         document.getElementById('btnFacilitiesBack').addEventListener('click', () => showScreen('hub'));
-        document.getElementById('btnMatchContinue').addEventListener('click', () => showScreen('hub'));
+        document.getElementById('btnMatchContinue').addEventListener('click', () => {
+            if (managementState.seasonJustEnded) {
+                managementState.seasonJustEnded = false;
+                startDraft(false);  // Start offseason draft
+            } else {
+                showScreen('hub');
+            }
+        });
         document.getElementById('btnShowSimLog').addEventListener('click', () => {
             const container = document.getElementById('simLogContainer');
             const btn = document.getElementById('btnShowSimLog');
@@ -11438,10 +11978,53 @@
             refreshFacilitiesScreen();
         });
 
+        // Draft screen handlers
+        document.getElementById('btnSkipRound').addEventListener('click', () => {
+            skipDraftPick();
+        });
+        document.getElementById('btnFinishDraft').addEventListener('click', () => {
+            finishDraft();
+        });
+        document.getElementById('btnDraftPoolView').addEventListener('click', () => {
+            toggleDraftView(false);
+        });
+        document.getElementById('btnDraftRosterView').addEventListener('click', () => {
+            toggleDraftView(true);
+        });
+
         // Player detail modal handlers
-        document.getElementById('btnCloseDetail').addEventListener('click', closePlayerDetail);
+        document.getElementById('btnCloseDetail').addEventListener('click', () => {
+            // Reset draft player state when closing
+            if (draftState.selectedDraftPlayer) {
+                draftState.selectedDraftPlayer = null;
+                // Restore cut button visibility
+                document.getElementById('btnCutPlayer').style.display = 'block';
+            }
+            closePlayerDetail();
+        });
         document.getElementById('btnCutPlayer').addEventListener('click', cutPlayerFromDetail);
-        document.getElementById('btnTradePlayer').addEventListener('click', tradePlayerFromDetail);
+        document.getElementById('btnTradePlayer').addEventListener('click', () => {
+            // Handle draft player differently
+            if (draftState.selectedDraftPlayer) {
+                const playerId = draftState.selectedDraftPlayer.id;
+                const playerName = draftState.selectedDraftPlayer.name;
+                if (draftPlayer(playerId)) {
+                    draftState.selectedDraftPlayer = null;
+                    document.getElementById('btnCutPlayer').style.display = 'block';
+                    // Show confirmation on the button briefly
+                    const btn = document.getElementById('btnTradePlayer');
+                    btn.textContent = 'DRAFTED!';
+                    btn.style.backgroundColor = '#4CAF50';
+                    setTimeout(() => {
+                        btn.textContent = 'DRAFT';
+                        btn.style.backgroundColor = '';
+                        closePlayerDetail();
+                    }, 600);
+                }
+            } else {
+                tradePlayerFromDetail();
+            }
+        });
 
         // Show initial screen
         showScreen(managementState.currentScreen);
