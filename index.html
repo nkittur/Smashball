@@ -2849,33 +2849,77 @@
             ROUNDS: 5,
             PLAYERS_PER_ROUND: 10,  // Players available each round (50 total)
             NUM_TEAMS: 12,          // Teams in the league for draft order calculation
-            BASE_PICK_COST: 1000,   // Cost of #1 pick
-            STEEP_DECAY: 0.75,      // 75% decay for first 10 picks
-            MIN_COST: 10            // Minimum draft cost
+            MIN_COST: 10,           // Minimum draft cost
+            // Exact costs for first 7 picks as specified
+            EARLY_COSTS: [1000, 800, 700, 600, 520, 450, 390],
+            ROUND_2_START: 13,      // First pick of round 2 (in 12-team league)
+            ROUND_3_START: 25,      // First pick of round 3
+            ROUND_DROP: 0.70        // 30% drop at round boundaries
         };
 
         // Calculate cost of a draft pick based on position in pool
-        // First 10 picks: steep 75% decay
-        // After pick 10: increasingly gentle decay (rate approaches 1.0)
+        // Picks 1-7: Exact values from EARLY_COSTS
+        // Picks 8-12: Continue with decreasing drops
+        // Pick 13, 25: Sharp 30% drop at round boundaries
         function calculatePickCost(pickPosition) {
-            if (pickPosition <= 10) {
-                // Steep decay: 1000, 750, 562, 422, 316, 237, 178, 133, 100, 75
-                const cost = Math.floor(DRAFT.BASE_PICK_COST * Math.pow(DRAFT.STEEP_DECAY, pickPosition - 1));
+            // Picks 1-7: Use exact specified values
+            if (pickPosition <= DRAFT.EARLY_COSTS.length) {
+                return DRAFT.EARLY_COSTS[pickPosition - 1];
+            }
+
+            // Picks 8-12: Continue with decreasing drops from pick 7's value
+            // Drops: ~45, 38, 32, 27, 23 (shrinking by ~15% each)
+            if (pickPosition <= 12) {
+                let cost = DRAFT.EARLY_COSTS[6]; // Start from 390
+                let drop = 45;
+                for (let i = 8; i <= pickPosition; i++) {
+                    cost -= drop;
+                    drop = Math.floor(drop * 0.85);
+                }
                 return Math.max(DRAFT.MIN_COST, cost);
             }
 
-            // After pick 10: start from pick 10's value with gentler, increasing decay
-            // Decay rate starts at 0.90 and increases by 0.5% per pick (capped at 0.99)
-            const pick10Cost = Math.floor(DRAFT.BASE_PICK_COST * Math.pow(DRAFT.STEEP_DECAY, 9)); // = 75
+            // Get pick 12's cost as baseline
+            let pick12Cost = DRAFT.EARLY_COSTS[6];
+            let drop = 45;
+            for (let i = 8; i <= 12; i++) {
+                pick12Cost -= drop;
+                drop = Math.floor(drop * 0.85);
+            }
+            // pick12Cost is ~254
 
-            let cost = pick10Cost;
-            for (let i = 11; i <= pickPosition; i++) {
-                // Decay rate increases: 0.90, 0.905, 0.91, 0.915... up to 0.99
-                const decayRate = Math.min(0.99, 0.90 + (i - 11) * 0.005);
-                cost = cost * decayRate;
+            // Pick 13: Sharp drop at round 2 start
+            if (pickPosition === DRAFT.ROUND_2_START) {
+                return Math.max(DRAFT.MIN_COST, Math.floor(pick12Cost * DRAFT.ROUND_DROP));
             }
 
-            return Math.max(DRAFT.MIN_COST, Math.floor(cost));
+            // Picks 14-24: Gradual 94% decay
+            if (pickPosition < DRAFT.ROUND_3_START) {
+                let cost = Math.floor(pick12Cost * DRAFT.ROUND_DROP); // Start from pick 13 value
+                for (let i = 14; i <= pickPosition; i++) {
+                    cost = Math.floor(cost * 0.94);
+                }
+                return Math.max(DRAFT.MIN_COST, cost);
+            }
+
+            // Calculate pick 24's value
+            let pick24Cost = Math.floor(pick12Cost * DRAFT.ROUND_DROP);
+            for (let i = 14; i <= 24; i++) {
+                pick24Cost = Math.floor(pick24Cost * 0.94);
+            }
+
+            // Pick 25: Sharp drop at round 3 start
+            if (pickPosition === DRAFT.ROUND_3_START) {
+                return Math.max(DRAFT.MIN_COST, Math.floor(pick24Cost * DRAFT.ROUND_DROP));
+            }
+
+            // Picks 26+: Gentler 96% decay
+            let cost = Math.floor(pick24Cost * DRAFT.ROUND_DROP);
+            for (let i = 26; i <= pickPosition; i++) {
+                cost = Math.floor(cost * 0.96);
+            }
+
+            return Math.max(DRAFT.MIN_COST, cost);
         }
 
         // Calculate draft budget based on team's season finish ranking
