@@ -50,6 +50,22 @@ export interface HypeData {
     seasonFameEarnings: number;
 }
 
+/**
+ * Core attributes - foundational physical/mental traits that rarely change.
+ * These influence multiple skills and on-field performance.
+ * Range: 0-100, with very rare growth opportunities.
+ */
+export interface CoreAttributes {
+    /** Raw physical power - affects blocking, tackling, breaking tackles, hit power */
+    strength: number;
+    /** Top-end speed and acceleration - affects pursuit, separation, coverage */
+    speed: number;
+    /** Quickness, balance, change of direction - affects route running, evasion, reaction */
+    agility: number;
+    /** Mental processing, awareness, decision-making - affects reads, anticipation, focus */
+    intelligence: number;
+}
+
 /** Player entity with economy data */
 export interface EconomyPlayer {
     id: string;
@@ -65,6 +81,8 @@ export interface EconomyPlayer {
     salaryCost: number;
     /** Hype system data */
     hypeData: HypeData;
+    /** Core attributes - foundational traits that rarely change */
+    coreAttributes: CoreAttributes;
 }
 
 /** Team entity */
@@ -213,6 +231,64 @@ export const ECONOMY_CONSTANTS = {
         below_average: 0.25, // 25% - depth players
         rookie: 0.15,       // 15% - young prospects
         backup: 0.05,       // 5% - practice squad level
+    },
+
+    /** Core attributes configuration */
+    CORE_ATTRIBUTES: {
+        /** Base ranges by tier [min, max] */
+        TIER_RANGES: {
+            elite: { min: 75, max: 95 },
+            veteran: { min: 65, max: 85 },
+            average: { min: 50, max: 75 },
+            below_average: { min: 40, max: 65 },
+            rookie: { min: 45, max: 80 },   // Higher ceiling for young players
+            backup: { min: 35, max: 55 },
+        },
+        /** Chance per season for a core attribute to grow (even with max potential) */
+        GROWTH_CHANCE_BASE: 0.02,  // 2% base chance
+        /** Bonus growth chance per potential grade (0-3) */
+        GROWTH_CHANCE_PER_POTENTIAL: 0.01,  // +1% per potential grade
+        /** Max growth chance cap (even with max potential and youth) */
+        GROWTH_CHANCE_CAP: 0.08,  // 8% max
+        /** Growth amount when rare growth occurs */
+        GROWTH_AMOUNT: { min: 1, max: 2 },
+        /** Age at which core attributes stop growing entirely */
+        GROWTH_CUTOFF_AGE: 27,
+        /** Very rare "breakthrough" chance for exceptional growth */
+        BREAKTHROUGH_CHANCE: 0.005,  // 0.5% chance for +3-5 points
+        BREAKTHROUGH_AMOUNT: { min: 3, max: 5 },
+    },
+
+    /** How core attributes influence skills (multipliers) */
+    CORE_ATTRIBUTE_SKILL_INFLUENCE: {
+        /** Strength influences these skills */
+        strength: {
+            passBlock: 0.25,      // 25% of effective stat comes from core strength
+            passRush: 0.25,
+            tackling: 0.20,
+            hitPower: 0.30,
+            balance: 0.20,
+        },
+        /** Speed influences these skills */
+        speed: {
+            speed: 0.40,          // 40% of effective speed comes from core speed
+            acceleration: 0.35,
+            pursuit: 0.25,
+        },
+        /** Agility influences these skills */
+        agility: {
+            agility: 0.40,
+            routeRunning: 0.20,
+            release: 0.25,
+            balance: 0.15,
+        },
+        /** Intelligence influences these skills */
+        intelligence: {
+            awareness: 0.35,
+            routeRunning: 0.15,
+            focus: 0.25,
+            throwing: 0.20,       // QB reads and decisions
+        },
     },
 };
 
@@ -399,6 +475,50 @@ export function generatePotential(age: number, tier: PlayerTier): number {
 }
 
 /**
+ * Generate core attributes for a player based on tier and position
+ * Core attributes are foundational traits that rarely change over time.
+ */
+export function generateCoreAttributes(position: Position, tier: PlayerTier): CoreAttributes {
+    const tierRange = ECONOMY_CONSTANTS.CORE_ATTRIBUTES.TIER_RANGES[tier];
+
+    // Generate base attribute with variance
+    const generateAttribute = (): number => {
+        const { min, max } = tierRange;
+        const base = randomInt(min, max);
+        // Add slight variance
+        return clamp(base + randomInt(-3, 3), 30, 99);
+    };
+
+    // Generate all four core attributes
+    let strength = generateAttribute();
+    let speed = generateAttribute();
+    let agility = generateAttribute();
+    let intelligence = generateAttribute();
+
+    // Position-based tendencies (slight boosts)
+    switch (position) {
+        case 'OL':
+        case 'DL':
+            // Linemen tend to be stronger
+            strength = clamp(strength + randomInt(3, 8), 30, 99);
+            speed = clamp(speed - randomInt(3, 8), 30, 99);
+            break;
+        case 'WR':
+        case 'CB':
+            // Skill positions tend to be faster and more agile
+            speed = clamp(speed + randomInt(3, 8), 30, 99);
+            agility = clamp(agility + randomInt(2, 5), 30, 99);
+            break;
+        case 'QB':
+            // QBs tend to be smarter
+            intelligence = clamp(intelligence + randomInt(3, 8), 30, 99);
+            break;
+    }
+
+    return { strength, speed, agility, intelligence };
+}
+
+/**
  * Generate a complete player with randomized attributes
  */
 export function generatePlayer(
@@ -411,6 +531,7 @@ export function generatePlayer(
     const peakAge = randomInt(28, 32);
     const potentialGrade = generatePotential(age, tier);
     const stats = generateRandomStats(position, tier);
+    const coreAttributes = generateCoreAttributes(position, tier);
 
     const primaryStats = POSITION_PRIMARY_STATS[position];
     const total = primaryStats.reduce((sum, stat) => sum + (stats[stat] || 0), 0);
@@ -429,6 +550,7 @@ export function generatePlayer(
         yearsInLeague: Math.max(0, age - 21),
         salaryCost: 0,
         hypeData: initializeHypeData(),
+        coreAttributes,
     };
 
     // Calculate salary based on overall and tier
@@ -592,6 +714,264 @@ export function calculateTeamOverall(team: Team): number {
     if (team.roster.length === 0) return 0;
     const total = team.roster.reduce((sum, player) => sum + player.overall, 0);
     return Math.floor(total / team.roster.length);
+}
+
+// ============================================================================
+// CORE ATTRIBUTES SYSTEM
+// ============================================================================
+
+/**
+ * Result of a core attribute growth attempt
+ */
+export interface CoreAttributeGrowthResult {
+    attribute: keyof CoreAttributes;
+    oldValue: number;
+    newValue: number;
+    isBreakthrough: boolean;
+}
+
+/**
+ * Process potential core attribute growth for a player during offseason.
+ * Core attributes grow very rarely - even high potential players only have ~5-8% chance.
+ * Returns null if no growth occurred, or details of the growth.
+ */
+export function processCoreAttributeGrowth(
+    player: EconomyPlayer
+): CoreAttributeGrowthResult | null {
+    const config = ECONOMY_CONSTANTS.CORE_ATTRIBUTES;
+
+    // No growth after cutoff age
+    if (player.age >= config.GROWTH_CUTOFF_AGE) {
+        return null;
+    }
+
+    // Calculate growth chance based on potential
+    let growthChance = config.GROWTH_CHANCE_BASE +
+        (player.potentialGrade * config.GROWTH_CHANCE_PER_POTENTIAL);
+
+    // Young players get slight bonus
+    if (player.age <= 23) {
+        growthChance += 0.01;
+    }
+
+    // Cap the chance
+    growthChance = Math.min(growthChance, config.GROWTH_CHANCE_CAP);
+
+    // Roll for growth
+    if (Math.random() > growthChance) {
+        return null;
+    }
+
+    // Growth occurred! Pick a random attribute
+    const attributes: (keyof CoreAttributes)[] = ['strength', 'speed', 'agility', 'intelligence'];
+    const attribute = attributes[randomInt(0, attributes.length - 1)];
+    const oldValue = player.coreAttributes[attribute];
+
+    // Check for breakthrough (exceptional growth)
+    const isBreakthrough = Math.random() < config.BREAKTHROUGH_CHANCE;
+    const growthAmount = isBreakthrough
+        ? randomInt(config.BREAKTHROUGH_AMOUNT.min, config.BREAKTHROUGH_AMOUNT.max)
+        : randomInt(config.GROWTH_AMOUNT.min, config.GROWTH_AMOUNT.max);
+
+    // Apply growth
+    const newValue = clamp(oldValue + growthAmount, 30, 99);
+    player.coreAttributes[attribute] = newValue;
+
+    return {
+        attribute,
+        oldValue,
+        newValue,
+        isBreakthrough,
+    };
+}
+
+/**
+ * Calculate effective stat value considering core attribute influence.
+ * Formula: effectiveStat = baseStat * (1 - influence) + coreAttr * influence
+ *
+ * This blends the trained skill with the underlying physical/mental attribute.
+ */
+export function calculateEffectiveStat(
+    player: EconomyPlayer,
+    stat: keyof PlayerStats
+): number {
+    const baseStat = player.stats[stat];
+    if (baseStat === undefined) return 0;
+
+    const influences = ECONOMY_CONSTANTS.CORE_ATTRIBUTE_SKILL_INFLUENCE;
+    let totalInfluence = 0;
+    let weightedCoreContribution = 0;
+
+    // Check each core attribute for influence on this stat
+    for (const [coreAttr, skillInfluences] of Object.entries(influences)) {
+        const influence = (skillInfluences as Record<string, number>)[stat];
+        if (influence) {
+            totalInfluence += influence;
+            const coreValue = player.coreAttributes[coreAttr as keyof CoreAttributes];
+            weightedCoreContribution += coreValue * influence;
+        }
+    }
+
+    // If no core attributes influence this stat, return base stat
+    if (totalInfluence === 0) {
+        return baseStat;
+    }
+
+    // Blend base stat with core attribute contribution
+    // Example: if speed has 0.4 influence from core speed,
+    // effectiveSpeed = baseStat * 0.6 + coreSpeed * 0.4
+    const effectiveStat = baseStat * (1 - totalInfluence) + weightedCoreContribution;
+
+    return clamp(Math.round(effectiveStat), 0, 99);
+}
+
+/**
+ * Get all effective stats for a player, accounting for core attribute influence.
+ */
+export function getEffectiveStats(player: EconomyPlayer): PlayerStats {
+    const effectiveStats: PlayerStats = {
+        speed: calculateEffectiveStat(player, 'speed'),
+        acceleration: calculateEffectiveStat(player, 'acceleration'),
+        agility: calculateEffectiveStat(player, 'agility'),
+        catching: calculateEffectiveStat(player, 'catching'),
+        routeRunning: calculateEffectiveStat(player, 'routeRunning'),
+        release: calculateEffectiveStat(player, 'release'),
+        focus: calculateEffectiveStat(player, 'focus'),
+        tackling: calculateEffectiveStat(player, 'tackling'),
+        hitPower: calculateEffectiveStat(player, 'hitPower'),
+        pursuit: calculateEffectiveStat(player, 'pursuit'),
+        awareness: calculateEffectiveStat(player, 'awareness'),
+        passBlock: calculateEffectiveStat(player, 'passBlock'),
+        passRush: calculateEffectiveStat(player, 'passRush'),
+        strength: calculateEffectiveStat(player, 'strength'),
+        balance: calculateEffectiveStat(player, 'balance'),
+        aggression: calculateEffectiveStat(player, 'aggression'),
+        stamina: calculateEffectiveStat(player, 'stamina'),
+    };
+
+    // Add throwing for QB
+    if (player.position === 'QB' && player.stats.throwing !== undefined) {
+        effectiveStats.throwing = calculateEffectiveStat(player, 'throwing');
+    }
+
+    return effectiveStats;
+}
+
+/**
+ * Calculate a weighted roll for clash mechanics using effective stats.
+ * This connects core attributes to on-field performance.
+ */
+export function calculateWeightedRoll(
+    player: EconomyPlayer,
+    statWeights: Partial<Record<keyof PlayerStats, number>>,
+    variance: number = 0.2
+): number {
+    let weightedTotal = 0;
+
+    for (const [stat, weight] of Object.entries(statWeights)) {
+        const effectiveStat = calculateEffectiveStat(player, stat as keyof PlayerStats);
+        weightedTotal += effectiveStat * weight;
+    }
+
+    // Apply random variance (±variance%)
+    const randomFactor = 1 + (Math.random() - 0.5) * 2 * variance;
+    return weightedTotal * randomFactor;
+}
+
+/**
+ * Separation clash - WR trying to get open vs CB coverage
+ * Returns positive if receiver wins, negative if defender wins
+ */
+export function calculateSeparationClash(
+    receiver: EconomyPlayer,
+    defender: EconomyPlayer
+): number {
+    const receiverRoll = calculateWeightedRoll(receiver, {
+        speed: 0.25,
+        agility: 0.25,
+        routeRunning: 0.20,
+        acceleration: 0.15,
+        release: 0.15,
+    });
+
+    const defenderRoll = calculateWeightedRoll(defender, {
+        speed: 0.20,
+        agility: 0.25,
+        pursuit: 0.20,
+        awareness: 0.15,
+        acceleration: 0.20,
+    });
+
+    return receiverRoll - defenderRoll;
+}
+
+/**
+ * Line clash - OL blocking vs DL rushing
+ * Returns positive if OL wins (protection), negative if DL wins (pressure)
+ */
+export function calculateLineClash(
+    offensiveLineman: EconomyPlayer,
+    defensiveLineman: EconomyPlayer
+): number {
+    const olRoll = calculateWeightedRoll(offensiveLineman, {
+        passBlock: 0.35,
+        strength: 0.30,
+        balance: 0.20,
+        awareness: 0.15,
+    });
+
+    const dlRoll = calculateWeightedRoll(defensiveLineman, {
+        passRush: 0.35,
+        strength: 0.30,
+        acceleration: 0.20,
+        speed: 0.15,
+    });
+
+    return olRoll - dlRoll;
+}
+
+/**
+ * Tackle clash - defender trying to tackle ball carrier
+ * Returns true if tackle succeeds
+ */
+export function calculateTackleClash(
+    tackler: EconomyPlayer,
+    ballCarrier: EconomyPlayer
+): boolean {
+    const tacklerRoll = calculateWeightedRoll(tackler, {
+        tackling: 0.40,
+        pursuit: 0.30,
+        hitPower: 0.30,
+    });
+
+    const evasionRoll = calculateWeightedRoll(ballCarrier, {
+        agility: 0.35,
+        speed: 0.30,
+        balance: 0.35,
+    });
+
+    // Tackle succeeds if tackler roll exceeds evasion by more than -5
+    return tacklerRoll - evasionRoll > -5;
+}
+
+/**
+ * Get a display-friendly summary of core attributes
+ */
+export function getCoreAttributeGrade(value: number): string {
+    if (value >= 90) return 'Elite';
+    if (value >= 80) return 'Excellent';
+    if (value >= 70) return 'Good';
+    if (value >= 60) return 'Average';
+    if (value >= 50) return 'Below Avg';
+    return 'Poor';
+}
+
+/**
+ * Get overall core attribute average for a player
+ */
+export function getCoreAttributeAverage(player: EconomyPlayer): number {
+    const { strength, speed, agility, intelligence } = player.coreAttributes;
+    return Math.round((strength + speed + agility + intelligence) / 4);
 }
 
 // ============================================================================
@@ -891,8 +1271,19 @@ export class FootballEconomyEngine {
         stats: PlayerStats,
         age: number,
         peakAge: number,
-        potentialGrade: number
+        potentialGrade: number,
+        coreAttributes?: CoreAttributes
     ): EconomyPlayer {
+        // Generate core attributes if not provided, inferring tier from overall
+        const overall = this.calculateOverall(stats, position);
+        const inferredCoreAttrs = coreAttributes || generateCoreAttributes(
+            position,
+            overall >= 88 ? 'elite' :
+            overall >= 78 ? 'veteran' :
+            overall >= 68 ? 'average' :
+            overall >= 58 ? 'below_average' : 'backup'
+        );
+
         const player: EconomyPlayer = {
             id: generateId(),
             firstName,
@@ -900,12 +1291,13 @@ export class FootballEconomyEngine {
             age,
             position,
             stats,
-            overall: this.calculateOverall(stats, position),
+            overall,
             peakAge,
             potentialGrade,
             yearsInLeague: Math.max(0, age - 21),
             salaryCost: 0,
             hypeData: initializeHypeData(),
+            coreAttributes: inferredCoreAttrs,
         };
 
         // Calculate salary cost
@@ -1313,7 +1705,7 @@ export const economyEngine = new FootballEconomyEngine();
 // ============================================================================
 
 /**
- * Helper to migrate existing players to have hype data
+ * Helper to migrate existing players to have hype data and core attributes
  */
 export function migratePlayerToEconomy(existingPlayer: {
     id: string;
@@ -1327,12 +1719,20 @@ export function migratePlayerToEconomy(existingPlayer: {
     potentialGrade: number;
     yearsInLeague?: number;
     salaryCost?: number;
+    coreAttributes?: CoreAttributes;
 }): EconomyPlayer {
+    // Infer tier from overall for core attribute generation
+    const tier: PlayerTier = existingPlayer.overall >= 88 ? 'elite' :
+        existingPlayer.overall >= 78 ? 'veteran' :
+        existingPlayer.overall >= 68 ? 'average' :
+        existingPlayer.overall >= 58 ? 'below_average' : 'backup';
+
     return {
         ...existingPlayer,
         yearsInLeague: existingPlayer.yearsInLeague ?? Math.max(0, existingPlayer.age - 21),
         salaryCost: existingPlayer.salaryCost ?? 500,
         hypeData: initializeHypeData(),
+        coreAttributes: existingPlayer.coreAttributes ?? generateCoreAttributes(existingPlayer.position, tier),
     };
 }
 

@@ -4,6 +4,66 @@ This document details how each player stat affects gameplay mechanics.
 
 ---
 
+## Core Attributes
+
+Core attributes are foundational physical/mental traits that rarely change over a player's career. They influence multiple skills and represent a player's natural athletic gifts.
+
+### The Four Core Attributes
+
+| Attribute | Description | Skills Influenced |
+|-----------|-------------|-------------------|
+| **Strength** | Raw physical power | passBlock (25%), passRush (25%), tackling (20%), hitPower (30%), balance (20%) |
+| **Speed** | Top-end speed & acceleration | speed (40%), acceleration (35%), pursuit (25%) |
+| **Agility** | Quickness & change of direction | agility (40%), routeRunning (20%), release (25%), balance (15%) |
+| **Intelligence** | Mental processing & decision-making | awareness (35%), routeRunning (15%), focus (25%), throwing (20%) |
+
+### How Core Attributes Affect Skills
+
+Each skill has an "effective" value calculated by blending the trained skill with relevant core attributes:
+
+```
+effectiveStat = baseStat × (1 - totalInfluence) + weightedCoreContribution
+```
+
+**Example:** A player with 80 base speed and 90 core Speed attribute:
+- Core Speed influences the speed stat at 40%
+- Effective Speed = 80 × 0.6 + 90 × 0.4 = 48 + 36 = **84**
+
+### Core Attribute Growth
+
+Core attributes grow very rarely, even for high-potential players:
+
+| Condition | Growth Chance |
+|-----------|---------------|
+| Base chance | 2% per season |
+| Per potential grade (0-3) | +1% per grade |
+| Young player bonus (≤23) | +1% |
+| **Maximum chance** | 8% |
+| Growth cutoff age | 27 (no growth after) |
+
+**Growth amounts:**
+- Normal growth: +1 to +2 points
+- Breakthrough (0.5% chance): +3 to +5 points
+
+### Core Attribute Ranges by Tier
+
+| Tier | Range |
+|------|-------|
+| Elite | 75-95 |
+| Veteran | 65-85 |
+| Average | 50-75 |
+| Below Average | 40-65 |
+| Rookie | 45-80 |
+| Backup | 35-55 |
+
+### Position Tendencies
+
+- **OL/DL:** +3 to +8 Strength, -3 to -8 Speed
+- **WR/CB:** +3 to +8 Speed, +2 to +5 Agility
+- **QB:** +3 to +8 Intelligence
+
+---
+
 ## Quick Reference
 
 | Stat | Primary Use | Key Weight |
