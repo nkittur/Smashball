@@ -2203,8 +2203,8 @@
 
         // Create a new team
         function createNewTeam(name = 'Your Team') {
-            // New teams get middle-tier draft budget
-            const defaultRank = Math.ceil(DRAFT.NUM_TEAMS / 2);
+            // New teams get last-place draft budget (best picks available)
+            const defaultRank = DRAFT.NUM_TEAMS;
             const team = {
                 name,
                 fame: ECONOMY.STARTING_FAME,
@@ -3062,8 +3062,8 @@
                 const teamRank = getTeamSeasonRank();
                 managementState.team.draftPoints = calculateDraftBudget(teamRank);
             } else if (managementState.team && !managementState.team.draftPoints) {
-                // Fallback for new games without draft points
-                const defaultRank = Math.ceil(DRAFT.NUM_TEAMS / 2);
+                // Fallback for new games without draft points (last place = best picks)
+                const defaultRank = DRAFT.NUM_TEAMS;
                 managementState.team.draftPoints = calculateDraftBudget(defaultRank);
             }
 
