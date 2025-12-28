@@ -654,13 +654,10 @@
         .draft-toggle-buttons { display: flex; gap: 10px; margin-bottom: 15px; justify-content: center; }
         .draft-toggle-buttons .toggle-btn { flex: 1; max-width: 150px; padding: 8px 12px; font-size: 12px; background: #2a2a3a; }
         .draft-toggle-buttons .toggle-btn.active { background: #4a4a6a; border-color: #ffd700; }
-        .draft-list { max-height: 350px; overflow-y: auto; }
-        .draft-list .roster-item { border-left: 3px solid #333; transition: border-color 0.2s; }
+        .draft-list { max-height: 350px; overflow-y: auto; overflow-x: hidden; }
+        .draft-list .roster-item { border-left: 3px solid #333; transition: border-color 0.2s; flex-wrap: nowrap; }
         .draft-list .roster-item:hover { border-left-color: #ffd700; background: #2a2a3a; }
         .draft-list .roster-item.drafted { opacity: 0.4; pointer-events: none; }
-        .draft-pick-info { color: #4af; font-size: 11px; margin-top: 4px; }
-        .draft-player-actions { display: flex; gap: 8px; margin-top: 6px; }
-        .draft-player-actions button { padding: 4px 10px; font-size: 11px; }
         .fa-btn { padding: 8px 16px; font-size: 14px; }
         .match-score { font-size: 36px; margin: 20px 0; }
         .match-revenue { color: #4f4; font-size: 18px; margin-bottom: 15px; }
@@ -883,35 +880,33 @@
             margin-left: 10px;
         }
         .player-stats {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
         }
         .stat-row {
             background: #1a1a2a;
-            padding: 8px 12px;
+            padding: 10px 12px;
             border-radius: 4px;
             display: flex;
             justify-content: space-between;
-            font-size: 12px;
+            font-size: 14px;
         }
-        .stat-row .stat-name { color: #888; }
+        .stat-row .stat-name { color: #aaa; }
         .stat-row .stat-values {
             display: flex;
             align-items: center;
-            min-width: 60px;
-            justify-content: flex-end;
+            gap: 8px;
         }
         .stat-row .stat-value {
-            display: inline-block;
-            width: 24px;
+            font-weight: bold;
+            min-width: 24px;
             text-align: right;
         }
         .stat-row .stat-change {
-            display: inline-block;
-            width: 28px;
+            font-size: 12px;
+            min-width: 28px;
             text-align: right;
-            font-size: 11px;
         }
         /* Stat color coding by value */
         .stat-elite { color: #4f4; }      /* 90+ green */
@@ -2886,23 +2881,21 @@
                 // Cap overall for most players, allow 1-2 standouts
                 // Apply soft cap at 84, hard cap at 91
                 if (player.overall > 91) {
-                    // Scale down stats proportionally
+                    // Scale down stats proportionally to target 91
                     const scale = 91 / player.overall;
                     Object.keys(player.stats).forEach(stat => {
                         player.stats[stat] = Math.floor(player.stats[stat] * scale);
                     });
-                    player.overall = 91;
+                    // Recalculate overall from position stats
+                    player.overall = calculateOverall(player);
                 } else if (player.overall > 84 && Math.random() > 0.04) {
                     // 96% chance to cap at 84 if above
                     const scale = randomInt(78, 84) / player.overall;
                     Object.keys(player.stats).forEach(stat => {
                         player.stats[stat] = Math.floor(player.stats[stat] * scale);
                     });
-                    // Recalculate overall
-                    const positionData = POSITIONS[player.position];
-                    const primaryStats = positionData.primaryStats;
-                    const total = primaryStats.reduce((sum, stat) => sum + (player.stats[stat] || 0), 0);
-                    player.overall = Math.round(total / primaryStats.length);
+                    // Recalculate overall from position stats
+                    player.overall = calculateOverall(player);
                 }
 
                 // Recalculate salary for young age
@@ -3021,15 +3014,10 @@
             tradeBtn.style.opacity = tradeBtn.disabled ? '0.5' : '1';
             cutBtn.style.display = 'none';
 
-            // All stats (no changes for draft prospects)
-            const allStats = [
-                'speed', 'acceleration', 'agility', 'strength', 'stamina', 'balance',
-                'catching', 'throwing', 'routeRunning', 'release', 'jumping', 'focus',
-                'manCoverage', 'zoneCoverage', 'press', 'tackling', 'hitPower', 'pursuit', 'awareness',
-                'passBlock', 'passRush', 'aggression'
-            ];
+            // Only show position-relevant stats
+            const positionStats = POSITIONS[player.position].primaryStats;
 
-            const statsHtml = allStats.map(stat => {
+            const statsHtml = positionStats.map(stat => {
                 const current = Math.floor(player.stats[stat] || 0);
                 const statColorClass = current >= 90 ? 'stat-elite' :
                                        current >= 80 ? 'stat-good' :
@@ -3120,11 +3108,8 @@
                         <span class="ovr" style="min-width:28px;text-align:right;">${player.overall}</span>
                         <span class="potential-ind" style="min-width:36px;color:#ffd700;font-size:14px;">${potentialDisplay}</span>
                     </div>
-                    <div class="draft-player-actions">
-                        <button class="mgmt-btn" onclick="event.stopPropagation(); showDraftPlayerDetail('${player.id}')">VIEW</button>
-                        <button class="mgmt-btn primary" onclick="event.stopPropagation(); draftPlayer('${player.id}')">DRAFT</button>
-                    </div>
                 `;
+                item.addEventListener('click', () => showDraftPlayerDetail(player.id));
                 listEl.appendChild(item);
             });
         }
@@ -5368,7 +5353,9 @@
                 // Store config data on receiver
                 receiver.displayName = config.name;
                 receiver.lastName = config.lastName || config.name.split(' ').pop();  // Extract last name from display name if not provided
-                receiver.overall = config.overall || Math.round(Object.values(config.stats).reduce((a, b) => a + b, 0) / Object.keys(config.stats).length);
+                // Calculate overall from WR position stats
+                const wrStats = POSITIONS.WR.primaryStats;
+                receiver.overall = config.overall || Math.round(wrStats.reduce((sum, stat) => sum + (config.stats[stat] || 0), 0) / wrStats.length);
                 receiver.playerId = config.playerId || null;  // Link to roster player
                 receiver.route = config.route;
                 receiver.routeIndex = 0;
@@ -5492,7 +5479,9 @@
                 defender.zoneCenter = config.zoneCenter;
                 defender.zoneRadius = config.zoneRadius || 5;
                 defender.stats = config.stats;
-                defender.overall = config.overall || Math.round(Object.values(config.stats).reduce((a, b) => a + b, 0) / Object.keys(config.stats).length);
+                // Calculate overall from CB position stats
+                const cbStats = POSITIONS.CB.primaryStats;
+                defender.overall = config.overall || Math.round(cbStats.reduce((sum, stat) => sum + (config.stats[stat] || 0), 0) / cbStats.length);
                 defender.startPos = startPos.clone();
 
                 // Derive base speed from stats
@@ -10143,6 +10132,8 @@
 
             // Update trade button - use fame bank directly
             const tradeBtn = document.getElementById('btnTradePlayer');
+            const cutBtn = document.getElementById('btnCutPlayer');
+            cutBtn.style.display = 'block';  // Ensure cut button is visible for roster players
             if (fameBank > 0) {
                 tradeBtn.textContent = `HARVEST (+${fameBank} Fame)`;
                 tradeBtn.disabled = false;
@@ -10153,15 +10144,10 @@
                 tradeBtn.style.opacity = '0.5';
             }
 
-            // All stats with changes
-            const allStats = [
-                'speed', 'acceleration', 'agility', 'strength', 'stamina', 'balance',
-                'catching', 'throwing', 'routeRunning', 'release', 'jumping', 'focus',
-                'manCoverage', 'zoneCoverage', 'press', 'tackling', 'hitPower', 'pursuit', 'awareness',
-                'passBlock', 'passRush', 'aggression'
-            ];
+            // Only show position-relevant stats with changes
+            const positionStats = POSITIONS[player.position].primaryStats;
 
-            const statsHtml = allStats.map(stat => {
+            const statsHtml = positionStats.map(stat => {
                 const currentRaw = player.stats[stat] || 0;
                 const startRaw = player.seasonStartStats ? (player.seasonStartStats[stat] || 0) : currentRaw;
                 const current = Math.floor(currentRaw);
@@ -10879,12 +10865,11 @@
                 receiver.stats.speed = speedStat;
                 receiver.baseSpeed = speedStat * SPEED_CONSTANTS.RECEIVER_FACTOR * gameState.gameSpeedMultiplier;
                 receiver.speed = receiver.baseSpeed;
-                // Recalculate overall based on new speed
+                // Recalculate overall based on new speed using WR position stats
                 const stats = receiver.stats;
-                if (stats.catching === undefined) console.error(`[STATS ERROR] ${receiver.displayName} missing stats.catching`);
-                if (stats.routeRunning === undefined) console.error(`[STATS ERROR] ${receiver.displayName} missing stats.routeRunning`);
-                if (stats.release === undefined) console.error(`[STATS ERROR] ${receiver.displayName} missing stats.release`);
-                receiver.overall = Math.round((speedStat + stats.catching + stats.routeRunning + stats.release) / 4);
+                stats.speed = speedStat;  // Update speed stat
+                const wrPrimaryStats = POSITIONS.WR.primaryStats;
+                receiver.overall = Math.round(wrPrimaryStats.reduce((sum, stat) => sum + (stats[stat] || 0), 0) / wrPrimaryStats.length);
                 // Update visual label
                 if (receiver.ovrTextBlock) {
                     const stars = receiver.overall >= 90 ? ' ★★' : receiver.overall >= 85 ? ' ★' : '';
@@ -10902,12 +10887,11 @@
                 defender.stats.speed = speedStat;
                 defender.baseSpeed = speedStat * SPEED_CONSTANTS.DEFENDER_FACTOR * gameState.gameSpeedMultiplier;
                 defender.speed = defender.baseSpeed;
-                // Recalculate overall based on new speed
+                // Recalculate overall based on new speed using CB position stats
                 const stats = defender.stats;
-                if (stats.manCoverage === undefined) console.error(`[STATS ERROR] ${defender.displayName} missing stats.manCoverage`);
-                if (stats.zoneCoverage === undefined) console.error(`[STATS ERROR] ${defender.displayName} missing stats.zoneCoverage`);
-                if (stats.tackling === undefined) console.error(`[STATS ERROR] ${defender.displayName} missing stats.tackling`);
-                defender.overall = Math.round((speedStat + stats.manCoverage + stats.zoneCoverage + stats.tackling) / 4);
+                stats.speed = speedStat;  // Update speed stat
+                const cbPrimaryStats = POSITIONS.CB.primaryStats;
+                defender.overall = Math.round(cbPrimaryStats.reduce((sum, stat) => sum + (stats[stat] || 0), 0) / cbPrimaryStats.length);
                 // Update visual label
                 if (defender.ovrTextBlock) {
                     const stars = defender.overall >= 90 ? ' ★★' : defender.overall >= 85 ? ' ★' : '';
