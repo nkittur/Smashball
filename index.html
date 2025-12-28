@@ -12007,10 +12007,19 @@
             // Handle draft player differently
             if (draftState.selectedDraftPlayer) {
                 const playerId = draftState.selectedDraftPlayer.id;
+                const playerName = draftState.selectedDraftPlayer.name;
                 if (draftPlayer(playerId)) {
                     draftState.selectedDraftPlayer = null;
                     document.getElementById('btnCutPlayer').style.display = 'block';
-                    closePlayerDetail();
+                    // Show confirmation on the button briefly
+                    const btn = document.getElementById('btnTradePlayer');
+                    btn.textContent = 'DRAFTED!';
+                    btn.style.backgroundColor = '#4CAF50';
+                    setTimeout(() => {
+                        btn.textContent = 'DRAFT';
+                        btn.style.backgroundColor = '';
+                        closePlayerDetail();
+                    }, 600);
                 }
             } else {
                 tradePlayerFromDetail();
