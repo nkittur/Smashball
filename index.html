@@ -964,6 +964,22 @@
             font-size: 14px;
         }
 
+        /* Core Attribute Colors */
+        .attr-str { color: #ff6b6b; }  /* Strength - Red */
+        .attr-spd { color: #4dabf7; }  /* Speed - Blue */
+        .attr-agi { color: #69db7c; }  /* Agility - Green */
+        .attr-int { color: #ffd43b; }  /* Intelligence - Gold */
+
+        .core-attr-item.str-attr { border-left: 3px solid #ff6b6b; }
+        .core-attr-item.spd-attr { border-left: 3px solid #4dabf7; }
+        .core-attr-item.agi-attr { border-left: 3px solid #69db7c; }
+        .core-attr-item.int-attr { border-left: 3px solid #ffd43b; }
+
+        .core-attr-item.str-attr .core-attr-name { color: #ff6b6b; }
+        .core-attr-item.spd-attr .core-attr-name { color: #4dabf7; }
+        .core-attr-item.agi-attr .core-attr-name { color: #69db7c; }
+        .core-attr-item.int-attr .core-attr-name { color: #ffd43b; }
+
         /* Abilities Section */
         .abilities-section {
             margin-top: 12px;
@@ -2554,6 +2570,79 @@
             return best;
         }
 
+        // Core attribute colors for visual display
+        const CORE_ATTR_COLORS = {
+            strength: '#ff6b6b',     // Red
+            speed: '#4dabf7',        // Blue
+            agility: '#69db7c',      // Green
+            intelligence: '#ffd43b'  // Gold
+        };
+
+        // Ability to core attribute mapping (core stats only, normalized to 100%)
+        const ABILITY_CORE_MAPPING = {
+            // DL abilities
+            bullRush:       { strength: 0.80, intelligence: 0.20 },
+            blockShed:      { strength: 0.50, agility: 0.50 },
+            spinMove:       { agility: 0.69, speed: 0.31 },
+            swimMove:       { agility: 0.56, speed: 0.44 },
+            // OL abilities
+            anchor:         { strength: 1.00 },
+            handFighting:   { strength: 0.53, agility: 0.47 },
+            footwork:       { agility: 0.60, intelligence: 0.40 },
+            driveBlock:     { strength: 0.57, intelligence: 0.43 },
+            // CB abilities
+            pressCoverage:  { strength: 0.56, intelligence: 0.44 },
+            manCoverage:    { speed: 0.50, agility: 0.50 },
+            zoneCoverage:   { intelligence: 0.56, agility: 0.44 },
+            ballHawk:       { intelligence: 0.53, speed: 0.47 },
+            // WR abilities
+            releaseMove:    { agility: 0.56, strength: 0.44 },
+            routeSharpness: { agility: 0.53, speed: 0.47 },
+            contestedCatch: { strength: 0.55, intelligence: 0.45 },
+            yacAbility:     { speed: 0.50, agility: 0.50 },
+            // QB abilities
+            armStrength:    { strength: 0.69, intelligence: 0.31 },
+            quickRelease:   { agility: 0.62, intelligence: 0.38 },
+            fieldVision:    { intelligence: 1.00 },
+            pocketPresence: { agility: 0.56, speed: 0.44 }
+        };
+
+        // Generate color-coded ability name HTML
+        function getColorCodedAbilityName(abilityKey) {
+            const mapping = ABILITY_CORE_MAPPING[abilityKey];
+            if (!mapping) return abilityKey;
+
+            // Convert camelCase to display name
+            const displayName = abilityKey.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase());
+            const letters = displayName.split('');
+
+            // Sort attributes by percentage (descending)
+            const sortedAttrs = Object.entries(mapping).sort((a, b) => b[1] - a[1]);
+
+            // Assign colors to each letter proportionally
+            let coloredLetters = [];
+            let letterIndex = 0;
+
+            for (const [attr, percent] of sortedAttrs) {
+                const color = CORE_ATTR_COLORS[attr];
+                const numLetters = Math.round(percent * letters.length);
+
+                for (let i = 0; i < numLetters && letterIndex < letters.length; i++) {
+                    coloredLetters.push(`<span style="color: ${color}">${letters[letterIndex]}</span>`);
+                    letterIndex++;
+                }
+            }
+
+            // Handle any remaining letters (rounding edge case)
+            while (letterIndex < letters.length) {
+                const lastColor = CORE_ATTR_COLORS[sortedAttrs[sortedAttrs.length - 1][0]];
+                coloredLetters.push(`<span style="color: ${lastColor}">${letters[letterIndex]}</span>`);
+                letterIndex++;
+            }
+
+            return coloredLetters.join('');
+        }
+
         // Generate position-specific stats
         function generatePositionStats(position, baseRange) {
             const stats = {};
@@ -3838,19 +3927,19 @@
                     <div class="core-attributes-section">
                         <div class="section-title">Core Attributes</div>
                         <div class="core-attrs-grid">
-                            <div class="core-attr-item">
+                            <div class="core-attr-item str-attr">
                                 <span class="core-attr-name">STR ${createTooltip('strength')}</span>
                                 <span class="core-attr-value ${getColorClass(core.strength)}">${core.strength}</span>
                             </div>
-                            <div class="core-attr-item">
+                            <div class="core-attr-item spd-attr">
                                 <span class="core-attr-name">SPD ${createTooltip('speed')}</span>
                                 <span class="core-attr-value ${getColorClass(core.speed)}">${core.speed}</span>
                             </div>
-                            <div class="core-attr-item">
+                            <div class="core-attr-item agi-attr">
                                 <span class="core-attr-name">AGI ${createTooltip('agility')}</span>
                                 <span class="core-attr-value ${getColorClass(core.agility)}">${core.agility}</span>
                             </div>
-                            <div class="core-attr-item">
+                            <div class="core-attr-item int-attr">
                                 <span class="core-attr-name">INT ${createTooltip('intelligence')}</span>
                                 <span class="core-attr-value ${getColorClass(core.intelligence)}">${core.intelligence}</span>
                             </div>
@@ -3871,10 +3960,10 @@
                         <div class="abilities-grid">
                             ${Object.entries(abilities).map(([key, value]) => {
                                 const isBest = bestAbility && bestAbility.name === key;
-                                const displayName = key.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase());
+                                const coloredName = getColorCodedAbilityName(key);
                                 return `
                                     <div class="ability-item ${isBest ? 'best-ability' : ''}">
-                                        <span class="ability-name">${displayName} ${createTooltip(key)}</span>
+                                        <span class="ability-name">${coloredName} ${createTooltip(key)}</span>
                                         <span class="ability-value ${getColorClass(value)}">${value}</span>
                                     </div>
                                 `;
@@ -11058,19 +11147,19 @@
                     <div class="core-attributes-section">
                         <div class="section-title">Core Attributes</div>
                         <div class="core-attrs-grid">
-                            <div class="core-attr-item">
+                            <div class="core-attr-item str-attr">
                                 <span class="core-attr-name">STR ${createTooltip('strength')}</span>
                                 <span class="core-attr-value ${getColorClass(core.strength)}">${core.strength}</span>
                             </div>
-                            <div class="core-attr-item">
+                            <div class="core-attr-item spd-attr">
                                 <span class="core-attr-name">SPD ${createTooltip('speed')}</span>
                                 <span class="core-attr-value ${getColorClass(core.speed)}">${core.speed}</span>
                             </div>
-                            <div class="core-attr-item">
+                            <div class="core-attr-item agi-attr">
                                 <span class="core-attr-name">AGI ${createTooltip('agility')}</span>
                                 <span class="core-attr-value ${getColorClass(core.agility)}">${core.agility}</span>
                             </div>
-                            <div class="core-attr-item">
+                            <div class="core-attr-item int-attr">
                                 <span class="core-attr-name">INT ${createTooltip('intelligence')}</span>
                                 <span class="core-attr-value ${getColorClass(core.intelligence)}">${core.intelligence}</span>
                             </div>
@@ -11091,10 +11180,10 @@
                         <div class="abilities-grid">
                             ${Object.entries(abilities).map(([key, value]) => {
                                 const isBest = bestAbility && bestAbility.name === key;
-                                const displayName = key.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase());
+                                const coloredName = getColorCodedAbilityName(key);
                                 return `
                                     <div class="ability-item ${isBest ? 'best-ability' : ''}">
-                                        <span class="ability-name">${displayName} ${createTooltip(key)}</span>
+                                        <span class="ability-name">${coloredName} ${createTooltip(key)}</span>
                                         <span class="ability-value ${getColorClass(value)}">${value}</span>
                                     </div>
                                 `;
