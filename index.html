@@ -1000,6 +1000,24 @@
             font-size: 13px;
         }
 
+        /* Technique Section */
+        .technique-section {
+            margin-top: 12px;
+            padding: 12px;
+            background: #1a1a2a;
+            border-radius: 6px;
+        }
+        .technique-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .technique-section .stat-row {
+            background: #252535;
+            border-radius: 4px;
+            padding: 4px 8px;
+        }
+
         /* Tooltip System */
         .tooltip-icon {
             display: inline-flex;
@@ -1695,35 +1713,42 @@
         };
 
         // Position definitions with stat priorities
+        // primaryStats: used for overall calculation
+        // techniqueStats: unique trained skills (excludes core attribute duplicates like speed/agility/strength)
         const POSITIONS = {
             WR: {
                 name: 'Wide Receiver',
                 shortName: 'WR',
                 primaryStats: ['speed', 'catching', 'routeRunning', 'agility'],
+                techniqueStats: ['catching', 'routeRunning', 'release', 'focus'],
                 count: 3
             },
             CB: {
                 name: 'Cornerback',
                 shortName: 'CB',
                 primaryStats: ['speed', 'manCoverage', 'zoneCoverage', 'agility'],
+                techniqueStats: ['tackling', 'awareness', 'pursuit', 'hitPower'],
                 count: 4
             },
             OL: {
                 name: 'Offensive Lineman',
                 shortName: 'OL',
                 primaryStats: ['passBlock', 'strength', 'balance', 'awareness'],
+                techniqueStats: ['passBlock', 'balance', 'awareness'],
                 count: 5
             },
             DL: {
                 name: 'Defensive Lineman',
                 shortName: 'DL',
                 primaryStats: ['passRush', 'strength', 'acceleration', 'tackling'],
+                techniqueStats: ['passRush', 'tackling', 'hitPower', 'pursuit'],
                 count: 4
             },
             QB: {
                 name: 'Quarterback',
                 shortName: 'QB',
                 primaryStats: ['throwing', 'awareness', 'agility', 'speed'],
+                techniqueStats: ['throwing', 'awareness', 'focus'],
                 count: 1
             }
         };
@@ -1875,6 +1900,79 @@
                 name: 'Pocket Presence',
                 desc: 'Escape pressure and extend plays.',
                 formula: 'Agility (45%) + Speed (35%) + Awareness (20%)'
+            },
+            // Technique Stats (trained skills)
+            catching: {
+                name: 'Catching',
+                desc: 'Ability to secure the ball. Determines catch probability and catch zone size.',
+                influences: 'Base catch probability (0-100%), catch zone radius',
+                growth: 'Technique - can improve through training and game reps'
+            },
+            routeRunning: {
+                name: 'Route Running',
+                desc: 'Precision in running routes. Helps create separation at route breaks.',
+                influences: 'Separation clash (WR side), route sharpness ability',
+                growth: 'Technique - can improve through training and game reps'
+            },
+            release: {
+                name: 'Release',
+                desc: 'Getting off the line of scrimmage against press coverage.',
+                influences: 'Release move ability, separation at the line',
+                growth: 'Technique - can improve through training and game reps'
+            },
+            focus: {
+                name: 'Focus',
+                desc: 'Concentration under pressure. Affects contested catch success.',
+                influences: 'Catch bonus/penalty when defenders are close',
+                growth: 'Technique - can improve through training and game reps'
+            },
+            tackling: {
+                name: 'Tackling',
+                desc: 'Form and technique in bringing down ball carriers.',
+                influences: 'Tackle clash (40% weight), tackle success rate',
+                growth: 'Technique - can improve through training and game reps'
+            },
+            awareness: {
+                name: 'Awareness',
+                desc: 'Field awareness and reading plays.',
+                influences: 'Coverage abilities, line clash (OL), separation defense',
+                growth: 'Technique - can improve through training and game reps'
+            },
+            pursuit: {
+                name: 'Pursuit',
+                desc: 'Chasing down ball carriers and closing on plays.',
+                influences: 'Tackle clash (30% weight), pursuit speed boost',
+                growth: 'Technique - can improve through training and game reps'
+            },
+            hitPower: {
+                name: 'Hit Power',
+                desc: 'Explosive hitting that can knock down opponents.',
+                influences: 'Tackle clash (30% weight), knockdown chance',
+                growth: 'Technique - can improve through training and game reps'
+            },
+            passBlock: {
+                name: 'Pass Block',
+                desc: 'Technique in protecting the quarterback.',
+                influences: 'Line clash (35% weight), all OL abilities',
+                growth: 'Technique - can improve through training and game reps'
+            },
+            passRush: {
+                name: 'Pass Rush',
+                desc: 'Technique in rushing the passer.',
+                influences: 'Line clash (35% weight), all DL abilities',
+                growth: 'Technique - can improve through training and game reps'
+            },
+            balance: {
+                name: 'Balance',
+                desc: 'Staying on feet during contact.',
+                influences: 'Line clash (OL), tackle evasion, OL anchor ability',
+                growth: 'Technique - can improve through training and game reps'
+            },
+            throwing: {
+                name: 'Throwing',
+                desc: 'Quarterback throwing technique and accuracy.',
+                influences: 'All QB abilities, team strength rating',
+                growth: 'Technique - can improve through training and game reps'
             }
         };
 
@@ -3630,32 +3728,12 @@
             tradeBtn.style.opacity = canDraft ? '1' : '0.5';
             cutBtn.style.display = 'none';
 
-            // Only show position-relevant stats
-            const positionStats = POSITIONS[player.position].primaryStats;
+            const getColorClass = (val) => val >= 90 ? 'stat-elite' : val >= 80 ? 'stat-good' : val >= 70 ? 'stat-average' : val >= 60 ? 'stat-below' : 'stat-poor';
 
-            const statsHtml = positionStats.map(stat => {
-                const current = Math.floor(player.stats[stat] || 0);
-                const statColorClass = current >= 90 ? 'stat-elite' :
-                                       current >= 80 ? 'stat-good' :
-                                       current >= 70 ? 'stat-average' :
-                                       current >= 60 ? 'stat-below' : 'stat-poor';
-                const statName = stat.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase());
-
-                return `<div class="stat-row">
-                    <span class="stat-name">${statName}</span>
-                    <span class="stat-values">
-                        <span class="stat-value ${statColorClass}">${current}</span>
-                    </span>
-                </div>`;
-            }).join('');
-            document.getElementById('playerStats').innerHTML = statsHtml;
-
-            // Core Attributes section
+            // Core Attributes section (shown first, in main stats area)
             let coreAttrsHtml = '';
             if (player.coreAttributes) {
                 const core = player.coreAttributes;
-                const getColorClass = (val) => val >= 90 ? 'stat-elite' : val >= 80 ? 'stat-good' : val >= 70 ? 'stat-average' : val >= 60 ? 'stat-below' : 'stat-poor';
-
                 coreAttrsHtml = `
                     <div class="core-attributes-section">
                         <div class="section-title">Core Attributes</div>
@@ -3680,14 +3758,13 @@
                     </div>
                 `;
             }
+            document.getElementById('playerStats').innerHTML = coreAttrsHtml;
 
-            // Abilities section
+            // Abilities section (shown second)
             let abilitiesHtml = '';
             const abilities = calculateAbilities(player);
             if (abilities) {
                 const bestAbility = getBestAbility(player);
-                const getColorClass = (val) => val >= 90 ? 'stat-elite' : val >= 80 ? 'stat-good' : val >= 70 ? 'stat-average' : val >= 60 ? 'stat-below' : 'stat-poor';
-
                 abilitiesHtml = `
                     <div class="abilities-section">
                         <div class="section-title">Abilities</div>
@@ -3707,8 +3784,33 @@
                 `;
             }
 
-            // Show core attributes and abilities instead of season stats for draft
-            document.getElementById('playerSeasonStats').innerHTML = coreAttrsHtml + abilitiesHtml;
+            // Technique stats section (trained skills, excludes core attribute duplicates)
+            const techniqueStats = POSITIONS[player.position].techniqueStats || [];
+            let techniqueHtml = '';
+            if (techniqueStats.length > 0) {
+                techniqueHtml = `
+                    <div class="technique-section">
+                        <div class="section-title">Technique</div>
+                        <div class="technique-grid">
+                            ${techniqueStats.map(stat => {
+                                const current = Math.floor(player.stats[stat] || 0);
+                                const statName = stat.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase());
+                                return `
+                                    <div class="stat-row">
+                                        <span class="stat-name">${statName} ${createTooltip(stat)}</span>
+                                        <span class="stat-values">
+                                            <span class="stat-value ${getColorClass(current)}">${current}</span>
+                                        </span>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Show abilities and technique in the season stats area
+            document.getElementById('playerSeasonStats').innerHTML = abilitiesHtml + techniqueHtml;
             document.getElementById('playerCareerGraph').innerHTML = '';
 
             document.getElementById('playerDetailModal').style.display = 'flex';
@@ -10827,36 +10929,93 @@
                 tradeBtn.style.opacity = '0.5';
             }
 
-            // Only show position-relevant stats with changes
-            const positionStats = POSITIONS[player.position].primaryStats;
+            const getColorClass = (val) => val >= 90 ? 'stat-elite' : val >= 80 ? 'stat-good' : val >= 70 ? 'stat-average' : val >= 60 ? 'stat-below' : 'stat-poor';
 
-            const statsHtml = positionStats.map(stat => {
-                const currentRaw = player.stats[stat] || 0;
-                const startRaw = player.seasonStartStats ? (player.seasonStartStats[stat] || 0) : currentRaw;
-                const current = Math.floor(currentRaw);
-                const start = Math.floor(startRaw);
-                const change = current - start;
-                const changeClass = change > 0 ? 'positive' : change < 0 ? 'negative' : '';
-                const changeText = change !== 0 ? `${change > 0 ? '+' : ''}${change}` : '';
+            // Core Attributes section (shown first, in main stats area)
+            let coreAttrsHtml = '';
+            if (player.coreAttributes) {
+                const core = player.coreAttributes;
+                coreAttrsHtml = `
+                    <div class="core-attributes-section">
+                        <div class="section-title">Core Attributes</div>
+                        <div class="core-attrs-grid">
+                            <div class="core-attr-item">
+                                <span class="core-attr-name">STR ${createTooltip('strength')}</span>
+                                <span class="core-attr-value ${getColorClass(core.strength)}">${core.strength}</span>
+                            </div>
+                            <div class="core-attr-item">
+                                <span class="core-attr-name">SPD ${createTooltip('speed')}</span>
+                                <span class="core-attr-value ${getColorClass(core.speed)}">${core.speed}</span>
+                            </div>
+                            <div class="core-attr-item">
+                                <span class="core-attr-name">AGI ${createTooltip('agility')}</span>
+                                <span class="core-attr-value ${getColorClass(core.agility)}">${core.agility}</span>
+                            </div>
+                            <div class="core-attr-item">
+                                <span class="core-attr-name">INT ${createTooltip('intelligence')}</span>
+                                <span class="core-attr-value ${getColorClass(core.intelligence)}">${core.intelligence}</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+            document.getElementById('playerStats').innerHTML = coreAttrsHtml;
 
-                // Color code based on stat value
-                const statColorClass = current >= 90 ? 'stat-elite' :
-                                       current >= 80 ? 'stat-good' :
-                                       current >= 70 ? 'stat-average' :
-                                       current >= 60 ? 'stat-below' : 'stat-poor';
+            // Abilities section (shown second)
+            let abilitiesHtml = '';
+            const abilities = calculateAbilities(player);
+            if (abilities) {
+                const bestAbility = getBestAbility(player);
+                abilitiesHtml = `
+                    <div class="abilities-section">
+                        <div class="section-title">Abilities</div>
+                        <div class="abilities-grid">
+                            ${Object.entries(abilities).map(([key, value]) => {
+                                const isBest = bestAbility && bestAbility.name === key;
+                                const displayName = key.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase());
+                                return `
+                                    <div class="ability-item ${isBest ? 'best-ability' : ''}">
+                                        <span class="ability-name">${displayName} ${createTooltip(key)}</span>
+                                        <span class="ability-value ${getColorClass(value)}">${value}</span>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                `;
+            }
 
-                // Format stat name
-                const statName = stat.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase());
-
-                return `<div class="stat-row">
-                    <span class="stat-name">${statName}</span>
-                    <span class="stat-values">
-                        <span class="stat-value ${statColorClass}">${current}</span>
-                        <span class="stat-change ${changeClass}">${changeText}</span>
-                    </span>
-                </div>`;
-            }).join('');
-            document.getElementById('playerStats').innerHTML = statsHtml;
+            // Technique stats section (trained skills with changes, excludes core attribute duplicates)
+            const techniqueStats = POSITIONS[player.position].techniqueStats || [];
+            let techniqueHtml = '';
+            if (techniqueStats.length > 0) {
+                techniqueHtml = `
+                    <div class="technique-section">
+                        <div class="section-title">Technique</div>
+                        <div class="technique-grid">
+                            ${techniqueStats.map(stat => {
+                                const currentRaw = player.stats[stat] || 0;
+                                const startRaw = player.seasonStartStats ? (player.seasonStartStats[stat] || 0) : currentRaw;
+                                const current = Math.floor(currentRaw);
+                                const start = Math.floor(startRaw);
+                                const change = current - start;
+                                const changeClass = change > 0 ? 'positive' : change < 0 ? 'negative' : '';
+                                const changeText = change !== 0 ? `${change > 0 ? '+' : ''}${change}` : '';
+                                const statName = stat.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase());
+                                return `
+                                    <div class="stat-row">
+                                        <span class="stat-name">${statName} ${createTooltip(stat)}</span>
+                                        <span class="stat-values">
+                                            <span class="stat-value ${getColorClass(current)}">${current}</span>
+                                            <span class="stat-change ${changeClass}">${changeText}</span>
+                                        </span>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                `;
+            }
 
             // Season stats (position-dependent)
             let seasonStatsHtml = '<div class="season-stats-title">Season Stats</div><div class="season-stats-grid">';
@@ -10899,64 +11058,7 @@
             }
             seasonStatsHtml += '</div>';
 
-            // Core Attributes section
-            let coreAttrsHtml = '';
-            if (player.coreAttributes) {
-                const core = player.coreAttributes;
-                const getColorClass = (val) => val >= 90 ? 'stat-elite' : val >= 80 ? 'stat-good' : val >= 70 ? 'stat-average' : val >= 60 ? 'stat-below' : 'stat-poor';
-
-                coreAttrsHtml = `
-                    <div class="core-attributes-section">
-                        <div class="section-title">Core Attributes</div>
-                        <div class="core-attrs-grid">
-                            <div class="core-attr-item">
-                                <span class="core-attr-name">STR ${createTooltip('strength')}</span>
-                                <span class="core-attr-value ${getColorClass(core.strength)}">${core.strength}</span>
-                            </div>
-                            <div class="core-attr-item">
-                                <span class="core-attr-name">SPD ${createTooltip('speed')}</span>
-                                <span class="core-attr-value ${getColorClass(core.speed)}">${core.speed}</span>
-                            </div>
-                            <div class="core-attr-item">
-                                <span class="core-attr-name">AGI ${createTooltip('agility')}</span>
-                                <span class="core-attr-value ${getColorClass(core.agility)}">${core.agility}</span>
-                            </div>
-                            <div class="core-attr-item">
-                                <span class="core-attr-name">INT ${createTooltip('intelligence')}</span>
-                                <span class="core-attr-value ${getColorClass(core.intelligence)}">${core.intelligence}</span>
-                            </div>
-                        </div>
-                    </div>
-                `;
-            }
-
-            // Abilities section
-            let abilitiesHtml = '';
-            const abilities = calculateAbilities(player);
-            if (abilities) {
-                const bestAbility = getBestAbility(player);
-                const getColorClass = (val) => val >= 90 ? 'stat-elite' : val >= 80 ? 'stat-good' : val >= 70 ? 'stat-average' : val >= 60 ? 'stat-below' : 'stat-poor';
-
-                abilitiesHtml = `
-                    <div class="abilities-section">
-                        <div class="section-title">Abilities</div>
-                        <div class="abilities-grid">
-                            ${Object.entries(abilities).map(([key, value]) => {
-                                const isBest = bestAbility && bestAbility.name === key;
-                                const displayName = key.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase());
-                                return `
-                                    <div class="ability-item ${isBest ? 'best-ability' : ''}">
-                                        <span class="ability-name">${displayName} ${createTooltip(key)}</span>
-                                        <span class="ability-value ${getColorClass(value)}">${value}</span>
-                                    </div>
-                                `;
-                            }).join('')}
-                        </div>
-                    </div>
-                `;
-            }
-
-            document.getElementById('playerSeasonStats').innerHTML = seasonStatsHtml + coreAttrsHtml + abilitiesHtml;
+            document.getElementById('playerSeasonStats').innerHTML = abilitiesHtml + techniqueHtml + seasonStatsHtml;
 
             // Career graph
             const history = player.careerHistory || [];

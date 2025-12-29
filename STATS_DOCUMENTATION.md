@@ -4,6 +4,32 @@ This document details how each player stat affects gameplay mechanics.
 
 ---
 
+## Stat System Overview
+
+Player stats are organized into three distinct tiers:
+
+| Tier | Description | Growth | Examples |
+|------|-------------|--------|----------|
+| **Core Attributes** | Natural athletic gifts (the "genes") | Very rare (2-8% per season, stops at 27) | STR, SPD, AGI, INT |
+| **Position Abilities** | What they do on the field (derived) | Automatic (from core + technique) | Bull Rush, Man Coverage, Route Sharpness |
+| **Technique Stats** | Trained skills and knowledge | Regular (through training/games) | Catching, Pass Rush, Awareness |
+
+### How They Connect
+
+```
+Core Attributes (rarely change)
+        ↓
+   Influence technique via calculateEffectiveStat()
+        ↓
+Technique Stats (can improve) → Position Abilities (calculated each play)
+        ↓
+   Used in clash calculations
+```
+
+**Key insight:** Core Attributes define a player's ceiling. Technique can be trained, but a player with low core Speed will never be truly fast, even with high technique.
+
+---
+
 ## Core Attributes
 
 Core attributes are foundational physical/mental traits that rarely change over a player's career. They influence multiple skills and represent a player's natural athletic gifts.
@@ -148,6 +174,39 @@ Certain abilities counter others (values show DL effectiveness modifier):
 - **Cannon Arm:** High Strength → Excels at Arm Strength
 - **Cerebral QB:** High Intelligence → Excels at Field Vision
 - **Mobile QB:** High Agility + Speed → Excels at Pocket Presence
+
+---
+
+## Technique Stats
+
+Technique stats represent trained skills that can improve through practice and game experience. Unlike core attributes, these grow more regularly and are influenced by core attributes.
+
+### Position-Specific Technique Stats
+
+| Position | Technique Stats | Notes |
+|----------|-----------------|-------|
+| **WR** | Catching, Route Running, Release, Focus | Focus affects contested catches |
+| **CB** | Tackling, Awareness, Pursuit, Hit Power | Defense-focused technique |
+| **OL** | Pass Block, Balance, Awareness | Blocking technique |
+| **DL** | Pass Rush, Tackling, Hit Power, Pursuit | Rush technique |
+| **QB** | Throwing, Awareness, Focus | Mental + throwing technique |
+
+### How Technique Relates to Core Attributes
+
+Technique stats are influenced by core attributes but represent the learned component:
+
+| Technique | Core Influence | What It Means |
+|-----------|----------------|---------------|
+| Catching | None directly | Pure technique, not affected by athleticism |
+| Route Running | Agility (20%), Intelligence (15%) | Natural agility helps, but routes are learned |
+| Pass Block | Strength (25%) | Strength helps, but hand placement is technique |
+| Awareness | Intelligence (35%) | Smart players read plays better |
+
+**Example:** Two players with identical 80 Awareness, but one has 70 INT and the other has 90 INT:
+- Player A: Effective Awareness = 80 × 0.65 + 70 × 0.35 = 52 + 24.5 = **76.5**
+- Player B: Effective Awareness = 80 × 0.65 + 90 × 0.35 = 52 + 31.5 = **83.5**
+
+The smarter player's awareness is more effective on the field.
 
 ---
 
