@@ -1881,8 +1881,8 @@
             QB: {
                 name: 'Quarterback',
                 shortName: 'QB',
-                primaryStats: ['throwing', 'awareness', 'agility', 'speed'],
-                techniqueStats: ['throwing', 'shortPassAcc', 'longPassAcc', 'awareness'],
+                primaryStats: ['shortPassAcc', 'longPassAcc', 'awareness', 'agility'],
+                techniqueStats: ['shortPassAcc', 'longPassAcc', 'awareness'],
                 count: 1
             }
         };
@@ -1911,7 +1911,7 @@
             intelligence: {
                 name: 'Intelligence',
                 desc: 'Mental processing, awareness, and decision-making.',
-                influences: 'awareness, routeRunning, focus, throwing',
+                influences: 'awareness, routeRunning, field vision',
                 growth: 'Core attribute - grows very rarely (2-8% per season until age 27)'
             },
             // DL Abilities
@@ -2082,12 +2082,6 @@
                 name: 'Balance',
                 desc: 'Staying on feet during contact in the trenches.',
                 influences: 'Line clash (OL 20%)',
-                growth: 'Technique - can improve through training and game reps'
-            },
-            throwing: {
-                name: 'Throwing',
-                desc: 'Quarterback throwing technique and mechanics.',
-                influences: 'All QB abilities, team strength rating',
                 growth: 'Technique - can improve through training and game reps'
             },
             shortPassAcc: {
@@ -2570,9 +2564,9 @@
                     };
                 case 'QB':
                     return {
-                        armStrength: clamp(core.strength * 0.45 + (player.stats.throwing || 70) * 0.35 + core.intelligence * 0.20),
-                        quickRelease: clamp(core.agility * 0.40 + (player.stats.throwing || 70) * 0.35 + core.intelligence * 0.25),
-                        fieldVision: clamp(core.intelligence * 0.55 + (player.stats.awareness || 70) * 0.30 + (player.stats.throwing || 70) * 0.15),
+                        armStrength: clamp(core.strength * 1.0),
+                        quickRelease: clamp(core.agility * 1.0),
+                        fieldVision: clamp(core.intelligence * 0.60 + (player.stats.awareness || 70) * 0.40),
                         pocketPresence: clamp(core.agility * 0.45 + core.speed * 0.35 + (player.stats.awareness || 70) * 0.20)
                     };
                 default:
@@ -2625,8 +2619,8 @@
             contestedCatch: { strength: 0.55, intelligence: 0.45 },
             yacAbility:     { speed: 0.50, agility: 0.50 },
             // QB abilities
-            armStrength:    { strength: 0.69, intelligence: 0.31 },
-            quickRelease:   { agility: 0.62, intelligence: 0.38 },
+            armStrength:    { strength: 1.00 },
+            quickRelease:   { agility: 1.00 },
             fieldVision:    { intelligence: 1.00 },
             pocketPresence: { agility: 0.56, speed: 0.44 }
         };
@@ -2666,7 +2660,7 @@
             // All possible stats
             const allStats = [
                 'speed', 'acceleration', 'agility', 'strength', 'stamina', 'balance', 'evasion',
-                'catching', 'throwing', 'shortPassAcc', 'longPassAcc', 'routeRunning', 'jumping',
+                'catching', 'shortPassAcc', 'longPassAcc', 'routeRunning', 'jumping',
                 'manCoverage', 'zoneCoverage', 'press', 'tackling', 'pursuit', 'awareness',
                 'passBlock', 'passRush'
             ];
@@ -2781,18 +2775,18 @@
                 // Weight trait selection based on QB's style
                 // High awareness + low agility = game_manager
                 // High agility + speed = scrambler
-                // High throwing = gunslinger
+                // High pass accuracy = gunslinger
                 // Otherwise balanced
                 const awareness = stats.awareness || 70;
                 const agility = stats.agility || 70;
                 const speed = stats.speed || 70;
-                const throwing = stats.throwing || 70;
+                const passAcc = ((stats.shortPassAcc || 70) + (stats.longPassAcc || 70)) / 2;
 
                 if (agility > 78 && speed > 75) {
                     player.qbTrait = 'scrambler';
-                } else if (awareness > 80 && throwing < 75) {
+                } else if (awareness > 80 && passAcc < 75) {
                     player.qbTrait = 'game_manager';
-                } else if (throwing > 82) {
+                } else if (passAcc > 82) {
                     player.qbTrait = 'gunslinger';
                 } else {
                     player.qbTrait = 'balanced';
@@ -2862,13 +2856,13 @@
                 const awareness = stats.awareness || 70;
                 const agility = stats.agility || 70;
                 const speed = stats.speed || 70;
-                const throwing = stats.throwing || 70;
+                const passAcc = ((stats.shortPassAcc || 70) + (stats.longPassAcc || 70)) / 2;
 
                 if (agility > 78 && speed > 75) {
                     player.qbTrait = 'scrambler';
-                } else if (awareness > 80 && throwing < 75) {
+                } else if (awareness > 80 && passAcc < 75) {
                     player.qbTrait = 'game_manager';
-                } else if (throwing > 82) {
+                } else if (passAcc > 82) {
                     player.qbTrait = 'gunslinger';
                 } else {
                     player.qbTrait = 'balanced';
@@ -4249,7 +4243,8 @@
             if (dc.QB) {
                 const qb = roster.find(p => p.id === dc.QB);
                 if (qb) {
-                    total += (qb.stats.throwing + qb.stats.awareness) / 2;
+                    const passAcc = ((qb.stats.shortPassAcc || 70) + (qb.stats.longPassAcc || 70)) / 2;
+                    total += (passAcc + qb.stats.awareness) / 2;
                     count++;
                 }
             }
@@ -4761,10 +4756,10 @@
             // Step 1: Vision check - can QB see each receiver?
             const visibleReceivers = [];
             for (const receiver of state.receivers) {
+                const qbInt = state.qb.coreAttributes?.intelligence || 70;
                 const visionRoll = weightedStatRoll(qbStats, {
-                    awareness: 0.70,
-                    throwing: 0.30
-                }, state.qb.coreAttributes);
+                    awareness: 0.70
+                }, state.qb.coreAttributes) * 0.7 + qbInt * 0.3;
 
                 // Easier to notice more open receivers
                 const noticeThreshold = 70 - receiver.separation;
@@ -6273,8 +6268,8 @@
             } else {
                 // Fallback stats
                 qb.stats = {
-                    throwing: 75, awareness: 70, agility: 65, speed: 60,
-                    strength: 65, accuracy: 75, armStrength: 70
+                    shortPassAcc: 75, longPassAcc: 72, awareness: 70, agility: 65, speed: 60,
+                    strength: 65
                 };
             }
 
@@ -11766,26 +11761,25 @@
             // Show QB key stats
             let qbScoresHtml = '';
             if (qb) {
-                const throwStat = Math.floor(qb.stats.throwing || 0);
-                const accStat = Math.floor(qb.stats.acceleration || 0);
-                const focusStat = Math.floor(qb.stats.focus || 0);
-                const agiStat = Math.floor(qb.stats.agility || 0);
+                const shortAcc = Math.floor(qb.stats.shortPassAcc || 0);
+                const longAcc = Math.floor(qb.stats.longPassAcc || 0);
+                const awareness = Math.floor(qb.stats.awareness || 0);
                 qbScoresHtml = `
                     <div class="qb-stat-block">
                         <div class="qb-stat-label">QB Overall</div>
                         <div class="qb-stat-value">${qb.overall}</div>
                     </div>
                     <div class="qb-stat-block">
-                        <div class="qb-stat-label">Throw</div>
-                        <div class="qb-stat-value">${throwStat}</div>
+                        <div class="qb-stat-label">Short</div>
+                        <div class="qb-stat-value">${shortAcc}</div>
                     </div>
                     <div class="qb-stat-block">
-                        <div class="qb-stat-label">Focus</div>
-                        <div class="qb-stat-value">${focusStat}</div>
+                        <div class="qb-stat-label">Long</div>
+                        <div class="qb-stat-value">${longAcc}</div>
                     </div>
                     <div class="qb-stat-block">
-                        <div class="qb-stat-label">Accel</div>
-                        <div class="qb-stat-value">${accStat}</div>
+                        <div class="qb-stat-label">AWR</div>
+                        <div class="qb-stat-value">${awareness}</div>
                     </div>
                 `;
             }
