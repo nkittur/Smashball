@@ -1371,10 +1371,11 @@
         };
 
         // Stat weights for clash resolution
+        // Note: speed, agility, strength now come from coreAttributes (merged with old stats)
         const CLASH_WEIGHTS = {
             separation: {
                 receiver: { speed: 0.25, agility: 0.25, routeRunning: 0.20, acceleration: 0.15, release: 0.15 },
-                defender: { speed: 0.20, agility: 0.20, manCoverage: 0.25, pursuit: 0.20, awareness: 0.15 }
+                defender: { speed: 0.20, agility: 0.20, awareness: 0.25, pursuit: 0.20, tackling: 0.15 }
             },
             physical: {
                 attacker: { strength: 0.35, aggression: 0.25, hitPower: 0.25, balance: 0.15 },
@@ -1714,20 +1715,20 @@
 
         // Position definitions with stat priorities
         // primaryStats: used for overall calculation
-        // techniqueStats: unique trained skills (excludes core attribute duplicates like speed/agility/strength)
+        // techniqueStats: all technique stats used in gameplay calculations (excludes core attributes)
         const POSITIONS = {
             WR: {
                 name: 'Wide Receiver',
                 shortName: 'WR',
                 primaryStats: ['speed', 'catching', 'routeRunning', 'agility'],
-                techniqueStats: ['catching', 'routeRunning', 'release', 'focus'],
+                techniqueStats: ['catching', 'routeRunning', 'release', 'acceleration', 'balance', 'focus'],
                 count: 3
             },
             CB: {
                 name: 'Cornerback',
                 shortName: 'CB',
-                primaryStats: ['speed', 'manCoverage', 'zoneCoverage', 'agility'],
-                techniqueStats: ['tackling', 'awareness', 'pursuit', 'hitPower'],
+                primaryStats: ['speed', 'awareness', 'tackling', 'agility'],
+                techniqueStats: ['tackling', 'awareness', 'pursuit', 'hitPower', 'balance'],
                 count: 4
             },
             OL: {
@@ -1741,7 +1742,7 @@
                 name: 'Defensive Lineman',
                 shortName: 'DL',
                 primaryStats: ['passRush', 'strength', 'acceleration', 'tackling'],
-                techniqueStats: ['passRush', 'tackling', 'hitPower', 'pursuit'],
+                techniqueStats: ['passRush', 'tackling', 'hitPower', 'pursuit', 'acceleration'],
                 count: 4
             },
             QB: {
@@ -1965,13 +1966,25 @@
             balance: {
                 name: 'Balance',
                 desc: 'Staying on feet during contact.',
-                influences: 'Line clash (OL), tackle evasion, OL anchor ability',
+                influences: 'Line clash (OL 20%), tackle evasion (35%), physical clash (15%)',
                 growth: 'Technique - can improve through training and game reps'
             },
             throwing: {
                 name: 'Throwing',
                 desc: 'Quarterback throwing technique and accuracy.',
                 influences: 'All QB abilities, team strength rating',
+                growth: 'Technique - can improve through training and game reps'
+            },
+            acceleration: {
+                name: 'Acceleration',
+                desc: 'Burst speed and explosiveness off the line.',
+                influences: 'Separation clash (15%), line clash defense (20%), YAC (25%)',
+                growth: 'Technique - can improve through training and game reps'
+            },
+            aggression: {
+                name: 'Aggression',
+                desc: 'Willingness to engage in physical contact.',
+                influences: 'Physical clash (25%), interception attempts',
                 growth: 'Technique - can improve through training and game reps'
             }
         };
@@ -4029,10 +4042,18 @@
         // ========================================
 
         // Weighted roll using stat weights (same formula as real game)
-        function weightedStatRoll(stats, weights) {
+        // Uses coreAttributes for speed, agility, strength (merged stats)
+        function weightedStatRoll(stats, weights, coreAttributes = null) {
             let weightedTotal = 0;
+            const coreStats = ['speed', 'agility', 'strength'];
             for (const stat in weights) {
-                const statValue = stats[stat] || 50;
+                let statValue;
+                // Use coreAttributes for speed, agility, strength if available
+                if (coreStats.includes(stat) && coreAttributes && coreAttributes[stat] !== undefined) {
+                    statValue = coreAttributes[stat];
+                } else {
+                    statValue = stats[stat] || 50;
+                }
                 weightedTotal += statValue * weights[stat];
             }
             // Add ±20% variance
@@ -4239,8 +4260,8 @@
                 }
 
                 // Resolve clash
-                const olRoll = weightedStatRoll(ol.stats, CLASH_WEIGHTS.lineClash.offense);
-                const dlRoll = weightedStatRoll(dl.stats, CLASH_WEIGHTS.lineClash.defense) + roundBonus;
+                const olRoll = weightedStatRoll(ol.stats, CLASH_WEIGHTS.lineClash.offense, ol.player.coreAttributes);
+                const dlRoll = weightedStatRoll(dl.stats, CLASH_WEIGHTS.lineClash.defense, dl.player.coreAttributes) + roundBonus;
                 const margin = dlRoll - olRoll;
 
                 let result = 'held';
@@ -4376,7 +4397,7 @@
                 // ========================================
                 // BASE SEPARATION ROLL
                 // ========================================
-                let receiverRoll = weightedStatRoll(receiver.stats, CLASH_WEIGHTS.separation.receiver);
+                let receiverRoll = weightedStatRoll(receiver.stats, CLASH_WEIGHTS.separation.receiver, receiver.player.coreAttributes);
 
                 // Crossing route bonus - route running helps execute cuts cleanly
                 // Reduced from 0.3 to 0.10 for better balance
@@ -4395,16 +4416,16 @@
                 // ========================================
                 // DEFENDER ROLL
                 // ========================================
-                let defenderRoll = weightedStatRoll(defender.stats, CLASH_WEIGHTS.separation.defender);
+                let defenderRoll = weightedStatRoll(defender.stats, CLASH_WEIGHTS.separation.defender, defender.player.coreAttributes);
 
                 // Defender counter-bonuses to balance WR route bonuses
                 // Awareness helps read the route and anticipate breaks
                 const awarenessBonus = (defender.stats.awareness || 70) * 0.08;
                 defenderRoll += awarenessBonus;
 
-                // Man coverage helps track the receiver through cuts
+                // Awareness also helps track the receiver through cuts
                 if (isCrossing || isBreakRound) {
-                    const trackingBonus = (defender.stats.manCoverage || 70) * 0.06;
+                    const trackingBonus = (defender.stats.awareness || 70) * 0.06;
                     defenderRoll += trackingBonus;
                 }
 
@@ -4496,7 +4517,7 @@
                     awareness: 0.50,
                     throwing: 0.30,
                     focus: 0.20
-                });
+                }, state.qb.coreAttributes);
 
                 // Easier to notice more open receivers
                 const noticeThreshold = 70 - receiver.separation;
@@ -4685,7 +4706,7 @@
                     acceleration: 0.25,
                     agility: 0.25,
                     balance: 0.15
-                });
+                }, receiver.player.coreAttributes);
                 const segmentYards = Math.floor(2 + (yacRoll / 100) * 10);
 
                 // Find next tackler (cycle through defenders, safety gets bonus)
@@ -4728,8 +4749,8 @@
 
         // Resolve a tackle attempt
         function simResolveTackleAttempt(receiver, tackler, safetyBonus) {
-            const evasionRoll = weightedStatRoll(receiver.stats, CLASH_WEIGHTS.tackle.ballCarrier);
-            let tackleRoll = weightedStatRoll(tackler.stats, CLASH_WEIGHTS.tackle.tackler);
+            const evasionRoll = weightedStatRoll(receiver.stats, CLASH_WEIGHTS.tackle.ballCarrier, receiver.player.coreAttributes);
+            let tackleRoll = weightedStatRoll(tackler.stats, CLASH_WEIGHTS.tackle.tackler, tackler.player.coreAttributes);
 
             // Tackler advantage: WRs have natural +7 advantage from primary stat bonuses
             // on speed/agility, while CBs don't get bonuses on tackling/pursuit/hitPower.
@@ -5753,7 +5774,8 @@
                 playerId: player.id,
                 start: new BABYLON.Vector3(xPositions[index], 0, startZ),
                 route: [],  // Will be generated
-                stats: { ...player.stats }
+                stats: { ...player.stats },
+                coreAttributes: player.coreAttributes || null
             };
         }
 
@@ -5778,7 +5800,8 @@
                 zoneRadius: index === 3 ? 6 : 0,
                 zoneColor: zoneColors[index],
                 overall: player.overall,
-                stats: { ...player.stats }
+                stats: { ...player.stats },
+                coreAttributes: player.coreAttributes || null
             };
         }
 
@@ -5849,7 +5872,8 @@
                     name: `${player.firstName} ${player.lastName.charAt(0)}.`,
                     playerId: player.id,
                     position_label: posLabels[index],
-                    stats: { ...player.stats }
+                    stats: { ...player.stats },
+                    coreAttributes: player.coreAttributes || null
                 });
             });
 
@@ -5883,7 +5907,8 @@
                     name: `${player.firstName} ${player.lastName.charAt(0)}.`,
                     playerId: player.id,
                     position_label: posLabels[i],
-                    stats: { ...player.stats }
+                    stats: { ...player.stats },
+                    coreAttributes: player.coreAttributes || null
                 });
             }
 
@@ -6146,10 +6171,12 @@
                 receiver.routeIndex = 0;
                 receiver.startPos = config.start.clone();
                 receiver.stats = config.stats;
+                receiver.coreAttributes = config.coreAttributes || null;
 
                 // Derive base speed from stats (normalized to game units)
-                // Speed stat 80 at 1.0x multiplier = 0.0512 units/frame
-                receiver.baseSpeed = config.stats.speed * SPEED_CONSTANTS.RECEIVER_FACTOR * gameState.gameSpeedMultiplier;
+                // Use core speed if available, otherwise fall back to stats.speed
+                const baseSpeed = receiver.coreAttributes?.speed || config.stats.speed;
+                receiver.baseSpeed = baseSpeed * SPEED_CONSTANTS.RECEIVER_FACTOR * gameState.gameSpeedMultiplier;
                 receiver.speed = receiver.baseSpeed;
 
                 // Clash system runtime state
@@ -6264,13 +6291,16 @@
                 defender.zoneCenter = config.zoneCenter;
                 defender.zoneRadius = config.zoneRadius || 5;
                 defender.stats = config.stats;
+                defender.coreAttributes = config.coreAttributes || null;
                 // Calculate overall from CB position stats
                 const cbStats = POSITIONS.CB.primaryStats;
                 defender.overall = config.overall || Math.round(cbStats.reduce((sum, stat) => sum + (config.stats[stat] || 0), 0) / cbStats.length);
                 defender.startPos = startPos.clone();
 
                 // Derive base speed from stats
-                defender.baseSpeed = config.stats.speed * SPEED_CONSTANTS.DEFENDER_FACTOR * gameState.gameSpeedMultiplier;
+                // Use core speed if available, otherwise fall back to stats.speed
+                const baseSpeed = defender.coreAttributes?.speed || config.stats.speed;
+                defender.baseSpeed = baseSpeed * SPEED_CONSTANTS.DEFENDER_FACTOR * gameState.gameSpeedMultiplier;
                 defender.speed = defender.baseSpeed;
 
                 // Clash system runtime state
@@ -6383,8 +6413,11 @@
                 oLineman.playerId = config.playerId || null;  // Link to roster player
                 oLineman.position_label = config.position;
                 oLineman.stats = config.stats;
+                oLineman.coreAttributes = config.coreAttributes || null;
                 oLineman.startPos = startPos.clone();
-                oLineman.baseSpeed = config.stats.speed * SPEED_CONSTANTS.O_LINE_FACTOR * gameState.gameSpeedMultiplier;
+                // Use core speed if available, otherwise fall back to stats.speed
+                const baseSpeed = oLineman.coreAttributes?.speed || config.stats.speed;
+                oLineman.baseSpeed = baseSpeed * SPEED_CONSTANTS.O_LINE_FACTOR * gameState.gameSpeedMultiplier;
                 oLineman.speed = oLineman.baseSpeed;
 
                 // Blocking state
@@ -6443,8 +6476,11 @@
                 dLineman.playerId = config.playerId || null;  // Link to roster player
                 dLineman.position_label = config.position;
                 dLineman.stats = config.stats;
+                dLineman.coreAttributes = config.coreAttributes || null;
                 dLineman.startPos = startPos.clone();
-                dLineman.baseSpeed = config.stats.speed * SPEED_CONSTANTS.D_LINE_FACTOR * gameState.gameSpeedMultiplier;
+                // Use core speed if available, otherwise fall back to stats.speed
+                const baseSpeed = dLineman.coreAttributes?.speed || config.stats.speed;
+                dLineman.baseSpeed = baseSpeed * SPEED_CONSTANTS.D_LINE_FACTOR * gameState.gameSpeedMultiplier;
                 dLineman.speed = dLineman.baseSpeed;
 
                 // Pass rush state
@@ -7505,8 +7541,8 @@
             dLineman.lastClashTime = currentTime;
 
             // Roll for clash
-            const oLineRoll = weightedRoll(oLineman.stats, CLASH_WEIGHTS.lineClash.offense);
-            const dLineRoll = weightedRoll(dLineman.stats, CLASH_WEIGHTS.lineClash.defense);
+            const oLineRoll = weightedRoll(oLineman.stats, CLASH_WEIGHTS.lineClash.offense, oLineman.coreAttributes);
+            const dLineRoll = weightedRoll(dLineman.stats, CLASH_WEIGHTS.lineClash.defense, dLineman.coreAttributes);
 
             const margin = oLineRoll - dLineRoll;
 
@@ -7994,8 +8030,8 @@
             defender.lastTackleTime = currentTime;
 
             // Roll for tackle
-            let tackleRoll = weightedRoll(defender.stats, CLASH_WEIGHTS.tackle.tackler);
-            const evasionRoll = weightedRoll(receiver.stats, CLASH_WEIGHTS.tackle.ballCarrier);
+            let tackleRoll = weightedRoll(defender.stats, CLASH_WEIGHTS.tackle.tackler, defender.coreAttributes);
+            const evasionRoll = weightedRoll(receiver.stats, CLASH_WEIGHTS.tackle.ballCarrier, receiver.coreAttributes);
 
             // Tackler advantage: WRs have natural +7 advantage from primary stat bonuses
             // on speed/agility, while CBs don't get bonuses on tackling/pursuit/hitPower.
@@ -10440,10 +10476,18 @@
         // ============================================
 
         // Weighted dice roll based on stats
-        const weightedRoll = (stats, weights) => {
+        // Uses coreAttributes for speed, agility, strength (merged stats)
+        const weightedRoll = (stats, weights, coreAttributes = null) => {
             let weightedTotal = 0;
+            const coreStats = ['speed', 'agility', 'strength'];
             for (const stat in weights) {
-                const statValue = stats[stat] || 50;  // Default to 50 if stat missing
+                let statValue;
+                // Use coreAttributes for speed, agility, strength if available
+                if (coreStats.includes(stat) && coreAttributes && coreAttributes[stat] !== undefined) {
+                    statValue = coreAttributes[stat];
+                } else {
+                    statValue = stats[stat] || 50;  // Default to 50 if stat missing
+                }
                 weightedTotal += statValue * weights[stat];
             }
 
@@ -10521,14 +10565,14 @@
 
             // Get appropriate defender coverage stat
             const defenderWeights = { ...CLASH_WEIGHTS.separation.defender };
+            // Zone defenders get a small bonus from awareness instead of general coverage
             if (defender.aiType === 'zone') {
-                defenderWeights.zoneCoverage = defenderWeights.manCoverage;
-                delete defenderWeights.manCoverage;
+                defenderWeights.awareness = (defenderWeights.awareness || 0) + 0.05;
             }
 
             // Roll for separation battle
-            const receiverRoll = weightedRoll(receiver.stats, CLASH_WEIGHTS.separation.receiver);
-            const defenderRoll = weightedRoll(defender.stats, defenderWeights);
+            const receiverRoll = weightedRoll(receiver.stats, CLASH_WEIGHTS.separation.receiver, receiver.coreAttributes);
+            const defenderRoll = weightedRoll(defender.stats, defenderWeights, defender.coreAttributes);
 
             const margin = receiverRoll - defenderRoll;
 
@@ -10625,8 +10669,8 @@
             const currentTime = gameState.gameTime;
 
             // Roll physical battle
-            const receiverPhysical = weightedRoll(receiver.stats, CLASH_WEIGHTS.physical.attacker);
-            const defenderPhysical = weightedRoll(defender.stats, CLASH_WEIGHTS.physical.defender);
+            const receiverPhysical = weightedRoll(receiver.stats, CLASH_WEIGHTS.physical.attacker, receiver.coreAttributes);
+            const defenderPhysical = weightedRoll(defender.stats, CLASH_WEIGHTS.physical.defender, defender.coreAttributes);
 
             const margin = receiverPhysical - defenderPhysical;
             const loser = margin > 0 ? defender : receiver;
@@ -12002,6 +12046,7 @@
                     receiver.playerId = player.id;
                     receiver.displayName = `${player.firstName} ${player.lastName.charAt(0)}.`;
                     receiver.stats = { ...player.stats };
+                    receiver.coreAttributes = player.coreAttributes || null;
                     receiver.lastName = player.lastName;
                     receiver.overall = player.overall;
                     // Update name label TextBlocks
@@ -12038,6 +12083,7 @@
                         defender.playerId = player.id;
                         defender.displayName = `${player.firstName} ${player.lastName.charAt(0)}.`;
                         defender.stats = { ...player.stats };
+                        defender.coreAttributes = player.coreAttributes || null;
                         defender.overall = player.overall;
                         // Update name label TextBlocks
                         if (defender.nameTextBlock) {
