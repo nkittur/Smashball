@@ -3720,53 +3720,98 @@
         };
 
         // Generate draft class with realistic ratings
-        // Most players 65-82, a few standouts at 83-84, rare gems at 90-91
+        // Guaranteed: 1-3 elite (90+), 6+ standouts (85-89), rest are developmental
         function generateDraftClass() {
             const draftClass = [];
             const totalPlayers = DRAFT.ROUNDS * DRAFT.PLAYERS_PER_ROUND;
-            const positions = ['QB', 'WR', 'WR', 'WR', 'CB', 'CB', 'OL', 'DL']; // Weighted towards skill positions
+            const positions = ['QB', 'WR', 'WR', 'WR', 'CB', 'CB', 'OL', 'DL'];
 
-            for (let i = 0; i < totalPlayers; i++) {
-                const position = positions[i % positions.length];
-
-                // Custom tier distribution for draft prospects
-                // Most are developmental, few are ready contributors
-                const roll = Math.random();
-                let tier;
-                if (roll < 0.50) tier = 'rookie';        // 50% - developmental (60-73 overall)
-                else if (roll < 0.85) tier = 'average';  // 35% - solid prospect (68-78 overall)
-                else if (roll < 0.97) tier = 'below_average'; // 12% - raw talent (58-68 overall)
-                else tier = 'veteran';                    // 3% - ready to contribute (78-86 overall)
-
-                const player = generatePlayer(position, tier);
-
-                // Draft prospects are younger (21-23)
-                player.age = randomInt(21, 23);
+            // First, generate guaranteed elite players (90+)
+            const numElite = randomInt(1, 3);
+            for (let i = 0; i < numElite; i++) {
+                const position = positions[randomInt(0, positions.length - 1)];
+                const player = generatePlayer(position, 'elite');
+                player.age = randomInt(21, 22);
                 player.yearsInLeague = 0;
 
-                // Cap overall for most players, allow 1-2 standouts
-                // Apply soft cap at 84, hard cap at 91
-                if (player.overall > 91) {
-                    // Scale down stats proportionally to target 91
-                    const scale = 91 / player.overall;
+                // Ensure 90+ overall
+                if (player.overall < 90) {
+                    const boost = (90 + randomInt(0, 4)) / player.overall;
+                    Object.keys(player.stats).forEach(stat => {
+                        player.stats[stat] = Math.min(99, Math.floor(player.stats[stat] * boost));
+                    });
+                    if (player.coreAttributes) {
+                        Object.keys(player.coreAttributes).forEach(attr => {
+                            player.coreAttributes[attr] = Math.min(99, Math.floor(player.coreAttributes[attr] * boost));
+                        });
+                    }
+                    player.overall = calculateOverall(player);
+                }
+                // Cap at 96
+                if (player.overall > 96) {
+                    const scale = 96 / player.overall;
                     Object.keys(player.stats).forEach(stat => {
                         player.stats[stat] = Math.floor(player.stats[stat] * scale);
                     });
-                    // Recalculate overall from position stats
                     player.overall = calculateOverall(player);
-                } else if (player.overall > 84 && Math.random() > 0.04) {
-                    // 96% chance to cap at 84 if above
+                }
+                player.salaryCost = calculateSalary(player.stats, player.position);
+                draftClass.push(player);
+            }
+
+            // Generate standout players (85-89) - at least 6
+            const numStandouts = randomInt(6, 9);
+            for (let i = 0; i < numStandouts; i++) {
+                const position = positions[randomInt(0, positions.length - 1)];
+                const player = generatePlayer(position, 'star');
+                player.age = randomInt(21, 23);
+                player.yearsInLeague = 0;
+
+                // Ensure 85-89 overall
+                const targetOverall = randomInt(85, 89);
+                if (player.overall !== targetOverall) {
+                    const scale = targetOverall / player.overall;
+                    Object.keys(player.stats).forEach(stat => {
+                        player.stats[stat] = Math.min(99, Math.max(40, Math.floor(player.stats[stat] * scale)));
+                    });
+                    if (player.coreAttributes) {
+                        Object.keys(player.coreAttributes).forEach(attr => {
+                            player.coreAttributes[attr] = Math.min(99, Math.max(40, Math.floor(player.coreAttributes[attr] * scale)));
+                        });
+                    }
+                    player.overall = calculateOverall(player);
+                }
+                player.salaryCost = calculateSalary(player.stats, player.position);
+                draftClass.push(player);
+            }
+
+            // Fill remaining slots with regular prospects
+            const remainingSlots = totalPlayers - draftClass.length;
+            for (let i = 0; i < remainingSlots; i++) {
+                const position = positions[i % positions.length];
+
+                // Regular tier distribution for remaining players
+                const roll = Math.random();
+                let tier;
+                if (roll < 0.40) tier = 'rookie';        // 40% - developmental (60-73)
+                else if (roll < 0.75) tier = 'average';  // 35% - solid prospect (68-78)
+                else if (roll < 0.90) tier = 'below_average'; // 15% - raw talent (58-68)
+                else tier = 'veteran';                    // 10% - contributor (78-84)
+
+                const player = generatePlayer(position, tier);
+                player.age = randomInt(21, 23);
+                player.yearsInLeague = 0;
+
+                // Cap regular prospects at 84 (these aren't the guaranteed standouts)
+                if (player.overall > 84) {
                     const scale = randomInt(78, 84) / player.overall;
                     Object.keys(player.stats).forEach(stat => {
                         player.stats[stat] = Math.floor(player.stats[stat] * scale);
                     });
-                    // Recalculate overall from position stats
                     player.overall = calculateOverall(player);
                 }
 
-                // Recalculate salary for young age
                 player.salaryCost = calculateSalary(player.stats, player.position);
-
                 draftClass.push(player);
             }
 
