@@ -3585,6 +3585,7 @@
             PLAYERS_PER_ROUND: 10,  // Players available each round (50 total)
             NUM_TEAMS: 12,          // Teams in the league for draft order calculation
             MIN_COST: 10,           // Minimum draft cost
+            NEW_GAME_BUDGET: 1500,  // Starting draft points for new games
             // Exact costs for first 7 picks as specified
             EARLY_COSTS: [1000, 800, 700, 600, 520, 450, 390],
             ROUND_2_START: 13,      // First pick of round 2 (in 12-team league)
@@ -3838,13 +3839,16 @@
             draftState.selectedDraftPlayer = null;
 
             // Calculate and set draft budget based on season ranking
-            if (!isNewGame && managementState.team) {
+            if (isNewGame && managementState.team) {
+                // New games get fixed starting budget
+                managementState.team.draftPoints = DRAFT.NEW_GAME_BUDGET;
+            } else if (!isNewGame && managementState.team) {
+                // Returning seasons calculate budget based on ranking
                 const teamRank = getTeamSeasonRank();
                 managementState.team.draftPoints = calculateDraftBudget(teamRank);
             } else if (managementState.team && !managementState.team.draftPoints) {
-                // Fallback for new games without draft points (last place = best picks)
-                const defaultRank = DRAFT.NUM_TEAMS;
-                managementState.team.draftPoints = calculateDraftBudget(defaultRank);
+                // Fallback
+                managementState.team.draftPoints = DRAFT.NEW_GAME_BUDGET;
             }
 
             showScreen('draft');
