@@ -64,6 +64,93 @@ Core attributes grow very rarely, even for high-potential players:
 
 ---
 
+## Position-Specific Abilities
+
+Each position has unique abilities derived from core attributes. Players can excel through different builds based on their attribute strengths.
+
+### DL (Defensive Line) Abilities
+
+| Ability | Description | Formula |
+|---------|-------------|---------|
+| **Bull Rush** | Power through blockers | Strength (60%) + PassRush (25%) + Intelligence (15%) |
+| **Block Shed** | Disengage from blocks | Strength (40%) + Agility (40%) + PassRush (20%) |
+| **Spin Move** | Finesse around blocker | Agility (55%) + Speed (25%) + PassRush (20%) |
+| **Swim Move** | Over the blocker's arms | Agility (45%) + Speed (35%) + PassRush (20%) |
+
+**Build Examples:**
+- **Power Rusher:** High Strength → Excels at Bull Rush
+- **Speed Rusher:** High Agility + Speed → Excels at Spin/Swim Moves
+- **Versatile:** Balanced → Good at Block Shed
+
+### OL (Offensive Line) Abilities
+
+| Ability | Description | Formula |
+|---------|-------------|---------|
+| **Anchor** | Hold ground vs power | Strength (55%) + Balance (25%) + PassBlock (20%) |
+| **Hand Fighting** | Control rushers | Strength (40%) + Agility (35%) + PassBlock (25%) |
+| **Footwork** | Mirror lateral moves | Agility (45%) + Intelligence (30%) + PassBlock (25%) |
+| **Drive Block** | Sustain and move | Strength (40%) + Intelligence (30%) + PassBlock (30%) |
+
+**Build Examples:**
+- **Power Blocker:** High Strength → Excels at Anchor, Drive Block
+- **Athletic Blocker:** High Agility → Excels at Footwork, Hand Fighting
+- **Smart Blocker:** High Intelligence → Excels at Footwork, Drive Block
+
+### OL vs DL Matchup Matrix
+
+Certain abilities counter others (values show DL effectiveness modifier):
+
+| DL Move → | vs Anchor | vs Hand Fighting | vs Footwork | vs Drive Block |
+|-----------|-----------|------------------|-------------|----------------|
+| **Bull Rush** | 0.85 (countered) | 1.0 | 1.15 (effective) | 0.95 |
+| **Block Shed** | 1.10 | 0.90 (countered) | 1.05 | 0.95 |
+| **Spin Move** | 1.20 (effective) | 1.05 | 0.85 (countered) | 1.10 |
+| **Swim Move** | 1.15 | 0.85 (countered) | 0.95 | 1.05 |
+
+### CB (Cornerback) Abilities
+
+| Ability | Description | Formula |
+|---------|-------------|---------|
+| **Press Coverage** | Jam at line of scrimmage | Strength (45%) + Intelligence (35%) + Awareness (20%) |
+| **Man Coverage** | Stick with receiver | Speed (40%) + Agility (40%) + Awareness (20%) |
+| **Zone Coverage** | Read routes, defend zones | Intelligence (45%) + Agility (35%) + Awareness (20%) |
+| **Ball Hawk** | Intercept passes | Intelligence (40%) + Speed (35%) + Awareness (25%) |
+
+**Build Examples:**
+- **Physical Corner:** High Strength → Excels at Press Coverage
+- **Speed Corner:** High Speed + Agility → Excels at Man Coverage
+- **Smart Corner:** High Intelligence → Excels at Zone Coverage, Ball Hawk
+
+### WR (Wide Receiver) Abilities
+
+| Ability | Description | Formula |
+|---------|-------------|---------|
+| **Release Move** | Beat press coverage | Agility (45%) + Strength (35%) + RouteRunning (20%) |
+| **Route Sharpness** | Create separation | Agility (40%) + Speed (35%) + RouteRunning (25%) |
+| **Contested Catch** | Catch in traffic | Strength (30%) + Intelligence (25%) + Catching (25%) + Focus (20%) |
+| **YAC Ability** | Yards after catch | Speed (40%) + Agility (40%) + Balance (20%) |
+
+**Build Examples:**
+- **Burner:** High Speed + Agility → Excels at Route Sharpness, YAC
+- **Possession Receiver:** High Intelligence + Strength → Excels at Contested Catch
+- **Complete Receiver:** Balanced → Good at all abilities
+
+### QB (Quarterback) Abilities
+
+| Ability | Description | Formula |
+|---------|-------------|---------|
+| **Arm Strength** | Deep throws | Strength (45%) + Throwing (35%) + Intelligence (20%) |
+| **Quick Release** | Fast delivery | Agility (40%) + Throwing (35%) + Intelligence (25%) |
+| **Field Vision** | Read defenses | Intelligence (55%) + Awareness (30%) + Throwing (15%) |
+| **Pocket Presence** | Escape pressure | Agility (45%) + Speed (35%) + Awareness (20%) |
+
+**Build Examples:**
+- **Cannon Arm:** High Strength → Excels at Arm Strength
+- **Cerebral QB:** High Intelligence → Excels at Field Vision
+- **Mobile QB:** High Agility + Speed → Excels at Pocket Presence
+
+---
+
 ## Quick Reference
 
 | Stat | Primary Use | Key Weight |

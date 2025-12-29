@@ -66,6 +66,81 @@ export interface CoreAttributes {
     intelligence: number;
 }
 
+// ============================================================================
+// POSITION-SPECIFIC ABILITY STATS
+// ============================================================================
+
+/**
+ * DL (Defensive Line) abilities - different pass rush techniques
+ * Each ability uses different combinations of core attributes
+ */
+export interface DLAbilities {
+    /** Power through the blocker - Strength dominant */
+    bullRush: number;
+    /** Disengage from blocks quickly - Strength + Agility */
+    blockShed: number;
+    /** Spin around the blocker - Agility dominant */
+    spinMove: number;
+    /** Swim over the blocker's arms - Agility + Speed */
+    swimMove: number;
+}
+
+/**
+ * OL (Offensive Line) abilities - different blocking techniques
+ */
+export interface OLAbilities {
+    /** Hold ground against power rushes - Strength dominant */
+    anchor: number;
+    /** Control and redirect rushers - Strength + Agility */
+    handFighting: number;
+    /** Mirror rushers laterally - Agility + Intelligence */
+    footwork: number;
+    /** Sustain blocks over time - Strength + Intelligence */
+    driveBlock: number;
+}
+
+/**
+ * CB (Cornerback) abilities - different coverage techniques
+ */
+export interface CBAbilities {
+    /** Jam receivers at the line - Strength + Intelligence */
+    pressCoverage: number;
+    /** Stick with receiver in man coverage - Speed + Agility */
+    manCoverage: number;
+    /** Read routes and defend zones - Intelligence + Agility */
+    zoneCoverage: number;
+    /** Anticipate and intercept passes - Intelligence + Speed */
+    ballHawk: number;
+}
+
+/**
+ * WR (Wide Receiver) abilities - different receiving techniques
+ */
+export interface WRAbilities {
+    /** Beat press coverage at line - Agility + Strength */
+    releaseMove: number;
+    /** Create separation on routes - Agility + Speed */
+    routeSharpness: number;
+    /** Catch in traffic with defenders - Strength + Intelligence (focus) */
+    contestedCatch: number;
+    /** Gain yards after the catch - Speed + Agility */
+    yacAbility: number;
+}
+
+/**
+ * QB (Quarterback) abilities - different throwing/decision styles
+ */
+export interface QBAbilities {
+    /** Throw with power downfield - Strength + Intelligence */
+    armStrength: number;
+    /** Quick release and touch passes - Agility + Intelligence */
+    quickRelease: number;
+    /** Read defenses and make decisions - Intelligence dominant */
+    fieldVision: number;
+    /** Escape pressure and extend plays - Agility + Speed */
+    pocketPresence: number;
+}
+
 /** Player entity with economy data */
 export interface EconomyPlayer {
     id: string;
@@ -880,58 +955,158 @@ export function calculateWeightedRoll(
 
 /**
  * Separation clash - WR trying to get open vs CB coverage
+ * Uses ability matchups: WR abilities vs CB coverage style
  * Returns positive if receiver wins, negative if defender wins
  */
 export function calculateSeparationClash(
     receiver: EconomyPlayer,
-    defender: EconomyPlayer
+    defender: EconomyPlayer,
+    phase: 'release' | 'route' | 'any' = 'any'
 ): number {
-    const receiverRoll = calculateWeightedRoll(receiver, {
-        speed: 0.25,
-        agility: 0.25,
-        routeRunning: 0.20,
-        acceleration: 0.15,
-        release: 0.15,
-    });
+    const wrAbilities = calculateWRAbilities(receiver);
+    const cbAbilities = calculateCBAbilities(defender);
 
-    const defenderRoll = calculateWeightedRoll(defender, {
-        speed: 0.20,
-        agility: 0.25,
-        pursuit: 0.20,
-        awareness: 0.15,
-        acceleration: 0.20,
-    });
+    let receiverValue: number;
+    let defenderValue: number;
+
+    if (phase === 'release') {
+        // At the line: WR release vs CB press
+        receiverValue = wrAbilities.releaseMove;
+        defenderValue = cbAbilities.pressCoverage;
+    } else if (phase === 'route') {
+        // During route: WR route sharpness vs CB man/zone (use best)
+        receiverValue = wrAbilities.routeSharpness;
+        defenderValue = Math.max(cbAbilities.manCoverage, cbAbilities.zoneCoverage);
+    } else {
+        // General: Use best abilities for each
+        const wrBest = getBestWRAbility(receiver, 'any');
+        const cbBest = getBestCBAbility(defender, 'any');
+        receiverValue = wrBest.value;
+        defenderValue = cbBest.value;
+    }
+
+    // Add variance (±15%)
+    const variance = 0.15;
+    const receiverRoll = receiverValue * (1 + (Math.random() - 0.5) * 2 * variance);
+    const defenderRoll = defenderValue * (1 + (Math.random() - 0.5) * 2 * variance);
 
     return receiverRoll - defenderRoll;
 }
 
 /**
- * Line clash - OL blocking vs DL rushing
+ * Result of a line clash with ability details
+ */
+export interface LineClashResult {
+    margin: number;
+    dlAbilityUsed: keyof DLAbilities;
+    olAbilityUsed: keyof OLAbilities;
+    dlAbilityValue: number;
+    olAbilityValue: number;
+}
+
+/**
+ * Ability matchup matrix - determines effectiveness of DL move vs OL technique
+ * Values > 1.0 favor DL, < 1.0 favor OL
+ */
+const ABILITY_MATCHUP_MATRIX: Record<keyof DLAbilities, Record<keyof OLAbilities, number>> = {
+    bullRush: {
+        anchor: 0.85,       // Anchor is strong vs bull rush
+        handFighting: 1.0,  // Neutral
+        footwork: 1.15,     // Footwork weak vs power
+        driveBlock: 0.95,   // Drive block decent vs bull rush
+    },
+    blockShed: {
+        anchor: 1.10,       // Block shed beats pure anchor
+        handFighting: 0.90, // Hand fighting counters block shed
+        footwork: 1.05,     // Slight advantage
+        driveBlock: 0.95,   // Drive block decent
+    },
+    spinMove: {
+        anchor: 1.20,       // Spin beats stationary anchor
+        handFighting: 1.05, // Slight advantage
+        footwork: 0.85,     // Footwork counters spin
+        driveBlock: 1.10,   // Spin beats forward momentum
+    },
+    swimMove: {
+        anchor: 1.15,       // Swim beats anchor
+        handFighting: 0.85, // Hand fighting counters swim
+        footwork: 0.95,     // Slight disadvantage
+        driveBlock: 1.05,   // Slight advantage
+    },
+};
+
+/**
+ * Line clash - OL blocking vs DL rushing using ability matchups
+ * Each player uses their best ability, but matchups matter
  * Returns positive if OL wins (protection), negative if DL wins (pressure)
  */
 export function calculateLineClash(
     offensiveLineman: EconomyPlayer,
     defensiveLineman: EconomyPlayer
 ): number {
-    const olRoll = calculateWeightedRoll(offensiveLineman, {
-        passBlock: 0.35,
-        strength: 0.30,
-        balance: 0.20,
-        awareness: 0.15,
-    });
+    const result = calculateLineClashDetailed(offensiveLineman, defensiveLineman);
+    return result.margin;
+}
 
-    const dlRoll = calculateWeightedRoll(defensiveLineman, {
-        passRush: 0.35,
-        strength: 0.30,
-        acceleration: 0.20,
-        speed: 0.15,
-    });
+/**
+ * Detailed line clash with ability information
+ */
+export function calculateLineClashDetailed(
+    offensiveLineman: EconomyPlayer,
+    defensiveLineman: EconomyPlayer
+): LineClashResult {
+    const dlAbilities = calculateDLAbilities(defensiveLineman);
+    const olAbilities = calculateOLAbilities(offensiveLineman);
 
-    return olRoll - dlRoll;
+    // DL picks their best move
+    const dlBest = getBestDLAbility(defensiveLineman);
+
+    // OL picks their best counter for that move
+    // Or their overall best if no specific counter
+    let olBest = getBestOLAbility(offensiveLineman);
+
+    // Check if there's a better counter available
+    const matchups = ABILITY_MATCHUP_MATRIX[dlBest.ability];
+    let bestCounterValue = -Infinity;
+    let bestCounter: keyof OLAbilities = olBest.ability;
+
+    for (const [olAbility, matchupMod] of Object.entries(matchups)) {
+        const olAbilityKey = olAbility as keyof OLAbilities;
+        // Effective value = ability value / matchup modifier (lower modifier = better for OL)
+        const effectiveValue = olAbilities[olAbilityKey] / matchupMod;
+        if (effectiveValue > bestCounterValue) {
+            bestCounterValue = effectiveValue;
+            bestCounter = olAbilityKey;
+        }
+    }
+
+    // Use the best counter if it's reasonably close to their best overall ability
+    if (olAbilities[bestCounter] >= olBest.value * 0.85) {
+        olBest = { ability: bestCounter, value: olAbilities[bestCounter] };
+    }
+
+    // Calculate the clash with matchup modifier
+    const matchupModifier = ABILITY_MATCHUP_MATRIX[dlBest.ability][olBest.ability];
+    const dlEffective = dlBest.value * matchupModifier;
+    const olEffective = olBest.value;
+
+    // Add variance (±15%)
+    const variance = 0.15;
+    const dlRoll = dlEffective * (1 + (Math.random() - 0.5) * 2 * variance);
+    const olRoll = olEffective * (1 + (Math.random() - 0.5) * 2 * variance);
+
+    return {
+        margin: olRoll - dlRoll,
+        dlAbilityUsed: dlBest.ability,
+        olAbilityUsed: olBest.ability,
+        dlAbilityValue: dlBest.value,
+        olAbilityValue: olBest.value,
+    };
 }
 
 /**
  * Tackle clash - defender trying to tackle ball carrier
+ * Ball carrier uses YAC ability if WR, otherwise standard evasion
  * Returns true if tackle succeeds
  */
 export function calculateTackleClash(
@@ -944,14 +1119,46 @@ export function calculateTackleClash(
         hitPower: 0.30,
     });
 
-    const evasionRoll = calculateWeightedRoll(ballCarrier, {
-        agility: 0.35,
-        speed: 0.30,
-        balance: 0.35,
-    });
+    let evasionRoll: number;
+
+    // WRs use their YAC ability for evasion
+    if (ballCarrier.position === 'WR') {
+        const wrAbilities = calculateWRAbilities(ballCarrier);
+        evasionRoll = wrAbilities.yacAbility * (1 + (Math.random() - 0.5) * 0.3);
+    } else {
+        evasionRoll = calculateWeightedRoll(ballCarrier, {
+            agility: 0.35,
+            speed: 0.30,
+            balance: 0.35,
+        });
+    }
 
     // Tackle succeeds if tackler roll exceeds evasion by more than -5
     return tacklerRoll - evasionRoll > -5;
+}
+
+/**
+ * Contested catch clash - WR vs CB when ball arrives
+ * Uses WR contested catch ability vs CB ball hawk ability
+ * Returns catch probability modifier (-1 to 1)
+ */
+export function calculateContestedCatchClash(
+    receiver: EconomyPlayer,
+    defender: EconomyPlayer
+): number {
+    const wrAbilities = calculateWRAbilities(receiver);
+    const cbAbilities = calculateCBAbilities(defender);
+
+    const wrValue = wrAbilities.contestedCatch;
+    const cbValue = cbAbilities.ballHawk;
+
+    // Add variance
+    const variance = 0.15;
+    const wrRoll = wrValue * (1 + (Math.random() - 0.5) * 2 * variance);
+    const cbRoll = cbValue * (1 + (Math.random() - 0.5) * 2 * variance);
+
+    // Return normalized difference (-1 to 1 range, roughly)
+    return (wrRoll - cbRoll) / 50;
 }
 
 /**
@@ -972,6 +1179,282 @@ export function getCoreAttributeGrade(value: number): string {
 export function getCoreAttributeAverage(player: EconomyPlayer): number {
     const { strength, speed, agility, intelligence } = player.coreAttributes;
     return Math.round((strength + speed + agility + intelligence) / 4);
+}
+
+// ============================================================================
+// POSITION-SPECIFIC ABILITY CALCULATIONS
+// ============================================================================
+
+/**
+ * Calculate DL (Defensive Line) abilities from core attributes.
+ * Each ability favors different attribute combinations, creating viable builds.
+ */
+export function calculateDLAbilities(player: EconomyPlayer): DLAbilities {
+    const { strength, speed, agility, intelligence } = player.coreAttributes;
+    const passRush = calculateEffectiveStat(player, 'passRush');
+
+    return {
+        // Bull Rush: Power through - Strength dominant (60%), some technique (passRush 25%), timing (intelligence 15%)
+        bullRush: clamp(Math.round(
+            strength * 0.60 + passRush * 0.25 + intelligence * 0.15
+        ), 0, 99),
+
+        // Block Shed: Disengage quickly - Strength (40%) + Agility (40%) + technique (20%)
+        blockShed: clamp(Math.round(
+            strength * 0.40 + agility * 0.40 + passRush * 0.20
+        ), 0, 99),
+
+        // Spin Move: Finesse move - Agility dominant (55%), Speed (25%), technique (20%)
+        spinMove: clamp(Math.round(
+            agility * 0.55 + speed * 0.25 + passRush * 0.20
+        ), 0, 99),
+
+        // Swim Move: Over the arms - Agility (45%), Speed (35%), technique (20%)
+        swimMove: clamp(Math.round(
+            agility * 0.45 + speed * 0.35 + passRush * 0.20
+        ), 0, 99),
+    };
+}
+
+/**
+ * Calculate OL (Offensive Line) abilities from core attributes.
+ */
+export function calculateOLAbilities(player: EconomyPlayer): OLAbilities {
+    const { strength, speed, agility, intelligence } = player.coreAttributes;
+    const passBlock = calculateEffectiveStat(player, 'passBlock');
+    const balance = calculateEffectiveStat(player, 'balance');
+
+    return {
+        // Anchor: Hold ground - Strength dominant (55%), Balance (25%), technique (20%)
+        anchor: clamp(Math.round(
+            strength * 0.55 + balance * 0.25 + passBlock * 0.20
+        ), 0, 99),
+
+        // Hand Fighting: Control rushers - Strength (40%) + Agility (35%) + technique (25%)
+        handFighting: clamp(Math.round(
+            strength * 0.40 + agility * 0.35 + passBlock * 0.25
+        ), 0, 99),
+
+        // Footwork: Mirror laterally - Agility (45%) + Intelligence (30%) + technique (25%)
+        footwork: clamp(Math.round(
+            agility * 0.45 + intelligence * 0.30 + passBlock * 0.25
+        ), 0, 99),
+
+        // Drive Block: Sustain and move - Strength (40%) + Intelligence (30%) + technique (30%)
+        driveBlock: clamp(Math.round(
+            strength * 0.40 + intelligence * 0.30 + passBlock * 0.30
+        ), 0, 99),
+    };
+}
+
+/**
+ * Calculate CB (Cornerback) abilities from core attributes.
+ */
+export function calculateCBAbilities(player: EconomyPlayer): CBAbilities {
+    const { strength, speed, agility, intelligence } = player.coreAttributes;
+    const awareness = calculateEffectiveStat(player, 'awareness');
+    const tackling = calculateEffectiveStat(player, 'tackling');
+
+    return {
+        // Press Coverage: Jam at line - Strength (45%) + Intelligence (35%) + technique (20%)
+        pressCoverage: clamp(Math.round(
+            strength * 0.45 + intelligence * 0.35 + awareness * 0.20
+        ), 0, 99),
+
+        // Man Coverage: Stick with receiver - Speed (40%) + Agility (40%) + awareness (20%)
+        manCoverage: clamp(Math.round(
+            speed * 0.40 + agility * 0.40 + awareness * 0.20
+        ), 0, 99),
+
+        // Zone Coverage: Read and react - Intelligence (45%) + Agility (35%) + awareness (20%)
+        zoneCoverage: clamp(Math.round(
+            intelligence * 0.45 + agility * 0.35 + awareness * 0.20
+        ), 0, 99),
+
+        // Ball Hawk: Intercept passes - Intelligence (40%) + Speed (35%) + awareness (25%)
+        ballHawk: clamp(Math.round(
+            intelligence * 0.40 + speed * 0.35 + awareness * 0.25
+        ), 0, 99),
+    };
+}
+
+/**
+ * Calculate WR (Wide Receiver) abilities from core attributes.
+ */
+export function calculateWRAbilities(player: EconomyPlayer): WRAbilities {
+    const { strength, speed, agility, intelligence } = player.coreAttributes;
+    const catching = calculateEffectiveStat(player, 'catching');
+    const focus = calculateEffectiveStat(player, 'focus');
+    const routeRunning = calculateEffectiveStat(player, 'routeRunning');
+
+    return {
+        // Release Move: Beat press - Agility (45%) + Strength (35%) + technique (20%)
+        releaseMove: clamp(Math.round(
+            agility * 0.45 + strength * 0.35 + routeRunning * 0.20
+        ), 0, 99),
+
+        // Route Sharpness: Create separation - Agility (40%) + Speed (35%) + technique (25%)
+        routeSharpness: clamp(Math.round(
+            agility * 0.40 + speed * 0.35 + routeRunning * 0.25
+        ), 0, 99),
+
+        // Contested Catch: Catch in traffic - Strength (30%) + Intelligence (25%) + catching (25%) + focus (20%)
+        contestedCatch: clamp(Math.round(
+            strength * 0.30 + intelligence * 0.25 + catching * 0.25 + focus * 0.20
+        ), 0, 99),
+
+        // YAC Ability: Yards after catch - Speed (40%) + Agility (40%) + balance (20%)
+        yacAbility: clamp(Math.round(
+            speed * 0.40 + agility * 0.40 + calculateEffectiveStat(player, 'balance') * 0.20
+        ), 0, 99),
+    };
+}
+
+/**
+ * Calculate QB (Quarterback) abilities from core attributes.
+ */
+export function calculateQBAbilities(player: EconomyPlayer): QBAbilities {
+    const { strength, speed, agility, intelligence } = player.coreAttributes;
+    const throwing = calculateEffectiveStat(player, 'throwing') || 70;
+    const awareness = calculateEffectiveStat(player, 'awareness');
+
+    return {
+        // Arm Strength: Deep throws - Strength (45%) + throwing (35%) + Intelligence (20%)
+        armStrength: clamp(Math.round(
+            strength * 0.45 + throwing * 0.35 + intelligence * 0.20
+        ), 0, 99),
+
+        // Quick Release: Fast delivery - Agility (40%) + throwing (35%) + Intelligence (25%)
+        quickRelease: clamp(Math.round(
+            agility * 0.40 + throwing * 0.35 + intelligence * 0.25
+        ), 0, 99),
+
+        // Field Vision: Read defenses - Intelligence (55%) + awareness (30%) + throwing (15%)
+        fieldVision: clamp(Math.round(
+            intelligence * 0.55 + awareness * 0.30 + throwing * 0.15
+        ), 0, 99),
+
+        // Pocket Presence: Escape pressure - Agility (45%) + Speed (35%) + awareness (20%)
+        pocketPresence: clamp(Math.round(
+            agility * 0.45 + speed * 0.35 + awareness * 0.20
+        ), 0, 99),
+    };
+}
+
+/**
+ * Get all abilities for a player based on their position.
+ */
+export function getPlayerAbilities(player: EconomyPlayer): DLAbilities | OLAbilities | CBAbilities | WRAbilities | QBAbilities | null {
+    switch (player.position) {
+        case 'DL':
+            return calculateDLAbilities(player);
+        case 'OL':
+            return calculateOLAbilities(player);
+        case 'CB':
+            return calculateCBAbilities(player);
+        case 'WR':
+            return calculateWRAbilities(player);
+        case 'QB':
+            return calculateQBAbilities(player);
+        default:
+            return null;
+    }
+}
+
+/**
+ * Get the best DL ability for a given situation.
+ * Returns the ability name and value.
+ */
+export function getBestDLAbility(player: EconomyPlayer): { ability: keyof DLAbilities; value: number } {
+    const abilities = calculateDLAbilities(player);
+    let best: keyof DLAbilities = 'bullRush';
+    let bestValue = abilities.bullRush;
+
+    for (const [key, value] of Object.entries(abilities)) {
+        if (value > bestValue) {
+            best = key as keyof DLAbilities;
+            bestValue = value;
+        }
+    }
+
+    return { ability: best, value: bestValue };
+}
+
+/**
+ * Get the best OL ability for a given situation.
+ */
+export function getBestOLAbility(player: EconomyPlayer): { ability: keyof OLAbilities; value: number } {
+    const abilities = calculateOLAbilities(player);
+    let best: keyof OLAbilities = 'anchor';
+    let bestValue = abilities.anchor;
+
+    for (const [key, value] of Object.entries(abilities)) {
+        if (value > bestValue) {
+            best = key as keyof OLAbilities;
+            bestValue = value;
+        }
+    }
+
+    return { ability: best, value: bestValue };
+}
+
+/**
+ * Get the best CB ability for coverage situations.
+ */
+export function getBestCBAbility(player: EconomyPlayer, situation: 'press' | 'man' | 'zone' | 'any' = 'any'): { ability: keyof CBAbilities; value: number } {
+    const abilities = calculateCBAbilities(player);
+
+    if (situation !== 'any') {
+        const abilityMap: Record<string, keyof CBAbilities> = {
+            press: 'pressCoverage',
+            man: 'manCoverage',
+            zone: 'zoneCoverage',
+        };
+        const key = abilityMap[situation];
+        return { ability: key, value: abilities[key] };
+    }
+
+    let best: keyof CBAbilities = 'manCoverage';
+    let bestValue = abilities.manCoverage;
+
+    for (const [key, value] of Object.entries(abilities)) {
+        if (value > bestValue) {
+            best = key as keyof CBAbilities;
+            bestValue = value;
+        }
+    }
+
+    return { ability: best, value: bestValue };
+}
+
+/**
+ * Get the best WR ability for a given route type.
+ */
+export function getBestWRAbility(player: EconomyPlayer, situation: 'release' | 'route' | 'contested' | 'yac' | 'any' = 'any'): { ability: keyof WRAbilities; value: number } {
+    const abilities = calculateWRAbilities(player);
+
+    if (situation !== 'any') {
+        const abilityMap: Record<string, keyof WRAbilities> = {
+            release: 'releaseMove',
+            route: 'routeSharpness',
+            contested: 'contestedCatch',
+            yac: 'yacAbility',
+        };
+        const key = abilityMap[situation];
+        return { ability: key, value: abilities[key] };
+    }
+
+    let best: keyof WRAbilities = 'routeSharpness';
+    let bestValue = abilities.routeSharpness;
+
+    for (const [key, value] of Object.entries(abilities)) {
+        if (value > bestValue) {
+            best = key as keyof WRAbilities;
+            bestValue = value;
+        }
+    }
+
+    return { ability: best, value: bestValue };
 }
 
 // ============================================================================
