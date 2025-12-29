@@ -22,12 +22,11 @@ Both modes use the same stat weights (`CLASH_WEIGHTS`) and the same core roll fo
 2. [Separation Clash (WR vs CB)](#1-separation-clash-wr-vs-cb)
 3. [Line Clash (OL vs DL)](#2-line-clash-ol-vs-dl)
 4. [Tackle Clash](#3-tackle-clash)
-5. [Physical Clash](#4-physical-clash)
-6. [Catch Probability](#5-catch-probability)
-7. [Yards After Catch (YAC)](#6-yards-after-catch-yac)
-8. [QB Vision Check](#7-qb-vision-check)
-9. [Position Abilities](#8-position-abilities)
-10. [Quick Reference Tables](#9-quick-reference-tables)
+5. [Catch Probability](#4-catch-probability)
+6. [Yards After Catch (YAC)](#5-yards-after-catch-yac)
+7. [QB Vision Check](#6-qb-vision-check)
+8. [Position Abilities](#7-position-abilities)
+9. [Quick Reference Tables](#8-quick-reference-tables)
 
 ---
 
@@ -220,45 +219,7 @@ Determines if defender successfully tackles ball carrier.
 
 ---
 
-## 4. Physical Clash
-
-**Used in:** Gameplay Only
-
-Triggered during contact based on aggression levels. Not used in simulation mode.
-
-### Trigger Probability
-```
-chance = (aggression1 + aggression2) / 200
-```
-
-### Stats Used
-
-**Attacker Roll:**
-| Stat | Weight | Source |
-|------|--------|--------|
-| Strength | 35% | Core Attribute |
-| Aggression | 25% | Technique |
-| Hit Power | 25% | Technique |
-| Balance | 15% | Technique |
-
-**Defender Roll:**
-| Stat | Weight | Source |
-|------|--------|--------|
-| Strength | 35% | Core Attribute |
-| Aggression | 25% | Technique |
-| Tackling | 25% | Technique |
-| Balance | 15% | Technique |
-
-### Knockdown Chance
-```
-knockdownChance = 0.15 + (|margin| / 100) × 0.1 - knockdownResistance
-```
-- **Knockdown Duration:** 1.0 second
-- **Resistance Gain:** +0.15 per knockdown suffered
-
----
-
-## 5. Catch Probability
+## 4. Catch Probability
 
 **Used in:** Both Gameplay and Simulation (different formulas)
 
@@ -357,7 +318,7 @@ caught = (qbRoll < catchProbability)
 
 ---
 
-## 6. Yards After Catch (YAC)
+## 5. Yards After Catch (YAC)
 
 **Used in:** Simulation only (explicit calculation), Gameplay (emergent from physics)
 
@@ -403,7 +364,7 @@ In gameplay mode, YAC is simply the distance the receiver runs after catching be
 
 ---
 
-## 7. QB Vision Check
+## 6. QB Vision Check
 
 **Used in:** Simulation Only
 
@@ -457,7 +418,7 @@ intChance += (defenderCatching - 50) × 0.1
 
 ---
 
-## 8. Position Abilities
+## 7. Position Abilities
 
 ### Wide Receiver (WR)
 | Ability | Formula |
@@ -501,7 +462,7 @@ intChance += (defenderCatching - 50) × 0.1
 
 ---
 
-## 9. Quick Reference Tables
+## 8. Quick Reference Tables
 
 ### Calculations by Mode
 | Calculation | Gameplay | Simulation | Key Difference |
@@ -509,7 +470,6 @@ intChance += (defenderCatching - 50) × 0.1
 | Separation Clash | Real-time triggers | Per-round | Sim has momentum mechanics |
 | Line Clash | Continuous interval | Per-round | Sim tracks cumulative pressure |
 | Tackle | Proximity trigger | YAC phase | Same formula, different context |
-| Physical Clash | Contact-based | Not used | Gameplay only |
 | Catch Probability | Proximity-based | Exponential roll | Different formulas |
 | YAC | Emergent (physics) | Segment-based | Sim calculates explicitly |
 | QB Vision | Player controls | AI check | Simulation only |
@@ -521,7 +481,6 @@ intChance += (defenderCatching - 50) × 0.1
 | Separation | SPD, AGI, RouteRun | Awareness, Pursuit | > 3 margin | 1.0 sec effect |
 | Line | PassBlock, STR, Balance | PassRush, STR, Accel | > 5 margin | 1.0 sec knockdown |
 | Tackle | AGI, SPD, Balance | Tackle, Pursuit, HitPwr | > -12 margin | Instant |
-| Physical | STR, Aggression, HitPwr | STR, Aggression, Tackle | Variable | 1.0 sec knockdown |
 
 ### Speed Modifiers
 | Event | Multiplier | Duration |

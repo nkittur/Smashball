@@ -1377,10 +1377,6 @@
                 receiver: { speed: 0.25, agility: 0.25, routeRunning: 0.20, acceleration: 0.15, release: 0.15 },
                 defender: { speed: 0.20, agility: 0.20, awareness: 0.25, pursuit: 0.20, tackling: 0.15 }
             },
-            physical: {
-                attacker: { strength: 0.35, aggression: 0.25, hitPower: 0.25, balance: 0.15 },
-                defender: { strength: 0.35, aggression: 0.25, tackling: 0.25, balance: 0.15 }
-            },
             lineClash: {
                 offense: { passBlock: 0.35, strength: 0.30, balance: 0.20, awareness: 0.15 },
                 defense: { passRush: 0.35, strength: 0.30, acceleration: 0.20, speed: 0.15 }
@@ -1966,7 +1962,7 @@
             balance: {
                 name: 'Balance',
                 desc: 'Staying on feet during contact.',
-                influences: 'Line clash (OL 20%), tackle evasion (35%), physical clash (15%)',
+                influences: 'Line clash (OL 20%), tackle evasion (35%), YAC (15%)',
                 growth: 'Technique - can improve through training and game reps'
             },
             throwing: {
@@ -1984,7 +1980,7 @@
             aggression: {
                 name: 'Aggression',
                 desc: 'Willingness to engage in physical contact.',
-                influences: 'Physical clash (25%), interception attempts',
+                influences: 'Currently not used in calculations',
                 growth: 'Technique - can improve through training and game reps'
             }
         };
@@ -10652,45 +10648,10 @@
                 // Tie - receiver maintains current speed
             }
 
-            // Physical battle check (based on aggression)
-            const physicalChance = (receiver.stats.aggression + defender.stats.aggression) / 200;
-            if (Math.random() < physicalChance) {
-                resolvePhysicalClash(receiver, defender, result);
-            }
-
             // Trigger visual effect for clash
             triggerClashVisual(receiver, defender, result.winner);
 
             return result;
-        };
-
-        // Resolve physical aspect of clash (knockdowns)
-        const resolvePhysicalClash = (receiver, defender, separationResult) => {
-            const currentTime = gameState.gameTime;
-
-            // Roll physical battle
-            const receiverPhysical = weightedRoll(receiver.stats, CLASH_WEIGHTS.physical.attacker, receiver.coreAttributes);
-            const defenderPhysical = weightedRoll(defender.stats, CLASH_WEIGHTS.physical.defender, defender.coreAttributes);
-
-            const margin = receiverPhysical - defenderPhysical;
-            const loser = margin > 0 ? defender : receiver;
-            const winner = margin > 0 ? receiver : defender;
-
-            // Check for knockdown
-            const knockdownChance = CLASH_CONSTANTS.KNOCKDOWN_BASE_CHANCE +
-                (Math.abs(margin) / 100) * 0.1 -
-                loser.knockdownResistance;
-
-            if (Math.random() < Math.max(0, knockdownChance)) {
-                // Knockdown!
-                loser.knockdownUntil = currentTime + CLASH_CONSTANTS.KNOCKDOWN_DURATION;
-                loser.knockdownResistance += CLASH_CONSTANTS.KNOCKDOWN_RESISTANCE_GAIN;
-
-                // If receiver knocked down, apply heavy speed penalty
-                if (loser === receiver) {
-                    receiver.clashSpeedPenaltyUntil = currentTime + CLASH_CONSTANTS.KNOCKDOWN_DURATION;
-                }
-            }
         };
 
         // Process all clashes in the game
