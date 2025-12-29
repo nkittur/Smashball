@@ -922,6 +922,163 @@
         .stat-poor { color: #f44; }       /* <60 red */
         .stat-change.positive { color: #4f4; }
         .stat-change.negative { color: #f44; }
+
+        /* Core Attributes Section */
+        .core-attributes-section {
+            margin-top: 16px;
+            padding: 12px;
+            background: #1a1a2a;
+            border-radius: 6px;
+        }
+        .section-title {
+            color: #888;
+            font-size: 11px;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .core-attrs-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+        }
+        .core-attr-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 6px 8px;
+            background: #252535;
+            border-radius: 4px;
+        }
+        .core-attr-name {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            color: #aaa;
+            font-size: 12px;
+        }
+        .core-attr-value {
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        /* Abilities Section */
+        .abilities-section {
+            margin-top: 12px;
+            padding: 12px;
+            background: #1a1a2a;
+            border-radius: 6px;
+        }
+        .abilities-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 6px;
+        }
+        .ability-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 6px 8px;
+            background: #252535;
+            border-radius: 4px;
+        }
+        .ability-item.best-ability {
+            background: #2a3a2a;
+            border: 1px solid #4f4;
+        }
+        .ability-name {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            color: #aaa;
+            font-size: 11px;
+        }
+        .ability-value {
+            font-weight: bold;
+            font-size: 13px;
+        }
+
+        /* Tooltip System */
+        .tooltip-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: #444;
+            color: #aaa;
+            font-size: 10px;
+            font-weight: bold;
+            cursor: help;
+            flex-shrink: 0;
+        }
+        .tooltip-wrapper {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+        }
+        .tooltip-content {
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #1a1a2a;
+            border: 1px solid #444;
+            border-radius: 6px;
+            padding: 10px 12px;
+            min-width: 200px;
+            max-width: 280px;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.2s, visibility 0.2s;
+            font-size: 12px;
+            line-height: 1.4;
+            color: #ddd;
+            text-align: left;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+            pointer-events: none;
+        }
+        .tooltip-content::after {
+            content: '';
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 6px solid transparent;
+            border-top-color: #444;
+        }
+        .tooltip-wrapper:hover .tooltip-content,
+        .tooltip-wrapper:focus .tooltip-content,
+        .tooltip-wrapper:active .tooltip-content {
+            opacity: 1;
+            visibility: visible;
+        }
+        .tooltip-title {
+            font-weight: bold;
+            color: #ffd700;
+            margin-bottom: 4px;
+        }
+        .tooltip-desc {
+            color: #bbb;
+            margin-bottom: 6px;
+        }
+        .tooltip-formula {
+            font-size: 10px;
+            color: #888;
+            font-style: italic;
+        }
+        .tooltip-counters {
+            margin-top: 6px;
+            padding-top: 6px;
+            border-top: 1px solid #333;
+            font-size: 10px;
+            color: #8f8;
+        }
+
         /* Season stats section */
         .player-season-stats {
             margin-top: 16px;
@@ -1571,6 +1728,184 @@
             }
         };
 
+        // Tooltip data for all stats and abilities
+        const STAT_TOOLTIPS = {
+            // Core Attributes
+            strength: {
+                name: 'Strength',
+                desc: 'Raw physical power. Affects blocking, tackling, and breaking through contact.',
+                influences: 'passBlock, passRush, tackling, hitPower, balance',
+                growth: 'Core attribute - grows very rarely (2-8% per season until age 27)'
+            },
+            speed: {
+                name: 'Speed',
+                desc: 'Top-end running speed and acceleration.',
+                influences: 'speed, acceleration, pursuit',
+                growth: 'Core attribute - grows very rarely (2-8% per season until age 27)'
+            },
+            agility: {
+                name: 'Agility',
+                desc: 'Quickness, balance, and change of direction ability.',
+                influences: 'agility, routeRunning, release, balance',
+                growth: 'Core attribute - grows very rarely (2-8% per season until age 27)'
+            },
+            intelligence: {
+                name: 'Intelligence',
+                desc: 'Mental processing, awareness, and decision-making.',
+                influences: 'awareness, routeRunning, focus, throwing',
+                growth: 'Core attribute - grows very rarely (2-8% per season until age 27)'
+            },
+            // DL Abilities
+            bullRush: {
+                name: 'Bull Rush',
+                desc: 'Power through blockers with pure strength.',
+                formula: 'Strength (60%) + Pass Rush (25%) + Intelligence (15%)',
+                counters: 'Countered by: Anchor. Effective vs: Footwork'
+            },
+            blockShed: {
+                name: 'Block Shed',
+                desc: 'Quickly disengage from blocks.',
+                formula: 'Strength (40%) + Agility (40%) + Pass Rush (20%)',
+                counters: 'Countered by: Hand Fighting'
+            },
+            spinMove: {
+                name: 'Spin Move',
+                desc: 'Spin around blockers with finesse.',
+                formula: 'Agility (55%) + Speed (25%) + Pass Rush (20%)',
+                counters: 'Countered by: Footwork. Effective vs: Anchor, Drive Block'
+            },
+            swimMove: {
+                name: 'Swim Move',
+                desc: 'Swim over the blocker\'s arms.',
+                formula: 'Agility (45%) + Speed (35%) + Pass Rush (20%)',
+                counters: 'Countered by: Hand Fighting. Effective vs: Anchor'
+            },
+            // OL Abilities
+            anchor: {
+                name: 'Anchor',
+                desc: 'Hold your ground against power rushes.',
+                formula: 'Strength (55%) + Balance (25%) + Pass Block (20%)',
+                counters: 'Counters: Bull Rush. Weak vs: Spin Move, Swim Move'
+            },
+            handFighting: {
+                name: 'Hand Fighting',
+                desc: 'Control and redirect pass rushers.',
+                formula: 'Strength (40%) + Agility (35%) + Pass Block (25%)',
+                counters: 'Counters: Block Shed, Swim Move'
+            },
+            footwork: {
+                name: 'Footwork',
+                desc: 'Mirror lateral moves of rushers.',
+                formula: 'Agility (45%) + Intelligence (30%) + Pass Block (25%)',
+                counters: 'Counters: Spin Move. Weak vs: Bull Rush'
+            },
+            driveBlock: {
+                name: 'Drive Block',
+                desc: 'Sustain blocks and create push.',
+                formula: 'Strength (40%) + Intelligence (30%) + Pass Block (30%)',
+                counters: 'Weak vs: Spin Move'
+            },
+            // CB Abilities
+            pressCoverage: {
+                name: 'Press Coverage',
+                desc: 'Jam receivers at the line of scrimmage.',
+                formula: 'Strength (45%) + Intelligence (35%) + Awareness (20%)',
+                counters: 'Countered by: Release Move'
+            },
+            manCoverage: {
+                name: 'Man Coverage',
+                desc: 'Stick with receivers in man-to-man.',
+                formula: 'Speed (40%) + Agility (40%) + Awareness (20%)',
+                counters: 'Used vs: Route Sharpness'
+            },
+            zoneCoverage: {
+                name: 'Zone Coverage',
+                desc: 'Read routes and defend zone areas.',
+                formula: 'Intelligence (45%) + Agility (35%) + Awareness (20%)',
+                counters: 'Used vs: Route Sharpness'
+            },
+            ballHawk: {
+                name: 'Ball Hawk',
+                desc: 'Anticipate and intercept passes.',
+                formula: 'Intelligence (40%) + Speed (35%) + Awareness (25%)',
+                counters: 'Used in contested catch situations'
+            },
+            // WR Abilities
+            releaseMove: {
+                name: 'Release Move',
+                desc: 'Beat press coverage at the line.',
+                formula: 'Agility (45%) + Strength (35%) + Route Running (20%)',
+                counters: 'Counters: Press Coverage'
+            },
+            routeSharpness: {
+                name: 'Route Sharpness',
+                desc: 'Create separation on routes.',
+                formula: 'Agility (40%) + Speed (35%) + Route Running (25%)',
+                counters: 'Used vs: Man/Zone Coverage'
+            },
+            contestedCatch: {
+                name: 'Contested Catch',
+                desc: 'Catch passes with defenders nearby.',
+                formula: 'Strength (30%) + Intelligence (25%) + Catching (25%) + Focus (20%)',
+                counters: 'Used vs: Ball Hawk'
+            },
+            yacAbility: {
+                name: 'YAC Ability',
+                desc: 'Gain yards after the catch.',
+                formula: 'Speed (40%) + Agility (40%) + Balance (20%)',
+                counters: 'Used for tackle evasion'
+            },
+            // QB Abilities
+            armStrength: {
+                name: 'Arm Strength',
+                desc: 'Throw with power downfield.',
+                formula: 'Strength (45%) + Throwing (35%) + Intelligence (20%)'
+            },
+            quickRelease: {
+                name: 'Quick Release',
+                desc: 'Fast delivery and touch passes.',
+                formula: 'Agility (40%) + Throwing (35%) + Intelligence (25%)'
+            },
+            fieldVision: {
+                name: 'Field Vision',
+                desc: 'Read defenses and make decisions.',
+                formula: 'Intelligence (55%) + Awareness (30%) + Throwing (15%)'
+            },
+            pocketPresence: {
+                name: 'Pocket Presence',
+                desc: 'Escape pressure and extend plays.',
+                formula: 'Agility (45%) + Speed (35%) + Awareness (20%)'
+            }
+        };
+
+        // Helper to create tooltip HTML
+        function createTooltip(key) {
+            const data = STAT_TOOLTIPS[key];
+            if (!data) return '';
+
+            let html = `<div class="tooltip-wrapper" tabindex="0">
+                <span class="tooltip-icon">i</span>
+                <div class="tooltip-content">
+                    <div class="tooltip-title">${data.name}</div>
+                    <div class="tooltip-desc">${data.desc}</div>`;
+
+            if (data.formula) {
+                html += `<div class="tooltip-formula">${data.formula}</div>`;
+            }
+            if (data.influences) {
+                html += `<div class="tooltip-formula">Influences: ${data.influences}</div>`;
+            }
+            if (data.growth) {
+                html += `<div class="tooltip-formula">${data.growth}</div>`;
+            }
+            if (data.counters) {
+                html += `<div class="tooltip-counters">${data.counters}</div>`;
+            }
+
+            html += '</div></div>';
+            return html;
+        }
+
         // Medieval-themed name pools
         const FIRST_NAMES = [
             'Aldric', 'Baldwin', 'Cedric', 'Duncan', 'Edmund', 'Fabian', 'Gareth', 'Harold',
@@ -1914,6 +2249,113 @@
             return potential;
         }
 
+        // Core attribute ranges by tier
+        const CORE_ATTRIBUTE_RANGES = {
+            elite: { min: 75, max: 95 },
+            star: { min: 70, max: 90 },
+            veteran: { min: 65, max: 85 },
+            average: { min: 50, max: 75 },
+            below_average: { min: 40, max: 65 },
+            rookie: { min: 45, max: 80 },
+            backup: { min: 35, max: 55 }
+        };
+
+        // Generate core attributes for a player
+        function generateCoreAttributes(position, tier) {
+            const range = CORE_ATTRIBUTE_RANGES[tier] || CORE_ATTRIBUTE_RANGES.average;
+
+            const generateAttr = () => {
+                const base = randomInt(range.min, range.max);
+                return Math.max(30, Math.min(99, base + randomInt(-3, 3)));
+            };
+
+            let strength = generateAttr();
+            let speed = generateAttr();
+            let agility = generateAttr();
+            let intelligence = generateAttr();
+
+            // Position-based tendencies
+            switch (position) {
+                case 'OL':
+                case 'DL':
+                    strength = Math.min(99, strength + randomInt(3, 8));
+                    speed = Math.max(30, speed - randomInt(3, 8));
+                    break;
+                case 'WR':
+                case 'CB':
+                    speed = Math.min(99, speed + randomInt(3, 8));
+                    agility = Math.min(99, agility + randomInt(2, 5));
+                    break;
+                case 'QB':
+                    intelligence = Math.min(99, intelligence + randomInt(3, 8));
+                    break;
+            }
+
+            return { strength, speed, agility, intelligence };
+        }
+
+        // Calculate position-specific abilities from core attributes
+        function calculateAbilities(player) {
+            const core = player.coreAttributes;
+            if (!core) return null;
+
+            const clamp = (val) => Math.max(0, Math.min(99, Math.round(val)));
+
+            switch (player.position) {
+                case 'DL':
+                    return {
+                        bullRush: clamp(core.strength * 0.60 + (player.stats.passRush || 70) * 0.25 + core.intelligence * 0.15),
+                        blockShed: clamp(core.strength * 0.40 + core.agility * 0.40 + (player.stats.passRush || 70) * 0.20),
+                        spinMove: clamp(core.agility * 0.55 + core.speed * 0.25 + (player.stats.passRush || 70) * 0.20),
+                        swimMove: clamp(core.agility * 0.45 + core.speed * 0.35 + (player.stats.passRush || 70) * 0.20)
+                    };
+                case 'OL':
+                    return {
+                        anchor: clamp(core.strength * 0.55 + (player.stats.balance || 70) * 0.25 + (player.stats.passBlock || 70) * 0.20),
+                        handFighting: clamp(core.strength * 0.40 + core.agility * 0.35 + (player.stats.passBlock || 70) * 0.25),
+                        footwork: clamp(core.agility * 0.45 + core.intelligence * 0.30 + (player.stats.passBlock || 70) * 0.25),
+                        driveBlock: clamp(core.strength * 0.40 + core.intelligence * 0.30 + (player.stats.passBlock || 70) * 0.30)
+                    };
+                case 'CB':
+                    return {
+                        pressCoverage: clamp(core.strength * 0.45 + core.intelligence * 0.35 + (player.stats.awareness || 70) * 0.20),
+                        manCoverage: clamp(core.speed * 0.40 + core.agility * 0.40 + (player.stats.awareness || 70) * 0.20),
+                        zoneCoverage: clamp(core.intelligence * 0.45 + core.agility * 0.35 + (player.stats.awareness || 70) * 0.20),
+                        ballHawk: clamp(core.intelligence * 0.40 + core.speed * 0.35 + (player.stats.awareness || 70) * 0.25)
+                    };
+                case 'WR':
+                    return {
+                        releaseMove: clamp(core.agility * 0.45 + core.strength * 0.35 + (player.stats.routeRunning || 70) * 0.20),
+                        routeSharpness: clamp(core.agility * 0.40 + core.speed * 0.35 + (player.stats.routeRunning || 70) * 0.25),
+                        contestedCatch: clamp(core.strength * 0.30 + core.intelligence * 0.25 + (player.stats.catching || 70) * 0.25 + (player.stats.focus || 70) * 0.20),
+                        yacAbility: clamp(core.speed * 0.40 + core.agility * 0.40 + (player.stats.balance || 70) * 0.20)
+                    };
+                case 'QB':
+                    return {
+                        armStrength: clamp(core.strength * 0.45 + (player.stats.throwing || 70) * 0.35 + core.intelligence * 0.20),
+                        quickRelease: clamp(core.agility * 0.40 + (player.stats.throwing || 70) * 0.35 + core.intelligence * 0.25),
+                        fieldVision: clamp(core.intelligence * 0.55 + (player.stats.awareness || 70) * 0.30 + (player.stats.throwing || 70) * 0.15),
+                        pocketPresence: clamp(core.agility * 0.45 + core.speed * 0.35 + (player.stats.awareness || 70) * 0.20)
+                    };
+                default:
+                    return null;
+            }
+        }
+
+        // Get best ability for a player
+        function getBestAbility(player) {
+            const abilities = calculateAbilities(player);
+            if (!abilities) return null;
+
+            let best = { name: '', value: 0 };
+            for (const [name, value] of Object.entries(abilities)) {
+                if (value > best.value) {
+                    best = { name, value };
+                }
+            }
+            return best;
+        }
+
         // Generate position-specific stats
         function generatePositionStats(position, baseRange) {
             const stats = {};
@@ -2003,6 +2445,8 @@
                 peakAge,
                 salaryCost: calculateSalary(stats, position),
                 seasonStartStats: { ...stats },
+                // Core attributes - foundational traits that rarely change
+                coreAttributes: generateCoreAttributes(position, tier),
                 // Season stats
                 gamesPlayed: 0,
                 seasonTDs: 0,
@@ -2086,6 +2530,7 @@
                 peakAge,
                 salaryCost: calculateSalary(stats, position),
                 seasonStartStats: { ...stats },
+                coreAttributes: generateCoreAttributes(position, estimatedTier),
                 gamesPlayed: 0,
                 seasonTDs: 0,
                 seasonCatches: 0,
@@ -3205,8 +3650,65 @@
             }).join('');
             document.getElementById('playerStats').innerHTML = statsHtml;
 
-            // Hide season stats and career graph for draft prospects
-            document.getElementById('playerSeasonStats').innerHTML = '';
+            // Core Attributes section
+            let coreAttrsHtml = '';
+            if (player.coreAttributes) {
+                const core = player.coreAttributes;
+                const getColorClass = (val) => val >= 90 ? 'stat-elite' : val >= 80 ? 'stat-good' : val >= 70 ? 'stat-average' : val >= 60 ? 'stat-below' : 'stat-poor';
+
+                coreAttrsHtml = `
+                    <div class="core-attributes-section">
+                        <div class="section-title">Core Attributes</div>
+                        <div class="core-attrs-grid">
+                            <div class="core-attr-item">
+                                <span class="core-attr-name">STR ${createTooltip('strength')}</span>
+                                <span class="core-attr-value ${getColorClass(core.strength)}">${core.strength}</span>
+                            </div>
+                            <div class="core-attr-item">
+                                <span class="core-attr-name">SPD ${createTooltip('speed')}</span>
+                                <span class="core-attr-value ${getColorClass(core.speed)}">${core.speed}</span>
+                            </div>
+                            <div class="core-attr-item">
+                                <span class="core-attr-name">AGI ${createTooltip('agility')}</span>
+                                <span class="core-attr-value ${getColorClass(core.agility)}">${core.agility}</span>
+                            </div>
+                            <div class="core-attr-item">
+                                <span class="core-attr-name">INT ${createTooltip('intelligence')}</span>
+                                <span class="core-attr-value ${getColorClass(core.intelligence)}">${core.intelligence}</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Abilities section
+            let abilitiesHtml = '';
+            const abilities = calculateAbilities(player);
+            if (abilities) {
+                const bestAbility = getBestAbility(player);
+                const getColorClass = (val) => val >= 90 ? 'stat-elite' : val >= 80 ? 'stat-good' : val >= 70 ? 'stat-average' : val >= 60 ? 'stat-below' : 'stat-poor';
+
+                abilitiesHtml = `
+                    <div class="abilities-section">
+                        <div class="section-title">Abilities</div>
+                        <div class="abilities-grid">
+                            ${Object.entries(abilities).map(([key, value]) => {
+                                const isBest = bestAbility && bestAbility.name === key;
+                                const displayName = key.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase());
+                                return `
+                                    <div class="ability-item ${isBest ? 'best-ability' : ''}">
+                                        <span class="ability-name">${displayName} ${createTooltip(key)}</span>
+                                        <span class="ability-value ${getColorClass(value)}">${value}</span>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Show core attributes and abilities instead of season stats for draft
+            document.getElementById('playerSeasonStats').innerHTML = coreAttrsHtml + abilitiesHtml;
             document.getElementById('playerCareerGraph').innerHTML = '';
 
             document.getElementById('playerDetailModal').style.display = 'flex';
@@ -10396,7 +10898,65 @@
                 `;
             }
             seasonStatsHtml += '</div>';
-            document.getElementById('playerSeasonStats').innerHTML = seasonStatsHtml;
+
+            // Core Attributes section
+            let coreAttrsHtml = '';
+            if (player.coreAttributes) {
+                const core = player.coreAttributes;
+                const getColorClass = (val) => val >= 90 ? 'stat-elite' : val >= 80 ? 'stat-good' : val >= 70 ? 'stat-average' : val >= 60 ? 'stat-below' : 'stat-poor';
+
+                coreAttrsHtml = `
+                    <div class="core-attributes-section">
+                        <div class="section-title">Core Attributes</div>
+                        <div class="core-attrs-grid">
+                            <div class="core-attr-item">
+                                <span class="core-attr-name">STR ${createTooltip('strength')}</span>
+                                <span class="core-attr-value ${getColorClass(core.strength)}">${core.strength}</span>
+                            </div>
+                            <div class="core-attr-item">
+                                <span class="core-attr-name">SPD ${createTooltip('speed')}</span>
+                                <span class="core-attr-value ${getColorClass(core.speed)}">${core.speed}</span>
+                            </div>
+                            <div class="core-attr-item">
+                                <span class="core-attr-name">AGI ${createTooltip('agility')}</span>
+                                <span class="core-attr-value ${getColorClass(core.agility)}">${core.agility}</span>
+                            </div>
+                            <div class="core-attr-item">
+                                <span class="core-attr-name">INT ${createTooltip('intelligence')}</span>
+                                <span class="core-attr-value ${getColorClass(core.intelligence)}">${core.intelligence}</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Abilities section
+            let abilitiesHtml = '';
+            const abilities = calculateAbilities(player);
+            if (abilities) {
+                const bestAbility = getBestAbility(player);
+                const getColorClass = (val) => val >= 90 ? 'stat-elite' : val >= 80 ? 'stat-good' : val >= 70 ? 'stat-average' : val >= 60 ? 'stat-below' : 'stat-poor';
+
+                abilitiesHtml = `
+                    <div class="abilities-section">
+                        <div class="section-title">Abilities</div>
+                        <div class="abilities-grid">
+                            ${Object.entries(abilities).map(([key, value]) => {
+                                const isBest = bestAbility && bestAbility.name === key;
+                                const displayName = key.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase());
+                                return `
+                                    <div class="ability-item ${isBest ? 'best-ability' : ''}">
+                                        <span class="ability-name">${displayName} ${createTooltip(key)}</span>
+                                        <span class="ability-value ${getColorClass(value)}">${value}</span>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+
+            document.getElementById('playerSeasonStats').innerHTML = seasonStatsHtml + coreAttrsHtml + abilitiesHtml;
 
             // Career graph
             const history = player.careerHistory || [];
