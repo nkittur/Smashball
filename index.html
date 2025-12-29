@@ -3736,7 +3736,7 @@
 
                 // Ensure 90+ overall
                 if (player.overall < 90) {
-                    const boost = (90 + randomInt(0, 4)) / player.overall;
+                    const boost = (90 + randomInt(0, 2)) / player.overall;
                     Object.keys(player.stats).forEach(stat => {
                         player.stats[stat] = Math.min(99, Math.floor(player.stats[stat] * boost));
                     });
@@ -3747,9 +3747,9 @@
                     }
                     player.overall = calculateOverall(player);
                 }
-                // Cap at 96
-                if (player.overall > 96) {
-                    const scale = 96 / player.overall;
+                // Cap at 92
+                if (player.overall > 92) {
+                    const scale = 92 / player.overall;
                     Object.keys(player.stats).forEach(stat => {
                         player.stats[stat] = Math.floor(player.stats[stat] * scale);
                     });
