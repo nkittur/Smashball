@@ -2620,7 +2620,7 @@
             const sortedAttrs = Object.entries(mapping).sort((a, b) => b[1] - a[1]);
 
             // Assign colors to each letter proportionally
-            let coloredLetters = [];
+            let letterColors = [];
             let letterIndex = 0;
 
             for (const [attr, percent] of sortedAttrs) {
@@ -2628,7 +2628,7 @@
                 const numLetters = Math.round(percent * letters.length);
 
                 for (let i = 0; i < numLetters && letterIndex < letters.length; i++) {
-                    coloredLetters.push(`<span style="color: ${color}">${letters[letterIndex]}</span>`);
+                    letterColors.push({ letter: letters[letterIndex], color });
                     letterIndex++;
                 }
             }
@@ -2636,11 +2636,31 @@
             // Handle any remaining letters (rounding edge case)
             while (letterIndex < letters.length) {
                 const lastColor = CORE_ATTR_COLORS[sortedAttrs[sortedAttrs.length - 1][0]];
-                coloredLetters.push(`<span style="color: ${lastColor}">${letters[letterIndex]}</span>`);
+                letterColors.push({ letter: letters[letterIndex], color: lastColor });
                 letterIndex++;
             }
 
-            return coloredLetters.join('');
+            // Group consecutive letters with same color into single spans
+            let result = '';
+            let currentColor = null;
+            let currentGroup = '';
+
+            for (const { letter, color } of letterColors) {
+                if (color === currentColor) {
+                    currentGroup += letter;
+                } else {
+                    if (currentGroup) {
+                        result += `<span style="color:${currentColor}">${currentGroup}</span>`;
+                    }
+                    currentColor = color;
+                    currentGroup = letter;
+                }
+            }
+            if (currentGroup) {
+                result += `<span style="color:${currentColor}">${currentGroup}</span>`;
+            }
+
+            return result;
         }
 
         // Generate position-specific stats
