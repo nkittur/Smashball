@@ -2563,11 +2563,15 @@
                         yacAbility: clamp(core.speed * 0.40 + core.agility * 0.40 + (player.stats.evasion || 70) * 0.20)
                     };
                 case 'QB':
+                    // Abilities are multiplicative: (core/100) × (skill/100) × 100
+                    const shortAcc = player.stats.shortPassAcc || 70;
+                    const longAcc = player.stats.longPassAcc || 70;
+                    const qbAwareness = player.stats.awareness || 70;
                     return {
-                        armStrength: clamp(core.strength * 1.0),
-                        quickRelease: clamp(core.agility * 1.0),
-                        fieldVision: clamp(core.intelligence * 0.60 + (player.stats.awareness || 70) * 0.40),
-                        pocketPresence: clamp(core.agility * 0.45 + core.speed * 0.35 + (player.stats.awareness || 70) * 0.20)
+                        armStrength: clamp((core.strength / 100) * (longAcc / 100) * 100),
+                        quickRelease: clamp((core.agility / 100) * (shortAcc / 100) * 100),
+                        fieldVision: clamp((core.intelligence / 100) * (qbAwareness / 100) * 100),
+                        pocketPresence: clamp((core.agility / 100) * (qbAwareness / 100) * 100)
                     };
                 default:
                     return null;
@@ -2618,11 +2622,11 @@
             routeSharpness: { agility: 0.53, speed: 0.47 },
             contestedCatch: { strength: 0.55, intelligence: 0.45 },
             yacAbility:     { speed: 0.50, agility: 0.50 },
-            // QB abilities
+            // QB abilities (core × skill, multiplicative)
             armStrength:    { strength: 1.00 },
             quickRelease:   { agility: 1.00 },
             fieldVision:    { intelligence: 1.00 },
-            pocketPresence: { agility: 0.56, speed: 0.44 }
+            pocketPresence: { agility: 1.00 }
         };
 
         // Generate attribute indicator dots for an ability
