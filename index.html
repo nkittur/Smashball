@@ -923,116 +923,62 @@
         .stat-change.positive { color: #4f4; }
         .stat-change.negative { color: #f44; }
 
-        /* Core Attributes Section */
-        .core-attributes-section {
-            margin-top: 16px;
-            padding: 12px;
+        /* Unified Stats Panel */
+        .stats-panel {
             background: #1a1a2a;
             border-radius: 6px;
+            padding: 10px;
+            margin-top: 10px;
         }
-        .section-title {
-            color: #888;
-            font-size: 11px;
-            text-transform: uppercase;
+        .stats-section {
             margin-bottom: 8px;
+        }
+        .stats-section:last-child {
+            margin-bottom: 0;
+        }
+        .stats-section-title {
+            color: #666;
+            font-size: 9px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 4px;
+        }
+        .stats-row {
             display: flex;
-            align-items: center;
-            gap: 6px;
+            gap: 4px;
+            flex-wrap: wrap;
         }
-        .core-attrs-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 8px;
-        }
-        .core-attr-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 6px 8px;
-            background: #252535;
-            border-radius: 4px;
-        }
-        .core-attr-name {
+        .stat-chip {
             display: flex;
             align-items: center;
             gap: 4px;
-            color: #aaa;
-            font-size: 12px;
-        }
-        .core-attr-value {
-            font-weight: bold;
-            font-size: 14px;
-        }
-
-        /* Core Attribute Colors */
-        .attr-str { color: #ff6b6b; }  /* Strength - Red */
-        .attr-spd { color: #4dabf7; }  /* Speed - Blue */
-        .attr-agi { color: #69db7c; }  /* Agility - Green */
-        .attr-int { color: #ffd43b; }  /* Intelligence - Gold */
-
-        .core-attr-item.str-attr { border-left: 3px solid #ff6b6b; }
-        .core-attr-item.spd-attr { border-left: 3px solid #4dabf7; }
-        .core-attr-item.agi-attr { border-left: 3px solid #69db7c; }
-        .core-attr-item.int-attr { border-left: 3px solid #ffd43b; }
-
-        .core-attr-item.str-attr .core-attr-name { color: #ff6b6b; }
-        .core-attr-item.spd-attr .core-attr-name { color: #4dabf7; }
-        .core-attr-item.agi-attr .core-attr-name { color: #69db7c; }
-        .core-attr-item.int-attr .core-attr-name { color: #ffd43b; }
-
-        /* Abilities Section */
-        .abilities-section {
-            margin-top: 12px;
-            padding: 12px;
-            background: #1a1a2a;
-            border-radius: 6px;
-        }
-        .abilities-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 6px;
-        }
-        .ability-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 6px 8px;
+            padding: 3px 6px;
             background: #252535;
-            border-radius: 4px;
-        }
-        .ability-item.best-ability {
-            background: #2a3a2a;
-            border: 1px solid #4f4;
-        }
-        .ability-name {
-            display: flex;
-            align-items: center;
-            gap: 4px;
-            color: #aaa;
+            border-radius: 3px;
             font-size: 11px;
         }
-        .ability-value {
+        .stat-chip-name {
+            color: #888;
+        }
+        .stat-chip-value {
             font-weight: bold;
-            font-size: 13px;
         }
+        .stat-chip.best-ability {
+            background: #2a3a2a;
+            border: 1px solid #4a4;
+        }
+        /* Core attribute colored chips */
+        .stat-chip.str-chip { border-left: 2px solid #ff6b6b; }
+        .stat-chip.spd-chip { border-left: 2px solid #4dabf7; }
+        .stat-chip.agi-chip { border-left: 2px solid #69db7c; }
+        .stat-chip.int-chip { border-left: 2px solid #ffd43b; }
+        .stat-chip.str-chip .stat-chip-name { color: #ff6b6b; }
+        .stat-chip.spd-chip .stat-chip-name { color: #4dabf7; }
+        .stat-chip.agi-chip .stat-chip-name { color: #69db7c; }
+        .stat-chip.int-chip .stat-chip-name { color: #ffd43b; }
 
-        /* Technique Section */
-        .technique-section {
-            margin-top: 12px;
-            padding: 12px;
-            background: #1a1a2a;
-            border-radius: 6px;
-        }
-        .technique-grid {
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-        }
-        .technique-section .stat-row {
-            background: #252535;
-            border-radius: 4px;
-            padding: 4px 8px;
-        }
+        /* Keep old styles for backwards compatibility but hide */
+        .core-attributes-section, .abilities-section, .technique-section { display: none; }
 
         /* Tooltip System */
         .tooltip-icon {
@@ -3939,52 +3885,54 @@
 
             const getColorClass = (val) => val >= 90 ? 'stat-elite' : val >= 80 ? 'stat-good' : val >= 70 ? 'stat-average' : val >= 60 ? 'stat-below' : 'stat-poor';
 
-            // Core Attributes section (shown first, in main stats area)
-            let coreAttrsHtml = '';
-            if (player.coreAttributes) {
-                const core = player.coreAttributes;
-                coreAttrsHtml = `
-                    <div class="core-attributes-section">
-                        <div class="section-title">Core Attributes</div>
-                        <div class="core-attrs-grid">
-                            <div class="core-attr-item str-attr">
-                                <span class="core-attr-name">STR ${createTooltip('strength')}</span>
-                                <span class="core-attr-value ${getColorClass(core.strength)}">${core.strength}</span>
+            // Build unified stats panel
+            const core = player.coreAttributes;
+            const abilities = calculateAbilities(player);
+            const bestAbility = getBestAbility(player);
+            const techniqueStats = POSITIONS[player.position].techniqueStats || [];
+
+            let statsHtml = '<div class="stats-panel">';
+
+            // Core Attributes row
+            if (core) {
+                statsHtml += `
+                    <div class="stats-section">
+                        <div class="stats-section-title">Core</div>
+                        <div class="stats-row">
+                            <div class="stat-chip str-chip">
+                                <span class="stat-chip-name">STR</span>
+                                <span class="stat-chip-value ${getColorClass(core.strength)}">${core.strength}</span>
                             </div>
-                            <div class="core-attr-item spd-attr">
-                                <span class="core-attr-name">SPD ${createTooltip('speed')}</span>
-                                <span class="core-attr-value ${getColorClass(core.speed)}">${core.speed}</span>
+                            <div class="stat-chip spd-chip">
+                                <span class="stat-chip-name">SPD</span>
+                                <span class="stat-chip-value ${getColorClass(core.speed)}">${core.speed}</span>
                             </div>
-                            <div class="core-attr-item agi-attr">
-                                <span class="core-attr-name">AGI ${createTooltip('agility')}</span>
-                                <span class="core-attr-value ${getColorClass(core.agility)}">${core.agility}</span>
+                            <div class="stat-chip agi-chip">
+                                <span class="stat-chip-name">AGI</span>
+                                <span class="stat-chip-value ${getColorClass(core.agility)}">${core.agility}</span>
                             </div>
-                            <div class="core-attr-item int-attr">
-                                <span class="core-attr-name">INT ${createTooltip('intelligence')}</span>
-                                <span class="core-attr-value ${getColorClass(core.intelligence)}">${core.intelligence}</span>
+                            <div class="stat-chip int-chip">
+                                <span class="stat-chip-name">INT</span>
+                                <span class="stat-chip-value ${getColorClass(core.intelligence)}">${core.intelligence}</span>
                             </div>
                         </div>
                     </div>
                 `;
             }
-            document.getElementById('playerStats').innerHTML = coreAttrsHtml;
 
-            // Abilities section (shown second)
-            let abilitiesHtml = '';
-            const abilities = calculateAbilities(player);
+            // Abilities row
             if (abilities) {
-                const bestAbility = getBestAbility(player);
-                abilitiesHtml = `
-                    <div class="abilities-section">
-                        <div class="section-title">Abilities</div>
-                        <div class="abilities-grid">
+                statsHtml += `
+                    <div class="stats-section">
+                        <div class="stats-section-title">Abilities</div>
+                        <div class="stats-row">
                             ${Object.entries(abilities).map(([key, value]) => {
                                 const isBest = bestAbility && bestAbility.name === key;
                                 const coloredName = getColorCodedAbilityName(key);
                                 return `
-                                    <div class="ability-item ${isBest ? 'best-ability' : ''}">
-                                        <span class="ability-name">${coloredName} ${createTooltip(key)}</span>
-                                        <span class="ability-value ${getColorClass(value)}">${value}</span>
+                                    <div class="stat-chip ${isBest ? 'best-ability' : ''}">
+                                        <span class="stat-chip-name">${coloredName}</span>
+                                        <span class="stat-chip-value ${getColorClass(value)}">${value}</span>
                                     </div>
                                 `;
                             }).join('')}
@@ -3993,23 +3941,19 @@
                 `;
             }
 
-            // Technique stats section (trained skills, excludes core attribute duplicates)
-            const techniqueStats = POSITIONS[player.position].techniqueStats || [];
-            let techniqueHtml = '';
+            // Technique row
             if (techniqueStats.length > 0) {
-                techniqueHtml = `
-                    <div class="technique-section">
-                        <div class="section-title">Technique</div>
-                        <div class="technique-grid">
+                statsHtml += `
+                    <div class="stats-section">
+                        <div class="stats-section-title">Technique</div>
+                        <div class="stats-row">
                             ${techniqueStats.map(stat => {
                                 const current = Math.floor(player.stats[stat] || 0);
                                 const statName = stat.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase());
                                 return `
-                                    <div class="stat-row">
-                                        <span class="stat-name">${statName} ${createTooltip(stat)}</span>
-                                        <span class="stat-values">
-                                            <span class="stat-value ${getColorClass(current)}">${current}</span>
-                                        </span>
+                                    <div class="stat-chip">
+                                        <span class="stat-chip-name">${statName}</span>
+                                        <span class="stat-chip-value ${getColorClass(current)}">${current}</span>
                                     </div>
                                 `;
                             }).join('')}
@@ -4018,8 +3962,11 @@
                 `;
             }
 
-            // Show abilities and technique in the season stats area
-            document.getElementById('playerSeasonStats').innerHTML = abilitiesHtml + techniqueHtml;
+            statsHtml += '</div>';
+
+            // Show all stats in main area
+            document.getElementById('playerStats').innerHTML = statsHtml;
+            document.getElementById('playerSeasonStats').innerHTML = '';
             document.getElementById('playerCareerGraph').innerHTML = '';
 
             document.getElementById('playerDetailModal').style.display = 'flex';
@@ -11159,52 +11106,54 @@
 
             const getColorClass = (val) => val >= 90 ? 'stat-elite' : val >= 80 ? 'stat-good' : val >= 70 ? 'stat-average' : val >= 60 ? 'stat-below' : 'stat-poor';
 
-            // Core Attributes section (shown first, in main stats area)
-            let coreAttrsHtml = '';
-            if (player.coreAttributes) {
-                const core = player.coreAttributes;
-                coreAttrsHtml = `
-                    <div class="core-attributes-section">
-                        <div class="section-title">Core Attributes</div>
-                        <div class="core-attrs-grid">
-                            <div class="core-attr-item str-attr">
-                                <span class="core-attr-name">STR ${createTooltip('strength')}</span>
-                                <span class="core-attr-value ${getColorClass(core.strength)}">${core.strength}</span>
+            // Build unified stats panel
+            const core = player.coreAttributes;
+            const abilities = calculateAbilities(player);
+            const bestAbility = getBestAbility(player);
+            const techniqueStats = POSITIONS[player.position].techniqueStats || [];
+
+            let statsHtml = '<div class="stats-panel">';
+
+            // Core Attributes row
+            if (core) {
+                statsHtml += `
+                    <div class="stats-section">
+                        <div class="stats-section-title">Core</div>
+                        <div class="stats-row">
+                            <div class="stat-chip str-chip">
+                                <span class="stat-chip-name">STR</span>
+                                <span class="stat-chip-value ${getColorClass(core.strength)}">${core.strength}</span>
                             </div>
-                            <div class="core-attr-item spd-attr">
-                                <span class="core-attr-name">SPD ${createTooltip('speed')}</span>
-                                <span class="core-attr-value ${getColorClass(core.speed)}">${core.speed}</span>
+                            <div class="stat-chip spd-chip">
+                                <span class="stat-chip-name">SPD</span>
+                                <span class="stat-chip-value ${getColorClass(core.speed)}">${core.speed}</span>
                             </div>
-                            <div class="core-attr-item agi-attr">
-                                <span class="core-attr-name">AGI ${createTooltip('agility')}</span>
-                                <span class="core-attr-value ${getColorClass(core.agility)}">${core.agility}</span>
+                            <div class="stat-chip agi-chip">
+                                <span class="stat-chip-name">AGI</span>
+                                <span class="stat-chip-value ${getColorClass(core.agility)}">${core.agility}</span>
                             </div>
-                            <div class="core-attr-item int-attr">
-                                <span class="core-attr-name">INT ${createTooltip('intelligence')}</span>
-                                <span class="core-attr-value ${getColorClass(core.intelligence)}">${core.intelligence}</span>
+                            <div class="stat-chip int-chip">
+                                <span class="stat-chip-name">INT</span>
+                                <span class="stat-chip-value ${getColorClass(core.intelligence)}">${core.intelligence}</span>
                             </div>
                         </div>
                     </div>
                 `;
             }
-            document.getElementById('playerStats').innerHTML = coreAttrsHtml;
 
-            // Abilities section (shown second)
-            let abilitiesHtml = '';
-            const abilities = calculateAbilities(player);
+            // Abilities row
             if (abilities) {
-                const bestAbility = getBestAbility(player);
-                abilitiesHtml = `
-                    <div class="abilities-section">
-                        <div class="section-title">Abilities</div>
-                        <div class="abilities-grid">
+                statsHtml += `
+                    <div class="stats-section">
+                        <div class="stats-section-title">Abilities</div>
+                        <div class="stats-row">
                             ${Object.entries(abilities).map(([key, value]) => {
                                 const isBest = bestAbility && bestAbility.name === key;
                                 const coloredName = getColorCodedAbilityName(key);
                                 return `
-                                    <div class="ability-item ${isBest ? 'best-ability' : ''}">
-                                        <span class="ability-name">${coloredName} ${createTooltip(key)}</span>
-                                        <span class="ability-value ${getColorClass(value)}">${value}</span>
+                                    <div class="stat-chip ${isBest ? 'best-ability' : ''}">
+                                        <span class="stat-chip-name">${coloredName}</span>
+                                        <span class="stat-chip-value ${getColorClass(value)}">${value}</span>
                                     </div>
                                 `;
                             }).join('')}
@@ -11213,30 +11162,24 @@
                 `;
             }
 
-            // Technique stats section (trained skills with changes, excludes core attribute duplicates)
-            const techniqueStats = POSITIONS[player.position].techniqueStats || [];
-            let techniqueHtml = '';
+            // Technique row with changes
             if (techniqueStats.length > 0) {
-                techniqueHtml = `
-                    <div class="technique-section">
-                        <div class="section-title">Technique</div>
-                        <div class="technique-grid">
+                statsHtml += `
+                    <div class="stats-section">
+                        <div class="stats-section-title">Technique</div>
+                        <div class="stats-row">
                             ${techniqueStats.map(stat => {
                                 const currentRaw = player.stats[stat] || 0;
                                 const startRaw = player.seasonStartStats ? (player.seasonStartStats[stat] || 0) : currentRaw;
                                 const current = Math.floor(currentRaw);
                                 const start = Math.floor(startRaw);
                                 const change = current - start;
-                                const changeClass = change > 0 ? 'positive' : change < 0 ? 'negative' : '';
-                                const changeText = change !== 0 ? `${change > 0 ? '+' : ''}${change}` : '';
+                                const changeText = change !== 0 ? ` <span class="stat-change ${change > 0 ? 'positive' : 'negative'}">${change > 0 ? '+' : ''}${change}</span>` : '';
                                 const statName = stat.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase());
                                 return `
-                                    <div class="stat-row">
-                                        <span class="stat-name">${statName} ${createTooltip(stat)}</span>
-                                        <span class="stat-values">
-                                            <span class="stat-value ${getColorClass(current)}">${current}</span>
-                                            <span class="stat-change ${changeClass}">${changeText}</span>
-                                        </span>
+                                    <div class="stat-chip">
+                                        <span class="stat-chip-name">${statName}</span>
+                                        <span class="stat-chip-value ${getColorClass(current)}">${current}${changeText}</span>
                                     </div>
                                 `;
                             }).join('')}
@@ -11244,6 +11187,8 @@
                     </div>
                 `;
             }
+
+            statsHtml += '</div>';
 
             // Season stats (position-dependent)
             let seasonStatsHtml = '<div class="season-stats-title">Season Stats</div><div class="season-stats-grid">';
@@ -11286,7 +11231,9 @@
             }
             seasonStatsHtml += '</div>';
 
-            document.getElementById('playerSeasonStats').innerHTML = abilitiesHtml + techniqueHtml + seasonStatsHtml;
+            // Show all stats in main area, season stats in secondary area
+            document.getElementById('playerStats').innerHTML = statsHtml;
+            document.getElementById('playerSeasonStats').innerHTML = seasonStatsHtml;
 
             // Career graph
             const history = player.careerHistory || [];
