@@ -1374,7 +1374,7 @@
         // Note: speed, agility, strength now come from coreAttributes (merged with old stats)
         const CLASH_WEIGHTS = {
             separation: {
-                receiver: { speed: 0.25, agility: 0.25, routeRunning: 0.20, acceleration: 0.15, release: 0.15 },
+                receiver: { speed: 0.25, agility: 0.25, routeRunning: 0.35, acceleration: 0.15 },
                 defender: { speed: 0.20, agility: 0.20, awareness: 0.25, pursuit: 0.20, tackling: 0.15 }
             },
             lineClash: {
@@ -1382,10 +1382,119 @@
                 defense: { passRush: 0.35, strength: 0.30, acceleration: 0.20, speed: 0.15 }
             },
             tackle: {
-                tackler: { tackling: 0.40, pursuit: 0.30, hitPower: 0.30 },
-                ballCarrier: { agility: 0.35, speed: 0.30, balance: 0.35 }
+                tackler: { tackling: 0.70, pursuit: 0.30 },
+                ballCarrier: { agility: 0.35, speed: 0.30, evasion: 0.35 }
             }
         };
+
+        // ========================================
+        // ABILITY SELECTION SYSTEM
+        // ========================================
+        // Matchup matrix: DL ability effectiveness vs OL ability (multiplier)
+        // > 1.0 = DL has advantage, < 1.0 = OL has advantage
+        const ABILITY_MATCHUPS = {
+            linemen: {
+                bullRush:   { anchor: 0.85, handFighting: 1.00, footwork: 1.15, driveBlock: 0.95 },
+                blockShed:  { anchor: 1.10, handFighting: 0.90, footwork: 1.05, driveBlock: 0.95 },
+                spinMove:   { anchor: 1.20, handFighting: 1.05, footwork: 0.85, driveBlock: 1.10 },
+                swimMove:   { anchor: 1.15, handFighting: 0.85, footwork: 0.95, driveBlock: 1.05 }
+            },
+            // WR/CB matchups: WR ability effectiveness vs CB ability
+            receivers: {
+                releaseMove:   { pressCoverage: 0.90, manCoverage: 1.10, zoneCoverage: 1.05, ballHawk: 1.00 },
+                routeSharpness: { pressCoverage: 1.05, manCoverage: 0.90, zoneCoverage: 1.15, ballHawk: 1.00 }
+            }
+        };
+
+        // Select ability based on 60/30/10 rule for highest/second/third
+        function selectAbility(player, abilityType) {
+            const abilities = calculateAbilities(player);
+            if (!abilities) return null;
+
+            // Get abilities sorted by value (highest first)
+            const sorted = Object.entries(abilities)
+                .sort((a, b) => b[1] - a[1]);
+
+            if (sorted.length === 0) return null;
+
+            // 60% highest, 30% second, 10% third (or lower if not enough abilities)
+            const roll = Math.random() * 100;
+            let selectedIndex = 0;
+
+            if (roll < 60) {
+                selectedIndex = 0;  // Highest (60%)
+            } else if (roll < 90 && sorted.length > 1) {
+                selectedIndex = 1;  // Second highest (30%)
+            } else if (sorted.length > 2) {
+                selectedIndex = 2;  // Third highest (10%)
+            } else if (sorted.length > 1) {
+                selectedIndex = 1;  // Fallback to second if no third
+            }
+
+            return { name: sorted[selectedIndex][0], value: sorted[selectedIndex][1] };
+        }
+
+        // Check if reacting player should use a counter ability
+        // Returns the counter ability if they choose to use it, otherwise null
+        function selectCounterAbility(reactingPlayer, initiatingAbility, matchupTable) {
+            const abilities = calculateAbilities(reactingPlayer);
+            if (!abilities || !matchupTable[initiatingAbility]) return null;
+
+            const intelligence = reactingPlayer.coreAttributes?.intelligence || 50;
+            const counterChance = Math.max(0, intelligence - 20) / 100;  // (INT - 20)%
+
+            // Only attempt counter if roll succeeds
+            if (Math.random() > counterChance) return null;
+
+            // Find the ability that gives best matchup against initiating ability
+            const matchups = matchupTable[initiatingAbility];
+            let bestCounter = null;
+            let bestAdvantage = 0;
+
+            for (const [abilityName, multiplier] of Object.entries(matchups)) {
+                if (abilities[abilityName]) {
+                    // Lower multiplier = better for defender (OL) in linemen matchups
+                    // For receivers table, we flip the logic
+                    const advantage = 1 - multiplier;  // Positive = good for reacting player
+                    const effectiveStrength = abilities[abilityName] * (1 + advantage * 0.5);
+
+                    if (!bestCounter || effectiveStrength > bestAdvantage) {
+                        bestCounter = { name: abilityName, value: abilities[abilityName] };
+                        bestAdvantage = effectiveStrength;
+                    }
+                }
+            }
+
+            return bestCounter;
+        }
+
+        // Resolve ability clash between two players
+        // Returns { initiator: ability, reactor: ability, matchupMultiplier }
+        function resolveAbilityClash(initiator, reactor, matchupTable, isInitiatorAttacker = true) {
+            // Initiator selects ability (60/30/10 rule)
+            const initiatorAbility = selectAbility(initiator);
+            if (!initiatorAbility) {
+                return { initiator: null, reactor: null, matchupMultiplier: 1.0 };
+            }
+
+            // Reactor tries to counter (INT-20)% chance, otherwise uses 60/30/10
+            let reactorAbility = selectCounterAbility(reactor, initiatorAbility.name, matchupTable);
+            if (!reactorAbility) {
+                reactorAbility = selectAbility(reactor);
+            }
+
+            // Get matchup multiplier
+            let matchupMultiplier = 1.0;
+            if (initiatorAbility && reactorAbility && matchupTable[initiatorAbility.name]) {
+                matchupMultiplier = matchupTable[initiatorAbility.name][reactorAbility.name] || 1.0;
+            }
+
+            return {
+                initiator: initiatorAbility,
+                reactor: reactorAbility,
+                matchupMultiplier: matchupMultiplier
+            };
+        }
 
         // ========================================
         // ROUTE TEMPLATES FOR SIMULATION
@@ -1717,14 +1826,14 @@
                 name: 'Wide Receiver',
                 shortName: 'WR',
                 primaryStats: ['speed', 'catching', 'routeRunning', 'agility'],
-                techniqueStats: ['catching', 'routeRunning', 'release', 'acceleration', 'balance', 'focus'],
+                techniqueStats: ['catching', 'routeRunning', 'acceleration', 'evasion'],
                 count: 3
             },
             CB: {
                 name: 'Cornerback',
                 shortName: 'CB',
                 primaryStats: ['speed', 'awareness', 'tackling', 'agility'],
-                techniqueStats: ['tackling', 'awareness', 'pursuit', 'hitPower', 'balance'],
+                techniqueStats: ['tackling', 'awareness', 'pursuit'],
                 count: 4
             },
             OL: {
@@ -1738,14 +1847,14 @@
                 name: 'Defensive Lineman',
                 shortName: 'DL',
                 primaryStats: ['passRush', 'strength', 'acceleration', 'tackling'],
-                techniqueStats: ['passRush', 'tackling', 'hitPower', 'pursuit', 'acceleration'],
+                techniqueStats: ['passRush', 'tackling', 'pursuit', 'acceleration'],
                 count: 4
             },
             QB: {
                 name: 'Quarterback',
                 shortName: 'QB',
                 primaryStats: ['throwing', 'awareness', 'agility', 'speed'],
-                techniqueStats: ['throwing', 'awareness', 'focus'],
+                techniqueStats: ['throwing', 'awareness'],
                 count: 1
             }
         };
@@ -1901,32 +2010,20 @@
             // Technique Stats (trained skills)
             catching: {
                 name: 'Catching',
-                desc: 'Ability to secure the ball. Determines catch probability and catch zone size.',
-                influences: 'Base catch probability (0-100%), catch zone radius',
+                desc: 'Ability to secure the ball and concentrate under pressure.',
+                influences: 'Base catch probability (0-100%), contested catch bonus, catch zone radius',
                 growth: 'Technique - can improve through training and game reps'
             },
             routeRunning: {
                 name: 'Route Running',
-                desc: 'Precision in running routes. Helps create separation at route breaks.',
-                influences: 'Separation clash (WR side), route sharpness ability',
-                growth: 'Technique - can improve through training and game reps'
-            },
-            release: {
-                name: 'Release',
-                desc: 'Getting off the line of scrimmage against press coverage.',
-                influences: 'Release move ability, separation at the line',
-                growth: 'Technique - can improve through training and game reps'
-            },
-            focus: {
-                name: 'Focus',
-                desc: 'Concentration under pressure. Affects contested catch success.',
-                influences: 'Catch bonus/penalty when defenders are close',
+                desc: 'Precision in running routes and getting off the line against press coverage.',
+                influences: 'Separation clash (35% weight), route sharpness ability, release move ability',
                 growth: 'Technique - can improve through training and game reps'
             },
             tackling: {
                 name: 'Tackling',
-                desc: 'Form and technique in bringing down ball carriers.',
-                influences: 'Tackle clash (40% weight), tackle success rate',
+                desc: 'Form, technique, and hitting power in bringing down ball carriers.',
+                influences: 'Tackle clash (70% weight), tackle success rate',
                 growth: 'Technique - can improve through training and game reps'
             },
             awareness: {
@@ -1939,12 +2036,6 @@
                 name: 'Pursuit',
                 desc: 'Chasing down ball carriers and closing on plays.',
                 influences: 'Tackle clash (30% weight), pursuit speed boost',
-                growth: 'Technique - can improve through training and game reps'
-            },
-            hitPower: {
-                name: 'Hit Power',
-                desc: 'Explosive hitting that can knock down opponents.',
-                influences: 'Tackle clash (30% weight), knockdown chance',
                 growth: 'Technique - can improve through training and game reps'
             },
             passBlock: {
@@ -1961,8 +2052,8 @@
             },
             balance: {
                 name: 'Balance',
-                desc: 'Staying on feet during contact.',
-                influences: 'Line clash (OL 20%), tackle evasion (35%), YAC (15%)',
+                desc: 'Staying on feet during contact in the trenches.',
+                influences: 'Line clash (OL 20%)',
                 growth: 'Technique - can improve through training and game reps'
             },
             throwing: {
@@ -1977,10 +2068,10 @@
                 influences: 'Separation clash (15%), line clash defense (20%), YAC (25%)',
                 growth: 'Technique - can improve through training and game reps'
             },
-            aggression: {
-                name: 'Aggression',
-                desc: 'Willingness to engage in physical contact.',
-                influences: 'Currently not used in calculations',
+            evasion: {
+                name: 'Evasion',
+                desc: 'Ability to avoid tackles and stay on feet during contact.',
+                influences: 'Tackle evasion (35% weight), YAC ability',
                 growth: 'Technique - can improve through training and game reps'
             }
         };
@@ -2434,8 +2525,8 @@
                     return {
                         releaseMove: clamp(core.agility * 0.45 + core.strength * 0.35 + (player.stats.routeRunning || 70) * 0.20),
                         routeSharpness: clamp(core.agility * 0.40 + core.speed * 0.35 + (player.stats.routeRunning || 70) * 0.25),
-                        contestedCatch: clamp(core.strength * 0.30 + core.intelligence * 0.25 + (player.stats.catching || 70) * 0.25 + (player.stats.focus || 70) * 0.20),
-                        yacAbility: clamp(core.speed * 0.40 + core.agility * 0.40 + (player.stats.balance || 70) * 0.20)
+                        contestedCatch: clamp(core.strength * 0.30 + core.intelligence * 0.25 + (player.stats.catching || 70) * 0.45),
+                        yacAbility: clamp(core.speed * 0.40 + core.agility * 0.40 + (player.stats.evasion || 70) * 0.20)
                     };
                 case 'QB':
                     return {
@@ -2470,10 +2561,10 @@
 
             // All possible stats
             const allStats = [
-                'speed', 'acceleration', 'agility', 'strength', 'stamina', 'balance',
-                'catching', 'throwing', 'routeRunning', 'release', 'jumping', 'focus',
-                'manCoverage', 'zoneCoverage', 'press', 'tackling', 'hitPower', 'pursuit', 'awareness',
-                'passBlock', 'passRush', 'aggression'
+                'speed', 'acceleration', 'agility', 'strength', 'stamina', 'balance', 'evasion',
+                'catching', 'throwing', 'routeRunning', 'jumping',
+                'manCoverage', 'zoneCoverage', 'press', 'tackling', 'pursuit', 'awareness',
+                'passBlock', 'passRush'
             ];
 
             // Generate all stats
@@ -4255,10 +4346,22 @@
                     continue;
                 }
 
-                // Resolve clash
+                // Ability selection - DL initiates, OL reacts
+                const abilityResult = resolveAbilityClash(dl.player, ol.player, ABILITY_MATCHUPS.linemen, true);
+
+                // Base rolls from technique stats
                 const olRoll = weightedStatRoll(ol.stats, CLASH_WEIGHTS.lineClash.offense, ol.player.coreAttributes);
                 const dlRoll = weightedStatRoll(dl.stats, CLASH_WEIGHTS.lineClash.defense, dl.player.coreAttributes) + roundBonus;
-                const margin = dlRoll - olRoll;
+
+                // Add ability values (~33% contribution)
+                const olAbilityBonus = abilityResult.reactor ? abilityResult.reactor.value * 0.5 : 0;
+                const dlAbilityBonus = abilityResult.initiator ? abilityResult.initiator.value * 0.5 : 0;
+
+                // Apply matchup multiplier to DL
+                const adjustedDlRoll = (dlRoll + dlAbilityBonus) * abilityResult.matchupMultiplier;
+                const adjustedOlRoll = olRoll + olAbilityBonus;
+
+                const margin = adjustedDlRoll - adjustedOlRoll;
 
                 let result = 'held';
                 // Determine outcome based on margin
@@ -4479,10 +4582,10 @@
                     catchProb -= 30;
                 }
 
-                // Focus for contested catches
+                // Contested catch bonus from catching skill
                 if (receiver.separation < 5) {
-                    const focusBonus = (receiver.stats.focus - 70) * 0.3;
-                    catchProb += focusBonus;
+                    const contestedBonus = (receiver.stats.catching - 70) * 0.2;
+                    catchProb += contestedBonus;
                 }
 
                 // Depth penalty for longer throws
@@ -4510,9 +4613,8 @@
             const visibleReceivers = [];
             for (const receiver of state.receivers) {
                 const visionRoll = weightedStatRoll(qbStats, {
-                    awareness: 0.50,
-                    throwing: 0.30,
-                    focus: 0.20
+                    awareness: 0.70,
+                    throwing: 0.30
                 }, state.qb.coreAttributes);
 
                 // Easier to notice more open receivers
@@ -4701,7 +4803,7 @@
                     speed: 0.35,
                     acceleration: 0.25,
                     agility: 0.25,
-                    balance: 0.15
+                    evasion: 0.15
                 }, receiver.player.coreAttributes);
                 const segmentYards = Math.floor(2 + (yacRoll / 100) * 10);
 
@@ -6042,9 +6144,9 @@
                     ],
                     stats: {
                         speed: 80, acceleration: 72, agility: 85,
-                        routeRunning: 88, release: 75, catching: 80,
-                        jumping: 70, strength: 60, balance: 72,
-                        aggression: 45, stamina: 80, focus: 88
+                        routeRunning: 88, catching: 84,
+                        jumping: 70, strength: 60, evasion: 75,
+                        stamina: 80
                     }
                 },
                 {
@@ -6055,9 +6157,9 @@
                     ],
                     stats: {
                         speed: 80, acceleration: 92, agility: 78,
-                        routeRunning: 65, release: 70, catching: 80,
-                        jumping: 75, strength: 50, balance: 60,
-                        aggression: 40, stamina: 85, focus: 68
+                        routeRunning: 68, catching: 80,
+                        jumping: 75, strength: 50, evasion: 65,
+                        stamina: 85
                     }
                 },
                 {
@@ -6069,9 +6171,9 @@
                     ],
                     stats: {
                         speed: 80, acceleration: 78, agility: 80,
-                        routeRunning: 82, release: 78, catching: 80,
-                        jumping: 82, strength: 72, balance: 78,
-                        aggression: 55, stamina: 82, focus: 80
+                        routeRunning: 82, catching: 82,
+                        jumping: 82, strength: 72, evasion: 78,
+                        stamina: 82
                     }
                 }
             ];
@@ -6088,9 +6190,9 @@
                     stats: {
                         speed: 80, acceleration: 70, agility: 75,
                         manCoverage: 80, zoneCoverage: 80, press: 78,
-                        tackling: 80, hitPower: 85, pursuit: 75,
-                        awareness: 72, strength: 82, balance: 78,
-                        aggression: 75, stamina: 78
+                        tackling: 85, pursuit: 75,
+                        awareness: 72, strength: 82,
+                        stamina: 78
                     }
                 },
                 {
@@ -6102,9 +6204,9 @@
                     stats: {
                         speed: 80, acceleration: 85, agility: 82,
                         manCoverage: 80, zoneCoverage: 80, press: 60,
-                        tackling: 70, hitPower: 65, pursuit: 90,
-                        awareness: 75, strength: 65, balance: 72,
-                        aggression: 55, stamina: 88
+                        tackling: 72, pursuit: 90,
+                        awareness: 75, strength: 65,
+                        stamina: 88
                     }
                 },
                 {
@@ -6116,9 +6218,9 @@
                     stats: {
                         speed: 80, acceleration: 68, agility: 70,
                         manCoverage: 80, zoneCoverage: 80, press: 72,
-                        tackling: 85, hitPower: 90, pursuit: 72,
-                        awareness: 85, strength: 88, balance: 82,
-                        aggression: 70, stamina: 75
+                        tackling: 90, pursuit: 72,
+                        awareness: 85, strength: 88,
+                        stamina: 75
                     }
                 },
                 {
@@ -6131,9 +6233,9 @@
                     stats: {
                         speed: 80, acceleration: 72, agility: 78,
                         manCoverage: 80, zoneCoverage: 80, press: 65,
-                        tackling: 78, hitPower: 75, pursuit: 80,
-                        awareness: 88, strength: 75, balance: 80,
-                        aggression: 60, stamina: 82
+                        tackling: 80, pursuit: 80,
+                        awareness: 88, strength: 75,
+                        stamina: 82
                     }
                 }
             ];
@@ -6408,6 +6510,7 @@
                 oLineman.displayName = config.name;
                 oLineman.playerId = config.playerId || null;  // Link to roster player
                 oLineman.position_label = config.position;
+                oLineman.position = 'OL';  // For ability calculations
                 oLineman.stats = config.stats;
                 oLineman.coreAttributes = config.coreAttributes || null;
                 oLineman.startPos = startPos.clone();
@@ -6471,6 +6574,7 @@
                 dLineman.displayName = config.name;
                 dLineman.playerId = config.playerId || null;  // Link to roster player
                 dLineman.position_label = config.position;
+                dLineman.position = 'DL';  // For ability calculations
                 dLineman.stats = config.stats;
                 dLineman.coreAttributes = config.coreAttributes || null;
                 dLineman.startPos = startPos.clone();
@@ -7536,11 +7640,22 @@
             oLineman.lastClashTime = currentTime;
             dLineman.lastClashTime = currentTime;
 
-            // Roll for clash
+            // Ability selection - DL initiates (attacker), OL reacts (defender)
+            const abilityResult = resolveAbilityClash(dLineman, oLineman, ABILITY_MATCHUPS.linemen, true);
+
+            // Base rolls from technique stats
             const oLineRoll = weightedRoll(oLineman.stats, CLASH_WEIGHTS.lineClash.offense, oLineman.coreAttributes);
             const dLineRoll = weightedRoll(dLineman.stats, CLASH_WEIGHTS.lineClash.defense, dLineman.coreAttributes);
 
-            const margin = oLineRoll - dLineRoll;
+            // Add ability values to rolls (abilities contribute ~33% of total)
+            const oAbilityBonus = abilityResult.reactor ? abilityResult.reactor.value * 0.5 : 0;
+            const dAbilityBonus = abilityResult.initiator ? abilityResult.initiator.value * 0.5 : 0;
+
+            // Apply matchup multiplier to DL's roll (higher = better for DL)
+            const adjustedDLineRoll = (dLineRoll + dAbilityBonus) * abilityResult.matchupMultiplier;
+            const adjustedOLineRoll = oLineRoll + oAbilityBonus;
+
+            const margin = adjustedOLineRoll - adjustedDLineRoll;
 
             if (margin > LINE_CLASH_CONSTANTS.OFFENSE_WIN_THRESHOLD) {
                 // O-line wins decisively - knock down D-lineman
@@ -10365,12 +10480,11 @@
                 const wideOpenBase = 80 + (catchingStat - 60) * 0.75;
                 return Math.min(95, wideOpenBase);
             } else {
-                // 50 catching = 10%, 100 catching = 35%
+                // 50 catching = 10%, 100 catching = 45%
                 const contestedBase = 10;
-                const catchingBonus = (catchingStat - 50) * 0.5;
-                const focusBonus = (receiver.stats.focus - 50) * 0.2;
+                const catchingBonus = (catchingStat - 50) * 0.7;  // Catching now includes focus ability
                 const defenderReduction = totalDefenderInfluence * 40;
-                return Math.max(5, Math.min(95, contestedBase + catchingBonus + focusBonus - defenderReduction));
+                return Math.max(5, Math.min(95, contestedBase + catchingBonus - defenderReduction));
             }
         };
 

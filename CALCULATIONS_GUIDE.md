@@ -36,8 +36,15 @@ Both modes use the same stat weights (`CLASH_WEIGHTS`) and the same core roll fo
 | Tier | Description | Examples |
 |------|-------------|----------|
 | **Core Attributes** | Natural athletic gifts (rarely change) | STR, SPD, AGI, INT |
-| **Technique Stats** | Trained skills (can improve) | Catching, Pass Rush, Awareness |
-| **Position Abilities** | Calculated from Core + Technique | Bull Rush, Man Coverage |
+| **Technique Stats** | Trained skills (can improve) | Catching, Route Running, Tackling, Pass Rush |
+| **Position Abilities** | Calculated from Core + Technique | Bull Rush, Man Coverage, Route Sharpness |
+
+### Consolidated Stats
+Recent stat consolidations for cleaner design:
+- **Route Running** now includes release skills (getting off the line)
+- **Catching** now includes focus/concentration for contested catches
+- **Tackling** now includes hit power for bringing down ball carriers
+- **Evasion** replaces balance for avoiding tackles (OL still uses Balance for line clashes)
 
 ### How Rolls Work
 All clash calculations use weighted stat rolls with ±20% variance:
@@ -46,6 +53,12 @@ roll = (stat1 × weight1 + stat2 × weight2 + ...) × (0.8 to 1.2 random)
 ```
 
 **Core Attribute Override:** When calculating rolls, Speed/Agility/Strength use Core Attributes instead of technique stats.
+
+### Ability Selection System
+When abilities are used in clashes (e.g., OL vs DL):
+1. **Initiating player** selects ability: 60% highest, 30% second, 10% third
+2. **Reacting player** may counter: (INT - 20)% chance to pick optimal counter
+3. **Matchup multiplier** applied based on ability pairing
 
 ---
 
@@ -67,9 +80,8 @@ Determines if receiver gains separation from defender during route running.
 |------|--------|--------|
 | Speed | 25% | Core Attribute |
 | Agility | 25% | Core Attribute |
-| Route Running | 20% | Technique |
+| Route Running | 35% | Technique (includes release) |
 | Acceleration | 15% | Technique |
-| Release | 15% | Technique |
 
 **Defender Roll:**
 | Stat | Weight | Source |
@@ -196,15 +208,14 @@ Determines if defender successfully tackles ball carrier.
 **Tackler Roll:**
 | Stat | Weight | Source |
 |------|--------|--------|
-| Tackling | 40% | Technique |
+| Tackling | 70% | Technique (includes hit power) |
 | Pursuit | 30% | Technique |
-| Hit Power | 30% | Technique |
 
 **Ball Carrier (Evasion) Roll:**
 | Stat | Weight | Source |
 |------|--------|--------|
 | Agility | 35% | Core Attribute |
-| Balance | 35% | Technique |
+| Evasion | 35% | Technique |
 | Speed | 30% | Core Attribute |
 
 ### Modifiers
@@ -373,9 +384,8 @@ Determines which receivers the AI QB can see and consider for throws. In gamepla
 ### Vision Roll
 | Stat | Weight | Source |
 |------|--------|--------|
-| Awareness | 50% | Technique |
+| Awareness | 70% | Technique |
 | Throwing | 30% | Technique |
-| Focus | 20% | Technique |
 
 ### Notice Threshold
 ```
@@ -479,8 +489,8 @@ intChance += (defenderCatching - 50) × 0.1
 | Clash | Key Offensive Stats | Key Defensive Stats | Win Threshold | Duration |
 |-------|--------------------|--------------------|---------------|----------|
 | Separation | SPD, AGI, RouteRun | Awareness, Pursuit | > 3 margin | 1.0 sec effect |
-| Line | PassBlock, STR, Balance | PassRush, STR, Accel | > 5 margin | 1.0 sec knockdown |
-| Tackle | AGI, SPD, Balance | Tackle, Pursuit, HitPwr | > -12 margin | Instant |
+| Line | PassBlock, STR, Balance + Ability | PassRush, STR, Accel + Ability | > 5 margin | 1.0 sec knockdown |
+| Tackle | AGI, SPD, Evasion | Tackling, Pursuit | > -12 margin | Instant |
 
 ### Speed Modifiers
 | Event | Multiplier | Duration |
@@ -505,11 +515,11 @@ intChance += (defenderCatching - 50) × 0.1
 ### Stats by Position
 | Position | Shown Technique Stats |
 |----------|----------------------|
-| WR | Catching, Route Running, Release, Acceleration, Balance, Focus |
-| CB | Tackling, Awareness, Pursuit, Hit Power, Balance |
+| WR | Catching, Route Running, Acceleration, Evasion |
+| CB | Tackling, Awareness, Pursuit |
 | OL | Pass Block, Balance, Awareness |
-| DL | Pass Rush, Tackling, Hit Power, Pursuit, Acceleration |
-| QB | Throwing, Awareness, Focus |
+| DL | Pass Rush, Tackling, Pursuit, Acceleration |
+| QB | Throwing, Awareness |
 
 ---
 
