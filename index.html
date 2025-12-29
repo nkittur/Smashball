@@ -943,39 +943,54 @@
             letter-spacing: 1px;
             margin-bottom: 4px;
         }
-        .stats-row {
-            display: flex;
-            gap: 4px;
-            flex-wrap: wrap;
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 3px 8px;
         }
-        .stat-chip {
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 2px 0;
+        }
+        .stat-row-name {
             display: flex;
             align-items: center;
             gap: 4px;
-            padding: 3px 6px;
-            background: #252535;
-            border-radius: 3px;
+            color: #aaa;
             font-size: 11px;
         }
-        .stat-chip-name {
-            color: #888;
-        }
-        .stat-chip-value {
+        .stat-row-value {
             font-weight: bold;
+            font-size: 11px;
         }
-        .stat-chip.best-ability {
+        .stat-row.best-ability {
             background: #2a3a2a;
-            border: 1px solid #4a4;
+            border-radius: 3px;
+            padding: 2px 4px;
+            margin: -2px -4px;
         }
-        /* Core attribute colored chips */
-        .stat-chip.str-chip { border-left: 2px solid #ff6b6b; }
-        .stat-chip.spd-chip { border-left: 2px solid #4dabf7; }
-        .stat-chip.agi-chip { border-left: 2px solid #69db7c; }
-        .stat-chip.int-chip { border-left: 2px solid #ffd43b; }
-        .stat-chip.str-chip .stat-chip-name { color: #ff6b6b; }
-        .stat-chip.spd-chip .stat-chip-name { color: #4dabf7; }
-        .stat-chip.agi-chip .stat-chip-name { color: #69db7c; }
-        .stat-chip.int-chip .stat-chip-name { color: #ffd43b; }
+        /* Core attribute colors */
+        .stat-row.str-row .stat-row-name { color: #ff6b6b; }
+        .stat-row.spd-row .stat-row-name { color: #4dabf7; }
+        .stat-row.agi-row .stat-row-name { color: #69db7c; }
+        .stat-row.int-row .stat-row-name { color: #ffd43b; }
+        /* Attribute indicator dots */
+        .attr-dots {
+            display: inline-flex;
+            gap: 2px;
+            margin-right: 2px;
+        }
+        .attr-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+        }
+        .attr-dot.str { background: #ff6b6b; }
+        .attr-dot.spd { background: #4dabf7; }
+        .attr-dot.agi { background: #69db7c; }
+        .attr-dot.int { background: #ffd43b; }
 
         /* Keep old styles for backwards compatibility but hide */
         .core-attributes-section, .abilities-section, .technique-section { display: none; }
@@ -1456,6 +1471,57 @@
                 reactor: reactorAbility,
                 matchupMultiplier: matchupMultiplier
             };
+        }
+
+        // Calculate core×ability multiplicative value for a player
+        // Returns value scaled to be used in clash rolls
+        // The core stat contribution is based on the ability's ABILITY_CORE_MAPPING
+        function getCoreAbilityRoll(player, selectedAbility) {
+            if (!player.coreAttributes || !selectedAbility) return 30; // Default fallback
+
+            const mapping = ABILITY_CORE_MAPPING[selectedAbility.name];
+            if (!mapping) return 30;
+
+            // Calculate weighted core stat based on ability's core mapping
+            let weightedCoreStat = 0;
+            for (const [attr, weight] of Object.entries(mapping)) {
+                const coreValue = player.coreAttributes[attr] || 50;
+                weightedCoreStat += coreValue * weight;
+            }
+
+            // Multiplicative: (coreStat/100) × (ability/100) scaled to contribute 60% of total
+            // If both are 90: (0.9 × 0.9) = 0.81 × 60 = 48.6
+            // If both are 70: (0.7 × 0.7) = 0.49 × 60 = 29.4
+            const coreNorm = weightedCoreStat / 100;
+            const abilityNorm = selectedAbility.value / 100;
+            const multiplicativeValue = coreNorm * abilityNorm * 60;
+
+            return multiplicativeValue;
+        }
+
+        // Calculate technique-only roll (40% of total clash value)
+        function getTechniqueRoll(stats, weights, coreAttributes = null) {
+            // Filter to only non-core stats (technique stats)
+            const coreStats = ['speed', 'agility', 'strength', 'intelligence'];
+            let techniqueTotal = 0;
+            let techniqueWeightSum = 0;
+
+            for (const stat in weights) {
+                if (!coreStats.includes(stat)) {
+                    const statValue = stats[stat] || 50;
+                    techniqueTotal += statValue * weights[stat];
+                    techniqueWeightSum += weights[stat];
+                }
+            }
+
+            // Normalize if we have technique stats, scale to 40% contribution
+            if (techniqueWeightSum > 0) {
+                // Normalize to 0-100 range, then scale to 40% of total
+                const normalized = techniqueTotal / techniqueWeightSum;
+                return normalized * 0.4;
+            }
+
+            return 20; // Default if no technique stats
         }
 
         // ========================================
@@ -2553,60 +2619,31 @@
             pocketPresence: { agility: 0.56, speed: 0.44 }
         };
 
-        // Generate color-coded ability name HTML
-        function getColorCodedAbilityName(abilityKey) {
+        // Generate attribute indicator dots for an ability
+        function getAbilityDots(abilityKey) {
             const mapping = ABILITY_CORE_MAPPING[abilityKey];
-            if (!mapping) return abilityKey;
+            if (!mapping) return '';
 
-            // Convert camelCase to display name
-            const displayName = abilityKey.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase());
-            const letters = displayName.split('');
+            // Map attribute names to CSS classes
+            const attrToClass = {
+                strength: 'str',
+                speed: 'spd',
+                agility: 'agi',
+                intelligence: 'int'
+            };
 
-            // Sort attributes by percentage (descending)
+            // Sort by percentage descending and generate dots
             const sortedAttrs = Object.entries(mapping).sort((a, b) => b[1] - a[1]);
+            const dots = sortedAttrs.map(([attr]) =>
+                `<span class="attr-dot ${attrToClass[attr]}"></span>`
+            ).join('');
 
-            // Assign colors to each letter proportionally
-            let letterColors = [];
-            let letterIndex = 0;
+            return `<span class="attr-dots">${dots}</span>`;
+        }
 
-            for (const [attr, percent] of sortedAttrs) {
-                const color = CORE_ATTR_COLORS[attr];
-                const numLetters = Math.round(percent * letters.length);
-
-                for (let i = 0; i < numLetters && letterIndex < letters.length; i++) {
-                    letterColors.push({ letter: letters[letterIndex], color });
-                    letterIndex++;
-                }
-            }
-
-            // Handle any remaining letters (rounding edge case)
-            while (letterIndex < letters.length) {
-                const lastColor = CORE_ATTR_COLORS[sortedAttrs[sortedAttrs.length - 1][0]];
-                letterColors.push({ letter: letters[letterIndex], color: lastColor });
-                letterIndex++;
-            }
-
-            // Group consecutive letters with same color into single spans
-            let result = '';
-            let currentColor = null;
-            let currentGroup = '';
-
-            for (const { letter, color } of letterColors) {
-                if (color === currentColor) {
-                    currentGroup += letter;
-                } else {
-                    if (currentGroup) {
-                        result += `<span style="color:${currentColor}">${currentGroup}</span>`;
-                    }
-                    currentColor = color;
-                    currentGroup = letter;
-                }
-            }
-            if (currentGroup) {
-                result += `<span style="color:${currentColor}">${currentGroup}</span>`;
-            }
-
-            return result;
+        // Get display name for ability
+        function getAbilityDisplayName(abilityKey) {
+            return abilityKey.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase());
         }
 
         // Generate position-specific stats
@@ -3893,69 +3930,48 @@
 
             let statsHtml = '<div class="stats-panel">';
 
-            // Core Attributes row
+            // Core Attributes section
             if (core) {
                 statsHtml += `
                     <div class="stats-section">
                         <div class="stats-section-title">Core</div>
-                        <div class="stats-row">
-                            <div class="stat-chip str-chip">
-                                <span class="stat-chip-name">STR</span>
-                                <span class="stat-chip-value ${getColorClass(core.strength)}">${core.strength}</span>
-                            </div>
-                            <div class="stat-chip spd-chip">
-                                <span class="stat-chip-name">SPD</span>
-                                <span class="stat-chip-value ${getColorClass(core.speed)}">${core.speed}</span>
-                            </div>
-                            <div class="stat-chip agi-chip">
-                                <span class="stat-chip-name">AGI</span>
-                                <span class="stat-chip-value ${getColorClass(core.agility)}">${core.agility}</span>
-                            </div>
-                            <div class="stat-chip int-chip">
-                                <span class="stat-chip-name">INT</span>
-                                <span class="stat-chip-value ${getColorClass(core.intelligence)}">${core.intelligence}</span>
-                            </div>
+                        <div class="stats-grid">
+                            <div class="stat-row str-row"><span class="stat-row-name">STR</span><span class="stat-row-value ${getColorClass(core.strength)}">${core.strength}</span></div>
+                            <div class="stat-row spd-row"><span class="stat-row-name">SPD</span><span class="stat-row-value ${getColorClass(core.speed)}">${core.speed}</span></div>
+                            <div class="stat-row agi-row"><span class="stat-row-name">AGI</span><span class="stat-row-value ${getColorClass(core.agility)}">${core.agility}</span></div>
+                            <div class="stat-row int-row"><span class="stat-row-name">INT</span><span class="stat-row-value ${getColorClass(core.intelligence)}">${core.intelligence}</span></div>
                         </div>
                     </div>
                 `;
             }
 
-            // Abilities row
+            // Abilities section
             if (abilities) {
                 statsHtml += `
                     <div class="stats-section">
                         <div class="stats-section-title">Abilities</div>
-                        <div class="stats-row">
+                        <div class="stats-grid">
                             ${Object.entries(abilities).map(([key, value]) => {
                                 const isBest = bestAbility && bestAbility.name === key;
-                                const coloredName = getColorCodedAbilityName(key);
-                                return `
-                                    <div class="stat-chip ${isBest ? 'best-ability' : ''}">
-                                        <span class="stat-chip-name">${coloredName}</span>
-                                        <span class="stat-chip-value ${getColorClass(value)}">${value}</span>
-                                    </div>
-                                `;
+                                const dots = getAbilityDots(key);
+                                const name = getAbilityDisplayName(key);
+                                return `<div class="stat-row ${isBest ? 'best-ability' : ''}"><span class="stat-row-name">${dots}${name}</span><span class="stat-row-value ${getColorClass(value)}">${value}</span></div>`;
                             }).join('')}
                         </div>
                     </div>
                 `;
             }
 
-            // Technique row
+            // Technique section
             if (techniqueStats.length > 0) {
                 statsHtml += `
                     <div class="stats-section">
                         <div class="stats-section-title">Technique</div>
-                        <div class="stats-row">
+                        <div class="stats-grid">
                             ${techniqueStats.map(stat => {
                                 const current = Math.floor(player.stats[stat] || 0);
                                 const statName = stat.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase());
-                                return `
-                                    <div class="stat-chip">
-                                        <span class="stat-chip-name">${statName}</span>
-                                        <span class="stat-chip-value ${getColorClass(current)}">${current}</span>
-                                    </div>
-                                `;
+                                return `<div class="stat-row"><span class="stat-row-name">${statName}</span><span class="stat-row-value ${getColorClass(current)}">${current}</span></div>`;
                             }).join('')}
                         </div>
                     </div>
@@ -4405,17 +4421,22 @@
                 // Ability selection - DL initiates, OL reacts
                 const abilityResult = resolveAbilityClash(dl.player, ol.player, ABILITY_MATCHUPS.linemen, true);
 
-                // Base rolls from technique stats
-                const olRoll = weightedStatRoll(ol.stats, CLASH_WEIGHTS.lineClash.offense, ol.player.coreAttributes);
-                const dlRoll = weightedStatRoll(dl.stats, CLASH_WEIGHTS.lineClash.defense, dl.player.coreAttributes) + roundBonus;
+                // Calculate technique rolls (40% of total)
+                const olTechRoll = getTechniqueRoll(ol.stats, CLASH_WEIGHTS.lineClash.offense);
+                const dlTechRoll = getTechniqueRoll(dl.stats, CLASH_WEIGHTS.lineClash.defense);
 
-                // Add ability values (~33% contribution)
-                const olAbilityBonus = abilityResult.reactor ? abilityResult.reactor.value * 0.5 : 0;
-                const dlAbilityBonus = abilityResult.initiator ? abilityResult.initiator.value * 0.5 : 0;
+                // Calculate core×ability multiplicative rolls (60% of total)
+                const olCoreAbilityRoll = getCoreAbilityRoll(ol.player, abilityResult.reactor);
+                const dlCoreAbilityRoll = getCoreAbilityRoll(dl.player, abilityResult.initiator);
 
-                // Apply matchup multiplier to DL
-                const adjustedDlRoll = (dlRoll + dlAbilityBonus) * abilityResult.matchupMultiplier;
-                const adjustedOlRoll = olRoll + olAbilityBonus;
+                // Combined rolls with variance (±20%)
+                const variance = 0.2;
+                const olRollVariance = 1 + (Math.random() - 0.5) * 2 * variance;
+                const dlRollVariance = 1 + (Math.random() - 0.5) * 2 * variance;
+
+                const adjustedOlRoll = (olTechRoll + olCoreAbilityRoll) * olRollVariance;
+                // Apply matchup multiplier and round bonus to DL
+                const adjustedDlRoll = ((dlTechRoll + dlCoreAbilityRoll) * dlRollVariance + roundBonus) * abilityResult.matchupMultiplier;
 
                 const margin = adjustedDlRoll - adjustedOlRoll;
 
@@ -7699,17 +7720,22 @@
             // Ability selection - DL initiates (attacker), OL reacts (defender)
             const abilityResult = resolveAbilityClash(dLineman, oLineman, ABILITY_MATCHUPS.linemen, true);
 
-            // Base rolls from technique stats
-            const oLineRoll = weightedRoll(oLineman.stats, CLASH_WEIGHTS.lineClash.offense, oLineman.coreAttributes);
-            const dLineRoll = weightedRoll(dLineman.stats, CLASH_WEIGHTS.lineClash.defense, dLineman.coreAttributes);
+            // Calculate technique rolls (40% of total)
+            const oTechRoll = getTechniqueRoll(oLineman.stats, CLASH_WEIGHTS.lineClash.offense);
+            const dTechRoll = getTechniqueRoll(dLineman.stats, CLASH_WEIGHTS.lineClash.defense);
 
-            // Add ability values to rolls (abilities contribute ~33% of total)
-            const oAbilityBonus = abilityResult.reactor ? abilityResult.reactor.value * 0.5 : 0;
-            const dAbilityBonus = abilityResult.initiator ? abilityResult.initiator.value * 0.5 : 0;
+            // Calculate core×ability multiplicative rolls (60% of total)
+            const oCoreAbilityRoll = getCoreAbilityRoll(oLineman, abilityResult.reactor);
+            const dCoreAbilityRoll = getCoreAbilityRoll(dLineman, abilityResult.initiator);
 
+            // Combined rolls with variance (±20%)
+            const variance = 0.2;
+            const oRollVariance = 1 + (Math.random() - 0.5) * 2 * variance;
+            const dRollVariance = 1 + (Math.random() - 0.5) * 2 * variance;
+
+            const adjustedOLineRoll = (oTechRoll + oCoreAbilityRoll) * oRollVariance;
             // Apply matchup multiplier to DL's roll (higher = better for DL)
-            const adjustedDLineRoll = (dLineRoll + dAbilityBonus) * abilityResult.matchupMultiplier;
-            const adjustedOLineRoll = oLineRoll + oAbilityBonus;
+            const adjustedDLineRoll = (dTechRoll + dCoreAbilityRoll) * dRollVariance * abilityResult.matchupMultiplier;
 
             const margin = adjustedOLineRoll - adjustedDLineRoll;
 
@@ -11114,60 +11140,44 @@
 
             let statsHtml = '<div class="stats-panel">';
 
-            // Core Attributes row
+            // Core Attributes section
             if (core) {
                 statsHtml += `
                     <div class="stats-section">
                         <div class="stats-section-title">Core</div>
-                        <div class="stats-row">
-                            <div class="stat-chip str-chip">
-                                <span class="stat-chip-name">STR</span>
-                                <span class="stat-chip-value ${getColorClass(core.strength)}">${core.strength}</span>
-                            </div>
-                            <div class="stat-chip spd-chip">
-                                <span class="stat-chip-name">SPD</span>
-                                <span class="stat-chip-value ${getColorClass(core.speed)}">${core.speed}</span>
-                            </div>
-                            <div class="stat-chip agi-chip">
-                                <span class="stat-chip-name">AGI</span>
-                                <span class="stat-chip-value ${getColorClass(core.agility)}">${core.agility}</span>
-                            </div>
-                            <div class="stat-chip int-chip">
-                                <span class="stat-chip-name">INT</span>
-                                <span class="stat-chip-value ${getColorClass(core.intelligence)}">${core.intelligence}</span>
-                            </div>
+                        <div class="stats-grid">
+                            <div class="stat-row str-row"><span class="stat-row-name">STR</span><span class="stat-row-value ${getColorClass(core.strength)}">${core.strength}</span></div>
+                            <div class="stat-row spd-row"><span class="stat-row-name">SPD</span><span class="stat-row-value ${getColorClass(core.speed)}">${core.speed}</span></div>
+                            <div class="stat-row agi-row"><span class="stat-row-name">AGI</span><span class="stat-row-value ${getColorClass(core.agility)}">${core.agility}</span></div>
+                            <div class="stat-row int-row"><span class="stat-row-name">INT</span><span class="stat-row-value ${getColorClass(core.intelligence)}">${core.intelligence}</span></div>
                         </div>
                     </div>
                 `;
             }
 
-            // Abilities row
+            // Abilities section
             if (abilities) {
                 statsHtml += `
                     <div class="stats-section">
                         <div class="stats-section-title">Abilities</div>
-                        <div class="stats-row">
+                        <div class="stats-grid">
                             ${Object.entries(abilities).map(([key, value]) => {
                                 const isBest = bestAbility && bestAbility.name === key;
-                                const coloredName = getColorCodedAbilityName(key);
-                                return `
-                                    <div class="stat-chip ${isBest ? 'best-ability' : ''}">
-                                        <span class="stat-chip-name">${coloredName}</span>
-                                        <span class="stat-chip-value ${getColorClass(value)}">${value}</span>
-                                    </div>
-                                `;
+                                const dots = getAbilityDots(key);
+                                const name = getAbilityDisplayName(key);
+                                return `<div class="stat-row ${isBest ? 'best-ability' : ''}"><span class="stat-row-name">${dots}${name}</span><span class="stat-row-value ${getColorClass(value)}">${value}</span></div>`;
                             }).join('')}
                         </div>
                     </div>
                 `;
             }
 
-            // Technique row with changes
+            // Technique section with changes
             if (techniqueStats.length > 0) {
                 statsHtml += `
                     <div class="stats-section">
                         <div class="stats-section-title">Technique</div>
-                        <div class="stats-row">
+                        <div class="stats-grid">
                             ${techniqueStats.map(stat => {
                                 const currentRaw = player.stats[stat] || 0;
                                 const startRaw = player.seasonStartStats ? (player.seasonStartStats[stat] || 0) : currentRaw;
@@ -11176,12 +11186,7 @@
                                 const change = current - start;
                                 const changeText = change !== 0 ? ` <span class="stat-change ${change > 0 ? 'positive' : 'negative'}">${change > 0 ? '+' : ''}${change}</span>` : '';
                                 const statName = stat.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase());
-                                return `
-                                    <div class="stat-chip">
-                                        <span class="stat-chip-name">${statName}</span>
-                                        <span class="stat-chip-value ${getColorClass(current)}">${current}${changeText}</span>
-                                    </div>
-                                `;
+                                return `<div class="stat-row"><span class="stat-row-name">${statName}</span><span class="stat-row-value ${getColorClass(current)}">${current}${changeText}</span></div>`;
                             }).join('')}
                         </div>
                     </div>
