@@ -3948,7 +3948,7 @@
                 <div><span class="ovr-big">${player.overall}</span></div>
                 <div style="margin-top:10px;">
                     ${POSITIONS[player.position].name} | Age ${player.age} | Peak ${player.peakAge}<br>
-                    Salary: ${formatSalary(player.salaryCost)} | Potential: ${'★'.repeat(player.potentialGrade + 1)}<br>
+                    Salary: ${formatSalary(player.salaryCost)} | Potential: ${'★'.repeat(player.potentialGrade)}<br>
                     <span style="color:${costColor};font-weight:bold;">Draft Cost: ${player.draftCost}</span>
                 </div>
             `;
@@ -11154,7 +11154,7 @@
                 <div><span class="ovr-big">${player.overall}</span>${overallChangeText}</div>
                 <div style="margin-top:10px;">
                     ${POSITIONS[player.position].name} | Age ${player.age} | Peak ${player.peakAge}<br>
-                    Salary: ${formatSalary(player.salaryCost)} | Potential: ${'★'.repeat(player.potentialGrade + 1)}<br>
+                    Salary: ${formatSalary(player.salaryCost)} | Potential: ${'★'.repeat(player.potentialGrade)}<br>
                     <span style="color:#ffd700;">Fame Bank: ${fameBank}</span> | <span style="color:#4af;">Hype: ${hypeDisplay}</span><br>
                     <span style="color:${tradeValue > 0 ? '#4f4' : '#888'}">${tradeText}</span>
                 </div>
@@ -11297,7 +11297,7 @@
 
                 history.forEach((season, idx) => {
                     const heightPct = ((season.overall - minOvr) / range) * 100;
-                    const potentialStars = '★'.repeat((season.potential || 0) + 1);
+                    const potentialStars = '★'.repeat(season.potential || 0);
                     graphHtml += `
                         <div class="career-bar">
                             <div class="career-bar-ovr">${season.overall}</div>
