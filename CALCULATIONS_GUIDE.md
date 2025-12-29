@@ -4,6 +4,19 @@ This document details every calculation in the game, what stats affect it, and h
 
 ---
 
+## Game Modes Overview
+
+The game has two distinct modes that use different calculation systems:
+
+| Mode | Description | Key Characteristics |
+|------|-------------|---------------------|
+| **Gameplay Mode** | Interactive 3D Babylon.js game | Real-time, continuous movement, player controls QB throws |
+| **Simulation Mode** | Text-based auto-sim for opponent drives | Round-based (5 rounds max), AI controls everything |
+
+Both modes use the same stat weights (`CLASH_WEIGHTS`) and the same core roll formula, but differ in how and when calculations are triggered.
+
+---
+
 ## Table of Contents
 1. [Stat System Overview](#stat-system-overview)
 2. [Separation Clash (WR vs CB)](#1-separation-clash-wr-vs-cb)
@@ -39,7 +52,14 @@ roll = (stat1 × weight1 + stat2 × weight2 + ...) × (0.8 to 1.2 random)
 
 ## 1. Separation Clash (WR vs CB)
 
+**Used in:** Both Gameplay and Simulation
+
 Determines if receiver gains separation from defender during route running.
+
+| Mode | Trigger | Function |
+|------|---------|----------|
+| Gameplay | Real-time proximity + direction changes | `resolveClash()` |
+| Simulation | Once per round (5 rounds total) | `processReceiverClashesRound()` |
 
 ### Stats Used
 
@@ -61,11 +81,13 @@ Determines if receiver gains separation from defender during route running.
 | Pursuit | 20% | Technique |
 | Tackling | 15% | Technique |
 
-### Bonuses Applied
+### Bonuses Applied (Simulation Only)
+Simulation mode includes momentum mechanics for route running:
 - **Crossing Route:** +10% of Route Running
 - **Break Round:** +8% of Route Running at route breaks
 - **Defender Awareness:** +8% of Awareness as counter-bonus
 - **Defender Tracking:** +6% of Awareness during crosses/breaks
+- **Momentum Advantage:** DB's reaction delay creates separation on direction changes
 
 ### Outcomes
 | Margin | Result | Effect |
@@ -82,7 +104,14 @@ Determines if receiver gains separation from defender during route running.
 
 ## 2. Line Clash (OL vs DL)
 
+**Used in:** Both Gameplay and Simulation
+
 Determines pass protection success.
+
+| Mode | Trigger | Function |
+|------|---------|----------|
+| Gameplay | Continuous while in range (1.5 sec interval) | `resolveLineClash()` |
+| Simulation | Once per round with cumulative pressure | `processLineClashesRound()` |
 
 ### Stats Used
 
@@ -102,12 +131,27 @@ Determines pass protection success.
 | Acceleration | 20% | Technique |
 | Speed | 15% | Core Attribute |
 
-### Outcomes
+### Outcomes (Gameplay)
 | Margin | Result | Effect |
 |--------|--------|--------|
 | > 5 | OL Wins | DL knocked down 1.0 sec |
 | < -5 | DL Wins | OL knocked down, DL speed boost 1.5× |
 | -5 to 5 | Engaged | Both near-zero speed, continue clash |
+
+### Outcomes (Simulation)
+Simulation uses cumulative pressure tracking with round bonuses:
+| Margin | Result | Pressure Added |
+|--------|--------|----------------|
+| > 18 | Beaten Badly | 35 (15% sack chance) |
+| > 10 | Beaten | 25 |
+| > 5 | Pressured | 15 |
+| > 2 | Light Pressure | 10 |
+| > -2 | Held | 3 |
+| > -10 | Blocked | 0 |
+| ≤ -10 | Pancaked | 0 (20% DL knockdown) |
+
+**DL Round Bonus:** +3 per round (cumulative advantage)
+**Sack Threshold:** Total pressure > 70 increases throw urgency
 
 ### DL Abilities
 | Ability | Formula | Best Against |
@@ -139,7 +183,14 @@ DL effectiveness multipliers when facing OL abilities:
 
 ## 3. Tackle Clash
 
+**Used in:** Both Gameplay and Simulation
+
 Determines if defender successfully tackles ball carrier.
+
+| Mode | Trigger | Function |
+|------|---------|----------|
+| Gameplay | When defender within 1.0 yard of ball carrier | `resolveTackle()` |
+| Simulation | During YAC phase (up to 3 attempts) | `simResolveTackleAttempt()` |
 
 ### Stats Used
 
@@ -171,7 +222,9 @@ Determines if defender successfully tackles ball carrier.
 
 ## 4. Physical Clash
 
-Triggered during contact based on aggression levels.
+**Used in:** Gameplay Only
+
+Triggered during contact based on aggression levels. Not used in simulation mode.
 
 ### Trigger Probability
 ```
@@ -207,9 +260,20 @@ knockdownChance = 0.15 + (|margin| / 100) × 0.1 - knockdownResistance
 
 ## 5. Catch Probability
 
+**Used in:** Both Gameplay and Simulation (different formulas)
+
 Determines if receiver catches a thrown ball.
 
-### Base Catch Rate
+| Mode | Calculation Style | Function |
+|------|-------------------|----------|
+| Gameplay | Proximity-based DB penalty | `calculateCatchProbability()` |
+| Simulation | Exponential roll vs threshold | `simCalculateCatchProbabilities()` |
+
+---
+
+### Gameplay Mode Catch Calculation
+
+**Base Catch Rate:**
 ```
 baseCatchRate = (catching - 50) × 2.5 + 20
 ```
@@ -222,14 +286,21 @@ baseCatchRate = (catching - 50) × 2.5 + 20
 | 80 | 95% |
 | 90 | 120% (absorbs penalty) |
 
-### Defender Penalty
+**Defender Penalty:**
 ```
 proximityFactor = max(0, 1 - (distance / coverageRange))
 tightCoverageBonus = (distance ≤ 0.7) ? 1.2 : 1.0
 dbPenalty = defenderCoverage × 1.5 × proximityFactor² × tightCoverageBonus
 ```
 
-### Coverage Levels
+**Lead Bonus (Shoulder Throws):**
+When ball is thrown to opposite side from defender:
+```
+leadReduction = (momentumScore / 100) × 0.5
+effectiveDbPenalty = rawDbPenalty × (1 - leadReduction)
+```
+
+**Coverage Levels:**
 | Distance | Classification | Typical Penalty |
 |----------|----------------|-----------------|
 | ≤ 0.6 yards | Blanketed | ~50% |
@@ -237,23 +308,67 @@ dbPenalty = defenderCoverage × 1.5 × proximityFactor² × tightCoverageBonus
 | 1.5-2.5 yards | Contested | ~20% |
 | > 2.5 yards | Light Coverage | ~10% |
 
-### Focus Bonus (Contested Catches)
+**Final Probability:**
 ```
-focusBonus = (focus - 50) × 0.2
+finalProbability = max(5%, min(98%, baseCatchRate - effectiveDbPenalty))
 ```
 
-### Final Probability
+---
+
+### Simulation Mode Catch Calculation
+
+Uses exponential distribution for QB throw quality:
+
+**QB Roll Mean (accuracy):**
 ```
-finalProbability = max(5%, min(98%, baseCatchRate - dbPenalty + focusBonus))
+rollMean = 79 + (75 - qbAccuracy) × 1.7 + pressure × 0.5
+```
+Higher rollMean = worse throws (more likely to exceed catch threshold)
+
+**Receiver Catch Threshold:**
+```
+catchProb = catching + separationBonus + focusBonus - depthPenalty
+```
+
+| Separation | Bonus |
+|------------|-------|
+| ≥ 20 | +15 |
+| ≥ 10 | +8 |
+| ≥ 3 | +3 |
+| ≥ -3 | 0 |
+| ≥ -10 | -15 |
+| < -10 | -30 |
+
+**Focus Bonus (Contested):**
+```
+focusBonus = (focus - 70) × 0.3   // Only when separation < 5
+```
+
+**Effective Catch Rate:**
+```
+effectiveCatchPct = (1 - exp(-catchProb / rollMean)) × 100
+```
+
+**Catch Resolution:**
+```
+qbRoll = -rollMean × ln(random)
+caught = (qbRoll < catchProbability)
 ```
 
 ---
 
 ## 6. Yards After Catch (YAC)
 
-Determines yards gained after reception.
+**Used in:** Simulation only (explicit calculation), Gameplay (emergent from physics)
 
-### YAC Roll Per Segment
+| Mode | How YAC Works |
+|------|---------------|
+| Gameplay | Player physically runs until tackled - real distance traveled |
+| Simulation | Segment-based calculation with tackle attempts |
+
+### Simulation YAC Calculation
+
+**YAC Roll Per Segment:**
 | Stat | Weight | Source |
 |------|--------|--------|
 | Speed | 35% | Core Attribute |
@@ -261,7 +376,7 @@ Determines yards gained after reception.
 | Agility | 25% | Core Attribute |
 | Balance | 15% | Technique |
 
-### Yards Per Segment
+**Yards Per Segment:**
 ```
 segmentYards = 2 + (yacRoll / 100) × 10
 ```
@@ -269,17 +384,30 @@ segmentYards = 2 + (yacRoll / 100) × 10
 - **Maximum:** 12 yards
 - Up to 3 segments (tackle attempts) per catch
 
-### Tackle Attempts
+**Immediate Tackle Check:**
+- Separation < 5: Immediate tackle attempt
+- Separation 5-15: Chance to skip (separation × 5%)
+- Separation 15+: Skip to YAC phase
+
+**Tackle Attempts:**
 - Attempt 1: Standard tackle roll
-- Attempt 2: +15 tackler bonus
+- Attempt 2: +15 tackler bonus (safety help arriving)
 - Attempt 3: +20 tackler bonus
 - If tackled mid-segment: 50% of segment yards credited
+
+### Gameplay YAC
+In gameplay mode, YAC is simply the distance the receiver runs after catching before being tackled. No explicit calculation - it's determined by:
+- Receiver's actual speed (from Core Attributes)
+- Defender pursuit angles and speeds
+- Broken tackle outcomes
 
 ---
 
 ## 7. QB Vision Check
 
-Determines which receivers the QB can see.
+**Used in:** Simulation Only
+
+Determines which receivers the AI QB can see and consider for throws. In gameplay mode, the player controls the QB and decides who to throw to.
 
 ### Vision Roll
 | Stat | Weight | Source |
@@ -295,6 +423,37 @@ noticeRoll = visionRoll + random(-10 to +10)
 ```
 - If `noticeRoll ≥ noticeThreshold`: Receiver is visible to QB
 - More open receivers are easier to notice
+
+### QB Decision Making (Simulation)
+After vision check, QB evaluates throw options:
+1. Score each visible receiver by effective catch %
+2. Add first-down bias based on QB trait
+3. Apply pressure urgency (higher pressure = must throw)
+4. Roll to determine if throw happens this round
+
+**QB Traits affect decision:**
+| Trait | First Down Bias | Open Threshold | Aggressiveness |
+|-------|-----------------|----------------|----------------|
+| Balanced | +10 | 40 | 1.0 |
+| Gunslinger | +5 | 30 | 1.2 |
+| Game Manager | +15 | 50 | 0.8 |
+| Scrambler | +8 | 35 | 1.0 |
+
+### Interception Check (Simulation Only)
+When a pass is incomplete in simulation, there's a chance for interception:
+
+**Base INT Chance:**
+```
+throwBadness = qbRoll - catchProbability
+intChance = min(throwBadness × 0.4, 25)
+intChance += (defenderAwareness - 60) × 0.2
+intChance += (defenderCatching - 50) × 0.1
+```
+
+**Separation Penalty:**
+- Separation < -10: +5% INT chance
+
+**Final Range:** Clamped to 5-35%
 
 ---
 
@@ -344,12 +503,24 @@ noticeRoll = visionRoll + random(-10 to +10)
 
 ## 9. Quick Reference Tables
 
+### Calculations by Mode
+| Calculation | Gameplay | Simulation | Key Difference |
+|-------------|----------|------------|----------------|
+| Separation Clash | Real-time triggers | Per-round | Sim has momentum mechanics |
+| Line Clash | Continuous interval | Per-round | Sim tracks cumulative pressure |
+| Tackle | Proximity trigger | YAC phase | Same formula, different context |
+| Physical Clash | Contact-based | Not used | Gameplay only |
+| Catch Probability | Proximity-based | Exponential roll | Different formulas |
+| YAC | Emergent (physics) | Segment-based | Sim calculates explicitly |
+| QB Vision | Player controls | AI check | Simulation only |
+| Interception | Not used | On incompletion | Simulation only |
+
 ### All Clash Types Summary
 | Clash | Key Offensive Stats | Key Defensive Stats | Win Threshold | Duration |
 |-------|--------------------|--------------------|---------------|----------|
 | Separation | SPD, AGI, RouteRun | Awareness, Pursuit | > 3 margin | 1.0 sec effect |
 | Line | PassBlock, STR, Balance | PassRush, STR, Accel | > 5 margin | 1.0 sec knockdown |
-| Tackle | AGI, SPD, Balance | Tackle, Pursuit, HitPwr | > -5 margin | Instant |
+| Tackle | AGI, SPD, Balance | Tackle, Pursuit, HitPwr | > -12 margin | Instant |
 | Physical | STR, Aggression, HitPwr | STR, Aggression, Tackle | Variable | 1.0 sec knockdown |
 
 ### Speed Modifiers
