@@ -1882,7 +1882,7 @@
                 name: 'Quarterback',
                 shortName: 'QB',
                 primaryStats: ['throwing', 'awareness', 'agility', 'speed'],
-                techniqueStats: ['throwing', 'awareness'],
+                techniqueStats: ['throwing', 'shortPassAcc', 'longPassAcc', 'awareness'],
                 count: 1
             }
         };
@@ -2086,8 +2086,20 @@
             },
             throwing: {
                 name: 'Throwing',
-                desc: 'Quarterback throwing technique and accuracy.',
+                desc: 'Quarterback throwing technique and mechanics.',
                 influences: 'All QB abilities, team strength rating',
+                growth: 'Technique - can improve through training and game reps'
+            },
+            shortPassAcc: {
+                name: 'Short Pass Acc',
+                desc: 'Accuracy on short passes (under 12 yards). Combined with agility for throw accuracy.',
+                influences: 'Lead bonus on short routes, catch probability',
+                growth: 'Technique - can improve through training and game reps'
+            },
+            longPassAcc: {
+                name: 'Long Pass Acc',
+                desc: 'Accuracy on deep passes (12+ yards). Combined with agility for throw accuracy.',
+                influences: 'Lead bonus on deep routes, catch probability',
                 growth: 'Technique - can improve through training and game reps'
             },
             acceleration: {
@@ -2654,7 +2666,7 @@
             // All possible stats
             const allStats = [
                 'speed', 'acceleration', 'agility', 'strength', 'stamina', 'balance', 'evasion',
-                'catching', 'throwing', 'routeRunning', 'jumping',
+                'catching', 'throwing', 'shortPassAcc', 'longPassAcc', 'routeRunning', 'jumping',
                 'manCoverage', 'zoneCoverage', 'press', 'tackling', 'pursuit', 'awareness',
                 'passBlock', 'passRush'
             ];
@@ -4411,6 +4423,7 @@
                 qb: {
                     player: offense.qb,
                     stats: offense.qb.stats,
+                    coreAttributes: offense.qb.coreAttributes || null,
                     trait: offense.qb.qbTrait || 'balanced',
                     hasThrown: false
                 },
@@ -4684,13 +4697,22 @@
 
         // Calculate catch probabilities using exponential distribution
         function simCalculateCatchProbabilities(state) {
-            const qbAccuracy = (state.qb.stats.throwing + state.qb.stats.awareness) / 2;
             const pressure = state.totalPressure;
-
-            // QB throw quality - rollMean determines accuracy distribution
-            const rollMean = 79 + (75 - qbAccuracy) * 1.7 + pressure * 0.5;
+            const qbAgility = state.qb.coreAttributes?.agility || state.qb.stats.agility || 70;
 
             for (const receiver of state.receivers) {
+                // Use short or long pass accuracy based on depth (12 yards = break point)
+                const isShortPass = receiver.currentDepth < 12;
+                const passAccStat = isShortPass
+                    ? (state.qb.stats.shortPassAcc || state.qb.stats.throwing || 70)
+                    : (state.qb.stats.longPassAcc || state.qb.stats.throwing || 70);
+
+                // Multiplicative accuracy: agility × passAcc
+                const qbAccuracy = (qbAgility / 100) * (passAccStat / 100) * 100;
+
+                // QB throw quality - rollMean determines accuracy distribution
+                const rollMean = 79 + (75 - qbAccuracy) * 1.7 + pressure * 0.5;
+
                 let catchProb = receiver.stats.catching;
 
                 // Separation bonus/penalty
@@ -4714,7 +4736,7 @@
                     catchProb += contestedBonus;
                 }
 
-                // Depth penalty for longer throws
+                // Depth penalty for longer throws (reduced by good long pass accuracy)
                 const depthPenalty = Math.max(0, (receiver.currentDepth - 15) * 0.3);
                 catchProb -= depthPenalty;
 
@@ -4727,6 +4749,7 @@
                 receiver.catchProbability = catchProb;
                 receiver.effectiveCatchPct = effectiveCatchPct;
                 receiver.rollMean = rollMean;
+                receiver.qbAccuracy = qbAccuracy;  // Store for display
             }
         }
 
@@ -9447,8 +9470,15 @@
                 // Calculate throw rating first (need lead score for catch probability)
                 const throwRating = calculateThrowRating(potentialCatcher, ballPosition, gameState.gameTime);
 
+                // Calculate throw distance (from QB to ball) and accuracy
+                const throwDistance = scene.qb ? BABYLON.Vector3.Distance(
+                    new BABYLON.Vector3(scene.qb.position.x, 0, scene.qb.position.z),
+                    new BABYLON.Vector3(ballPosition.x, 0, ballPosition.z)
+                ) : 10;
+                const throwAccuracyMult = calculateThrowAccuracy(scene.qb, throwDistance);
+
                 // Calculate catch probability (returns detailed info) - pass slowdown score (momentum-based) for lead bonus
-                const catchInfo = calculateCatchProbability(potentialCatcher, ballPosition, throwRating.slowdownScore);
+                const catchInfo = calculateCatchProbability(potentialCatcher, ballPosition, throwRating.slowdownScore, throwAccuracyMult);
                 const catchRoll = Math.random() * 100;
                 const success = catchRoll < catchInfo.probability;
 
@@ -9782,13 +9812,45 @@
             });
         };
 
+        // Calculate QB throw accuracy based on distance
+        // Uses agility × (shortPassAcc or longPassAcc) multiplicatively
+        // Returns multiplier for lead bonus: 1.2 at 100, 1.0 at 80, 0.8 at 70, 0.7 at 60
+        const calculateThrowAccuracy = (qb, throwDistance) => {
+            if (!qb || !qb.stats) return 1.0;
+
+            const agility = qb.coreAttributes?.agility || qb.stats.agility || 70;
+
+            // Use short pass accuracy for <12 yards, long pass for 12+ yards
+            const isShortPass = throwDistance < 12;
+            const passAccStat = isShortPass
+                ? (qb.stats.shortPassAcc || qb.stats.throwing || 70)
+                : (qb.stats.longPassAcc || qb.stats.throwing || 70);
+
+            // Multiplicative: (agility/100) × (passAcc/100) → normalized 0-1
+            const accuracy = (agility / 100) * (passAccStat / 100) * 100;
+
+            // Scale to lead bonus multiplier:
+            // 100 → 1.2, 80 → 1.0, 70 → 0.8, 60 → 0.7
+            // Linear interpolation between these points
+            if (accuracy >= 80) {
+                // 80-100 maps to 1.0-1.2
+                return 1.0 + (accuracy - 80) / 100;
+            } else if (accuracy >= 70) {
+                // 70-80 maps to 0.8-1.0
+                return 0.8 + (accuracy - 70) / 50;
+            } else {
+                // 60-70 maps to 0.7-0.8, below 60 caps at 0.7
+                return Math.max(0.7, 0.7 + (accuracy - 60) / 100);
+            }
+        };
+
         // Calculate catch probability based on receiver stats and proximity to defenders
         // NEW SIMPLIFIED FORMULA:
         // baseCatchRate = (catching - 50) × 2 + 20  -> 70→60%, 80→80%, 90→100%
         // dbPenalty = dbCoverage × 0.7 × proximity²
         // leadBonus = up to 50% reduction of DB penalty based on momentum (slowdownScore)
         // finalRate = baseCatchRate - effectiveDbPenalty
-        const calculateCatchProbability = (receiver, ballPosition, momentumScore = 50) => {
+        const calculateCatchProbability = (receiver, ballPosition, momentumScore = 50, throwAccuracyMultiplier = 1.0) => {
             const catchingStat = receiver.stats.catching;
             const coverageRange = CLASH_CONSTANTS.CLASH_RANGE * 1.5;
 
@@ -9864,11 +9926,13 @@
             const tightCoverageBonus = closestDefenderDist <= 0.7 ? 1.2 : 1.0;  // +20% penalty for tight coverage
             const rawDbPenalty = closestDefenderCoverage * 1.5 * proximityFactor * proximityFactor * tightCoverageBonus;
 
-            // LEAD BONUS: reduces DB penalty by up to 50% based on momentum (receiver in stride)
+            // LEAD BONUS: reduces DB penalty based on momentum and throw accuracy
+            // Base reduction up to 50%, scaled by QB throw accuracy (0.7x to 1.2x)
             let leadReduction = 0;
             let leadBonusSaved = 0;
             if (hasSideBonus) {
-                leadReduction = (momentumScore / 100) * 0.5;  // 0 to 0.5
+                const baseLeadReduction = (momentumScore / 100) * 0.5;  // 0 to 0.5
+                leadReduction = baseLeadReduction * throwAccuracyMultiplier;  // Scale by accuracy
                 leadBonusSaved = Math.round(rawDbPenalty * leadReduction);
             }
             const effectiveDbPenalty = rawDbPenalty * (1 - leadReduction);
@@ -12209,6 +12273,7 @@
                 scene.qb.playerId = rosterQB.id;
                 scene.qb.displayName = `${rosterQB.firstName} ${rosterQB.lastName.charAt(0)}.`;
                 scene.qb.stats = { ...rosterQB.stats };
+                scene.qb.coreAttributes = rosterQB.coreAttributes || null;
                 scene.qb.lastName = rosterQB.lastName;
                 scene.qb.overall = rosterQB.overall;
                 // Update name label TextBlocks
