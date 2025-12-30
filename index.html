@@ -4131,8 +4131,26 @@
 
         // Draft a player
         function draftPlayer(playerId) {
+            console.log('draftPlayer called with:', playerId);
+            console.log('draftState:', {
+                active: draftState.active,
+                picksRemaining: draftState.picksRemaining,
+                isPlayersTurn: draftState.isPlayersTurn,
+                usingExtraPick: draftState.usingExtraPick,
+                draftedPlayers: draftState.draftedPlayers
+            });
+
             const player = draftState.draftPool.find(p => p.id === playerId);
-            if (!player || draftState.draftedPlayers.includes(playerId)) return false;
+            console.log('Found player:', player);
+
+            if (!player) {
+                console.log('FAIL: Player not found in draft pool');
+                return false;
+            }
+            if (draftState.draftedPlayers.includes(playerId)) {
+                console.log('FAIL: Player already drafted');
+                return false;
+            }
 
             // If using an extra pick (purchased), don't use regular pick slot
             if (draftState.usingExtraPick) {
@@ -4152,12 +4170,18 @@
             }
 
             // Normal draft pick - check if player has picks remaining
-            if (draftState.picksRemaining <= 0) return false;
+            if (draftState.picksRemaining <= 0) {
+                console.log('FAIL: No picks remaining');
+                return false;
+            }
 
             // Check if team can afford this player
             if (!canAffordDraftPlayer(playerId)) {
-                return false;  // Can't afford
+                console.log('FAIL: Cannot afford player. Cost:', player.draftCost, 'Points:', managementState.team?.draftPoints);
+                return false;
             }
+
+            console.log('SUCCESS: Drafting player...');
 
             const pickNumber = draftState.currentPickNumber;
 
@@ -4311,10 +4335,13 @@
 
         // Show player detail for draft player
         function showDraftPlayerDetail(playerId) {
+            console.log('showDraftPlayerDetail called with:', playerId);
             const player = draftState.draftPool.find(p => p.id === playerId);
+            console.log('Found player in pool:', player);
             if (!player) return;
 
             draftState.selectedDraftPlayer = player;
+            console.log('Set selectedDraftPlayer:', draftState.selectedDraftPlayer);
 
             // Set player name
             document.getElementById('playerName').textContent = `${player.firstName} ${player.lastName}`;
@@ -13517,12 +13544,18 @@
             closePlayerDetail();
         });
         document.getElementById('btnCutPlayer').addEventListener('click', cutPlayerFromDetail);
+        console.log('Setting up btnTradePlayer click handler...');
         document.getElementById('btnTradePlayer').addEventListener('click', () => {
+            console.log('Trade/Draft button clicked');
             // Handle draft player differently
             if (draftState.selectedDraftPlayer) {
+                console.log('Selected draft player:', draftState.selectedDraftPlayer);
                 const playerId = draftState.selectedDraftPlayer.id;
                 const playerName = draftState.selectedDraftPlayer.name;
-                if (draftPlayer(playerId)) {
+                console.log('Attempting to draft player ID:', playerId);
+                const result = draftPlayer(playerId);
+                console.log('draftPlayer result:', result);
+                if (result) {
                     draftState.selectedDraftPlayer = null;
                     document.getElementById('btnCutPlayer').style.display = 'block';
                     // Show confirmation on the button briefly
@@ -13534,6 +13567,17 @@
                         btn.style.backgroundColor = '';
                         closePlayerDetail();
                     }, 600);
+                } else {
+                    // Draft failed - show error briefly
+                    console.log('Draft failed - showing error on button');
+                    const btn = document.getElementById('btnTradePlayer');
+                    const originalText = btn.textContent;
+                    btn.textContent = 'FAILED!';
+                    btn.style.backgroundColor = '#f44';
+                    setTimeout(() => {
+                        btn.textContent = originalText;
+                        btn.style.backgroundColor = '';
+                    }, 1000);
                 }
             } else {
                 tradePlayerFromDetail();
