@@ -1355,6 +1355,7 @@
     <script src="https://cdn.babylonjs.com/babylon.js"></script>
     <script src="https://cdn.babylonjs.com/gui/babylon.gui.min.js"></script>
     <script>
+        console.log('=== SMASHBALL SCRIPT LOADING ===');
         // Game State
         const gameState = {
             catches: 0,
@@ -13614,6 +13615,8 @@
         window.addEventListener('resize', () => {
             engine.resize();
         });
+
+        console.log('=== SMASHBALL SCRIPT FULLY LOADED ===');
     </script>
 </body>
 </html>
