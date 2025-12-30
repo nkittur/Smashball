@@ -4375,12 +4375,18 @@
                 tradeBtn.textContent = 'ALREADY DRAFTED';
             } else if (isExtraPick) {
                 tradeBtn.textContent = 'DRAFT (FREE)';
+            } else if (!canAfford) {
+                tradeBtn.textContent = `NEED ${player.draftCost} pts`;
             } else {
                 tradeBtn.textContent = `DRAFT (${player.draftCost} pts)`;
             }
-            tradeBtn.disabled = !canDraft;
+            // Never disable - handle click in handler for better debugging
+            tradeBtn.disabled = false;
             tradeBtn.style.opacity = canDraft ? '1' : '0.5';
+            tradeBtn.dataset.canDraft = canDraft ? 'true' : 'false';
+            tradeBtn.dataset.reason = alreadyDrafted ? 'already-drafted' : (!canAfford ? 'cannot-afford' : 'ok');
             cutBtn.style.display = 'none';
+            console.log('Draft button setup:', { canDraft, canAfford, alreadyDrafted, isExtraPick, draftCost: player.draftCost });
 
             const getColorClass = (val) => val >= 90 ? 'stat-elite' : val >= 80 ? 'stat-good' : val >= 70 ? 'stat-average' : val >= 60 ? 'stat-below' : 'stat-poor';
 
