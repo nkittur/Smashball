@@ -4046,6 +4046,7 @@
 
         // Check if it's the player's turn based on current pick number
         function isPlayersTurnNow() {
+            if (!draftState.currentPickNumber || !DRAFT.NUM_TEAMS) return false;
             const pickInRound = ((draftState.currentPickNumber - 1) % DRAFT.NUM_TEAMS) + 1;
             return pickInRound === DRAFT.NUM_TEAMS;
         }
@@ -4470,8 +4471,12 @@
             const currentPickEl = document.getElementById('draftCurrentPick');
             const pickAnnouncementEl = document.getElementById('draftPickAnnouncement');
             const navButtonsEl = document.getElementById('draftNavButtons');
-            const nextPickBtn = document.getElementById('btnNextPick');
-            const skipToYourPickBtn = document.getElementById('btnSkipToYourPick');
+
+            // Safety check for missing elements
+            if (!budgetEl || !statusEl || !poolListEl || !navButtonsEl) {
+                console.error('Draft screen elements not found');
+                return;
+            }
 
             // Update budget display
             const draftPoints = managementState.team?.draftPoints || 0;
