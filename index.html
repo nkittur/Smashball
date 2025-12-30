@@ -4009,7 +4009,6 @@
 
         // Start the draft
         function startDraft(isNewGame = false) {
-            console.log('Starting draft...');
             draftState.active = true;
             draftState.round = 1;
             draftState.pick = 1;
@@ -4019,9 +4018,7 @@
             draftState.usingExtraPick = false;
             draftState.simulatingPicks = false;
             draftState.lastComputerPick = null;
-            console.log('Generating draft class...');
             draftState.draftPool = generateDraftClass();
-            console.log('Draft class generated:', draftState.draftPool.length, 'players');
             draftState.draftedPlayers = [];
             draftState.playerPicks = [];
             draftState.isNewGame = isNewGame;
@@ -4041,13 +4038,8 @@
                 managementState.team.draftPoints = DRAFT.NEW_GAME_BUDGET;
             }
 
-            console.log('Showing draft screen...');
             showScreen('draft');
-
-            // Show first pick (don't auto-advance)
-            console.log('Refreshing draft screen...');
             refreshDraftScreen();
-            console.log('Draft started successfully');
         }
 
         // Check if it's the player's turn based on current pick number
@@ -4137,27 +4129,6 @@
             return (managementState.team.draftPoints || 0) >= player.draftCost;
         }
 
-        // Show player's pick confirmation
-        function showPlayerPickConfirmation(player, pickNumber, callback) {
-            const currentPickEl = document.getElementById('draftCurrentPick');
-            const pickAnnouncementEl = document.getElementById('draftPickAnnouncement');
-
-            currentPickEl.className = 'draft-current-pick your-turn';
-            currentPickEl.style.display = 'block';
-            pickAnnouncementEl.innerHTML = `
-                <div class="pick-number">Pick #${pickNumber}</div>
-                <div class="team-name">YOU DRAFTED</div>
-                <div class="player-picked">
-                    ${player.firstName} ${player.lastName}
-                    <span class="position">${player.position}</span>
-                    <span class="overall">${player.overall} OVR</span>
-                </div>
-            `;
-
-            // Continue after delay
-            setTimeout(callback, 1200);
-        }
-
         // Draft a player
         function draftPlayer(playerId) {
             const player = draftState.draftPool.find(p => p.id === playerId);
@@ -4165,8 +4136,6 @@
 
             // If using an extra pick (purchased), don't use regular pick slot
             if (draftState.usingExtraPick) {
-                const pickNumber = draftState.currentPickNumber;
-
                 // Add to team roster (no cost - already paid acquire cost)
                 managementState.team.roster.push(player);
                 draftState.draftedPlayers.push(playerId);
@@ -4177,10 +4146,8 @@
                 // Update depth chart
                 updateDepthChart(managementState.team);
 
-                // Show confirmation then refresh
-                showPlayerPickConfirmation(player, pickNumber, () => {
-                    refreshDraftScreen();
-                });
+                // Just refresh - modal shows feedback
+                refreshDraftScreen();
                 return true;
             }
 
@@ -4211,17 +4178,13 @@
 
             // Check if draft is complete
             if (draftState.picksRemaining <= 0) {
-                showPlayerPickConfirmation(player, pickNumber, () => {
-                    finishDraft();
-                });
+                finishDraft();
                 return true;
             }
 
-            // Show confirmation then let user navigate with Next Pick button
-            showPlayerPickConfirmation(player, pickNumber, () => {
-                draftState.lastComputerPick = null;  // Clear so nav buttons show
-                refreshDraftScreen();
-            });
+            // Just refresh the screen - no animation needed since modal shows feedback
+            draftState.lastComputerPick = null;
+            refreshDraftScreen();
 
             return true;
         }
