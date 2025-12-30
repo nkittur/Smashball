@@ -656,7 +656,7 @@
         .draft-toggle-buttons { display: flex; gap: 10px; margin-bottom: 15px; justify-content: center; }
         .draft-toggle-buttons .toggle-btn { flex: 1; max-width: 150px; padding: 8px 12px; font-size: 12px; background: #2a2a3a; }
         .draft-toggle-buttons .toggle-btn.active { background: #4a4a6a; border-color: #ffd700; }
-        .draft-list { max-height: 320px; overflow-y: auto; overflow-x: hidden; }
+        .draft-list { max-height: 280px; overflow-y: auto; overflow-x: hidden; }
         .draft-list .roster-item { border-left: 3px solid #333; transition: border-color 0.2s; flex-wrap: nowrap; }
         .draft-list .roster-item:hover { border-left-color: #ffd700; background: #2a2a3a; }
         .draft-list .roster-item.drafted { opacity: 0.4; pointer-events: none; }
@@ -4163,7 +4163,7 @@
                 item.innerHTML = `
                     <div style="flex:1;">
                         <div class="name">${player.firstName} ${player.lastName}</div>
-                        <div class="stats">${POSITIONS[player.position].name} | Age ${player.age} | ${formatSalary(player.salaryCost)}</div>
+                        <div class="stats">${POSITIONS[player.position].name}</div>
                     </div>
                     <div style="display:flex;align-items:center;gap:10px;">
                         <span class="${costClass}">${player.draftCost}</span>
