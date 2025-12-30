@@ -4188,6 +4188,7 @@
 
             // Deduct draft points
             managementState.team.draftPoints -= player.draftCost;
+            console.log('Draft points after deduction:', managementState.team.draftPoints);
 
             // Add to team roster
             managementState.team.roster.push(player);
@@ -4197,19 +4198,24 @@
             draftState.round++;
             draftState.currentPickNumber++;
             draftState.isPlayersTurn = false;
+            console.log('State updated. Picks remaining:', draftState.picksRemaining, 'Round:', draftState.round);
 
             // Update depth chart
             updateDepthChart(managementState.team);
+            console.log('Depth chart updated');
 
             // Check if draft is complete
             if (draftState.picksRemaining <= 0) {
+                console.log('Draft complete, calling finishDraft');
                 finishDraft();
                 return true;
             }
 
             // Just refresh the screen - no animation needed since modal shows feedback
             draftState.lastComputerPick = null;
+            console.log('Calling refreshDraftScreen...');
             refreshDraftScreen();
+            console.log('refreshDraftScreen completed');
 
             return true;
         }
@@ -13563,7 +13569,6 @@
         }
         tradeBtnEl.addEventListener('click', (e) => {
             console.log('Trade/Draft button clicked', e);
-            alert('Button clicked! Check console for details.');
             // Handle draft player differently
             if (draftState.selectedDraftPlayer) {
                 console.log('Selected draft player:', draftState.selectedDraftPlayer);
@@ -13573,13 +13578,15 @@
                 const result = draftPlayer(playerId);
                 console.log('draftPlayer result:', result);
                 if (result) {
+                    console.log('Draft succeeded! Showing confirmation...');
                     draftState.selectedDraftPlayer = null;
-                    document.getElementById('btnCutPlayer').style.display = 'block';
                     // Show confirmation on the button briefly
                     const btn = document.getElementById('btnTradePlayer');
                     btn.textContent = 'DRAFTED!';
                     btn.style.backgroundColor = '#4CAF50';
+                    console.log('Button updated to DRAFTED!, closing modal in 600ms...');
                     setTimeout(() => {
+                        console.log('Timeout fired, closing modal...');
                         btn.textContent = 'DRAFT';
                         btn.style.backgroundColor = '';
                         closePlayerDetail();
