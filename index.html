@@ -4540,7 +4540,8 @@
                 `;
                 // Show nav buttons if still computer's turn
                 navButtonsEl.style.display = isComputerTurn ? 'flex' : 'none';
-                tradeButtonsEl.style.display = 'none';
+                // Show BUY PICK on computer's turn (to buy upcoming pick)
+                tradeButtonsEl.style.display = (isComputerTurn && !draftState.viewingRoster) ? 'flex' : 'none';
                 pickInfoEl.style.display = 'block';
                 skipBtn.style.display = 'none';
             } else if (draftState.isPlayersTurn) {
@@ -4562,7 +4563,8 @@
                     <div class="team-name">Computer's Turn</div>
                 `;
                 navButtonsEl.style.display = 'flex';
-                tradeButtonsEl.style.display = 'none';
+                // Show BUY PICK on computer's turn
+                tradeButtonsEl.style.display = draftState.viewingRoster ? 'none' : 'flex';
                 pickInfoEl.style.display = 'block';
             } else {
                 // Player's turn but not flagged yet
@@ -4577,17 +4579,17 @@
                 pickInfoEl.style.display = 'block';
             }
 
-            // Update trade buttons based on state (only when player's turn)
+            // Update trade buttons based on state
             const available = getAvailableDraftPlayers();
 
-            if (draftState.isPlayersTurn && !draftState.simulatingPicks) {
+            if (!draftState.viewingRoster && !draftState.simulatingPicks) {
                 if (draftState.usingExtraPick) {
                     // Currently using an extra pick - hide trade buttons, show instruction
                     tradeInBtn.style.display = 'none';
                     acquireBtn.style.display = 'none';
                     pickValueEl.innerHTML = `<span style="color:#4f4;">SELECT A PLAYER</span> - Using purchased extra pick`;
-                } else {
-                    // Trade In: Only available when player has picks remaining
+                } else if (draftState.isPlayersTurn) {
+                    // Player's turn: Show TRADE IN, hide BUY PICK (they already have the pick)
                     if (draftState.picksRemaining > 0 && available.length > 0) {
                         tradeInBtn.style.display = 'block';
                         tradeInBtn.textContent = `TRADE IN PICK (+${tradeInValue} pts)`;
@@ -4595,15 +4597,16 @@
                     } else {
                         tradeInBtn.style.display = 'none';
                     }
-
-                    // Buy Pick: Always available if player can afford it (pays premium for extra pick)
-                    if (available.length > 0) {
-                        acquireBtn.style.display = 'block';
-                        acquireBtn.textContent = `BUY EXTRA PICK (${acquireCost} pts)`;
-                        acquireBtn.disabled = !canAffordAcquirePick();
-                    } else {
-                        acquireBtn.style.display = 'none';
-                    }
+                    acquireBtn.style.display = 'none';  // Hide BUY PICK on player's turn
+                } else if (isComputerTurn && available.length > 0) {
+                    // Computer's turn: Show BUY PICK, hide TRADE IN
+                    tradeInBtn.style.display = 'none';  // Hide TRADE IN on computer's turn
+                    acquireBtn.style.display = 'block';
+                    acquireBtn.textContent = `BUY THIS PICK (${acquireCost} pts)`;
+                    acquireBtn.disabled = !canAffordAcquirePick();
+                } else {
+                    tradeInBtn.style.display = 'none';
+                    acquireBtn.style.display = 'none';
                 }
             }
 
