@@ -4163,7 +4163,7 @@
                 draftState.usingExtraPick = false;  // Reset extra pick flag
 
                 // Update depth chart
-                updateDepthChart(managementState.team);
+                autoAssignDepthChart(managementState.team);
 
                 // Just refresh - modal shows feedback
                 refreshDraftScreen();
@@ -4201,7 +4201,7 @@
             console.log('State updated. Picks remaining:', draftState.picksRemaining, 'Round:', draftState.round);
 
             // Update depth chart
-            updateDepthChart(managementState.team);
+            autoAssignDepthChart(managementState.team);
             console.log('Depth chart updated');
 
             // Check if draft is complete
