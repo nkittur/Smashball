@@ -4,6 +4,212 @@ This document details how each player stat affects gameplay mechanics.
 
 ---
 
+## Stat System Overview
+
+Player stats are organized into three distinct tiers:
+
+| Tier | Description | Growth | Examples |
+|------|-------------|--------|----------|
+| **Core Attributes** | Natural athletic gifts (the "genes") | Very rare (2-8% per season, stops at 27) | STR, SPD, AGI, INT |
+| **Position Abilities** | What they do on the field (derived) | Automatic (from core + technique) | Bull Rush, Man Coverage, Route Sharpness |
+| **Technique Stats** | Trained skills and knowledge | Regular (through training/games) | Catching, Pass Rush, Awareness |
+
+### How They Connect
+
+```
+Core Attributes (rarely change)
+        ↓
+   Influence technique via calculateEffectiveStat()
+        ↓
+Technique Stats (can improve) → Position Abilities (calculated each play)
+        ↓
+   Used in clash calculations
+```
+
+**Key insight:** Core Attributes define a player's ceiling. Technique can be trained, but a player with low core Speed will never be truly fast, even with high technique.
+
+---
+
+## Core Attributes
+
+Core attributes are foundational physical/mental traits that rarely change over a player's career. They influence multiple skills and represent a player's natural athletic gifts.
+
+### The Four Core Attributes
+
+| Attribute | Description | Skills Influenced |
+|-----------|-------------|-------------------|
+| **Strength** | Raw physical power | passBlock (25%), passRush (25%), tackling (20%), hitPower (30%), balance (20%) |
+| **Speed** | Top-end speed & acceleration | speed (40%), acceleration (35%), pursuit (25%) |
+| **Agility** | Quickness & change of direction | agility (40%), routeRunning (20%), release (25%), balance (15%) |
+| **Intelligence** | Mental processing & decision-making | awareness (35%), routeRunning (15%), focus (25%), throwing (20%) |
+
+### How Core Attributes Affect Skills
+
+Each skill has an "effective" value calculated by blending the trained skill with relevant core attributes:
+
+```
+effectiveStat = baseStat × (1 - totalInfluence) + weightedCoreContribution
+```
+
+**Example:** A player with 80 base speed and 90 core Speed attribute:
+- Core Speed influences the speed stat at 40%
+- Effective Speed = 80 × 0.6 + 90 × 0.4 = 48 + 36 = **84**
+
+### Core Attribute Growth
+
+Core attributes grow very rarely, even for high-potential players:
+
+| Condition | Growth Chance |
+|-----------|---------------|
+| Base chance | 2% per season |
+| Per potential grade (0-3) | +1% per grade |
+| Young player bonus (≤23) | +1% |
+| **Maximum chance** | 8% |
+| Growth cutoff age | 27 (no growth after) |
+
+**Growth amounts:**
+- Normal growth: +1 to +2 points
+- Breakthrough (0.5% chance): +3 to +5 points
+
+### Core Attribute Ranges by Tier
+
+| Tier | Range |
+|------|-------|
+| Elite | 75-95 |
+| Veteran | 65-85 |
+| Average | 50-75 |
+| Below Average | 40-65 |
+| Rookie | 45-80 |
+| Backup | 35-55 |
+
+### Position Tendencies
+
+- **OL/DL:** +3 to +8 Strength, -3 to -8 Speed
+- **WR/CB:** +3 to +8 Speed, +2 to +5 Agility
+- **QB:** +3 to +8 Intelligence
+
+---
+
+## Position-Specific Abilities
+
+Each position has unique abilities derived from core attributes. Players can excel through different builds based on their attribute strengths.
+
+### DL (Defensive Line) Abilities
+
+| Ability | Description | Formula |
+|---------|-------------|---------|
+| **Bull Rush** | Power through blockers | Strength (60%) + PassRush (25%) + Intelligence (15%) |
+| **Block Shed** | Disengage from blocks | Strength (40%) + Agility (40%) + PassRush (20%) |
+| **Spin Move** | Finesse around blocker | Agility (55%) + Speed (25%) + PassRush (20%) |
+| **Swim Move** | Over the blocker's arms | Agility (45%) + Speed (35%) + PassRush (20%) |
+
+**Build Examples:**
+- **Power Rusher:** High Strength → Excels at Bull Rush
+- **Speed Rusher:** High Agility + Speed → Excels at Spin/Swim Moves
+- **Versatile:** Balanced → Good at Block Shed
+
+### OL (Offensive Line) Abilities
+
+| Ability | Description | Formula |
+|---------|-------------|---------|
+| **Anchor** | Hold ground vs power | Strength (55%) + Balance (25%) + PassBlock (20%) |
+| **Hand Fighting** | Control rushers | Strength (40%) + Agility (35%) + PassBlock (25%) |
+| **Footwork** | Mirror lateral moves | Agility (45%) + Intelligence (30%) + PassBlock (25%) |
+| **Drive Block** | Sustain and move | Strength (40%) + Intelligence (30%) + PassBlock (30%) |
+
+**Build Examples:**
+- **Power Blocker:** High Strength → Excels at Anchor, Drive Block
+- **Athletic Blocker:** High Agility → Excels at Footwork, Hand Fighting
+- **Smart Blocker:** High Intelligence → Excels at Footwork, Drive Block
+
+### OL vs DL Matchup Matrix
+
+Certain abilities counter others (values show DL effectiveness modifier):
+
+| DL Move → | vs Anchor | vs Hand Fighting | vs Footwork | vs Drive Block |
+|-----------|-----------|------------------|-------------|----------------|
+| **Bull Rush** | 0.85 (countered) | 1.0 | 1.15 (effective) | 0.95 |
+| **Block Shed** | 1.10 | 0.90 (countered) | 1.05 | 0.95 |
+| **Spin Move** | 1.20 (effective) | 1.05 | 0.85 (countered) | 1.10 |
+| **Swim Move** | 1.15 | 0.85 (countered) | 0.95 | 1.05 |
+
+### CB (Cornerback) Abilities
+
+| Ability | Description | Formula |
+|---------|-------------|---------|
+| **Press Coverage** | Jam at line of scrimmage | Strength (45%) + Intelligence (35%) + Awareness (20%) |
+| **Man Coverage** | Stick with receiver | Speed (40%) + Agility (40%) + Awareness (20%) |
+| **Zone Coverage** | Read routes, defend zones | Intelligence (45%) + Agility (35%) + Awareness (20%) |
+| **Ball Hawk** | Intercept passes | Intelligence (40%) + Speed (35%) + Awareness (25%) |
+
+**Build Examples:**
+- **Physical Corner:** High Strength → Excels at Press Coverage
+- **Speed Corner:** High Speed + Agility → Excels at Man Coverage
+- **Smart Corner:** High Intelligence → Excels at Zone Coverage, Ball Hawk
+
+### WR (Wide Receiver) Abilities
+
+| Ability | Description | Formula |
+|---------|-------------|---------|
+| **Release Move** | Beat press coverage | Agility (45%) + Strength (35%) + RouteRunning (20%) |
+| **Route Sharpness** | Create separation | Agility (40%) + Speed (35%) + RouteRunning (25%) |
+| **Contested Catch** | Catch in traffic | Strength (30%) + Intelligence (25%) + Catching (25%) + Focus (20%) |
+| **YAC Ability** | Yards after catch | Speed (40%) + Agility (40%) + Balance (20%) |
+
+**Build Examples:**
+- **Burner:** High Speed + Agility → Excels at Route Sharpness, YAC
+- **Possession Receiver:** High Intelligence + Strength → Excels at Contested Catch
+- **Complete Receiver:** Balanced → Good at all abilities
+
+### QB (Quarterback) Abilities
+
+| Ability | Description | Formula |
+|---------|-------------|---------|
+| **Arm Strength** | Deep throws | Strength (45%) + Throwing (35%) + Intelligence (20%) |
+| **Quick Release** | Fast delivery | Agility (40%) + Throwing (35%) + Intelligence (25%) |
+| **Field Vision** | Read defenses | Intelligence (55%) + Awareness (30%) + Throwing (15%) |
+| **Pocket Presence** | Escape pressure | Agility (45%) + Speed (35%) + Awareness (20%) |
+
+**Build Examples:**
+- **Cannon Arm:** High Strength → Excels at Arm Strength
+- **Cerebral QB:** High Intelligence → Excels at Field Vision
+- **Mobile QB:** High Agility + Speed → Excels at Pocket Presence
+
+---
+
+## Technique Stats
+
+Technique stats represent trained skills that can improve through practice and game experience. Unlike core attributes, these grow more regularly and are influenced by core attributes.
+
+### Position-Specific Technique Stats
+
+| Position | Technique Stats | Notes |
+|----------|-----------------|-------|
+| **WR** | Catching, Route Running, Release, Focus | Focus affects contested catches |
+| **CB** | Tackling, Awareness, Pursuit, Hit Power | Defense-focused technique |
+| **OL** | Pass Block, Balance, Awareness | Blocking technique |
+| **DL** | Pass Rush, Tackling, Hit Power, Pursuit | Rush technique |
+| **QB** | Throwing, Awareness, Focus | Mental + throwing technique |
+
+### How Technique Relates to Core Attributes
+
+Technique stats are influenced by core attributes but represent the learned component:
+
+| Technique | Core Influence | What It Means |
+|-----------|----------------|---------------|
+| Catching | None directly | Pure technique, not affected by athleticism |
+| Route Running | Agility (20%), Intelligence (15%) | Natural agility helps, but routes are learned |
+| Pass Block | Strength (25%) | Strength helps, but hand placement is technique |
+| Awareness | Intelligence (35%) | Smart players read plays better |
+
+**Example:** Two players with identical 80 Awareness, but one has 70 INT and the other has 90 INT:
+- Player A: Effective Awareness = 80 × 0.65 + 70 × 0.35 = 52 + 24.5 = **76.5**
+- Player B: Effective Awareness = 80 × 0.65 + 90 × 0.35 = 52 + 31.5 = **83.5**
+
+The smarter player's awareness is more effective on the field.
+
+---
+
 ## Quick Reference
 
 | Stat | Primary Use | Key Weight |

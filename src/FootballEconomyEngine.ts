@@ -50,6 +50,97 @@ export interface HypeData {
     seasonFameEarnings: number;
 }
 
+/**
+ * Core attributes - foundational physical/mental traits that rarely change.
+ * These influence multiple skills and on-field performance.
+ * Range: 0-100, with very rare growth opportunities.
+ */
+export interface CoreAttributes {
+    /** Raw physical power - affects blocking, tackling, breaking tackles, hit power */
+    strength: number;
+    /** Top-end speed and acceleration - affects pursuit, separation, coverage */
+    speed: number;
+    /** Quickness, balance, change of direction - affects route running, evasion, reaction */
+    agility: number;
+    /** Mental processing, awareness, decision-making - affects reads, anticipation, focus */
+    intelligence: number;
+}
+
+// ============================================================================
+// POSITION-SPECIFIC ABILITY STATS
+// ============================================================================
+
+/**
+ * DL (Defensive Line) abilities - different pass rush techniques
+ * Each ability uses different combinations of core attributes
+ */
+export interface DLAbilities {
+    /** Power through the blocker - Strength dominant */
+    bullRush: number;
+    /** Disengage from blocks quickly - Strength + Agility */
+    blockShed: number;
+    /** Spin around the blocker - Agility dominant */
+    spinMove: number;
+    /** Swim over the blocker's arms - Agility + Speed */
+    swimMove: number;
+}
+
+/**
+ * OL (Offensive Line) abilities - different blocking techniques
+ */
+export interface OLAbilities {
+    /** Hold ground against power rushes - Strength dominant */
+    anchor: number;
+    /** Control and redirect rushers - Strength + Agility */
+    handFighting: number;
+    /** Mirror rushers laterally - Agility + Intelligence */
+    footwork: number;
+    /** Sustain blocks over time - Strength + Intelligence */
+    driveBlock: number;
+}
+
+/**
+ * CB (Cornerback) abilities - different coverage techniques
+ */
+export interface CBAbilities {
+    /** Jam receivers at the line - Strength + Intelligence */
+    pressCoverage: number;
+    /** Stick with receiver in man coverage - Speed + Agility */
+    manCoverage: number;
+    /** Read routes and defend zones - Intelligence + Agility */
+    zoneCoverage: number;
+    /** Anticipate and intercept passes - Intelligence + Speed */
+    ballHawk: number;
+}
+
+/**
+ * WR (Wide Receiver) abilities - different receiving techniques
+ */
+export interface WRAbilities {
+    /** Beat press coverage at line - Agility + Strength */
+    releaseMove: number;
+    /** Create separation on routes - Agility + Speed */
+    routeSharpness: number;
+    /** Catch in traffic with defenders - Strength + Intelligence (focus) */
+    contestedCatch: number;
+    /** Gain yards after the catch - Speed + Agility */
+    yacAbility: number;
+}
+
+/**
+ * QB (Quarterback) abilities - different throwing/decision styles
+ */
+export interface QBAbilities {
+    /** Throw with power downfield - Strength + Intelligence */
+    armStrength: number;
+    /** Quick release and touch passes - Agility + Intelligence */
+    quickRelease: number;
+    /** Read defenses and make decisions - Intelligence dominant */
+    fieldVision: number;
+    /** Escape pressure and extend plays - Agility + Speed */
+    pocketPresence: number;
+}
+
 /** Player entity with economy data */
 export interface EconomyPlayer {
     id: string;
@@ -65,6 +156,8 @@ export interface EconomyPlayer {
     salaryCost: number;
     /** Hype system data */
     hypeData: HypeData;
+    /** Core attributes - foundational traits that rarely change */
+    coreAttributes: CoreAttributes;
 }
 
 /** Team entity */
@@ -213,6 +306,64 @@ export const ECONOMY_CONSTANTS = {
         below_average: 0.25, // 25% - depth players
         rookie: 0.15,       // 15% - young prospects
         backup: 0.05,       // 5% - practice squad level
+    },
+
+    /** Core attributes configuration */
+    CORE_ATTRIBUTES: {
+        /** Base ranges by tier [min, max] */
+        TIER_RANGES: {
+            elite: { min: 75, max: 95 },
+            veteran: { min: 65, max: 85 },
+            average: { min: 50, max: 75 },
+            below_average: { min: 40, max: 65 },
+            rookie: { min: 45, max: 80 },   // Higher ceiling for young players
+            backup: { min: 35, max: 55 },
+        },
+        /** Chance per season for a core attribute to grow (even with max potential) */
+        GROWTH_CHANCE_BASE: 0.02,  // 2% base chance
+        /** Bonus growth chance per potential grade (0-3) */
+        GROWTH_CHANCE_PER_POTENTIAL: 0.01,  // +1% per potential grade
+        /** Max growth chance cap (even with max potential and youth) */
+        GROWTH_CHANCE_CAP: 0.08,  // 8% max
+        /** Growth amount when rare growth occurs */
+        GROWTH_AMOUNT: { min: 1, max: 2 },
+        /** Age at which core attributes stop growing entirely */
+        GROWTH_CUTOFF_AGE: 27,
+        /** Very rare "breakthrough" chance for exceptional growth */
+        BREAKTHROUGH_CHANCE: 0.005,  // 0.5% chance for +3-5 points
+        BREAKTHROUGH_AMOUNT: { min: 3, max: 5 },
+    },
+
+    /** How core attributes influence skills (multipliers) */
+    CORE_ATTRIBUTE_SKILL_INFLUENCE: {
+        /** Strength influences these skills */
+        strength: {
+            passBlock: 0.25,      // 25% of effective stat comes from core strength
+            passRush: 0.25,
+            tackling: 0.20,
+            hitPower: 0.30,
+            balance: 0.20,
+        },
+        /** Speed influences these skills */
+        speed: {
+            speed: 0.40,          // 40% of effective speed comes from core speed
+            acceleration: 0.35,
+            pursuit: 0.25,
+        },
+        /** Agility influences these skills */
+        agility: {
+            agility: 0.40,
+            routeRunning: 0.20,
+            release: 0.25,
+            balance: 0.15,
+        },
+        /** Intelligence influences these skills */
+        intelligence: {
+            awareness: 0.35,
+            routeRunning: 0.15,
+            focus: 0.25,
+            throwing: 0.20,       // QB reads and decisions
+        },
     },
 };
 
@@ -399,6 +550,50 @@ export function generatePotential(age: number, tier: PlayerTier): number {
 }
 
 /**
+ * Generate core attributes for a player based on tier and position
+ * Core attributes are foundational traits that rarely change over time.
+ */
+export function generateCoreAttributes(position: Position, tier: PlayerTier): CoreAttributes {
+    const tierRange = ECONOMY_CONSTANTS.CORE_ATTRIBUTES.TIER_RANGES[tier];
+
+    // Generate base attribute with variance
+    const generateAttribute = (): number => {
+        const { min, max } = tierRange;
+        const base = randomInt(min, max);
+        // Add slight variance
+        return clamp(base + randomInt(-3, 3), 30, 99);
+    };
+
+    // Generate all four core attributes
+    let strength = generateAttribute();
+    let speed = generateAttribute();
+    let agility = generateAttribute();
+    let intelligence = generateAttribute();
+
+    // Position-based tendencies (slight boosts)
+    switch (position) {
+        case 'OL':
+        case 'DL':
+            // Linemen tend to be stronger
+            strength = clamp(strength + randomInt(3, 8), 30, 99);
+            speed = clamp(speed - randomInt(3, 8), 30, 99);
+            break;
+        case 'WR':
+        case 'CB':
+            // Skill positions tend to be faster and more agile
+            speed = clamp(speed + randomInt(3, 8), 30, 99);
+            agility = clamp(agility + randomInt(2, 5), 30, 99);
+            break;
+        case 'QB':
+            // QBs tend to be smarter
+            intelligence = clamp(intelligence + randomInt(3, 8), 30, 99);
+            break;
+    }
+
+    return { strength, speed, agility, intelligence };
+}
+
+/**
  * Generate a complete player with randomized attributes
  */
 export function generatePlayer(
@@ -411,6 +606,7 @@ export function generatePlayer(
     const peakAge = randomInt(28, 32);
     const potentialGrade = generatePotential(age, tier);
     const stats = generateRandomStats(position, tier);
+    const coreAttributes = generateCoreAttributes(position, tier);
 
     const primaryStats = POSITION_PRIMARY_STATS[position];
     const total = primaryStats.reduce((sum, stat) => sum + (stats[stat] || 0), 0);
@@ -429,6 +625,7 @@ export function generatePlayer(
         yearsInLeague: Math.max(0, age - 21),
         salaryCost: 0,
         hypeData: initializeHypeData(),
+        coreAttributes,
     };
 
     // Calculate salary based on overall and tier
@@ -592,6 +789,672 @@ export function calculateTeamOverall(team: Team): number {
     if (team.roster.length === 0) return 0;
     const total = team.roster.reduce((sum, player) => sum + player.overall, 0);
     return Math.floor(total / team.roster.length);
+}
+
+// ============================================================================
+// CORE ATTRIBUTES SYSTEM
+// ============================================================================
+
+/**
+ * Result of a core attribute growth attempt
+ */
+export interface CoreAttributeGrowthResult {
+    attribute: keyof CoreAttributes;
+    oldValue: number;
+    newValue: number;
+    isBreakthrough: boolean;
+}
+
+/**
+ * Process potential core attribute growth for a player during offseason.
+ * Core attributes grow very rarely - even high potential players only have ~5-8% chance.
+ * Returns null if no growth occurred, or details of the growth.
+ */
+export function processCoreAttributeGrowth(
+    player: EconomyPlayer
+): CoreAttributeGrowthResult | null {
+    const config = ECONOMY_CONSTANTS.CORE_ATTRIBUTES;
+
+    // No growth after cutoff age
+    if (player.age >= config.GROWTH_CUTOFF_AGE) {
+        return null;
+    }
+
+    // Calculate growth chance based on potential
+    let growthChance = config.GROWTH_CHANCE_BASE +
+        (player.potentialGrade * config.GROWTH_CHANCE_PER_POTENTIAL);
+
+    // Young players get slight bonus
+    if (player.age <= 23) {
+        growthChance += 0.01;
+    }
+
+    // Cap the chance
+    growthChance = Math.min(growthChance, config.GROWTH_CHANCE_CAP);
+
+    // Roll for growth
+    if (Math.random() > growthChance) {
+        return null;
+    }
+
+    // Growth occurred! Pick a random attribute
+    const attributes: (keyof CoreAttributes)[] = ['strength', 'speed', 'agility', 'intelligence'];
+    const attribute = attributes[randomInt(0, attributes.length - 1)];
+    const oldValue = player.coreAttributes[attribute];
+
+    // Check for breakthrough (exceptional growth)
+    const isBreakthrough = Math.random() < config.BREAKTHROUGH_CHANCE;
+    const growthAmount = isBreakthrough
+        ? randomInt(config.BREAKTHROUGH_AMOUNT.min, config.BREAKTHROUGH_AMOUNT.max)
+        : randomInt(config.GROWTH_AMOUNT.min, config.GROWTH_AMOUNT.max);
+
+    // Apply growth
+    const newValue = clamp(oldValue + growthAmount, 30, 99);
+    player.coreAttributes[attribute] = newValue;
+
+    return {
+        attribute,
+        oldValue,
+        newValue,
+        isBreakthrough,
+    };
+}
+
+/**
+ * Calculate effective stat value considering core attribute influence.
+ * Formula: effectiveStat = baseStat * (1 - influence) + coreAttr * influence
+ *
+ * This blends the trained skill with the underlying physical/mental attribute.
+ */
+export function calculateEffectiveStat(
+    player: EconomyPlayer,
+    stat: keyof PlayerStats
+): number {
+    const baseStat = player.stats[stat];
+    if (baseStat === undefined) return 0;
+
+    const influences = ECONOMY_CONSTANTS.CORE_ATTRIBUTE_SKILL_INFLUENCE;
+    let totalInfluence = 0;
+    let weightedCoreContribution = 0;
+
+    // Check each core attribute for influence on this stat
+    for (const [coreAttr, skillInfluences] of Object.entries(influences)) {
+        const influence = (skillInfluences as Record<string, number>)[stat];
+        if (influence) {
+            totalInfluence += influence;
+            const coreValue = player.coreAttributes[coreAttr as keyof CoreAttributes];
+            weightedCoreContribution += coreValue * influence;
+        }
+    }
+
+    // If no core attributes influence this stat, return base stat
+    if (totalInfluence === 0) {
+        return baseStat;
+    }
+
+    // Blend base stat with core attribute contribution
+    // Example: if speed has 0.4 influence from core speed,
+    // effectiveSpeed = baseStat * 0.6 + coreSpeed * 0.4
+    const effectiveStat = baseStat * (1 - totalInfluence) + weightedCoreContribution;
+
+    return clamp(Math.round(effectiveStat), 0, 99);
+}
+
+/**
+ * Get all effective stats for a player, accounting for core attribute influence.
+ */
+export function getEffectiveStats(player: EconomyPlayer): PlayerStats {
+    const effectiveStats: PlayerStats = {
+        speed: calculateEffectiveStat(player, 'speed'),
+        acceleration: calculateEffectiveStat(player, 'acceleration'),
+        agility: calculateEffectiveStat(player, 'agility'),
+        catching: calculateEffectiveStat(player, 'catching'),
+        routeRunning: calculateEffectiveStat(player, 'routeRunning'),
+        release: calculateEffectiveStat(player, 'release'),
+        focus: calculateEffectiveStat(player, 'focus'),
+        tackling: calculateEffectiveStat(player, 'tackling'),
+        hitPower: calculateEffectiveStat(player, 'hitPower'),
+        pursuit: calculateEffectiveStat(player, 'pursuit'),
+        awareness: calculateEffectiveStat(player, 'awareness'),
+        passBlock: calculateEffectiveStat(player, 'passBlock'),
+        passRush: calculateEffectiveStat(player, 'passRush'),
+        strength: calculateEffectiveStat(player, 'strength'),
+        balance: calculateEffectiveStat(player, 'balance'),
+        aggression: calculateEffectiveStat(player, 'aggression'),
+        stamina: calculateEffectiveStat(player, 'stamina'),
+    };
+
+    // Add throwing for QB
+    if (player.position === 'QB' && player.stats.throwing !== undefined) {
+        effectiveStats.throwing = calculateEffectiveStat(player, 'throwing');
+    }
+
+    return effectiveStats;
+}
+
+/**
+ * Calculate a weighted roll for clash mechanics using effective stats.
+ * This connects core attributes to on-field performance.
+ */
+export function calculateWeightedRoll(
+    player: EconomyPlayer,
+    statWeights: Partial<Record<keyof PlayerStats, number>>,
+    variance: number = 0.2
+): number {
+    let weightedTotal = 0;
+
+    for (const [stat, weight] of Object.entries(statWeights)) {
+        const effectiveStat = calculateEffectiveStat(player, stat as keyof PlayerStats);
+        weightedTotal += effectiveStat * weight;
+    }
+
+    // Apply random variance (±variance%)
+    const randomFactor = 1 + (Math.random() - 0.5) * 2 * variance;
+    return weightedTotal * randomFactor;
+}
+
+/**
+ * Separation clash - WR trying to get open vs CB coverage
+ * Uses ability matchups: WR abilities vs CB coverage style
+ * Returns positive if receiver wins, negative if defender wins
+ */
+export function calculateSeparationClash(
+    receiver: EconomyPlayer,
+    defender: EconomyPlayer,
+    phase: 'release' | 'route' | 'any' = 'any'
+): number {
+    const wrAbilities = calculateWRAbilities(receiver);
+    const cbAbilities = calculateCBAbilities(defender);
+
+    let receiverValue: number;
+    let defenderValue: number;
+
+    if (phase === 'release') {
+        // At the line: WR release vs CB press
+        receiverValue = wrAbilities.releaseMove;
+        defenderValue = cbAbilities.pressCoverage;
+    } else if (phase === 'route') {
+        // During route: WR route sharpness vs CB man/zone (use best)
+        receiverValue = wrAbilities.routeSharpness;
+        defenderValue = Math.max(cbAbilities.manCoverage, cbAbilities.zoneCoverage);
+    } else {
+        // General: Use best abilities for each
+        const wrBest = getBestWRAbility(receiver, 'any');
+        const cbBest = getBestCBAbility(defender, 'any');
+        receiverValue = wrBest.value;
+        defenderValue = cbBest.value;
+    }
+
+    // Add variance (±15%)
+    const variance = 0.15;
+    const receiverRoll = receiverValue * (1 + (Math.random() - 0.5) * 2 * variance);
+    const defenderRoll = defenderValue * (1 + (Math.random() - 0.5) * 2 * variance);
+
+    return receiverRoll - defenderRoll;
+}
+
+/**
+ * Result of a line clash with ability details
+ */
+export interface LineClashResult {
+    margin: number;
+    dlAbilityUsed: keyof DLAbilities;
+    olAbilityUsed: keyof OLAbilities;
+    dlAbilityValue: number;
+    olAbilityValue: number;
+}
+
+/**
+ * Ability matchup matrix - determines effectiveness of DL move vs OL technique
+ * Values > 1.0 favor DL, < 1.0 favor OL
+ */
+const ABILITY_MATCHUP_MATRIX: Record<keyof DLAbilities, Record<keyof OLAbilities, number>> = {
+    bullRush: {
+        anchor: 0.85,       // Anchor is strong vs bull rush
+        handFighting: 1.0,  // Neutral
+        footwork: 1.15,     // Footwork weak vs power
+        driveBlock: 0.95,   // Drive block decent vs bull rush
+    },
+    blockShed: {
+        anchor: 1.10,       // Block shed beats pure anchor
+        handFighting: 0.90, // Hand fighting counters block shed
+        footwork: 1.05,     // Slight advantage
+        driveBlock: 0.95,   // Drive block decent
+    },
+    spinMove: {
+        anchor: 1.20,       // Spin beats stationary anchor
+        handFighting: 1.05, // Slight advantage
+        footwork: 0.85,     // Footwork counters spin
+        driveBlock: 1.10,   // Spin beats forward momentum
+    },
+    swimMove: {
+        anchor: 1.15,       // Swim beats anchor
+        handFighting: 0.85, // Hand fighting counters swim
+        footwork: 0.95,     // Slight disadvantage
+        driveBlock: 1.05,   // Slight advantage
+    },
+};
+
+/**
+ * Line clash - OL blocking vs DL rushing using ability matchups
+ * Each player uses their best ability, but matchups matter
+ * Returns positive if OL wins (protection), negative if DL wins (pressure)
+ */
+export function calculateLineClash(
+    offensiveLineman: EconomyPlayer,
+    defensiveLineman: EconomyPlayer
+): number {
+    const result = calculateLineClashDetailed(offensiveLineman, defensiveLineman);
+    return result.margin;
+}
+
+/**
+ * Detailed line clash with ability information
+ */
+export function calculateLineClashDetailed(
+    offensiveLineman: EconomyPlayer,
+    defensiveLineman: EconomyPlayer
+): LineClashResult {
+    const dlAbilities = calculateDLAbilities(defensiveLineman);
+    const olAbilities = calculateOLAbilities(offensiveLineman);
+
+    // DL picks their best move
+    const dlBest = getBestDLAbility(defensiveLineman);
+
+    // OL picks their best counter for that move
+    // Or their overall best if no specific counter
+    let olBest = getBestOLAbility(offensiveLineman);
+
+    // Check if there's a better counter available
+    const matchups = ABILITY_MATCHUP_MATRIX[dlBest.ability];
+    let bestCounterValue = -Infinity;
+    let bestCounter: keyof OLAbilities = olBest.ability;
+
+    for (const [olAbility, matchupMod] of Object.entries(matchups)) {
+        const olAbilityKey = olAbility as keyof OLAbilities;
+        // Effective value = ability value / matchup modifier (lower modifier = better for OL)
+        const effectiveValue = olAbilities[olAbilityKey] / matchupMod;
+        if (effectiveValue > bestCounterValue) {
+            bestCounterValue = effectiveValue;
+            bestCounter = olAbilityKey;
+        }
+    }
+
+    // Use the best counter if it's reasonably close to their best overall ability
+    if (olAbilities[bestCounter] >= olBest.value * 0.85) {
+        olBest = { ability: bestCounter, value: olAbilities[bestCounter] };
+    }
+
+    // Calculate the clash with matchup modifier
+    const matchupModifier = ABILITY_MATCHUP_MATRIX[dlBest.ability][olBest.ability];
+    const dlEffective = dlBest.value * matchupModifier;
+    const olEffective = olBest.value;
+
+    // Add variance (±15%)
+    const variance = 0.15;
+    const dlRoll = dlEffective * (1 + (Math.random() - 0.5) * 2 * variance);
+    const olRoll = olEffective * (1 + (Math.random() - 0.5) * 2 * variance);
+
+    return {
+        margin: olRoll - dlRoll,
+        dlAbilityUsed: dlBest.ability,
+        olAbilityUsed: olBest.ability,
+        dlAbilityValue: dlBest.value,
+        olAbilityValue: olBest.value,
+    };
+}
+
+/**
+ * Tackle clash - defender trying to tackle ball carrier
+ * Ball carrier uses YAC ability if WR, otherwise standard evasion
+ * Returns true if tackle succeeds
+ */
+export function calculateTackleClash(
+    tackler: EconomyPlayer,
+    ballCarrier: EconomyPlayer
+): boolean {
+    const tacklerRoll = calculateWeightedRoll(tackler, {
+        tackling: 0.40,
+        pursuit: 0.30,
+        hitPower: 0.30,
+    });
+
+    let evasionRoll: number;
+
+    // WRs use their YAC ability for evasion
+    if (ballCarrier.position === 'WR') {
+        const wrAbilities = calculateWRAbilities(ballCarrier);
+        evasionRoll = wrAbilities.yacAbility * (1 + (Math.random() - 0.5) * 0.3);
+    } else {
+        evasionRoll = calculateWeightedRoll(ballCarrier, {
+            agility: 0.35,
+            speed: 0.30,
+            balance: 0.35,
+        });
+    }
+
+    // Tackle succeeds if tackler roll exceeds evasion by more than -5
+    return tacklerRoll - evasionRoll > -5;
+}
+
+/**
+ * Contested catch clash - WR vs CB when ball arrives
+ * Uses WR contested catch ability vs CB ball hawk ability
+ * Returns catch probability modifier (-1 to 1)
+ */
+export function calculateContestedCatchClash(
+    receiver: EconomyPlayer,
+    defender: EconomyPlayer
+): number {
+    const wrAbilities = calculateWRAbilities(receiver);
+    const cbAbilities = calculateCBAbilities(defender);
+
+    const wrValue = wrAbilities.contestedCatch;
+    const cbValue = cbAbilities.ballHawk;
+
+    // Add variance
+    const variance = 0.15;
+    const wrRoll = wrValue * (1 + (Math.random() - 0.5) * 2 * variance);
+    const cbRoll = cbValue * (1 + (Math.random() - 0.5) * 2 * variance);
+
+    // Return normalized difference (-1 to 1 range, roughly)
+    return (wrRoll - cbRoll) / 50;
+}
+
+/**
+ * Get a display-friendly summary of core attributes
+ */
+export function getCoreAttributeGrade(value: number): string {
+    if (value >= 90) return 'Elite';
+    if (value >= 80) return 'Excellent';
+    if (value >= 70) return 'Good';
+    if (value >= 60) return 'Average';
+    if (value >= 50) return 'Below Avg';
+    return 'Poor';
+}
+
+/**
+ * Get overall core attribute average for a player
+ */
+export function getCoreAttributeAverage(player: EconomyPlayer): number {
+    const { strength, speed, agility, intelligence } = player.coreAttributes;
+    return Math.round((strength + speed + agility + intelligence) / 4);
+}
+
+// ============================================================================
+// POSITION-SPECIFIC ABILITY CALCULATIONS
+// ============================================================================
+
+/**
+ * Calculate DL (Defensive Line) abilities from core attributes.
+ * Each ability favors different attribute combinations, creating viable builds.
+ */
+export function calculateDLAbilities(player: EconomyPlayer): DLAbilities {
+    const { strength, speed, agility, intelligence } = player.coreAttributes;
+    const passRush = calculateEffectiveStat(player, 'passRush');
+
+    return {
+        // Bull Rush: Power through - Strength dominant (60%), some technique (passRush 25%), timing (intelligence 15%)
+        bullRush: clamp(Math.round(
+            strength * 0.60 + passRush * 0.25 + intelligence * 0.15
+        ), 0, 99),
+
+        // Block Shed: Disengage quickly - Strength (40%) + Agility (40%) + technique (20%)
+        blockShed: clamp(Math.round(
+            strength * 0.40 + agility * 0.40 + passRush * 0.20
+        ), 0, 99),
+
+        // Spin Move: Finesse move - Agility dominant (55%), Speed (25%), technique (20%)
+        spinMove: clamp(Math.round(
+            agility * 0.55 + speed * 0.25 + passRush * 0.20
+        ), 0, 99),
+
+        // Swim Move: Over the arms - Agility (45%), Speed (35%), technique (20%)
+        swimMove: clamp(Math.round(
+            agility * 0.45 + speed * 0.35 + passRush * 0.20
+        ), 0, 99),
+    };
+}
+
+/**
+ * Calculate OL (Offensive Line) abilities from core attributes.
+ */
+export function calculateOLAbilities(player: EconomyPlayer): OLAbilities {
+    const { strength, speed, agility, intelligence } = player.coreAttributes;
+    const passBlock = calculateEffectiveStat(player, 'passBlock');
+    const balance = calculateEffectiveStat(player, 'balance');
+
+    return {
+        // Anchor: Hold ground - Strength dominant (55%), Balance (25%), technique (20%)
+        anchor: clamp(Math.round(
+            strength * 0.55 + balance * 0.25 + passBlock * 0.20
+        ), 0, 99),
+
+        // Hand Fighting: Control rushers - Strength (40%) + Agility (35%) + technique (25%)
+        handFighting: clamp(Math.round(
+            strength * 0.40 + agility * 0.35 + passBlock * 0.25
+        ), 0, 99),
+
+        // Footwork: Mirror laterally - Agility (45%) + Intelligence (30%) + technique (25%)
+        footwork: clamp(Math.round(
+            agility * 0.45 + intelligence * 0.30 + passBlock * 0.25
+        ), 0, 99),
+
+        // Drive Block: Sustain and move - Strength (40%) + Intelligence (30%) + technique (30%)
+        driveBlock: clamp(Math.round(
+            strength * 0.40 + intelligence * 0.30 + passBlock * 0.30
+        ), 0, 99),
+    };
+}
+
+/**
+ * Calculate CB (Cornerback) abilities from core attributes.
+ */
+export function calculateCBAbilities(player: EconomyPlayer): CBAbilities {
+    const { strength, speed, agility, intelligence } = player.coreAttributes;
+    const awareness = calculateEffectiveStat(player, 'awareness');
+    const tackling = calculateEffectiveStat(player, 'tackling');
+
+    return {
+        // Press Coverage: Jam at line - Strength (45%) + Intelligence (35%) + technique (20%)
+        pressCoverage: clamp(Math.round(
+            strength * 0.45 + intelligence * 0.35 + awareness * 0.20
+        ), 0, 99),
+
+        // Man Coverage: Stick with receiver - Speed (40%) + Agility (40%) + awareness (20%)
+        manCoverage: clamp(Math.round(
+            speed * 0.40 + agility * 0.40 + awareness * 0.20
+        ), 0, 99),
+
+        // Zone Coverage: Read and react - Intelligence (45%) + Agility (35%) + awareness (20%)
+        zoneCoverage: clamp(Math.round(
+            intelligence * 0.45 + agility * 0.35 + awareness * 0.20
+        ), 0, 99),
+
+        // Ball Hawk: Intercept passes - Intelligence (40%) + Speed (35%) + awareness (25%)
+        ballHawk: clamp(Math.round(
+            intelligence * 0.40 + speed * 0.35 + awareness * 0.25
+        ), 0, 99),
+    };
+}
+
+/**
+ * Calculate WR (Wide Receiver) abilities from core attributes.
+ */
+export function calculateWRAbilities(player: EconomyPlayer): WRAbilities {
+    const { strength, speed, agility, intelligence } = player.coreAttributes;
+    const catching = calculateEffectiveStat(player, 'catching');
+    const focus = calculateEffectiveStat(player, 'focus');
+    const routeRunning = calculateEffectiveStat(player, 'routeRunning');
+
+    return {
+        // Release Move: Beat press - Agility (45%) + Strength (35%) + technique (20%)
+        releaseMove: clamp(Math.round(
+            agility * 0.45 + strength * 0.35 + routeRunning * 0.20
+        ), 0, 99),
+
+        // Route Sharpness: Create separation - Agility (40%) + Speed (35%) + technique (25%)
+        routeSharpness: clamp(Math.round(
+            agility * 0.40 + speed * 0.35 + routeRunning * 0.25
+        ), 0, 99),
+
+        // Contested Catch: Catch in traffic - Strength (30%) + Intelligence (25%) + catching (25%) + focus (20%)
+        contestedCatch: clamp(Math.round(
+            strength * 0.30 + intelligence * 0.25 + catching * 0.25 + focus * 0.20
+        ), 0, 99),
+
+        // YAC Ability: Yards after catch - Speed (40%) + Agility (40%) + balance (20%)
+        yacAbility: clamp(Math.round(
+            speed * 0.40 + agility * 0.40 + calculateEffectiveStat(player, 'balance') * 0.20
+        ), 0, 99),
+    };
+}
+
+/**
+ * Calculate QB (Quarterback) abilities from core attributes.
+ */
+export function calculateQBAbilities(player: EconomyPlayer): QBAbilities {
+    const { strength, speed, agility, intelligence } = player.coreAttributes;
+    const throwing = calculateEffectiveStat(player, 'throwing') || 70;
+    const awareness = calculateEffectiveStat(player, 'awareness');
+
+    return {
+        // Arm Strength: Deep throws - Strength (45%) + throwing (35%) + Intelligence (20%)
+        armStrength: clamp(Math.round(
+            strength * 0.45 + throwing * 0.35 + intelligence * 0.20
+        ), 0, 99),
+
+        // Quick Release: Fast delivery - Agility (40%) + throwing (35%) + Intelligence (25%)
+        quickRelease: clamp(Math.round(
+            agility * 0.40 + throwing * 0.35 + intelligence * 0.25
+        ), 0, 99),
+
+        // Field Vision: Read defenses - Intelligence (55%) + awareness (30%) + throwing (15%)
+        fieldVision: clamp(Math.round(
+            intelligence * 0.55 + awareness * 0.30 + throwing * 0.15
+        ), 0, 99),
+
+        // Pocket Presence: Escape pressure - Agility (45%) + Speed (35%) + awareness (20%)
+        pocketPresence: clamp(Math.round(
+            agility * 0.45 + speed * 0.35 + awareness * 0.20
+        ), 0, 99),
+    };
+}
+
+/**
+ * Get all abilities for a player based on their position.
+ */
+export function getPlayerAbilities(player: EconomyPlayer): DLAbilities | OLAbilities | CBAbilities | WRAbilities | QBAbilities | null {
+    switch (player.position) {
+        case 'DL':
+            return calculateDLAbilities(player);
+        case 'OL':
+            return calculateOLAbilities(player);
+        case 'CB':
+            return calculateCBAbilities(player);
+        case 'WR':
+            return calculateWRAbilities(player);
+        case 'QB':
+            return calculateQBAbilities(player);
+        default:
+            return null;
+    }
+}
+
+/**
+ * Get the best DL ability for a given situation.
+ * Returns the ability name and value.
+ */
+export function getBestDLAbility(player: EconomyPlayer): { ability: keyof DLAbilities; value: number } {
+    const abilities = calculateDLAbilities(player);
+    let best: keyof DLAbilities = 'bullRush';
+    let bestValue = abilities.bullRush;
+
+    for (const [key, value] of Object.entries(abilities)) {
+        if (value > bestValue) {
+            best = key as keyof DLAbilities;
+            bestValue = value;
+        }
+    }
+
+    return { ability: best, value: bestValue };
+}
+
+/**
+ * Get the best OL ability for a given situation.
+ */
+export function getBestOLAbility(player: EconomyPlayer): { ability: keyof OLAbilities; value: number } {
+    const abilities = calculateOLAbilities(player);
+    let best: keyof OLAbilities = 'anchor';
+    let bestValue = abilities.anchor;
+
+    for (const [key, value] of Object.entries(abilities)) {
+        if (value > bestValue) {
+            best = key as keyof OLAbilities;
+            bestValue = value;
+        }
+    }
+
+    return { ability: best, value: bestValue };
+}
+
+/**
+ * Get the best CB ability for coverage situations.
+ */
+export function getBestCBAbility(player: EconomyPlayer, situation: 'press' | 'man' | 'zone' | 'any' = 'any'): { ability: keyof CBAbilities; value: number } {
+    const abilities = calculateCBAbilities(player);
+
+    if (situation !== 'any') {
+        const abilityMap: Record<string, keyof CBAbilities> = {
+            press: 'pressCoverage',
+            man: 'manCoverage',
+            zone: 'zoneCoverage',
+        };
+        const key = abilityMap[situation];
+        return { ability: key, value: abilities[key] };
+    }
+
+    let best: keyof CBAbilities = 'manCoverage';
+    let bestValue = abilities.manCoverage;
+
+    for (const [key, value] of Object.entries(abilities)) {
+        if (value > bestValue) {
+            best = key as keyof CBAbilities;
+            bestValue = value;
+        }
+    }
+
+    return { ability: best, value: bestValue };
+}
+
+/**
+ * Get the best WR ability for a given route type.
+ */
+export function getBestWRAbility(player: EconomyPlayer, situation: 'release' | 'route' | 'contested' | 'yac' | 'any' = 'any'): { ability: keyof WRAbilities; value: number } {
+    const abilities = calculateWRAbilities(player);
+
+    if (situation !== 'any') {
+        const abilityMap: Record<string, keyof WRAbilities> = {
+            release: 'releaseMove',
+            route: 'routeSharpness',
+            contested: 'contestedCatch',
+            yac: 'yacAbility',
+        };
+        const key = abilityMap[situation];
+        return { ability: key, value: abilities[key] };
+    }
+
+    let best: keyof WRAbilities = 'routeSharpness';
+    let bestValue = abilities.routeSharpness;
+
+    for (const [key, value] of Object.entries(abilities)) {
+        if (value > bestValue) {
+            best = key as keyof WRAbilities;
+            bestValue = value;
+        }
+    }
+
+    return { ability: best, value: bestValue };
 }
 
 // ============================================================================
@@ -891,8 +1754,19 @@ export class FootballEconomyEngine {
         stats: PlayerStats,
         age: number,
         peakAge: number,
-        potentialGrade: number
+        potentialGrade: number,
+        coreAttributes?: CoreAttributes
     ): EconomyPlayer {
+        // Generate core attributes if not provided, inferring tier from overall
+        const overall = this.calculateOverall(stats, position);
+        const inferredCoreAttrs = coreAttributes || generateCoreAttributes(
+            position,
+            overall >= 88 ? 'elite' :
+            overall >= 78 ? 'veteran' :
+            overall >= 68 ? 'average' :
+            overall >= 58 ? 'below_average' : 'backup'
+        );
+
         const player: EconomyPlayer = {
             id: generateId(),
             firstName,
@@ -900,12 +1774,13 @@ export class FootballEconomyEngine {
             age,
             position,
             stats,
-            overall: this.calculateOverall(stats, position),
+            overall,
             peakAge,
             potentialGrade,
             yearsInLeague: Math.max(0, age - 21),
             salaryCost: 0,
             hypeData: initializeHypeData(),
+            coreAttributes: inferredCoreAttrs,
         };
 
         // Calculate salary cost
@@ -1313,7 +2188,7 @@ export const economyEngine = new FootballEconomyEngine();
 // ============================================================================
 
 /**
- * Helper to migrate existing players to have hype data
+ * Helper to migrate existing players to have hype data and core attributes
  */
 export function migratePlayerToEconomy(existingPlayer: {
     id: string;
@@ -1327,12 +2202,20 @@ export function migratePlayerToEconomy(existingPlayer: {
     potentialGrade: number;
     yearsInLeague?: number;
     salaryCost?: number;
+    coreAttributes?: CoreAttributes;
 }): EconomyPlayer {
+    // Infer tier from overall for core attribute generation
+    const tier: PlayerTier = existingPlayer.overall >= 88 ? 'elite' :
+        existingPlayer.overall >= 78 ? 'veteran' :
+        existingPlayer.overall >= 68 ? 'average' :
+        existingPlayer.overall >= 58 ? 'below_average' : 'backup';
+
     return {
         ...existingPlayer,
         yearsInLeague: existingPlayer.yearsInLeague ?? Math.max(0, existingPlayer.age - 21),
         salaryCost: existingPlayer.salaryCost ?? 500,
         hypeData: initializeHypeData(),
+        coreAttributes: existingPlayer.coreAttributes ?? generateCoreAttributes(existingPlayer.position, tier),
     };
 }
 

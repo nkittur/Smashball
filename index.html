@@ -519,7 +519,7 @@
             </div>
             <div id="draftPlayerList" class="roster-list draft-list"></div>
             <div id="draftRosterList" class="roster-list draft-list" style="display:none;"></div>
-            <button id="btnSkipRound" class="mgmt-btn secondary" style="margin-top: 15px;">NEXT ROUND</button>
+            <button id="btnSkipRound" class="mgmt-btn secondary" style="margin-top: 15px;">SKIP PICK</button>
             <button id="btnFinishDraft" class="mgmt-btn primary" style="margin-top: 10px; display: none;">FINISH DRAFT</button>
         </div>
     </div>
@@ -656,7 +656,7 @@
         .draft-toggle-buttons { display: flex; gap: 10px; margin-bottom: 15px; justify-content: center; }
         .draft-toggle-buttons .toggle-btn { flex: 1; max-width: 150px; padding: 8px 12px; font-size: 12px; background: #2a2a3a; }
         .draft-toggle-buttons .toggle-btn.active { background: #4a4a6a; border-color: #ffd700; }
-        .draft-list { max-height: 320px; overflow-y: auto; overflow-x: hidden; }
+        .draft-list { max-height: 280px; overflow-y: auto; overflow-x: hidden; }
         .draft-list .roster-item { border-left: 3px solid #333; transition: border-color 0.2s; flex-wrap: nowrap; }
         .draft-list .roster-item:hover { border-left-color: #ffd700; background: #2a2a3a; }
         .draft-list .roster-item.drafted { opacity: 0.4; pointer-events: none; }
@@ -922,6 +922,158 @@
         .stat-poor { color: #f44; }       /* <60 red */
         .stat-change.positive { color: #4f4; }
         .stat-change.negative { color: #f44; }
+
+        /* Unified Stats Panel */
+        .stats-panel {
+            background: #1a1a2a;
+            border-radius: 6px;
+            padding: 10px;
+            margin-top: 10px;
+        }
+        .stats-section {
+            margin-bottom: 8px;
+        }
+        .stats-section:last-child {
+            margin-bottom: 0;
+        }
+        .stats-section-title {
+            color: #666;
+            font-size: 9px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 4px;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 3px 8px;
+        }
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 2px 0;
+        }
+        .stat-row-name {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            color: #aaa;
+            font-size: 11px;
+        }
+        .stat-row-value {
+            font-weight: bold;
+            font-size: 11px;
+        }
+        .stat-row.best-ability {
+            background: #2a3a2a;
+            border-radius: 3px;
+            padding: 2px 4px;
+            margin: -2px -4px;
+        }
+        /* Core attribute colors */
+        .stat-row.str-row .stat-row-name { color: #ff6b6b; }
+        .stat-row.spd-row .stat-row-name { color: #4dabf7; }
+        .stat-row.agi-row .stat-row-name { color: #69db7c; }
+        .stat-row.int-row .stat-row-name { color: #ffd43b; }
+        /* Attribute indicator dots */
+        .attr-dots {
+            display: inline-flex;
+            gap: 2px;
+            margin-right: 2px;
+        }
+        .attr-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+        }
+        .attr-dot.str { background: #ff6b6b; }
+        .attr-dot.spd { background: #4dabf7; }
+        .attr-dot.agi { background: #69db7c; }
+        .attr-dot.int { background: #ffd43b; }
+
+        /* Keep old styles for backwards compatibility but hide */
+        .core-attributes-section, .abilities-section, .technique-section { display: none; }
+
+        /* Tooltip System */
+        .tooltip-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: #444;
+            color: #aaa;
+            font-size: 10px;
+            font-weight: bold;
+            cursor: help;
+            flex-shrink: 0;
+        }
+        .tooltip-wrapper {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+        }
+        .tooltip-content {
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #1a1a2a;
+            border: 1px solid #444;
+            border-radius: 6px;
+            padding: 10px 12px;
+            min-width: 200px;
+            max-width: 280px;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.2s, visibility 0.2s;
+            font-size: 12px;
+            line-height: 1.4;
+            color: #ddd;
+            text-align: left;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+            pointer-events: none;
+        }
+        .tooltip-content::after {
+            content: '';
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 6px solid transparent;
+            border-top-color: #444;
+        }
+        .tooltip-wrapper:hover .tooltip-content,
+        .tooltip-wrapper:focus .tooltip-content,
+        .tooltip-wrapper:active .tooltip-content {
+            opacity: 1;
+            visibility: visible;
+        }
+        .tooltip-title {
+            font-weight: bold;
+            color: #ffd700;
+            margin-bottom: 4px;
+        }
+        .tooltip-desc {
+            color: #bbb;
+            margin-bottom: 6px;
+        }
+        .tooltip-formula {
+            font-size: 10px;
+            color: #888;
+            font-style: italic;
+        }
+        .tooltip-counters {
+            margin-top: 6px;
+            padding-top: 6px;
+            border-top: 1px solid #333;
+            font-size: 10px;
+            color: #8f8;
+        }
+
         /* Season stats section */
         .player-season-stats {
             margin-top: 16px;
@@ -1196,24 +1348,181 @@
         };
 
         // Stat weights for clash resolution
+        // Note: speed, agility, strength now come from coreAttributes (merged with old stats)
         const CLASH_WEIGHTS = {
             separation: {
-                receiver: { speed: 0.25, agility: 0.25, routeRunning: 0.20, acceleration: 0.15, release: 0.15 },
-                defender: { speed: 0.20, agility: 0.20, manCoverage: 0.25, pursuit: 0.20, awareness: 0.15 }
-            },
-            physical: {
-                attacker: { strength: 0.35, aggression: 0.25, hitPower: 0.25, balance: 0.15 },
-                defender: { strength: 0.35, aggression: 0.25, tackling: 0.25, balance: 0.15 }
+                receiver: { speed: 0.25, agility: 0.25, routeRunning: 0.35, acceleration: 0.15 },
+                defender: { speed: 0.20, agility: 0.20, awareness: 0.25, pursuit: 0.20, tackling: 0.15 }
             },
             lineClash: {
                 offense: { passBlock: 0.35, strength: 0.30, balance: 0.20, awareness: 0.15 },
                 defense: { passRush: 0.35, strength: 0.30, acceleration: 0.20, speed: 0.15 }
             },
             tackle: {
-                tackler: { tackling: 0.40, pursuit: 0.30, hitPower: 0.30 },
-                ballCarrier: { agility: 0.35, speed: 0.30, balance: 0.35 }
+                tackler: { tackling: 0.70, pursuit: 0.30 },
+                ballCarrier: { agility: 0.35, speed: 0.30, evasion: 0.35 }
             }
         };
+
+        // ========================================
+        // ABILITY SELECTION SYSTEM
+        // ========================================
+        // Matchup matrix: DL ability effectiveness vs OL ability (multiplier)
+        // > 1.0 = DL has advantage, < 1.0 = OL has advantage
+        const ABILITY_MATCHUPS = {
+            linemen: {
+                bullRush:   { anchor: 0.85, handFighting: 1.00, footwork: 1.15, driveBlock: 0.95 },
+                blockShed:  { anchor: 1.10, handFighting: 0.90, footwork: 1.05, driveBlock: 0.95 },
+                spinMove:   { anchor: 1.20, handFighting: 1.05, footwork: 0.85, driveBlock: 1.10 },
+                swimMove:   { anchor: 1.15, handFighting: 0.85, footwork: 0.95, driveBlock: 1.05 }
+            },
+            // WR/CB matchups: WR ability effectiveness vs CB ability
+            receivers: {
+                releaseMove:   { pressCoverage: 0.90, manCoverage: 1.10, zoneCoverage: 1.05, ballHawk: 1.00 },
+                routeSharpness: { pressCoverage: 1.05, manCoverage: 0.90, zoneCoverage: 1.15, ballHawk: 1.00 }
+            }
+        };
+
+        // Select ability based on 60/30/10 rule for highest/second/third
+        function selectAbility(player, abilityType) {
+            const abilities = calculateAbilities(player);
+            if (!abilities) return null;
+
+            // Get abilities sorted by value (highest first)
+            const sorted = Object.entries(abilities)
+                .sort((a, b) => b[1] - a[1]);
+
+            if (sorted.length === 0) return null;
+
+            // 60% highest, 30% second, 10% third (or lower if not enough abilities)
+            const roll = Math.random() * 100;
+            let selectedIndex = 0;
+
+            if (roll < 60) {
+                selectedIndex = 0;  // Highest (60%)
+            } else if (roll < 90 && sorted.length > 1) {
+                selectedIndex = 1;  // Second highest (30%)
+            } else if (sorted.length > 2) {
+                selectedIndex = 2;  // Third highest (10%)
+            } else if (sorted.length > 1) {
+                selectedIndex = 1;  // Fallback to second if no third
+            }
+
+            return { name: sorted[selectedIndex][0], value: sorted[selectedIndex][1] };
+        }
+
+        // Check if reacting player should use a counter ability
+        // Returns the counter ability if they choose to use it, otherwise null
+        function selectCounterAbility(reactingPlayer, initiatingAbility, matchupTable) {
+            const abilities = calculateAbilities(reactingPlayer);
+            if (!abilities || !matchupTable[initiatingAbility]) return null;
+
+            const intelligence = reactingPlayer.coreAttributes?.intelligence || 50;
+            const counterChance = Math.max(0, intelligence - 20) / 100;  // (INT - 20)%
+
+            // Only attempt counter if roll succeeds
+            if (Math.random() > counterChance) return null;
+
+            // Find the ability that gives best matchup against initiating ability
+            const matchups = matchupTable[initiatingAbility];
+            let bestCounter = null;
+            let bestAdvantage = 0;
+
+            for (const [abilityName, multiplier] of Object.entries(matchups)) {
+                if (abilities[abilityName]) {
+                    // Lower multiplier = better for defender (OL) in linemen matchups
+                    // For receivers table, we flip the logic
+                    const advantage = 1 - multiplier;  // Positive = good for reacting player
+                    const effectiveStrength = abilities[abilityName] * (1 + advantage * 0.5);
+
+                    if (!bestCounter || effectiveStrength > bestAdvantage) {
+                        bestCounter = { name: abilityName, value: abilities[abilityName] };
+                        bestAdvantage = effectiveStrength;
+                    }
+                }
+            }
+
+            return bestCounter;
+        }
+
+        // Resolve ability clash between two players
+        // Returns { initiator: ability, reactor: ability, matchupMultiplier }
+        function resolveAbilityClash(initiator, reactor, matchupTable, isInitiatorAttacker = true) {
+            // Initiator selects ability (60/30/10 rule)
+            const initiatorAbility = selectAbility(initiator);
+            if (!initiatorAbility) {
+                return { initiator: null, reactor: null, matchupMultiplier: 1.0 };
+            }
+
+            // Reactor tries to counter (INT-20)% chance, otherwise uses 60/30/10
+            let reactorAbility = selectCounterAbility(reactor, initiatorAbility.name, matchupTable);
+            if (!reactorAbility) {
+                reactorAbility = selectAbility(reactor);
+            }
+
+            // Get matchup multiplier
+            let matchupMultiplier = 1.0;
+            if (initiatorAbility && reactorAbility && matchupTable[initiatorAbility.name]) {
+                matchupMultiplier = matchupTable[initiatorAbility.name][reactorAbility.name] || 1.0;
+            }
+
+            return {
+                initiator: initiatorAbility,
+                reactor: reactorAbility,
+                matchupMultiplier: matchupMultiplier
+            };
+        }
+
+        // Calculate core×ability multiplicative value for a player
+        // Returns value scaled to be used in clash rolls
+        // The core stat contribution is based on the ability's ABILITY_CORE_MAPPING
+        function getCoreAbilityRoll(player, selectedAbility) {
+            if (!player.coreAttributes || !selectedAbility) return 30; // Default fallback
+
+            const mapping = ABILITY_CORE_MAPPING[selectedAbility.name];
+            if (!mapping) return 30;
+
+            // Calculate weighted core stat based on ability's core mapping
+            let weightedCoreStat = 0;
+            for (const [attr, weight] of Object.entries(mapping)) {
+                const coreValue = player.coreAttributes[attr] || 50;
+                weightedCoreStat += coreValue * weight;
+            }
+
+            // Multiplicative: (coreStat/100) × (ability/100) scaled to contribute 60% of total
+            // If both are 90: (0.9 × 0.9) = 0.81 × 60 = 48.6
+            // If both are 70: (0.7 × 0.7) = 0.49 × 60 = 29.4
+            const coreNorm = weightedCoreStat / 100;
+            const abilityNorm = selectedAbility.value / 100;
+            const multiplicativeValue = coreNorm * abilityNorm * 60;
+
+            return multiplicativeValue;
+        }
+
+        // Calculate technique-only roll (40% of total clash value)
+        function getTechniqueRoll(stats, weights, coreAttributes = null) {
+            // Filter to only non-core stats (technique stats)
+            const coreStats = ['speed', 'agility', 'strength', 'intelligence'];
+            let techniqueTotal = 0;
+            let techniqueWeightSum = 0;
+
+            for (const stat in weights) {
+                if (!coreStats.includes(stat)) {
+                    const statValue = stats[stat] || 50;
+                    techniqueTotal += statValue * weights[stat];
+                    techniqueWeightSum += weights[stat];
+                }
+            }
+
+            // Normalize if we have technique stats, scale to 40% contribution
+            if (techniqueWeightSum > 0) {
+                // Normalize to 0-100 range, then scale to 40% of total
+                const normalized = techniqueTotal / techniqueWeightSum;
+                return normalized * 0.4;
+            }
+
+            return 20; // Default if no technique stats
+        }
 
         // ========================================
         // ROUTE TEMPLATES FOR SIMULATION
@@ -1538,38 +1847,296 @@
         };
 
         // Position definitions with stat priorities
+        // primaryStats: used for overall calculation
+        // techniqueStats: all technique stats used in gameplay calculations (excludes core attributes)
         const POSITIONS = {
             WR: {
                 name: 'Wide Receiver',
                 shortName: 'WR',
                 primaryStats: ['speed', 'catching', 'routeRunning', 'agility'],
+                techniqueStats: ['catching', 'routeRunning', 'acceleration', 'evasion'],
                 count: 3
             },
             CB: {
                 name: 'Cornerback',
                 shortName: 'CB',
-                primaryStats: ['speed', 'manCoverage', 'zoneCoverage', 'agility'],
+                primaryStats: ['speed', 'awareness', 'tackling', 'agility'],
+                techniqueStats: ['tackling', 'awareness', 'pursuit'],
                 count: 4
             },
             OL: {
                 name: 'Offensive Lineman',
                 shortName: 'OL',
                 primaryStats: ['passBlock', 'strength', 'balance', 'awareness'],
+                techniqueStats: ['passBlock', 'balance', 'awareness'],
                 count: 5
             },
             DL: {
                 name: 'Defensive Lineman',
                 shortName: 'DL',
                 primaryStats: ['passRush', 'strength', 'acceleration', 'tackling'],
+                techniqueStats: ['passRush', 'tackling', 'pursuit', 'acceleration'],
                 count: 4
             },
             QB: {
                 name: 'Quarterback',
                 shortName: 'QB',
-                primaryStats: ['throwing', 'awareness', 'agility', 'speed'],
+                primaryStats: ['shortPassAcc', 'longPassAcc', 'awareness', 'agility'],
+                techniqueStats: ['shortPassAcc', 'longPassAcc', 'awareness'],
                 count: 1
             }
         };
+
+        // Tooltip data for all stats and abilities
+        const STAT_TOOLTIPS = {
+            // Core Attributes
+            strength: {
+                name: 'Strength',
+                desc: 'Raw physical power. Affects blocking, tackling, and breaking through contact.',
+                influences: 'passBlock, passRush, tackling, hitPower, balance',
+                growth: 'Core attribute - grows very rarely (2-8% per season until age 27)'
+            },
+            speed: {
+                name: 'Speed',
+                desc: 'Top-end running speed and acceleration.',
+                influences: 'speed, acceleration, pursuit',
+                growth: 'Core attribute - grows very rarely (2-8% per season until age 27)'
+            },
+            agility: {
+                name: 'Agility',
+                desc: 'Quickness, balance, and change of direction ability.',
+                influences: 'agility, routeRunning, release, balance',
+                growth: 'Core attribute - grows very rarely (2-8% per season until age 27)'
+            },
+            intelligence: {
+                name: 'Intelligence',
+                desc: 'Mental processing, awareness, and decision-making.',
+                influences: 'awareness, routeRunning, field vision',
+                growth: 'Core attribute - grows very rarely (2-8% per season until age 27)'
+            },
+            // DL Abilities
+            bullRush: {
+                name: 'Bull Rush',
+                desc: 'Power through blockers with pure strength.',
+                formula: 'Strength (60%) + Pass Rush (25%) + Intelligence (15%)',
+                counters: 'Countered by: Anchor. Effective vs: Footwork'
+            },
+            blockShed: {
+                name: 'Block Shed',
+                desc: 'Quickly disengage from blocks.',
+                formula: 'Strength (40%) + Agility (40%) + Pass Rush (20%)',
+                counters: 'Countered by: Hand Fighting'
+            },
+            spinMove: {
+                name: 'Spin Move',
+                desc: 'Spin around blockers with finesse.',
+                formula: 'Agility (55%) + Speed (25%) + Pass Rush (20%)',
+                counters: 'Countered by: Footwork. Effective vs: Anchor, Drive Block'
+            },
+            swimMove: {
+                name: 'Swim Move',
+                desc: 'Swim over the blocker\'s arms.',
+                formula: 'Agility (45%) + Speed (35%) + Pass Rush (20%)',
+                counters: 'Countered by: Hand Fighting. Effective vs: Anchor'
+            },
+            // OL Abilities
+            anchor: {
+                name: 'Anchor',
+                desc: 'Hold your ground against power rushes.',
+                formula: 'Strength (55%) + Balance (25%) + Pass Block (20%)',
+                counters: 'Counters: Bull Rush. Weak vs: Spin Move, Swim Move'
+            },
+            handFighting: {
+                name: 'Hand Fighting',
+                desc: 'Control and redirect pass rushers.',
+                formula: 'Strength (40%) + Agility (35%) + Pass Block (25%)',
+                counters: 'Counters: Block Shed, Swim Move'
+            },
+            footwork: {
+                name: 'Footwork',
+                desc: 'Mirror lateral moves of rushers.',
+                formula: 'Agility (45%) + Intelligence (30%) + Pass Block (25%)',
+                counters: 'Counters: Spin Move. Weak vs: Bull Rush'
+            },
+            driveBlock: {
+                name: 'Drive Block',
+                desc: 'Sustain blocks and create push.',
+                formula: 'Strength (40%) + Intelligence (30%) + Pass Block (30%)',
+                counters: 'Weak vs: Spin Move'
+            },
+            // CB Abilities
+            pressCoverage: {
+                name: 'Press Coverage',
+                desc: 'Jam receivers at the line of scrimmage.',
+                formula: 'Strength (45%) + Intelligence (35%) + Awareness (20%)',
+                counters: 'Countered by: Release Move'
+            },
+            manCoverage: {
+                name: 'Man Coverage',
+                desc: 'Stick with receivers in man-to-man.',
+                formula: 'Speed (40%) + Agility (40%) + Awareness (20%)',
+                counters: 'Used vs: Route Sharpness'
+            },
+            zoneCoverage: {
+                name: 'Zone Coverage',
+                desc: 'Read routes and defend zone areas.',
+                formula: 'Intelligence (45%) + Agility (35%) + Awareness (20%)',
+                counters: 'Used vs: Route Sharpness'
+            },
+            ballHawk: {
+                name: 'Ball Hawk',
+                desc: 'Anticipate and intercept passes.',
+                formula: 'Intelligence (40%) + Speed (35%) + Awareness (25%)',
+                counters: 'Used in contested catch situations'
+            },
+            // WR Abilities
+            releaseMove: {
+                name: 'Release Move',
+                desc: 'Beat press coverage at the line.',
+                formula: 'Agility (45%) + Strength (35%) + Route Running (20%)',
+                counters: 'Counters: Press Coverage'
+            },
+            routeSharpness: {
+                name: 'Route Sharpness',
+                desc: 'Create separation on routes.',
+                formula: 'Agility (40%) + Speed (35%) + Route Running (25%)',
+                counters: 'Used vs: Man/Zone Coverage'
+            },
+            contestedCatch: {
+                name: 'Contested Catch',
+                desc: 'Catch passes with defenders nearby.',
+                formula: 'Strength (30%) + Intelligence (25%) + Catching (25%) + Focus (20%)',
+                counters: 'Used vs: Ball Hawk'
+            },
+            yacAbility: {
+                name: 'YAC Ability',
+                desc: 'Gain yards after the catch.',
+                formula: 'Speed (40%) + Agility (40%) + Balance (20%)',
+                counters: 'Used for tackle evasion'
+            },
+            // QB Abilities
+            armStrength: {
+                name: 'Arm Strength',
+                desc: 'Throw with power downfield.',
+                formula: 'Strength (45%) + Throwing (35%) + Intelligence (20%)'
+            },
+            quickRelease: {
+                name: 'Quick Release',
+                desc: 'Fast delivery and touch passes.',
+                formula: 'Agility (40%) + Throwing (35%) + Intelligence (25%)'
+            },
+            fieldVision: {
+                name: 'Field Vision',
+                desc: 'Read defenses and make decisions.',
+                formula: 'Intelligence (55%) + Awareness (30%) + Throwing (15%)'
+            },
+            pocketPresence: {
+                name: 'Pocket Presence',
+                desc: 'Escape pressure and extend plays.',
+                formula: 'Agility (45%) + Speed (35%) + Awareness (20%)'
+            },
+            // Technique Stats (trained skills)
+            catching: {
+                name: 'Catching',
+                desc: 'Ability to secure the ball and concentrate under pressure.',
+                influences: 'Base catch probability (0-100%), contested catch bonus, catch zone radius',
+                growth: 'Technique - can improve through training and game reps'
+            },
+            routeRunning: {
+                name: 'Route Running',
+                desc: 'Precision in running routes and getting off the line against press coverage.',
+                influences: 'Separation clash (35% weight), route sharpness ability, release move ability',
+                growth: 'Technique - can improve through training and game reps'
+            },
+            tackling: {
+                name: 'Tackling',
+                desc: 'Form, technique, and hitting power in bringing down ball carriers.',
+                influences: 'Tackle clash (70% weight), tackle success rate',
+                growth: 'Technique - can improve through training and game reps'
+            },
+            awareness: {
+                name: 'Awareness',
+                desc: 'Field awareness and reading plays.',
+                influences: 'Coverage abilities, line clash (OL), separation defense',
+                growth: 'Technique - can improve through training and game reps'
+            },
+            pursuit: {
+                name: 'Pursuit',
+                desc: 'Chasing down ball carriers and closing on plays.',
+                influences: 'Tackle clash (30% weight), pursuit speed boost',
+                growth: 'Technique - can improve through training and game reps'
+            },
+            passBlock: {
+                name: 'Pass Block',
+                desc: 'Technique in protecting the quarterback.',
+                influences: 'Line clash (35% weight), all OL abilities',
+                growth: 'Technique - can improve through training and game reps'
+            },
+            passRush: {
+                name: 'Pass Rush',
+                desc: 'Technique in rushing the passer.',
+                influences: 'Line clash (35% weight), all DL abilities',
+                growth: 'Technique - can improve through training and game reps'
+            },
+            balance: {
+                name: 'Balance',
+                desc: 'Staying on feet during contact in the trenches.',
+                influences: 'Line clash (OL 20%)',
+                growth: 'Technique - can improve through training and game reps'
+            },
+            shortPassAcc: {
+                name: 'Short Pass Acc',
+                desc: 'Accuracy on short passes (under 12 yards). Combined with agility for throw accuracy.',
+                influences: 'Lead bonus on short routes, catch probability',
+                growth: 'Technique - can improve through training and game reps'
+            },
+            longPassAcc: {
+                name: 'Long Pass Acc',
+                desc: 'Accuracy on deep passes (12+ yards). Combined with agility for throw accuracy.',
+                influences: 'Lead bonus on deep routes, catch probability',
+                growth: 'Technique - can improve through training and game reps'
+            },
+            acceleration: {
+                name: 'Acceleration',
+                desc: 'Burst speed and explosiveness off the line.',
+                influences: 'Separation clash (15%), line clash defense (20%), YAC (25%)',
+                growth: 'Technique - can improve through training and game reps'
+            },
+            evasion: {
+                name: 'Evasion',
+                desc: 'Ability to avoid tackles and stay on feet during contact.',
+                influences: 'Tackle evasion (35% weight), YAC ability',
+                growth: 'Technique - can improve through training and game reps'
+            }
+        };
+
+        // Helper to create tooltip HTML
+        function createTooltip(key) {
+            const data = STAT_TOOLTIPS[key];
+            if (!data) return '';
+
+            let html = `<div class="tooltip-wrapper" tabindex="0">
+                <span class="tooltip-icon">i</span>
+                <div class="tooltip-content">
+                    <div class="tooltip-title">${data.name}</div>
+                    <div class="tooltip-desc">${data.desc}</div>`;
+
+            if (data.formula) {
+                html += `<div class="tooltip-formula">${data.formula}</div>`;
+            }
+            if (data.influences) {
+                html += `<div class="tooltip-formula">Influences: ${data.influences}</div>`;
+            }
+            if (data.growth) {
+                html += `<div class="tooltip-formula">${data.growth}</div>`;
+            }
+            if (data.counters) {
+                html += `<div class="tooltip-counters">${data.counters}</div>`;
+            }
+
+            html += '</div></div>';
+            return html;
+        }
 
         // Medieval-themed name pools
         const FIRST_NAMES = [
@@ -1914,6 +2481,181 @@
             return potential;
         }
 
+        // Core attribute ranges by tier
+        const CORE_ATTRIBUTE_RANGES = {
+            elite: { min: 75, max: 95 },
+            star: { min: 70, max: 90 },
+            veteran: { min: 65, max: 85 },
+            average: { min: 50, max: 75 },
+            below_average: { min: 40, max: 65 },
+            rookie: { min: 45, max: 80 },
+            backup: { min: 35, max: 55 }
+        };
+
+        // Generate core attributes for a player
+        function generateCoreAttributes(position, tier) {
+            const range = CORE_ATTRIBUTE_RANGES[tier] || CORE_ATTRIBUTE_RANGES.average;
+
+            const generateAttr = () => {
+                const base = randomInt(range.min, range.max);
+                return Math.max(30, Math.min(99, base + randomInt(-3, 3)));
+            };
+
+            let strength = generateAttr();
+            let speed = generateAttr();
+            let agility = generateAttr();
+            let intelligence = generateAttr();
+
+            // Position-based tendencies
+            switch (position) {
+                case 'OL':
+                case 'DL':
+                    strength = Math.min(99, strength + randomInt(3, 8));
+                    speed = Math.max(30, speed - randomInt(3, 8));
+                    break;
+                case 'WR':
+                case 'CB':
+                    speed = Math.min(99, speed + randomInt(3, 8));
+                    agility = Math.min(99, agility + randomInt(2, 5));
+                    break;
+                case 'QB':
+                    intelligence = Math.min(99, intelligence + randomInt(3, 8));
+                    break;
+            }
+
+            return { strength, speed, agility, intelligence };
+        }
+
+        // Calculate position-specific abilities from core attributes
+        function calculateAbilities(player) {
+            const core = player.coreAttributes;
+            if (!core) return null;
+
+            const clamp = (val) => Math.max(0, Math.min(99, Math.round(val)));
+
+            switch (player.position) {
+                case 'DL':
+                    return {
+                        bullRush: clamp(core.strength * 0.60 + (player.stats.passRush || 70) * 0.25 + core.intelligence * 0.15),
+                        blockShed: clamp(core.strength * 0.40 + core.agility * 0.40 + (player.stats.passRush || 70) * 0.20),
+                        spinMove: clamp(core.agility * 0.55 + core.speed * 0.25 + (player.stats.passRush || 70) * 0.20),
+                        swimMove: clamp(core.agility * 0.45 + core.speed * 0.35 + (player.stats.passRush || 70) * 0.20)
+                    };
+                case 'OL':
+                    return {
+                        anchor: clamp(core.strength * 0.55 + (player.stats.balance || 70) * 0.25 + (player.stats.passBlock || 70) * 0.20),
+                        handFighting: clamp(core.strength * 0.40 + core.agility * 0.35 + (player.stats.passBlock || 70) * 0.25),
+                        footwork: clamp(core.agility * 0.45 + core.intelligence * 0.30 + (player.stats.passBlock || 70) * 0.25),
+                        driveBlock: clamp(core.strength * 0.40 + core.intelligence * 0.30 + (player.stats.passBlock || 70) * 0.30)
+                    };
+                case 'CB':
+                    return {
+                        pressCoverage: clamp(core.strength * 0.45 + core.intelligence * 0.35 + (player.stats.awareness || 70) * 0.20),
+                        manCoverage: clamp(core.speed * 0.40 + core.agility * 0.40 + (player.stats.awareness || 70) * 0.20),
+                        zoneCoverage: clamp(core.intelligence * 0.45 + core.agility * 0.35 + (player.stats.awareness || 70) * 0.20),
+                        ballHawk: clamp(core.intelligence * 0.40 + core.speed * 0.35 + (player.stats.awareness || 70) * 0.25)
+                    };
+                case 'WR':
+                    return {
+                        releaseMove: clamp(core.agility * 0.45 + core.strength * 0.35 + (player.stats.routeRunning || 70) * 0.20),
+                        routeSharpness: clamp(core.agility * 0.40 + core.speed * 0.35 + (player.stats.routeRunning || 70) * 0.25),
+                        contestedCatch: clamp(core.strength * 0.30 + core.intelligence * 0.25 + (player.stats.catching || 70) * 0.45),
+                        yacAbility: clamp(core.speed * 0.40 + core.agility * 0.40 + (player.stats.evasion || 70) * 0.20)
+                    };
+                case 'QB':
+                    // Abilities are multiplicative: (core/100) × (skill/100) × 100
+                    const shortAcc = player.stats.shortPassAcc || 70;
+                    const longAcc = player.stats.longPassAcc || 70;
+                    const qbAwareness = player.stats.awareness || 70;
+                    return {
+                        armStrength: clamp((core.strength / 100) * (longAcc / 100) * 100),
+                        quickRelease: clamp((core.agility / 100) * (shortAcc / 100) * 100),
+                        fieldVision: clamp((core.intelligence / 100) * (qbAwareness / 100) * 100),
+                        pocketPresence: clamp((core.agility / 100) * (qbAwareness / 100) * 100)
+                    };
+                default:
+                    return null;
+            }
+        }
+
+        // Get best ability for a player
+        function getBestAbility(player) {
+            const abilities = calculateAbilities(player);
+            if (!abilities) return null;
+
+            let best = { name: '', value: 0 };
+            for (const [name, value] of Object.entries(abilities)) {
+                if (value > best.value) {
+                    best = { name, value };
+                }
+            }
+            return best;
+        }
+
+        // Core attribute colors for visual display
+        const CORE_ATTR_COLORS = {
+            strength: '#ff6b6b',     // Red
+            speed: '#4dabf7',        // Blue
+            agility: '#69db7c',      // Green
+            intelligence: '#ffd43b'  // Gold
+        };
+
+        // Ability to core attribute mapping (core stats only, normalized to 100%)
+        const ABILITY_CORE_MAPPING = {
+            // DL abilities
+            bullRush:       { strength: 0.80, intelligence: 0.20 },
+            blockShed:      { strength: 0.50, agility: 0.50 },
+            spinMove:       { agility: 0.69, speed: 0.31 },
+            swimMove:       { agility: 0.56, speed: 0.44 },
+            // OL abilities
+            anchor:         { strength: 1.00 },
+            handFighting:   { strength: 0.53, agility: 0.47 },
+            footwork:       { agility: 0.60, intelligence: 0.40 },
+            driveBlock:     { strength: 0.57, intelligence: 0.43 },
+            // CB abilities
+            pressCoverage:  { strength: 0.56, intelligence: 0.44 },
+            manCoverage:    { speed: 0.50, agility: 0.50 },
+            zoneCoverage:   { intelligence: 0.56, agility: 0.44 },
+            ballHawk:       { intelligence: 0.53, speed: 0.47 },
+            // WR abilities
+            releaseMove:    { agility: 0.56, strength: 0.44 },
+            routeSharpness: { agility: 0.53, speed: 0.47 },
+            contestedCatch: { strength: 0.55, intelligence: 0.45 },
+            yacAbility:     { speed: 0.50, agility: 0.50 },
+            // QB abilities (core × skill, multiplicative)
+            armStrength:    { strength: 1.00 },
+            quickRelease:   { agility: 1.00 },
+            fieldVision:    { intelligence: 1.00 },
+            pocketPresence: { agility: 1.00 }
+        };
+
+        // Generate attribute indicator dots for an ability
+        function getAbilityDots(abilityKey) {
+            const mapping = ABILITY_CORE_MAPPING[abilityKey];
+            if (!mapping) return '';
+
+            // Map attribute names to CSS classes
+            const attrToClass = {
+                strength: 'str',
+                speed: 'spd',
+                agility: 'agi',
+                intelligence: 'int'
+            };
+
+            // Sort by percentage descending and generate dots
+            const sortedAttrs = Object.entries(mapping).sort((a, b) => b[1] - a[1]);
+            const dots = sortedAttrs.map(([attr]) =>
+                `<span class="attr-dot ${attrToClass[attr]}"></span>`
+            ).join('');
+
+            return `<span class="attr-dots">${dots}</span>`;
+        }
+
+        // Get display name for ability
+        function getAbilityDisplayName(abilityKey) {
+            return abilityKey.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase());
+        }
+
         // Generate position-specific stats
         function generatePositionStats(position, baseRange) {
             const stats = {};
@@ -1921,10 +2663,10 @@
 
             // All possible stats
             const allStats = [
-                'speed', 'acceleration', 'agility', 'strength', 'stamina', 'balance',
-                'catching', 'throwing', 'routeRunning', 'release', 'jumping', 'focus',
-                'manCoverage', 'zoneCoverage', 'press', 'tackling', 'hitPower', 'pursuit', 'awareness',
-                'passBlock', 'passRush', 'aggression'
+                'speed', 'acceleration', 'agility', 'strength', 'stamina', 'balance', 'evasion',
+                'catching', 'shortPassAcc', 'longPassAcc', 'routeRunning', 'jumping',
+                'manCoverage', 'zoneCoverage', 'press', 'tackling', 'pursuit', 'awareness',
+                'passBlock', 'passRush'
             ];
 
             // Generate all stats
@@ -2003,6 +2745,8 @@
                 peakAge,
                 salaryCost: calculateSalary(stats, position),
                 seasonStartStats: { ...stats },
+                // Core attributes - foundational traits that rarely change
+                coreAttributes: generateCoreAttributes(position, tier),
                 // Season stats
                 gamesPlayed: 0,
                 seasonTDs: 0,
@@ -2035,18 +2779,18 @@
                 // Weight trait selection based on QB's style
                 // High awareness + low agility = game_manager
                 // High agility + speed = scrambler
-                // High throwing = gunslinger
+                // High pass accuracy = gunslinger
                 // Otherwise balanced
                 const awareness = stats.awareness || 70;
                 const agility = stats.agility || 70;
                 const speed = stats.speed || 70;
-                const throwing = stats.throwing || 70;
+                const passAcc = ((stats.shortPassAcc || 70) + (stats.longPassAcc || 70)) / 2;
 
                 if (agility > 78 && speed > 75) {
                     player.qbTrait = 'scrambler';
-                } else if (awareness > 80 && throwing < 75) {
+                } else if (awareness > 80 && passAcc < 75) {
                     player.qbTrait = 'game_manager';
-                } else if (throwing > 82) {
+                } else if (passAcc > 82) {
                     player.qbTrait = 'gunslinger';
                 } else {
                     player.qbTrait = 'balanced';
@@ -2086,6 +2830,7 @@
                 peakAge,
                 salaryCost: calculateSalary(stats, position),
                 seasonStartStats: { ...stats },
+                coreAttributes: generateCoreAttributes(position, estimatedTier),
                 gamesPlayed: 0,
                 seasonTDs: 0,
                 seasonCatches: 0,
@@ -2115,13 +2860,13 @@
                 const awareness = stats.awareness || 70;
                 const agility = stats.agility || 70;
                 const speed = stats.speed || 70;
-                const throwing = stats.throwing || 70;
+                const passAcc = ((stats.shortPassAcc || 70) + (stats.longPassAcc || 70)) / 2;
 
                 if (agility > 78 && speed > 75) {
                     player.qbTrait = 'scrambler';
-                } else if (awareness > 80 && throwing < 75) {
+                } else if (awareness > 80 && passAcc < 75) {
                     player.qbTrait = 'game_manager';
-                } else if (throwing > 82) {
+                } else if (passAcc > 82) {
                     player.qbTrait = 'gunslinger';
                 } else {
                     player.qbTrait = 'balanced';
@@ -2850,6 +3595,7 @@
             PLAYERS_PER_ROUND: 10,  // Players available each round (50 total)
             NUM_TEAMS: 12,          // Teams in the league for draft order calculation
             MIN_COST: 10,           // Minimum draft cost
+            NEW_GAME_BUDGET: 1500,  // Starting draft points for new games
             // Exact costs for first 7 picks as specified
             EARLY_COSTS: [1000, 800, 700, 600, 520, 450, 390],
             ROUND_2_START: 13,      // First pick of round 2 (in 12-team league)
@@ -2977,61 +3723,108 @@
             active: false,
             round: 1,
             pick: 1,
+            picksRemaining: 0,  // How many picks the player has left
             draftPool: [],
-            draftedPlayers: [],
-            isNewGame: false,  // Track if this is a new game draft
-            viewingRoster: false,  // Toggle between draft pool and roster view
-            selectedDraftPlayer: null  // Currently selected draft player for details
+            draftedPlayers: [],  // IDs of all drafted players (by any team)
+            playerPicks: [],     // IDs of players drafted by the user
+            isNewGame: false,
+            viewingRoster: false,
+            selectedDraftPlayer: null
         };
 
         // Generate draft class with realistic ratings
-        // Most players 65-82, a few standouts at 83-84, rare gems at 90-91
+        // Guaranteed: 1-3 elite (90+), 6+ standouts (85-89), rest are developmental
         function generateDraftClass() {
             const draftClass = [];
             const totalPlayers = DRAFT.ROUNDS * DRAFT.PLAYERS_PER_ROUND;
-            const positions = ['QB', 'WR', 'WR', 'WR', 'CB', 'CB', 'OL', 'DL']; // Weighted towards skill positions
+            const positions = ['QB', 'WR', 'WR', 'WR', 'CB', 'CB', 'OL', 'DL'];
 
-            for (let i = 0; i < totalPlayers; i++) {
-                const position = positions[i % positions.length];
-
-                // Custom tier distribution for draft prospects
-                // Most are developmental, few are ready contributors
-                const roll = Math.random();
-                let tier;
-                if (roll < 0.50) tier = 'rookie';        // 50% - developmental (60-73 overall)
-                else if (roll < 0.85) tier = 'average';  // 35% - solid prospect (68-78 overall)
-                else if (roll < 0.97) tier = 'below_average'; // 12% - raw talent (58-68 overall)
-                else tier = 'veteran';                    // 3% - ready to contribute (78-86 overall)
-
-                const player = generatePlayer(position, tier);
-
-                // Draft prospects are younger (21-23)
-                player.age = randomInt(21, 23);
+            // First, generate guaranteed elite players (90+)
+            const numElite = randomInt(1, 3);
+            for (let i = 0; i < numElite; i++) {
+                const position = positions[randomInt(0, positions.length - 1)];
+                const player = generatePlayer(position, 'elite');
+                player.age = randomInt(21, 22);
                 player.yearsInLeague = 0;
 
-                // Cap overall for most players, allow 1-2 standouts
-                // Apply soft cap at 84, hard cap at 91
-                if (player.overall > 91) {
-                    // Scale down stats proportionally to target 91
-                    const scale = 91 / player.overall;
+                // Ensure 90+ overall
+                if (player.overall < 90) {
+                    const boost = (90 + randomInt(0, 2)) / player.overall;
+                    Object.keys(player.stats).forEach(stat => {
+                        player.stats[stat] = Math.min(99, Math.floor(player.stats[stat] * boost));
+                    });
+                    if (player.coreAttributes) {
+                        Object.keys(player.coreAttributes).forEach(attr => {
+                            player.coreAttributes[attr] = Math.min(99, Math.floor(player.coreAttributes[attr] * boost));
+                        });
+                    }
+                    player.overall = calculateOverall(player);
+                }
+                // Cap at 92
+                if (player.overall > 92) {
+                    const scale = 92 / player.overall;
                     Object.keys(player.stats).forEach(stat => {
                         player.stats[stat] = Math.floor(player.stats[stat] * scale);
                     });
-                    // Recalculate overall from position stats
                     player.overall = calculateOverall(player);
-                } else if (player.overall > 84 && Math.random() > 0.04) {
-                    // 96% chance to cap at 84 if above
+                }
+                player.salaryCost = calculateSalary(player.stats, player.position);
+                draftClass.push(player);
+            }
+
+            // Generate standout players (85-89) - at least 6
+            const numStandouts = randomInt(6, 9);
+            for (let i = 0; i < numStandouts; i++) {
+                const position = positions[randomInt(0, positions.length - 1)];
+                const player = generatePlayer(position, 'star');
+                player.age = randomInt(21, 23);
+                player.yearsInLeague = 0;
+
+                // Ensure 85-89 overall
+                const targetOverall = randomInt(85, 89);
+                if (player.overall !== targetOverall) {
+                    const scale = targetOverall / player.overall;
+                    Object.keys(player.stats).forEach(stat => {
+                        player.stats[stat] = Math.min(99, Math.max(40, Math.floor(player.stats[stat] * scale)));
+                    });
+                    if (player.coreAttributes) {
+                        Object.keys(player.coreAttributes).forEach(attr => {
+                            player.coreAttributes[attr] = Math.min(99, Math.max(40, Math.floor(player.coreAttributes[attr] * scale)));
+                        });
+                    }
+                    player.overall = calculateOverall(player);
+                }
+                player.salaryCost = calculateSalary(player.stats, player.position);
+                draftClass.push(player);
+            }
+
+            // Fill remaining slots with regular prospects
+            const remainingSlots = totalPlayers - draftClass.length;
+            for (let i = 0; i < remainingSlots; i++) {
+                const position = positions[i % positions.length];
+
+                // Regular tier distribution for remaining players
+                const roll = Math.random();
+                let tier;
+                if (roll < 0.40) tier = 'rookie';        // 40% - developmental (60-73)
+                else if (roll < 0.75) tier = 'average';  // 35% - solid prospect (68-78)
+                else if (roll < 0.90) tier = 'below_average'; // 15% - raw talent (58-68)
+                else tier = 'veteran';                    // 10% - contributor (78-84)
+
+                const player = generatePlayer(position, tier);
+                player.age = randomInt(21, 23);
+                player.yearsInLeague = 0;
+
+                // Cap regular prospects at 84 (these aren't the guaranteed standouts)
+                if (player.overall > 84) {
                     const scale = randomInt(78, 84) / player.overall;
                     Object.keys(player.stats).forEach(stat => {
                         player.stats[stat] = Math.floor(player.stats[stat] * scale);
                     });
-                    // Recalculate overall from position stats
                     player.overall = calculateOverall(player);
                 }
 
-                // Recalculate salary for young age
                 player.salaryCost = calculateSalary(player.stats, player.position);
-
                 draftClass.push(player);
             }
 
@@ -3051,31 +3844,54 @@
             draftState.active = true;
             draftState.round = 1;
             draftState.pick = 1;
+            draftState.picksRemaining = DRAFT.ROUNDS;  // Player gets one pick per round
             draftState.draftPool = generateDraftClass();
             draftState.draftedPlayers = [];
+            draftState.playerPicks = [];
             draftState.isNewGame = isNewGame;
             draftState.viewingRoster = false;
             draftState.selectedDraftPlayer = null;
 
             // Calculate and set draft budget based on season ranking
-            if (!isNewGame && managementState.team) {
+            if (isNewGame && managementState.team) {
+                // New games get fixed starting budget
+                managementState.team.draftPoints = DRAFT.NEW_GAME_BUDGET;
+            } else if (!isNewGame && managementState.team) {
+                // Returning seasons calculate budget based on ranking
                 const teamRank = getTeamSeasonRank();
                 managementState.team.draftPoints = calculateDraftBudget(teamRank);
             } else if (managementState.team && !managementState.team.draftPoints) {
-                // Fallback for new games without draft points (last place = best picks)
-                const defaultRank = DRAFT.NUM_TEAMS;
-                managementState.team.draftPoints = calculateDraftBudget(defaultRank);
+                // Fallback
+                managementState.team.draftPoints = DRAFT.NEW_GAME_BUDGET;
             }
+
+            // Simulate other teams picking before player's turn (player picks last)
+            simulateOtherTeamsPicks();
 
             showScreen('draft');
         }
 
-        // Get available players for current round
+        // Simulate other teams making their picks (they pick before player each round)
+        function simulateOtherTeamsPicks() {
+            const otherTeams = DRAFT.NUM_TEAMS - 1;  // All teams except player
+            const available = getAvailableDraftPlayers();
+
+            // Each other team picks one player (picking from best available)
+            for (let i = 0; i < otherTeams && available.length > 0; i++) {
+                // Teams pick semi-randomly from top available players
+                // Better teams (lower index) pick slightly worse players
+                const pickRange = Math.min(5, available.length);
+                const pickIdx = Math.floor(Math.random() * pickRange);
+                const picked = available.splice(pickIdx, 1)[0];
+                if (picked) {
+                    draftState.draftedPlayers.push(picked.id);
+                }
+            }
+        }
+
+        // Get all available (undrafted) players
         function getAvailableDraftPlayers() {
-            const startIdx = (draftState.round - 1) * DRAFT.PLAYERS_PER_ROUND;
-            const endIdx = startIdx + DRAFT.PLAYERS_PER_ROUND;
             return draftState.draftPool
-                .slice(startIdx, endIdx)
                 .filter(p => !draftState.draftedPlayers.includes(p.id));
         }
 
@@ -3091,6 +3907,9 @@
             const player = draftState.draftPool.find(p => p.id === playerId);
             if (!player || draftState.draftedPlayers.includes(playerId)) return false;
 
+            // Check if player has picks remaining
+            if (draftState.picksRemaining <= 0) return false;
+
             // Check if team can afford this player
             if (!canAffordDraftPlayer(playerId)) {
                 return false;  // Can't afford
@@ -3102,25 +3921,46 @@
             // Add to team roster
             managementState.team.roster.push(player);
             draftState.draftedPlayers.push(playerId);
+            draftState.playerPicks.push(playerId);
+            draftState.picksRemaining--;
+            draftState.round++;
 
             // Update depth chart
             updateDepthChart(managementState.team);
 
-            // Refresh the screen (don't auto-advance, let player keep picking)
+            // Check if draft is complete
+            if (draftState.picksRemaining <= 0) {
+                finishDraft();
+                return true;
+            }
+
+            // Simulate other teams picking for next round
+            simulateOtherTeamsPicks();
+
+            // Refresh the screen
             refreshDraftScreen();
 
             return true;
         }
 
-        // Skip current round
+        // Skip current pick (use pick without selecting a player)
         function skipDraftPick() {
-            advanceDraft();
+            draftState.picksRemaining--;
+            draftState.round++;
+
+            if (draftState.picksRemaining <= 0) {
+                finishDraft();
+                return;
+            }
+
+            // Simulate other teams picking for next round
+            simulateOtherTeamsPicks();
+            refreshDraftScreen();
         }
 
-        // Advance to next round
+        // Legacy function - now just completes draft
         function advanceDraft() {
-            draftState.round++;
-            draftState.pick = 1;
+            // No longer needed - draft advances after each pick
 
             if (draftState.round > DRAFT.ROUNDS) {
                 // Draft complete
@@ -3168,7 +4008,7 @@
                 <div><span class="ovr-big">${player.overall}</span></div>
                 <div style="margin-top:10px;">
                     ${POSITIONS[player.position].name} | Age ${player.age} | Peak ${player.peakAge}<br>
-                    Salary: ${formatSalary(player.salaryCost)} | Potential: ${'★'.repeat(player.potentialGrade + 1)}<br>
+                    Salary: ${formatSalary(player.salaryCost)} | Potential: ${'★'.repeat(player.potentialGrade)}<br>
                     <span style="color:${costColor};font-weight:bold;">Draft Cost: ${player.draftCost}</span>
                 </div>
             `;
@@ -3185,27 +4025,68 @@
             tradeBtn.style.opacity = canDraft ? '1' : '0.5';
             cutBtn.style.display = 'none';
 
-            // Only show position-relevant stats
-            const positionStats = POSITIONS[player.position].primaryStats;
+            const getColorClass = (val) => val >= 90 ? 'stat-elite' : val >= 80 ? 'stat-good' : val >= 70 ? 'stat-average' : val >= 60 ? 'stat-below' : 'stat-poor';
 
-            const statsHtml = positionStats.map(stat => {
-                const current = Math.floor(player.stats[stat] || 0);
-                const statColorClass = current >= 90 ? 'stat-elite' :
-                                       current >= 80 ? 'stat-good' :
-                                       current >= 70 ? 'stat-average' :
-                                       current >= 60 ? 'stat-below' : 'stat-poor';
-                const statName = stat.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase());
+            // Build unified stats panel
+            const core = player.coreAttributes;
+            const abilities = calculateAbilities(player);
+            const bestAbility = getBestAbility(player);
+            const techniqueStats = POSITIONS[player.position].techniqueStats || [];
 
-                return `<div class="stat-row">
-                    <span class="stat-name">${statName}</span>
-                    <span class="stat-values">
-                        <span class="stat-value ${statColorClass}">${current}</span>
-                    </span>
-                </div>`;
-            }).join('');
+            let statsHtml = '<div class="stats-panel">';
+
+            // Core Attributes section
+            if (core) {
+                statsHtml += `
+                    <div class="stats-section">
+                        <div class="stats-section-title">Core</div>
+                        <div class="stats-grid">
+                            <div class="stat-row str-row"><span class="stat-row-name">STR</span><span class="stat-row-value ${getColorClass(core.strength)}">${core.strength}</span></div>
+                            <div class="stat-row spd-row"><span class="stat-row-name">SPD</span><span class="stat-row-value ${getColorClass(core.speed)}">${core.speed}</span></div>
+                            <div class="stat-row agi-row"><span class="stat-row-name">AGI</span><span class="stat-row-value ${getColorClass(core.agility)}">${core.agility}</span></div>
+                            <div class="stat-row int-row"><span class="stat-row-name">INT</span><span class="stat-row-value ${getColorClass(core.intelligence)}">${core.intelligence}</span></div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Abilities section
+            if (abilities) {
+                statsHtml += `
+                    <div class="stats-section">
+                        <div class="stats-section-title">Abilities</div>
+                        <div class="stats-grid">
+                            ${Object.entries(abilities).map(([key, value]) => {
+                                const isBest = bestAbility && bestAbility.name === key;
+                                const dots = getAbilityDots(key);
+                                const name = getAbilityDisplayName(key);
+                                return `<div class="stat-row ${isBest ? 'best-ability' : ''}"><span class="stat-row-name">${dots}${name}</span><span class="stat-row-value ${getColorClass(value)}">${value}</span></div>`;
+                            }).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Technique section
+            if (techniqueStats.length > 0) {
+                statsHtml += `
+                    <div class="stats-section">
+                        <div class="stats-section-title">Technique</div>
+                        <div class="stats-grid">
+                            ${techniqueStats.map(stat => {
+                                const current = Math.floor(player.stats[stat] || 0);
+                                const statName = stat.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase());
+                                return `<div class="stat-row"><span class="stat-row-name">${statName}</span><span class="stat-row-value ${getColorClass(current)}">${current}</span></div>`;
+                            }).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+
+            statsHtml += '</div>';
+
+            // Show all stats in main area
             document.getElementById('playerStats').innerHTML = statsHtml;
-
-            // Hide season stats and career graph for draft prospects
             document.getElementById('playerSeasonStats').innerHTML = '';
             document.getElementById('playerCareerGraph').innerHTML = '';
 
@@ -3243,8 +4124,8 @@
                 return;
             }
 
-            const pickedThisSession = draftState.draftedPlayers.length;
-            statusEl.textContent = `Round ${draftState.round} of ${DRAFT.ROUNDS} | Drafted: ${pickedThisSession}`;
+            const playerDrafted = draftState.playerPicks.length;
+            statusEl.textContent = `Picks: ${draftState.picksRemaining} remaining | Your selections: ${playerDrafted}`;
             skipBtn.style.display = draftState.viewingRoster ? 'none' : 'block';
             finishBtn.style.display = 'none';
 
@@ -3264,7 +4145,7 @@
             listEl.innerHTML = '';
 
             if (available.length === 0) {
-                listEl.innerHTML = '<p style="color:#888;">No more players available this round.</p>';
+                listEl.innerHTML = '<p style="color:#888;">No more players available.</p>';
                 return;
             }
 
@@ -3282,7 +4163,7 @@
                 item.innerHTML = `
                     <div style="flex:1;">
                         <div class="name">${player.firstName} ${player.lastName}</div>
-                        <div class="stats">${POSITIONS[player.position].name} | Age ${player.age} | ${formatSalary(player.salaryCost)}</div>
+                        <div class="stats">${POSITIONS[player.position].name}</div>
                     </div>
                     <div style="display:flex;align-items:center;gap:10px;">
                         <span class="${costClass}">${player.draftCost}</span>
@@ -3412,7 +4293,8 @@
             if (dc.QB) {
                 const qb = roster.find(p => p.id === dc.QB);
                 if (qb) {
-                    total += (qb.stats.throwing + qb.stats.awareness) / 2;
+                    const passAcc = ((qb.stats.shortPassAcc || 70) + (qb.stats.longPassAcc || 70)) / 2;
+                    total += (passAcc + qb.stats.awareness) / 2;
                     count++;
                 }
             }
@@ -3425,10 +4307,18 @@
         // ========================================
 
         // Weighted roll using stat weights (same formula as real game)
-        function weightedStatRoll(stats, weights) {
+        // Uses coreAttributes for speed, agility, strength (merged stats)
+        function weightedStatRoll(stats, weights, coreAttributes = null) {
             let weightedTotal = 0;
+            const coreStats = ['speed', 'agility', 'strength'];
             for (const stat in weights) {
-                const statValue = stats[stat] || 50;
+                let statValue;
+                // Use coreAttributes for speed, agility, strength if available
+                if (coreStats.includes(stat) && coreAttributes && coreAttributes[stat] !== undefined) {
+                    statValue = coreAttributes[stat];
+                } else {
+                    statValue = stats[stat] || 50;
+                }
                 weightedTotal += statValue * weights[stat];
             }
             // Add ±20% variance
@@ -3578,6 +4468,7 @@
                 qb: {
                     player: offense.qb,
                     stats: offense.qb.stats,
+                    coreAttributes: offense.qb.coreAttributes || null,
                     trait: offense.qb.qbTrait || 'balanced',
                     hasThrown: false
                 },
@@ -3634,10 +4525,27 @@
                     continue;
                 }
 
-                // Resolve clash
-                const olRoll = weightedStatRoll(ol.stats, CLASH_WEIGHTS.lineClash.offense);
-                const dlRoll = weightedStatRoll(dl.stats, CLASH_WEIGHTS.lineClash.defense) + roundBonus;
-                const margin = dlRoll - olRoll;
+                // Ability selection - DL initiates, OL reacts
+                const abilityResult = resolveAbilityClash(dl.player, ol.player, ABILITY_MATCHUPS.linemen, true);
+
+                // Calculate technique rolls (40% of total)
+                const olTechRoll = getTechniqueRoll(ol.stats, CLASH_WEIGHTS.lineClash.offense);
+                const dlTechRoll = getTechniqueRoll(dl.stats, CLASH_WEIGHTS.lineClash.defense);
+
+                // Calculate core×ability multiplicative rolls (60% of total)
+                const olCoreAbilityRoll = getCoreAbilityRoll(ol.player, abilityResult.reactor);
+                const dlCoreAbilityRoll = getCoreAbilityRoll(dl.player, abilityResult.initiator);
+
+                // Combined rolls with variance (±20%)
+                const variance = 0.2;
+                const olRollVariance = 1 + (Math.random() - 0.5) * 2 * variance;
+                const dlRollVariance = 1 + (Math.random() - 0.5) * 2 * variance;
+
+                const adjustedOlRoll = (olTechRoll + olCoreAbilityRoll) * olRollVariance;
+                // Apply matchup multiplier and round bonus to DL
+                const adjustedDlRoll = ((dlTechRoll + dlCoreAbilityRoll) * dlRollVariance + roundBonus) * abilityResult.matchupMultiplier;
+
+                const margin = adjustedDlRoll - adjustedOlRoll;
 
                 let result = 'held';
                 // Determine outcome based on margin
@@ -3772,7 +4680,7 @@
                 // ========================================
                 // BASE SEPARATION ROLL
                 // ========================================
-                let receiverRoll = weightedStatRoll(receiver.stats, CLASH_WEIGHTS.separation.receiver);
+                let receiverRoll = weightedStatRoll(receiver.stats, CLASH_WEIGHTS.separation.receiver, receiver.player.coreAttributes);
 
                 // Crossing route bonus - route running helps execute cuts cleanly
                 // Reduced from 0.3 to 0.10 for better balance
@@ -3791,16 +4699,16 @@
                 // ========================================
                 // DEFENDER ROLL
                 // ========================================
-                let defenderRoll = weightedStatRoll(defender.stats, CLASH_WEIGHTS.separation.defender);
+                let defenderRoll = weightedStatRoll(defender.stats, CLASH_WEIGHTS.separation.defender, defender.player.coreAttributes);
 
                 // Defender counter-bonuses to balance WR route bonuses
                 // Awareness helps read the route and anticipate breaks
                 const awarenessBonus = (defender.stats.awareness || 70) * 0.08;
                 defenderRoll += awarenessBonus;
 
-                // Man coverage helps track the receiver through cuts
+                // Awareness also helps track the receiver through cuts
                 if (isCrossing || isBreakRound) {
-                    const trackingBonus = (defender.stats.manCoverage || 70) * 0.06;
+                    const trackingBonus = (defender.stats.awareness || 70) * 0.06;
                     defenderRoll += trackingBonus;
                 }
 
@@ -3834,13 +4742,22 @@
 
         // Calculate catch probabilities using exponential distribution
         function simCalculateCatchProbabilities(state) {
-            const qbAccuracy = (state.qb.stats.throwing + state.qb.stats.awareness) / 2;
             const pressure = state.totalPressure;
-
-            // QB throw quality - rollMean determines accuracy distribution
-            const rollMean = 79 + (75 - qbAccuracy) * 1.7 + pressure * 0.5;
+            const qbAgility = state.qb.coreAttributes?.agility || state.qb.stats.agility || 70;
 
             for (const receiver of state.receivers) {
+                // Use short or long pass accuracy based on depth (12 yards = break point)
+                const isShortPass = receiver.currentDepth < 12;
+                const passAccStat = isShortPass
+                    ? (state.qb.stats.shortPassAcc || state.qb.stats.throwing || 70)
+                    : (state.qb.stats.longPassAcc || state.qb.stats.throwing || 70);
+
+                // Multiplicative accuracy: agility × passAcc
+                const qbAccuracy = (qbAgility / 100) * (passAccStat / 100) * 100;
+
+                // QB throw quality - rollMean determines accuracy distribution
+                const rollMean = 79 + (75 - qbAccuracy) * 1.7 + pressure * 0.5;
+
                 let catchProb = receiver.stats.catching;
 
                 // Separation bonus/penalty
@@ -3858,13 +4775,13 @@
                     catchProb -= 30;
                 }
 
-                // Focus for contested catches
+                // Contested catch bonus from catching skill
                 if (receiver.separation < 5) {
-                    const focusBonus = (receiver.stats.focus - 70) * 0.3;
-                    catchProb += focusBonus;
+                    const contestedBonus = (receiver.stats.catching - 70) * 0.2;
+                    catchProb += contestedBonus;
                 }
 
-                // Depth penalty for longer throws
+                // Depth penalty for longer throws (reduced by good long pass accuracy)
                 const depthPenalty = Math.max(0, (receiver.currentDepth - 15) * 0.3);
                 catchProb -= depthPenalty;
 
@@ -3877,6 +4794,7 @@
                 receiver.catchProbability = catchProb;
                 receiver.effectiveCatchPct = effectiveCatchPct;
                 receiver.rollMean = rollMean;
+                receiver.qbAccuracy = qbAccuracy;  // Store for display
             }
         }
 
@@ -3888,11 +4806,10 @@
             // Step 1: Vision check - can QB see each receiver?
             const visibleReceivers = [];
             for (const receiver of state.receivers) {
+                const qbInt = state.qb.coreAttributes?.intelligence || 70;
                 const visionRoll = weightedStatRoll(qbStats, {
-                    awareness: 0.50,
-                    throwing: 0.30,
-                    focus: 0.20
-                });
+                    awareness: 0.70
+                }, state.qb.coreAttributes) * 0.7 + qbInt * 0.3;
 
                 // Easier to notice more open receivers
                 const noticeThreshold = 70 - receiver.separation;
@@ -4080,8 +4997,8 @@
                     speed: 0.35,
                     acceleration: 0.25,
                     agility: 0.25,
-                    balance: 0.15
-                });
+                    evasion: 0.15
+                }, receiver.player.coreAttributes);
                 const segmentYards = Math.floor(2 + (yacRoll / 100) * 10);
 
                 // Find next tackler (cycle through defenders, safety gets bonus)
@@ -4124,8 +5041,8 @@
 
         // Resolve a tackle attempt
         function simResolveTackleAttempt(receiver, tackler, safetyBonus) {
-            const evasionRoll = weightedStatRoll(receiver.stats, CLASH_WEIGHTS.tackle.ballCarrier);
-            let tackleRoll = weightedStatRoll(tackler.stats, CLASH_WEIGHTS.tackle.tackler);
+            const evasionRoll = weightedStatRoll(receiver.stats, CLASH_WEIGHTS.tackle.ballCarrier, receiver.player.coreAttributes);
+            let tackleRoll = weightedStatRoll(tackler.stats, CLASH_WEIGHTS.tackle.tackler, tackler.player.coreAttributes);
 
             // Tackler advantage: WRs have natural +7 advantage from primary stat bonuses
             // on speed/agility, while CBs don't get bonuses on tackling/pursuit/hitPower.
@@ -5149,7 +6066,8 @@
                 playerId: player.id,
                 start: new BABYLON.Vector3(xPositions[index], 0, startZ),
                 route: [],  // Will be generated
-                stats: { ...player.stats }
+                stats: { ...player.stats },
+                coreAttributes: player.coreAttributes || null
             };
         }
 
@@ -5174,7 +6092,8 @@
                 zoneRadius: index === 3 ? 6 : 0,
                 zoneColor: zoneColors[index],
                 overall: player.overall,
-                stats: { ...player.stats }
+                stats: { ...player.stats },
+                coreAttributes: player.coreAttributes || null
             };
         }
 
@@ -5245,7 +6164,8 @@
                     name: `${player.firstName} ${player.lastName.charAt(0)}.`,
                     playerId: player.id,
                     position_label: posLabels[index],
-                    stats: { ...player.stats }
+                    stats: { ...player.stats },
+                    coreAttributes: player.coreAttributes || null
                 });
             });
 
@@ -5279,7 +6199,8 @@
                     name: `${player.firstName} ${player.lastName.charAt(0)}.`,
                     playerId: player.id,
                     position_label: posLabels[i],
-                    stats: { ...player.stats }
+                    stats: { ...player.stats },
+                    coreAttributes: player.coreAttributes || null
                 });
             }
 
@@ -5397,8 +6318,8 @@
             } else {
                 // Fallback stats
                 qb.stats = {
-                    throwing: 75, awareness: 70, agility: 65, speed: 60,
-                    strength: 65, accuracy: 75, armStrength: 70
+                    shortPassAcc: 75, longPassAcc: 72, awareness: 70, agility: 65, speed: 60,
+                    strength: 65
                 };
             }
 
@@ -5417,9 +6338,9 @@
                     ],
                     stats: {
                         speed: 80, acceleration: 72, agility: 85,
-                        routeRunning: 88, release: 75, catching: 80,
-                        jumping: 70, strength: 60, balance: 72,
-                        aggression: 45, stamina: 80, focus: 88
+                        routeRunning: 88, catching: 84,
+                        jumping: 70, strength: 60, evasion: 75,
+                        stamina: 80
                     }
                 },
                 {
@@ -5430,9 +6351,9 @@
                     ],
                     stats: {
                         speed: 80, acceleration: 92, agility: 78,
-                        routeRunning: 65, release: 70, catching: 80,
-                        jumping: 75, strength: 50, balance: 60,
-                        aggression: 40, stamina: 85, focus: 68
+                        routeRunning: 68, catching: 80,
+                        jumping: 75, strength: 50, evasion: 65,
+                        stamina: 85
                     }
                 },
                 {
@@ -5444,9 +6365,9 @@
                     ],
                     stats: {
                         speed: 80, acceleration: 78, agility: 80,
-                        routeRunning: 82, release: 78, catching: 80,
-                        jumping: 82, strength: 72, balance: 78,
-                        aggression: 55, stamina: 82, focus: 80
+                        routeRunning: 82, catching: 82,
+                        jumping: 82, strength: 72, evasion: 78,
+                        stamina: 82
                     }
                 }
             ];
@@ -5463,9 +6384,9 @@
                     stats: {
                         speed: 80, acceleration: 70, agility: 75,
                         manCoverage: 80, zoneCoverage: 80, press: 78,
-                        tackling: 80, hitPower: 85, pursuit: 75,
-                        awareness: 72, strength: 82, balance: 78,
-                        aggression: 75, stamina: 78
+                        tackling: 85, pursuit: 75,
+                        awareness: 72, strength: 82,
+                        stamina: 78
                     }
                 },
                 {
@@ -5477,9 +6398,9 @@
                     stats: {
                         speed: 80, acceleration: 85, agility: 82,
                         manCoverage: 80, zoneCoverage: 80, press: 60,
-                        tackling: 70, hitPower: 65, pursuit: 90,
-                        awareness: 75, strength: 65, balance: 72,
-                        aggression: 55, stamina: 88
+                        tackling: 72, pursuit: 90,
+                        awareness: 75, strength: 65,
+                        stamina: 88
                     }
                 },
                 {
@@ -5491,9 +6412,9 @@
                     stats: {
                         speed: 80, acceleration: 68, agility: 70,
                         manCoverage: 80, zoneCoverage: 80, press: 72,
-                        tackling: 85, hitPower: 90, pursuit: 72,
-                        awareness: 85, strength: 88, balance: 82,
-                        aggression: 70, stamina: 75
+                        tackling: 90, pursuit: 72,
+                        awareness: 85, strength: 88,
+                        stamina: 75
                     }
                 },
                 {
@@ -5506,9 +6427,9 @@
                     stats: {
                         speed: 80, acceleration: 72, agility: 78,
                         manCoverage: 80, zoneCoverage: 80, press: 65,
-                        tackling: 78, hitPower: 75, pursuit: 80,
-                        awareness: 88, strength: 75, balance: 80,
-                        aggression: 60, stamina: 82
+                        tackling: 80, pursuit: 80,
+                        awareness: 88, strength: 75,
+                        stamina: 82
                     }
                 }
             ];
@@ -5542,10 +6463,12 @@
                 receiver.routeIndex = 0;
                 receiver.startPos = config.start.clone();
                 receiver.stats = config.stats;
+                receiver.coreAttributes = config.coreAttributes || null;
 
                 // Derive base speed from stats (normalized to game units)
-                // Speed stat 80 at 1.0x multiplier = 0.0512 units/frame
-                receiver.baseSpeed = config.stats.speed * SPEED_CONSTANTS.RECEIVER_FACTOR * gameState.gameSpeedMultiplier;
+                // Use core speed if available, otherwise fall back to stats.speed
+                const baseSpeed = receiver.coreAttributes?.speed || config.stats.speed;
+                receiver.baseSpeed = baseSpeed * SPEED_CONSTANTS.RECEIVER_FACTOR * gameState.gameSpeedMultiplier;
                 receiver.speed = receiver.baseSpeed;
 
                 // Clash system runtime state
@@ -5660,13 +6583,16 @@
                 defender.zoneCenter = config.zoneCenter;
                 defender.zoneRadius = config.zoneRadius || 5;
                 defender.stats = config.stats;
+                defender.coreAttributes = config.coreAttributes || null;
                 // Calculate overall from CB position stats
                 const cbStats = POSITIONS.CB.primaryStats;
                 defender.overall = config.overall || Math.round(cbStats.reduce((sum, stat) => sum + (config.stats[stat] || 0), 0) / cbStats.length);
                 defender.startPos = startPos.clone();
 
                 // Derive base speed from stats
-                defender.baseSpeed = config.stats.speed * SPEED_CONSTANTS.DEFENDER_FACTOR * gameState.gameSpeedMultiplier;
+                // Use core speed if available, otherwise fall back to stats.speed
+                const baseSpeed = defender.coreAttributes?.speed || config.stats.speed;
+                defender.baseSpeed = baseSpeed * SPEED_CONSTANTS.DEFENDER_FACTOR * gameState.gameSpeedMultiplier;
                 defender.speed = defender.baseSpeed;
 
                 // Clash system runtime state
@@ -5778,9 +6704,13 @@
                 oLineman.displayName = config.name;
                 oLineman.playerId = config.playerId || null;  // Link to roster player
                 oLineman.position_label = config.position;
+                oLineman.position = 'OL';  // For ability calculations
                 oLineman.stats = config.stats;
+                oLineman.coreAttributes = config.coreAttributes || null;
                 oLineman.startPos = startPos.clone();
-                oLineman.baseSpeed = config.stats.speed * SPEED_CONSTANTS.O_LINE_FACTOR * gameState.gameSpeedMultiplier;
+                // Use core speed if available, otherwise fall back to stats.speed
+                const baseSpeed = oLineman.coreAttributes?.speed || config.stats.speed;
+                oLineman.baseSpeed = baseSpeed * SPEED_CONSTANTS.O_LINE_FACTOR * gameState.gameSpeedMultiplier;
                 oLineman.speed = oLineman.baseSpeed;
 
                 // Blocking state
@@ -5838,9 +6768,13 @@
                 dLineman.displayName = config.name;
                 dLineman.playerId = config.playerId || null;  // Link to roster player
                 dLineman.position_label = config.position;
+                dLineman.position = 'DL';  // For ability calculations
                 dLineman.stats = config.stats;
+                dLineman.coreAttributes = config.coreAttributes || null;
                 dLineman.startPos = startPos.clone();
-                dLineman.baseSpeed = config.stats.speed * SPEED_CONSTANTS.D_LINE_FACTOR * gameState.gameSpeedMultiplier;
+                // Use core speed if available, otherwise fall back to stats.speed
+                const baseSpeed = dLineman.coreAttributes?.speed || config.stats.speed;
+                dLineman.baseSpeed = baseSpeed * SPEED_CONSTANTS.D_LINE_FACTOR * gameState.gameSpeedMultiplier;
                 dLineman.speed = dLineman.baseSpeed;
 
                 // Pass rush state
@@ -6900,11 +7834,27 @@
             oLineman.lastClashTime = currentTime;
             dLineman.lastClashTime = currentTime;
 
-            // Roll for clash
-            const oLineRoll = weightedRoll(oLineman.stats, CLASH_WEIGHTS.lineClash.offense);
-            const dLineRoll = weightedRoll(dLineman.stats, CLASH_WEIGHTS.lineClash.defense);
+            // Ability selection - DL initiates (attacker), OL reacts (defender)
+            const abilityResult = resolveAbilityClash(dLineman, oLineman, ABILITY_MATCHUPS.linemen, true);
 
-            const margin = oLineRoll - dLineRoll;
+            // Calculate technique rolls (40% of total)
+            const oTechRoll = getTechniqueRoll(oLineman.stats, CLASH_WEIGHTS.lineClash.offense);
+            const dTechRoll = getTechniqueRoll(dLineman.stats, CLASH_WEIGHTS.lineClash.defense);
+
+            // Calculate core×ability multiplicative rolls (60% of total)
+            const oCoreAbilityRoll = getCoreAbilityRoll(oLineman, abilityResult.reactor);
+            const dCoreAbilityRoll = getCoreAbilityRoll(dLineman, abilityResult.initiator);
+
+            // Combined rolls with variance (±20%)
+            const variance = 0.2;
+            const oRollVariance = 1 + (Math.random() - 0.5) * 2 * variance;
+            const dRollVariance = 1 + (Math.random() - 0.5) * 2 * variance;
+
+            const adjustedOLineRoll = (oTechRoll + oCoreAbilityRoll) * oRollVariance;
+            // Apply matchup multiplier to DL's roll (higher = better for DL)
+            const adjustedDLineRoll = (dTechRoll + dCoreAbilityRoll) * dRollVariance * abilityResult.matchupMultiplier;
+
+            const margin = adjustedOLineRoll - adjustedDLineRoll;
 
             if (margin > LINE_CLASH_CONSTANTS.OFFENSE_WIN_THRESHOLD) {
                 // O-line wins decisively - knock down D-lineman
@@ -7390,8 +8340,8 @@
             defender.lastTackleTime = currentTime;
 
             // Roll for tackle
-            let tackleRoll = weightedRoll(defender.stats, CLASH_WEIGHTS.tackle.tackler);
-            const evasionRoll = weightedRoll(receiver.stats, CLASH_WEIGHTS.tackle.ballCarrier);
+            let tackleRoll = weightedRoll(defender.stats, CLASH_WEIGHTS.tackle.tackler, defender.coreAttributes);
+            const evasionRoll = weightedRoll(receiver.stats, CLASH_WEIGHTS.tackle.ballCarrier, receiver.coreAttributes);
 
             // Tackler advantage: WRs have natural +7 advantage from primary stat bonuses
             // on speed/agility, while CBs don't get bonuses on tackling/pursuit/hitPower.
@@ -8565,8 +9515,15 @@
                 // Calculate throw rating first (need lead score for catch probability)
                 const throwRating = calculateThrowRating(potentialCatcher, ballPosition, gameState.gameTime);
 
+                // Calculate throw distance (from QB to ball) and accuracy
+                const throwDistance = scene.qb ? BABYLON.Vector3.Distance(
+                    new BABYLON.Vector3(scene.qb.position.x, 0, scene.qb.position.z),
+                    new BABYLON.Vector3(ballPosition.x, 0, ballPosition.z)
+                ) : 10;
+                const throwAccuracyMult = calculateThrowAccuracy(scene.qb, throwDistance);
+
                 // Calculate catch probability (returns detailed info) - pass slowdown score (momentum-based) for lead bonus
-                const catchInfo = calculateCatchProbability(potentialCatcher, ballPosition, throwRating.slowdownScore);
+                const catchInfo = calculateCatchProbability(potentialCatcher, ballPosition, throwRating.slowdownScore, throwAccuracyMult);
                 const catchRoll = Math.random() * 100;
                 const success = catchRoll < catchInfo.probability;
 
@@ -8900,13 +9857,45 @@
             });
         };
 
+        // Calculate QB throw accuracy based on distance
+        // Uses agility × (shortPassAcc or longPassAcc) multiplicatively
+        // Returns multiplier for lead bonus: 1.2 at 100, 1.0 at 80, 0.8 at 70, 0.7 at 60
+        const calculateThrowAccuracy = (qb, throwDistance) => {
+            if (!qb || !qb.stats) return 1.0;
+
+            const agility = qb.coreAttributes?.agility || qb.stats.agility || 70;
+
+            // Use short pass accuracy for <12 yards, long pass for 12+ yards
+            const isShortPass = throwDistance < 12;
+            const passAccStat = isShortPass
+                ? (qb.stats.shortPassAcc || qb.stats.throwing || 70)
+                : (qb.stats.longPassAcc || qb.stats.throwing || 70);
+
+            // Multiplicative: (agility/100) × (passAcc/100) → normalized 0-1
+            const accuracy = (agility / 100) * (passAccStat / 100) * 100;
+
+            // Scale to lead bonus multiplier:
+            // 100 → 1.2, 80 → 1.0, 70 → 0.8, 60 → 0.7
+            // Linear interpolation between these points
+            if (accuracy >= 80) {
+                // 80-100 maps to 1.0-1.2
+                return 1.0 + (accuracy - 80) / 100;
+            } else if (accuracy >= 70) {
+                // 70-80 maps to 0.8-1.0
+                return 0.8 + (accuracy - 70) / 50;
+            } else {
+                // 60-70 maps to 0.7-0.8, below 60 caps at 0.7
+                return Math.max(0.7, 0.7 + (accuracy - 60) / 100);
+            }
+        };
+
         // Calculate catch probability based on receiver stats and proximity to defenders
         // NEW SIMPLIFIED FORMULA:
         // baseCatchRate = (catching - 50) × 2 + 20  -> 70→60%, 80→80%, 90→100%
         // dbPenalty = dbCoverage × 0.7 × proximity²
         // leadBonus = up to 50% reduction of DB penalty based on momentum (slowdownScore)
         // finalRate = baseCatchRate - effectiveDbPenalty
-        const calculateCatchProbability = (receiver, ballPosition, momentumScore = 50) => {
+        const calculateCatchProbability = (receiver, ballPosition, momentumScore = 50, throwAccuracyMultiplier = 1.0) => {
             const catchingStat = receiver.stats.catching;
             const coverageRange = CLASH_CONSTANTS.CLASH_RANGE * 1.5;
 
@@ -8982,11 +9971,13 @@
             const tightCoverageBonus = closestDefenderDist <= 0.7 ? 1.2 : 1.0;  // +20% penalty for tight coverage
             const rawDbPenalty = closestDefenderCoverage * 1.5 * proximityFactor * proximityFactor * tightCoverageBonus;
 
-            // LEAD BONUS: reduces DB penalty by up to 50% based on momentum (receiver in stride)
+            // LEAD BONUS: reduces DB penalty based on momentum and throw accuracy
+            // Base reduction up to 50%, scaled by QB throw accuracy (0.7x to 1.2x)
             let leadReduction = 0;
             let leadBonusSaved = 0;
             if (hasSideBonus) {
-                leadReduction = (momentumScore / 100) * 0.5;  // 0 to 0.5
+                const baseLeadReduction = (momentumScore / 100) * 0.5;  // 0 to 0.5
+                leadReduction = baseLeadReduction * throwAccuracyMultiplier;  // Scale by accuracy
                 leadBonusSaved = Math.round(rawDbPenalty * leadReduction);
             }
             const effectiveDbPenalty = rawDbPenalty * (1 - leadReduction);
@@ -9729,12 +10720,11 @@
                 const wideOpenBase = 80 + (catchingStat - 60) * 0.75;
                 return Math.min(95, wideOpenBase);
             } else {
-                // 50 catching = 10%, 100 catching = 35%
+                // 50 catching = 10%, 100 catching = 45%
                 const contestedBase = 10;
-                const catchingBonus = (catchingStat - 50) * 0.5;
-                const focusBonus = (receiver.stats.focus - 50) * 0.2;
+                const catchingBonus = (catchingStat - 50) * 0.7;  // Catching now includes focus ability
                 const defenderReduction = totalDefenderInfluence * 40;
-                return Math.max(5, Math.min(95, contestedBase + catchingBonus + focusBonus - defenderReduction));
+                return Math.max(5, Math.min(95, contestedBase + catchingBonus - defenderReduction));
             }
         };
 
@@ -9836,10 +10826,18 @@
         // ============================================
 
         // Weighted dice roll based on stats
-        const weightedRoll = (stats, weights) => {
+        // Uses coreAttributes for speed, agility, strength (merged stats)
+        const weightedRoll = (stats, weights, coreAttributes = null) => {
             let weightedTotal = 0;
+            const coreStats = ['speed', 'agility', 'strength'];
             for (const stat in weights) {
-                const statValue = stats[stat] || 50;  // Default to 50 if stat missing
+                let statValue;
+                // Use coreAttributes for speed, agility, strength if available
+                if (coreStats.includes(stat) && coreAttributes && coreAttributes[stat] !== undefined) {
+                    statValue = coreAttributes[stat];
+                } else {
+                    statValue = stats[stat] || 50;  // Default to 50 if stat missing
+                }
                 weightedTotal += statValue * weights[stat];
             }
 
@@ -9917,14 +10915,14 @@
 
             // Get appropriate defender coverage stat
             const defenderWeights = { ...CLASH_WEIGHTS.separation.defender };
+            // Zone defenders get a small bonus from awareness instead of general coverage
             if (defender.aiType === 'zone') {
-                defenderWeights.zoneCoverage = defenderWeights.manCoverage;
-                delete defenderWeights.manCoverage;
+                defenderWeights.awareness = (defenderWeights.awareness || 0) + 0.05;
             }
 
             // Roll for separation battle
-            const receiverRoll = weightedRoll(receiver.stats, CLASH_WEIGHTS.separation.receiver);
-            const defenderRoll = weightedRoll(defender.stats, defenderWeights);
+            const receiverRoll = weightedRoll(receiver.stats, CLASH_WEIGHTS.separation.receiver, receiver.coreAttributes);
+            const defenderRoll = weightedRoll(defender.stats, defenderWeights, defender.coreAttributes);
 
             const margin = receiverRoll - defenderRoll;
 
@@ -10004,45 +11002,10 @@
                 // Tie - receiver maintains current speed
             }
 
-            // Physical battle check (based on aggression)
-            const physicalChance = (receiver.stats.aggression + defender.stats.aggression) / 200;
-            if (Math.random() < physicalChance) {
-                resolvePhysicalClash(receiver, defender, result);
-            }
-
             // Trigger visual effect for clash
             triggerClashVisual(receiver, defender, result.winner);
 
             return result;
-        };
-
-        // Resolve physical aspect of clash (knockdowns)
-        const resolvePhysicalClash = (receiver, defender, separationResult) => {
-            const currentTime = gameState.gameTime;
-
-            // Roll physical battle
-            const receiverPhysical = weightedRoll(receiver.stats, CLASH_WEIGHTS.physical.attacker);
-            const defenderPhysical = weightedRoll(defender.stats, CLASH_WEIGHTS.physical.defender);
-
-            const margin = receiverPhysical - defenderPhysical;
-            const loser = margin > 0 ? defender : receiver;
-            const winner = margin > 0 ? receiver : defender;
-
-            // Check for knockdown
-            const knockdownChance = CLASH_CONSTANTS.KNOCKDOWN_BASE_CHANCE +
-                (Math.abs(margin) / 100) * 0.1 -
-                loser.knockdownResistance;
-
-            if (Math.random() < Math.max(0, knockdownChance)) {
-                // Knockdown!
-                loser.knockdownUntil = currentTime + CLASH_CONSTANTS.KNOCKDOWN_DURATION;
-                loser.knockdownResistance += CLASH_CONSTANTS.KNOCKDOWN_RESISTANCE_GAIN;
-
-                // If receiver knocked down, apply heavy speed penalty
-                if (loser === receiver) {
-                    receiver.clashSpeedPenaltyUntil = currentTime + CLASH_CONSTANTS.KNOCKDOWN_DURATION;
-                }
-            }
         };
 
         // Process all clashes in the game
@@ -10304,7 +11267,7 @@
                 <div><span class="ovr-big">${player.overall}</span>${overallChangeText}</div>
                 <div style="margin-top:10px;">
                     ${POSITIONS[player.position].name} | Age ${player.age} | Peak ${player.peakAge}<br>
-                    Salary: ${formatSalary(player.salaryCost)} | Potential: ${'★'.repeat(player.potentialGrade + 1)}<br>
+                    Salary: ${formatSalary(player.salaryCost)} | Potential: ${'★'.repeat(player.potentialGrade)}<br>
                     <span style="color:#ffd700;">Fame Bank: ${fameBank}</span> | <span style="color:#4af;">Hype: ${hypeDisplay}</span><br>
                     <span style="color:${tradeValue > 0 ? '#4f4' : '#888'}">${tradeText}</span>
                 </div>
@@ -10325,36 +11288,70 @@
                 tradeBtn.style.opacity = '0.5';
             }
 
-            // Only show position-relevant stats with changes
-            const positionStats = POSITIONS[player.position].primaryStats;
+            const getColorClass = (val) => val >= 90 ? 'stat-elite' : val >= 80 ? 'stat-good' : val >= 70 ? 'stat-average' : val >= 60 ? 'stat-below' : 'stat-poor';
 
-            const statsHtml = positionStats.map(stat => {
-                const currentRaw = player.stats[stat] || 0;
-                const startRaw = player.seasonStartStats ? (player.seasonStartStats[stat] || 0) : currentRaw;
-                const current = Math.floor(currentRaw);
-                const start = Math.floor(startRaw);
-                const change = current - start;
-                const changeClass = change > 0 ? 'positive' : change < 0 ? 'negative' : '';
-                const changeText = change !== 0 ? `${change > 0 ? '+' : ''}${change}` : '';
+            // Build unified stats panel
+            const core = player.coreAttributes;
+            const abilities = calculateAbilities(player);
+            const bestAbility = getBestAbility(player);
+            const techniqueStats = POSITIONS[player.position].techniqueStats || [];
 
-                // Color code based on stat value
-                const statColorClass = current >= 90 ? 'stat-elite' :
-                                       current >= 80 ? 'stat-good' :
-                                       current >= 70 ? 'stat-average' :
-                                       current >= 60 ? 'stat-below' : 'stat-poor';
+            let statsHtml = '<div class="stats-panel">';
 
-                // Format stat name
-                const statName = stat.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase());
+            // Core Attributes section
+            if (core) {
+                statsHtml += `
+                    <div class="stats-section">
+                        <div class="stats-section-title">Core</div>
+                        <div class="stats-grid">
+                            <div class="stat-row str-row"><span class="stat-row-name">STR</span><span class="stat-row-value ${getColorClass(core.strength)}">${core.strength}</span></div>
+                            <div class="stat-row spd-row"><span class="stat-row-name">SPD</span><span class="stat-row-value ${getColorClass(core.speed)}">${core.speed}</span></div>
+                            <div class="stat-row agi-row"><span class="stat-row-name">AGI</span><span class="stat-row-value ${getColorClass(core.agility)}">${core.agility}</span></div>
+                            <div class="stat-row int-row"><span class="stat-row-name">INT</span><span class="stat-row-value ${getColorClass(core.intelligence)}">${core.intelligence}</span></div>
+                        </div>
+                    </div>
+                `;
+            }
 
-                return `<div class="stat-row">
-                    <span class="stat-name">${statName}</span>
-                    <span class="stat-values">
-                        <span class="stat-value ${statColorClass}">${current}</span>
-                        <span class="stat-change ${changeClass}">${changeText}</span>
-                    </span>
-                </div>`;
-            }).join('');
-            document.getElementById('playerStats').innerHTML = statsHtml;
+            // Abilities section
+            if (abilities) {
+                statsHtml += `
+                    <div class="stats-section">
+                        <div class="stats-section-title">Abilities</div>
+                        <div class="stats-grid">
+                            ${Object.entries(abilities).map(([key, value]) => {
+                                const isBest = bestAbility && bestAbility.name === key;
+                                const dots = getAbilityDots(key);
+                                const name = getAbilityDisplayName(key);
+                                return `<div class="stat-row ${isBest ? 'best-ability' : ''}"><span class="stat-row-name">${dots}${name}</span><span class="stat-row-value ${getColorClass(value)}">${value}</span></div>`;
+                            }).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Technique section with changes
+            if (techniqueStats.length > 0) {
+                statsHtml += `
+                    <div class="stats-section">
+                        <div class="stats-section-title">Technique</div>
+                        <div class="stats-grid">
+                            ${techniqueStats.map(stat => {
+                                const currentRaw = player.stats[stat] || 0;
+                                const startRaw = player.seasonStartStats ? (player.seasonStartStats[stat] || 0) : currentRaw;
+                                const current = Math.floor(currentRaw);
+                                const start = Math.floor(startRaw);
+                                const change = current - start;
+                                const changeText = change !== 0 ? ` <span class="stat-change ${change > 0 ? 'positive' : 'negative'}">${change > 0 ? '+' : ''}${change}</span>` : '';
+                                const statName = stat.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase());
+                                return `<div class="stat-row"><span class="stat-row-name">${statName}</span><span class="stat-row-value ${getColorClass(current)}">${current}${changeText}</span></div>`;
+                            }).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+
+            statsHtml += '</div>';
 
             // Season stats (position-dependent)
             let seasonStatsHtml = '<div class="season-stats-title">Season Stats</div><div class="season-stats-grid">';
@@ -10396,6 +11393,9 @@
                 `;
             }
             seasonStatsHtml += '</div>';
+
+            // Show all stats in main area, season stats in secondary area
+            document.getElementById('playerStats').innerHTML = statsHtml;
             document.getElementById('playerSeasonStats').innerHTML = seasonStatsHtml;
 
             // Career graph
@@ -10410,7 +11410,7 @@
 
                 history.forEach((season, idx) => {
                     const heightPct = ((season.overall - minOvr) / range) * 100;
-                    const potentialStars = '★'.repeat((season.potential || 0) + 1);
+                    const potentialStars = '★'.repeat(season.potential || 0);
                     graphHtml += `
                         <div class="career-bar">
                             <div class="career-bar-ovr">${season.overall}</div>
@@ -10811,26 +11811,25 @@
             // Show QB key stats
             let qbScoresHtml = '';
             if (qb) {
-                const throwStat = Math.floor(qb.stats.throwing || 0);
-                const accStat = Math.floor(qb.stats.acceleration || 0);
-                const focusStat = Math.floor(qb.stats.focus || 0);
-                const agiStat = Math.floor(qb.stats.agility || 0);
+                const shortAcc = Math.floor(qb.stats.shortPassAcc || 0);
+                const longAcc = Math.floor(qb.stats.longPassAcc || 0);
+                const awareness = Math.floor(qb.stats.awareness || 0);
                 qbScoresHtml = `
                     <div class="qb-stat-block">
                         <div class="qb-stat-label">QB Overall</div>
                         <div class="qb-stat-value">${qb.overall}</div>
                     </div>
                     <div class="qb-stat-block">
-                        <div class="qb-stat-label">Throw</div>
-                        <div class="qb-stat-value">${throwStat}</div>
+                        <div class="qb-stat-label">Short</div>
+                        <div class="qb-stat-value">${shortAcc}</div>
                     </div>
                     <div class="qb-stat-block">
-                        <div class="qb-stat-label">Focus</div>
-                        <div class="qb-stat-value">${focusStat}</div>
+                        <div class="qb-stat-label">Long</div>
+                        <div class="qb-stat-value">${longAcc}</div>
                     </div>
                     <div class="qb-stat-block">
-                        <div class="qb-stat-label">Accel</div>
-                        <div class="qb-stat-value">${accStat}</div>
+                        <div class="qb-stat-label">AWR</div>
+                        <div class="qb-stat-value">${awareness}</div>
                     </div>
                 `;
             }
@@ -11318,6 +12317,7 @@
                 scene.qb.playerId = rosterQB.id;
                 scene.qb.displayName = `${rosterQB.firstName} ${rosterQB.lastName.charAt(0)}.`;
                 scene.qb.stats = { ...rosterQB.stats };
+                scene.qb.coreAttributes = rosterQB.coreAttributes || null;
                 scene.qb.lastName = rosterQB.lastName;
                 scene.qb.overall = rosterQB.overall;
                 // Update name label TextBlocks
@@ -11340,6 +12340,7 @@
                     receiver.playerId = player.id;
                     receiver.displayName = `${player.firstName} ${player.lastName.charAt(0)}.`;
                     receiver.stats = { ...player.stats };
+                    receiver.coreAttributes = player.coreAttributes || null;
                     receiver.lastName = player.lastName;
                     receiver.overall = player.overall;
                     // Update name label TextBlocks
@@ -11376,6 +12377,7 @@
                         defender.playerId = player.id;
                         defender.displayName = `${player.firstName} ${player.lastName.charAt(0)}.`;
                         defender.stats = { ...player.stats };
+                        defender.coreAttributes = player.coreAttributes || null;
                         defender.overall = player.overall;
                         // Update name label TextBlocks
                         if (defender.nameTextBlock) {
