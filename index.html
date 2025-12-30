@@ -532,7 +532,7 @@
             <div id="draftRosterList" class="roster-list draft-list" style="display:none;"></div>
             <div id="draftTradeButtons" class="draft-trade-buttons">
                 <button id="btnTradeInPick" class="mgmt-btn trade-btn">TRADE IN PICK (+0 pts)</button>
-                <button id="btnAcquirePick" class="mgmt-btn trade-btn acquire">BUY PICK (0 pts)</button>
+                <button id="btnAcquirePick" class="mgmt-btn trade-btn acquire">TRADE FOR PICK</button>
             </div>
             <button id="btnSkipRound" class="mgmt-btn secondary" style="margin-top: 15px;">SKIP PICK</button>
             <button id="btnFinishDraft" class="mgmt-btn primary" style="margin-top: 10px; display: none;">FINISH DRAFT</button>
@@ -4153,14 +4153,23 @@
                 return false;
             }
 
-            // If using an extra pick (purchased), don't use regular pick slot
+            // If using a traded pick, it works like your own pick (still pay draft cost)
             if (draftState.usingExtraPick) {
-                // Add to team roster (no cost - already paid acquire cost)
+                // Check if team can afford this player
+                if (!canAffordDraftPlayer(playerId)) {
+                    console.log('FAIL: Cannot afford player with traded pick. Cost:', player.draftCost);
+                    return false;
+                }
+
+                // Deduct draft points
+                managementState.team.draftPoints -= player.draftCost;
+
+                // Add to team roster
                 managementState.team.roster.push(player);
                 draftState.draftedPlayers.push(playerId);
                 draftState.playerPicks.push(playerId);
                 draftState.currentPickNumber++;
-                draftState.usingExtraPick = false;  // Reset extra pick flag
+                draftState.usingExtraPick = false;  // Reset traded pick flag
 
                 // Update depth chart
                 autoAssignDepthChart(managementState.team);
@@ -4317,8 +4326,8 @@
             return true;
         }
 
-        // Acquire an extra pick by paying the premium cost
-        // This gives the player an extra pick without using their regular pick slot
+        // Trade for a pick by paying the premium cost
+        // This gives the player the current pick without using their regular pick slot
         function acquireCurrentPick() {
             if (!draftState.active || !canAffordAcquirePick()) return false;
 
@@ -4353,14 +4362,13 @@
             // Set player name
             document.getElementById('playerName').textContent = `${player.firstName} ${player.lastName}`;
 
-            // Check if can afford (or if using extra pick - free)
+            // Check if can afford
             const draftPoints = managementState.team?.draftPoints || 0;
-            const isExtraPick = draftState.usingExtraPick;
-            const canAfford = isExtraPick || draftPoints >= player.draftCost;
+            const canAfford = draftPoints >= player.draftCost;
             const costColor = canAfford ? '#4f4' : '#f84';
 
             // Player info - draft version with cost
-            const costText = isExtraPick ? 'FREE (Extra Pick)' : `Draft Cost: ${player.draftCost}`;
+            const costText = `Draft Cost: ${player.draftCost}`;
             const infoHtml = `
                 <div><span class="ovr-big">${player.overall}</span></div>
                 <div style="margin-top:10px;">
@@ -4379,8 +4387,6 @@
 
             if (alreadyDrafted) {
                 tradeBtn.textContent = 'ALREADY DRAFTED';
-            } else if (isExtraPick) {
-                tradeBtn.textContent = 'DRAFT (FREE)';
             } else if (!canAfford) {
                 tradeBtn.textContent = `NEED ${player.draftCost} pts`;
             } else {
@@ -4587,7 +4593,7 @@
                     // Currently using an extra pick - hide trade buttons, show instruction
                     tradeInBtn.style.display = 'none';
                     acquireBtn.style.display = 'none';
-                    pickValueEl.innerHTML = `<span style="color:#4f4;">SELECT A PLAYER</span> - Using purchased extra pick`;
+                    pickValueEl.innerHTML = `<span style="color:#4f4;">YOUR PICK</span> - Select a player to draft`;
                 } else if (draftState.isPlayersTurn) {
                     // Player's turn: Show TRADE IN, hide BUY PICK (they already have the pick)
                     if (draftState.picksRemaining > 0 && available.length > 0) {
@@ -4602,7 +4608,7 @@
                     // Computer's turn: Show BUY PICK, hide TRADE IN
                     tradeInBtn.style.display = 'none';  // Hide TRADE IN on computer's turn
                     acquireBtn.style.display = 'block';
-                    acquireBtn.textContent = `BUY THIS PICK (${acquireCost} pts)`;
+                    acquireBtn.textContent = `TRADE FOR PICK (${acquireCost} pts)`;
                     acquireBtn.disabled = !canAffordAcquirePick();
                 } else {
                     tradeInBtn.style.display = 'none';
@@ -4612,7 +4618,7 @@
 
             const playerDrafted = draftState.playerPicks.length;
             if (draftState.usingExtraPick) {
-                statusEl.textContent = `EXTRA PICK - Select a player | Drafted: ${playerDrafted}`;
+                statusEl.textContent = `YOUR PICK - Select a player | Drafted: ${playerDrafted}`;
                 skipBtn.style.display = 'none';
             } else if (draftState.isPlayersTurn) {
                 statusEl.textContent = `Picks: ${draftState.picksRemaining} left | Drafted: ${playerDrafted}`;
