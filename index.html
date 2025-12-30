@@ -4106,12 +4106,10 @@
         // PICK TRADING SYSTEM
         // ========================================
 
-        // Get value of the current pick based on best available player's draft cost
+        // Get value of the current pick based on its position in the draft order
+        // This is static - pick 1 = 1000, pick 2 = 800, etc. (uses calculatePickCost)
         function getCurrentPickValue() {
-            const available = getAvailableDraftPlayers();
-            if (available.length === 0) return 0;
-            // Players are sorted by overall, so first available is the best
-            return available[0].draftCost;
+            return calculatePickCost(draftState.currentPickNumber);
         }
 
         // Get value player receives when trading in their pick
@@ -4343,7 +4341,7 @@
             const tradeInValue = getTradeInValue();
             const acquireCost = getAcquireCost();
 
-            pickValueEl.innerHTML = `Current Pick Value: <span>${pickValue}</span> pts`;
+            pickValueEl.innerHTML = `Pick #${draftState.currentPickNumber} Value: <span>${pickValue}</span> pts`;
 
             // Update trade buttons based on state
             const available = getAvailableDraftPlayers();
