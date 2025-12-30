@@ -4009,6 +4009,7 @@
 
         // Start the draft
         function startDraft(isNewGame = false) {
+            console.log('Starting draft...');
             draftState.active = true;
             draftState.round = 1;
             draftState.pick = 1;
@@ -4018,7 +4019,9 @@
             draftState.usingExtraPick = false;
             draftState.simulatingPicks = false;
             draftState.lastComputerPick = null;
+            console.log('Generating draft class...');
             draftState.draftPool = generateDraftClass();
+            console.log('Draft class generated:', draftState.draftPool.length, 'players');
             draftState.draftedPlayers = [];
             draftState.playerPicks = [];
             draftState.isNewGame = isNewGame;
@@ -4038,10 +4041,13 @@
                 managementState.team.draftPoints = DRAFT.NEW_GAME_BUDGET;
             }
 
+            console.log('Showing draft screen...');
             showScreen('draft');
 
             // Show first pick (don't auto-advance)
+            console.log('Refreshing draft screen...');
             refreshDraftScreen();
+            console.log('Draft started successfully');
         }
 
         // Check if it's the player's turn based on current pick number
