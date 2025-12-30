@@ -4650,7 +4650,10 @@
                         <span class="potential-ind" style="min-width:30px;color:#ffd700;font-size:14px;">${potentialDisplay}</span>
                     </div>
                 `;
-                item.addEventListener('click', () => showDraftPlayerDetail(player.id));
+                item.addEventListener('click', () => {
+                    console.log('Draft player item clicked, ID:', player.id);
+                    showDraftPlayerDetail(player.id);
+                });
                 listEl.appendChild(item);
             });
         }
