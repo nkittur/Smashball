@@ -520,6 +520,10 @@
             <div id="draftCurrentPick" class="draft-current-pick" style="display:none;">
                 <div id="draftPickAnnouncement"></div>
             </div>
+            <div id="draftNavButtons" class="draft-nav-buttons" style="display:none;">
+                <button id="btnNextPick" class="mgmt-btn nav-btn">NEXT PICK</button>
+                <button id="btnSkipToYourPick" class="mgmt-btn nav-btn skip-btn">SKIP TO YOUR PICK →</button>
+            </div>
             <div class="draft-toggle-buttons">
                 <button id="btnDraftPoolView" class="mgmt-btn toggle-btn active">DRAFT POOL</button>
                 <button id="btnDraftRosterView" class="mgmt-btn toggle-btn">MY ROSTER</button>
@@ -755,42 +759,38 @@
         .draft-current-pick {
             background: linear-gradient(135deg, #2a2a4a 0%, #1a1a3a 100%);
             border: 2px solid #ffd700;
-            border-radius: 10px;
-            padding: 15px;
-            margin: 10px 0;
+            border-radius: 8px;
+            padding: 8px 12px;
+            margin: 8px 0;
             text-align: center;
-            animation: pickPulse 0.5s ease-out;
-        }
-        @keyframes pickPulse {
-            0% { transform: scale(0.95); opacity: 0.7; }
-            50% { transform: scale(1.02); }
-            100% { transform: scale(1); opacity: 1; }
         }
         .draft-current-pick .pick-number {
             color: #888;
-            font-size: 12px;
+            font-size: 11px;
             text-transform: uppercase;
-            margin-bottom: 5px;
+            display: inline;
+            margin-right: 8px;
         }
         .draft-current-pick .team-name {
             color: #ffd700;
-            font-size: 18px;
+            font-size: 14px;
             font-weight: bold;
-            margin-bottom: 8px;
+            display: inline;
         }
         .draft-current-pick .player-picked {
             color: #fff;
-            font-size: 16px;
+            font-size: 13px;
+            margin-top: 4px;
         }
         .draft-current-pick .player-picked .position {
             color: #4f4;
-            font-size: 12px;
-            margin-left: 8px;
+            font-size: 11px;
+            margin-left: 6px;
         }
         .draft-current-pick .player-picked .overall {
             color: #ffd700;
             font-weight: bold;
-            margin-left: 8px;
+            margin-left: 6px;
         }
         .draft-current-pick.your-turn {
             border-color: #4f4;
@@ -798,6 +798,23 @@
         }
         .draft-current-pick.your-turn .team-name {
             color: #4f4;
+        }
+        .draft-nav-buttons {
+            display: flex;
+            gap: 10px;
+            margin: 8px 0;
+            justify-content: center;
+        }
+        .draft-nav-buttons .nav-btn {
+            flex: 1;
+            max-width: 160px;
+            padding: 10px 12px;
+            font-size: 12px;
+            background: #2a2a4a;
+        }
+        .draft-nav-buttons .nav-btn.skip-btn {
+            background: #3a3a2a;
+            border-color: #aa4;
         }
         .fa-btn { padding: 8px 16px; font-size: 14px; }
         .match-score { font-size: 36px; margin: 20px 0; }
@@ -4023,21 +4040,23 @@
 
             showScreen('draft');
 
-            // Start simulating computer picks with animation
-            simulateNextComputerPick();
+            // Show first pick (don't auto-advance)
+            refreshDraftScreen();
         }
 
-        // Simulate a single computer team pick with delay for visibility
+        // Check if it's the player's turn based on current pick number
+        function isPlayersTurnNow() {
+            const pickInRound = ((draftState.currentPickNumber - 1) % DRAFT.NUM_TEAMS) + 1;
+            return pickInRound === DRAFT.NUM_TEAMS;
+        }
+
+        // Simulate a single computer team pick (called when user clicks Next Pick)
         function simulateNextComputerPick() {
             const available = getAvailableDraftPlayers();
 
-            // Check if it's player's turn (player picks at position 12, 24, 36, 48, 60)
-            const pickInRound = ((draftState.currentPickNumber - 1) % DRAFT.NUM_TEAMS) + 1;
-
-            if (pickInRound === DRAFT.NUM_TEAMS) {
-                // It's the player's turn
+            // Check if it's player's turn
+            if (isPlayersTurnNow()) {
                 draftState.isPlayersTurn = true;
-                draftState.simulatingPicks = false;
                 draftState.lastComputerPick = null;
                 refreshDraftScreen();
                 return;
@@ -4045,12 +4064,9 @@
 
             if (available.length === 0) {
                 draftState.isPlayersTurn = true;
-                draftState.simulatingPicks = false;
                 refreshDraftScreen();
                 return;
             }
-
-            draftState.simulatingPicks = true;
 
             // Computer team picks from top available players (with some randomness)
             const pickRange = Math.min(3, available.length);
@@ -4070,22 +4086,35 @@
 
                 draftState.currentPickNumber++;
 
-                // Update display
+                // Update display (user will click Next Pick to continue)
                 refreshDraftScreen();
-
-                // Continue to next pick after delay
-                setTimeout(() => {
-                    if (draftState.active) {
-                        simulateNextComputerPick();
-                    }
-                }, 800);  // 800ms delay between picks
             }
         }
 
-        // Simulate remaining computer picks for current round (called after player drafts)
+        // Skip all computer picks and go directly to player's turn
+        function skipToPlayerTurn() {
+            const available = getAvailableDraftPlayers();
+
+            while (!isPlayersTurnNow() && available.length > 0) {
+                // Computer team picks from top available
+                const pickRange = Math.min(3, available.length);
+                const pickIdx = Math.floor(Math.random() * pickRange);
+                const picked = available.splice(pickIdx, 1)[0];
+
+                if (picked) {
+                    draftState.draftedPlayers.push(picked.id);
+                    draftState.currentPickNumber++;
+                }
+            }
+
+            draftState.isPlayersTurn = true;
+            draftState.lastComputerPick = null;
+            refreshDraftScreen();
+        }
+
+        // Legacy function - no longer auto-plays, user uses Next Pick button
         function simulateOtherTeamsPicks() {
-            // This is now just a wrapper that starts the pick-by-pick simulation
-            simulateNextComputerPick();
+            // No-op - user navigates manually now
         }
 
         // Get all available (undrafted) players
@@ -4181,9 +4210,10 @@
                 return true;
             }
 
-            // Show confirmation then start next round of computer picks
+            // Show confirmation then let user navigate with Next Pick button
             showPlayerPickConfirmation(player, pickNumber, () => {
-                simulateOtherTeamsPicks();
+                draftState.lastComputerPick = null;  // Clear so nav buttons show
+                refreshDraftScreen();
             });
 
             return true;
@@ -4191,31 +4221,19 @@
 
         // Skip current pick (use pick without selecting a player)
         function skipDraftPick() {
-            const pickNumber = draftState.currentPickNumber;
-
             draftState.picksRemaining--;
             draftState.round++;
             draftState.currentPickNumber++;
             draftState.isPlayersTurn = false;
-
-            // Show skip confirmation
-            const currentPickEl = document.getElementById('draftCurrentPick');
-            const pickAnnouncementEl = document.getElementById('draftPickAnnouncement');
-            currentPickEl.className = 'draft-current-pick';
-            pickAnnouncementEl.innerHTML = `
-                <div class="pick-number">Pick #${pickNumber}</div>
-                <div class="team-name" style="color:#888;">PICK SKIPPED</div>
-            `;
+            draftState.lastComputerPick = null;
 
             if (draftState.picksRemaining <= 0) {
-                setTimeout(() => finishDraft(), 1000);
+                finishDraft();
                 return;
             }
 
-            // Simulate other teams picking for next round after delay
-            setTimeout(() => {
-                simulateOtherTeamsPicks();
-            }, 1000);
+            // Just refresh - user will click Next Pick to continue
+            refreshDraftScreen();
         }
 
         // Legacy function - now just completes draft
@@ -4451,6 +4469,9 @@
             const acquireBtn = document.getElementById('btnAcquirePick');
             const currentPickEl = document.getElementById('draftCurrentPick');
             const pickAnnouncementEl = document.getElementById('draftPickAnnouncement');
+            const navButtonsEl = document.getElementById('draftNavButtons');
+            const nextPickBtn = document.getElementById('btnNextPick');
+            const skipToYourPickBtn = document.getElementById('btnSkipToYourPick');
 
             // Update budget display
             const draftPoints = managementState.team?.draftPoints || 0;
@@ -4470,6 +4491,7 @@
                 pickInfoEl.style.display = 'none';
                 tradeButtonsEl.style.display = 'none';
                 currentPickEl.style.display = 'none';
+                navButtonsEl.style.display = 'none';
                 statusEl.textContent = 'Draft Complete!';
                 poolListEl.innerHTML = '<p style="color:#4f4;">Your draft picks have been added to the roster.</p>';
                 return;
@@ -4485,9 +4507,12 @@
 
             pickValueEl.innerHTML = `Pick #${draftState.currentPickNumber} Value: <span>${pickValue}</span> pts`;
 
+            // Check if it's a computer's turn
+            const isComputerTurn = !isPlayersTurnNow();
+
             // Show computer pick or player's turn
-            if (draftState.simulatingPicks && draftState.lastComputerPick) {
-                // Show computer pick
+            if (draftState.lastComputerPick) {
+                // Show last computer pick (compact format)
                 const pick = draftState.lastComputerPick;
                 currentPickEl.className = 'draft-current-pick';
                 pickAnnouncementEl.innerHTML = `
@@ -4496,33 +4521,46 @@
                     <div class="player-picked">
                         ${pick.player.firstName} ${pick.player.lastName}
                         <span class="position">${pick.player.position}</span>
-                        <span class="overall">${pick.player.overall} OVR</span>
+                        <span class="overall">${pick.player.overall}</span>
                     </div>
                 `;
-                // Hide trade buttons during simulation
+                // Show nav buttons if still computer's turn
+                navButtonsEl.style.display = isComputerTurn ? 'flex' : 'none';
                 tradeButtonsEl.style.display = 'none';
-                pickInfoEl.style.display = 'none';
+                pickInfoEl.style.display = 'block';
                 skipBtn.style.display = 'none';
             } else if (draftState.isPlayersTurn) {
-                // Show player's turn
+                // Show player's turn (compact format)
                 currentPickEl.className = 'draft-current-pick your-turn';
                 pickAnnouncementEl.innerHTML = `
                     <div class="pick-number">Pick #${draftState.currentPickNumber}</div>
                     <div class="team-name">YOUR TURN</div>
-                    <div class="player-picked">Select a player from the pool below</div>
                 `;
-                // Show pick info and trade buttons
+                // Hide nav buttons, show trade buttons
+                navButtonsEl.style.display = 'none';
                 pickInfoEl.style.display = 'block';
                 tradeButtonsEl.style.display = draftState.viewingRoster ? 'none' : 'flex';
-            } else {
-                // Waiting for simulation to start
+            } else if (isComputerTurn) {
+                // Waiting for user to click Next Pick
                 currentPickEl.className = 'draft-current-pick';
                 pickAnnouncementEl.innerHTML = `
                     <div class="pick-number">Pick #${draftState.currentPickNumber}</div>
-                    <div class="team-name">Draft Starting...</div>
+                    <div class="team-name">Computer's Turn</div>
                 `;
+                navButtonsEl.style.display = 'flex';
                 tradeButtonsEl.style.display = 'none';
-                pickInfoEl.style.display = 'none';
+                pickInfoEl.style.display = 'block';
+            } else {
+                // Player's turn but not flagged yet
+                draftState.isPlayersTurn = true;
+                currentPickEl.className = 'draft-current-pick your-turn';
+                pickAnnouncementEl.innerHTML = `
+                    <div class="pick-number">Pick #${draftState.currentPickNumber}</div>
+                    <div class="team-name">YOUR TURN</div>
+                `;
+                navButtonsEl.style.display = 'none';
+                tradeButtonsEl.style.display = draftState.viewingRoster ? 'none' : 'flex';
+                pickInfoEl.style.display = 'block';
             }
 
             // Update trade buttons based on state (only when player's turn)
@@ -4556,17 +4594,14 @@
             }
 
             const playerDrafted = draftState.playerPicks.length;
-            if (draftState.simulatingPicks) {
-                statusEl.textContent = `Computer teams drafting... | Your selections: ${playerDrafted}`;
+            if (draftState.usingExtraPick) {
+                statusEl.textContent = `EXTRA PICK - Select a player | Drafted: ${playerDrafted}`;
                 skipBtn.style.display = 'none';
-            } else if (draftState.usingExtraPick) {
-                statusEl.textContent = `EXTRA PICK - Select a player | Your selections: ${playerDrafted}`;
-                skipBtn.style.display = 'none';  // Can't skip an extra pick
             } else if (draftState.isPlayersTurn) {
-                statusEl.textContent = `Picks: ${draftState.picksRemaining} remaining | Your selections: ${playerDrafted}`;
+                statusEl.textContent = `Picks: ${draftState.picksRemaining} left | Drafted: ${playerDrafted}`;
                 skipBtn.style.display = draftState.viewingRoster ? 'none' : 'block';
             } else {
-                statusEl.textContent = `Draft in progress... | Your selections: ${playerDrafted}`;
+                statusEl.textContent = `Round ${draftState.round} | Drafted: ${playerDrafted}`;
                 skipBtn.style.display = 'none';
             }
             finishBtn.style.display = 'none';
@@ -13434,6 +13469,15 @@
         });
         document.getElementById('btnDraftRosterView').addEventListener('click', () => {
             toggleDraftView(true);
+        });
+
+        // Draft navigation handlers
+        document.getElementById('btnNextPick').addEventListener('click', () => {
+            simulateNextComputerPick();
+        });
+
+        document.getElementById('btnSkipToYourPick').addEventListener('click', () => {
+            skipToPlayerTurn();
         });
 
         // Pick trading handlers
