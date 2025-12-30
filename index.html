@@ -511,16 +511,45 @@
         <!-- Draft Screen -->
         <div id="draftScreen" class="mgmt-screen" style="display:none;max-width:600px;">
             <h2>DRAFT</h2>
+            <button id="btnDraftOptions" class="mgmt-btn back-btn" style="position:absolute;top:10px;right:10px;left:auto;">⚙</button>
             <p id="draftBudget" class="draft-budget">Draft Points: 1500</p>
             <p id="draftStatus" class="draft-status">Round 1 of 5</p>
+            <div id="draftPickInfo" class="draft-pick-info">
+                <p id="draftPickValue">Current Pick Value: <span>0</span></p>
+            </div>
             <div class="draft-toggle-buttons">
                 <button id="btnDraftPoolView" class="mgmt-btn toggle-btn active">DRAFT POOL</button>
                 <button id="btnDraftRosterView" class="mgmt-btn toggle-btn">MY ROSTER</button>
             </div>
             <div id="draftPlayerList" class="roster-list draft-list"></div>
             <div id="draftRosterList" class="roster-list draft-list" style="display:none;"></div>
+            <div id="draftTradeButtons" class="draft-trade-buttons">
+                <button id="btnTradeInPick" class="mgmt-btn trade-btn">TRADE IN PICK (+0 pts)</button>
+                <button id="btnAcquirePick" class="mgmt-btn trade-btn acquire">BUY PICK (0 pts)</button>
+            </div>
             <button id="btnSkipRound" class="mgmt-btn secondary" style="margin-top: 15px;">SKIP PICK</button>
             <button id="btnFinishDraft" class="mgmt-btn primary" style="margin-top: 10px; display: none;">FINISH DRAFT</button>
+        </div>
+
+        <!-- Draft Options Modal -->
+        <div id="draftOptionsModal" class="modal" style="display:none;">
+            <div class="modal-content" style="max-width:400px;">
+                <h3 style="color:#ffd700;margin-bottom:20px;">DRAFT OPTIONS</h3>
+                <div class="options-row">
+                    <label for="pickTradeInPenalty">Trade In Penalty (pts):</label>
+                    <input type="number" id="pickTradeInPenalty" min="0" max="500" value="50" style="width:80px;">
+                </div>
+                <div class="options-row">
+                    <label for="pickAcquirePremium">Acquire Premium (%):</label>
+                    <input type="number" id="pickAcquirePremium" min="0" max="100" value="10" style="width:80px;">
+                </div>
+                <div class="options-info" style="color:#888;font-size:12px;margin:15px 0;">
+                    <p>• Trade In Penalty: Points deducted when trading your pick for draft points</p>
+                    <p>• Acquire Premium: Extra % cost when buying another team's pick</p>
+                </div>
+                <button id="btnSaveDraftOptions" class="mgmt-btn primary">SAVE</button>
+                <button id="btnCloseDraftOptions" class="mgmt-btn secondary">CANCEL</button>
+            </div>
         </div>
     </div>
 
@@ -664,6 +693,62 @@
         .draft-list .roster-item.unaffordable:hover { border-left-color: #833; }
         .draft-cost { color: #4f4; font-size: 12px; font-weight: bold; }
         .draft-cost.expensive { color: #f84; }
+        .draft-pick-info {
+            background: #1a1a2a;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+        .draft-pick-info p {
+            margin: 0;
+            color: #aaa;
+            font-size: 14px;
+        }
+        .draft-pick-info span {
+            color: #ffd700;
+            font-weight: bold;
+        }
+        .draft-trade-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+            justify-content: center;
+        }
+        .draft-trade-buttons .trade-btn {
+            flex: 1;
+            max-width: 180px;
+            padding: 10px 12px;
+            font-size: 11px;
+            background: #2a3a2a;
+            border-color: #4a4;
+        }
+        .draft-trade-buttons .trade-btn.acquire {
+            background: #3a2a2a;
+            border-color: #a44;
+        }
+        .draft-trade-buttons .trade-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+        .options-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 12px 0;
+            color: #fff;
+        }
+        .options-row label {
+            font-size: 14px;
+        }
+        .options-row input {
+            background: #2a2a40;
+            border: 1px solid #444;
+            color: #fff;
+            padding: 8px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+        }
         .fa-btn { padding: 8px 16px; font-size: 14px; }
         .match-score { font-size: 36px; margin: 20px 0; }
         .match-revenue { color: #4f4; font-size: 18px; margin-bottom: 15px; }
@@ -1835,7 +1920,9 @@
             freeAgents: [],
             settings: {
                 difficulty: 'normal',  // easy, normal, hard
-                autoSave: true
+                autoSave: true,
+                pickTradeInPenalty: 50,    // Penalty points when trading in your pick
+                pickAcquirePremium: 10     // Premium percentage when acquiring another team's pick
             },
             initialized: false,
             currentScreen: 'main_menu',  // main_menu, hub, roster, player_detail, free_agency, facilities, schedule, game, draft
@@ -3600,7 +3687,10 @@
             EARLY_COSTS: [1000, 800, 700, 600, 520, 450, 390],
             ROUND_2_START: 13,      // First pick of round 2 (in 12-team league)
             ROUND_3_START: 25,      // First pick of round 3
-            ROUND_DROP: 0.70        // 30% drop at round boundaries
+            ROUND_DROP: 0.70,       // 30% drop at round boundaries
+            // Pick trading defaults
+            DEFAULT_TRADE_IN_PENALTY: 50,    // Penalty points when trading in your pick (like a round 5 pick cost)
+            DEFAULT_ACQUIRE_PREMIUM: 0.10    // 10% premium when acquiring another team's pick
         };
 
         // Calculate cost of a draft pick based on position in pool
@@ -3724,6 +3814,9 @@
             round: 1,
             pick: 1,
             picksRemaining: 0,  // How many picks the player has left
+            currentPickNumber: 1,  // Overall pick number in the draft (1-60)
+            isPlayersTurn: false,  // True when it's the player's turn to pick
+            usingExtraPick: false,  // True when player is using a purchased extra pick
             draftPool: [],
             draftedPlayers: [],  // IDs of all drafted players (by any team)
             playerPicks: [],     // IDs of players drafted by the user
@@ -3845,6 +3938,9 @@
             draftState.round = 1;
             draftState.pick = 1;
             draftState.picksRemaining = DRAFT.ROUNDS;  // Player gets one pick per round
+            draftState.currentPickNumber = 1;  // Start at pick 1
+            draftState.isPlayersTurn = false;  // Other teams pick first
+            draftState.usingExtraPick = false;
             draftState.draftPool = generateDraftClass();
             draftState.draftedPlayers = [];
             draftState.playerPicks = [];
@@ -3885,8 +3981,11 @@
                 const picked = available.splice(pickIdx, 1)[0];
                 if (picked) {
                     draftState.draftedPlayers.push(picked.id);
+                    draftState.currentPickNumber++;
                 }
             }
+            // After all other teams pick, it's the player's turn
+            draftState.isPlayersTurn = true;
         }
 
         // Get all available (undrafted) players
@@ -3907,7 +4006,24 @@
             const player = draftState.draftPool.find(p => p.id === playerId);
             if (!player || draftState.draftedPlayers.includes(playerId)) return false;
 
-            // Check if player has picks remaining
+            // If using an extra pick (purchased), don't use regular pick slot
+            if (draftState.usingExtraPick) {
+                // Add to team roster (no cost - already paid acquire cost)
+                managementState.team.roster.push(player);
+                draftState.draftedPlayers.push(playerId);
+                draftState.playerPicks.push(playerId);
+                draftState.currentPickNumber++;
+                draftState.usingExtraPick = false;  // Reset extra pick flag
+
+                // Update depth chart
+                updateDepthChart(managementState.team);
+
+                // Refresh the screen (player still has their regular picks)
+                refreshDraftScreen();
+                return true;
+            }
+
+            // Normal draft pick - check if player has picks remaining
             if (draftState.picksRemaining <= 0) return false;
 
             // Check if team can afford this player
@@ -3924,6 +4040,8 @@
             draftState.playerPicks.push(playerId);
             draftState.picksRemaining--;
             draftState.round++;
+            draftState.currentPickNumber++;
+            draftState.isPlayersTurn = false;
 
             // Update depth chart
             updateDepthChart(managementState.team);
@@ -3947,6 +4065,8 @@
         function skipDraftPick() {
             draftState.picksRemaining--;
             draftState.round++;
+            draftState.currentPickNumber++;
+            draftState.isPlayersTurn = false;
 
             if (draftState.picksRemaining <= 0) {
                 finishDraft();
@@ -3982,6 +4102,81 @@
             showScreen('hub');
         }
 
+        // ========================================
+        // PICK TRADING SYSTEM
+        // ========================================
+
+        // Get value of the current pick based on best available player's draft cost
+        function getCurrentPickValue() {
+            const available = getAvailableDraftPlayers();
+            if (available.length === 0) return 0;
+            // Players are sorted by overall, so first available is the best
+            return available[0].draftCost;
+        }
+
+        // Get value player receives when trading in their pick
+        function getTradeInValue() {
+            const pickValue = getCurrentPickValue();
+            const penalty = managementState.settings.pickTradeInPenalty || DRAFT.DEFAULT_TRADE_IN_PENALTY;
+            return Math.max(0, pickValue - penalty);
+        }
+
+        // Get cost to acquire the current pick from another team
+        function getAcquireCost() {
+            const pickValue = getCurrentPickValue();
+            const premiumPercent = managementState.settings.pickAcquirePremium || (DRAFT.DEFAULT_ACQUIRE_PREMIUM * 100);
+            return Math.ceil(pickValue * (1 + premiumPercent / 100));
+        }
+
+        // Check if player can afford to acquire the current pick
+        function canAffordAcquirePick() {
+            if (!managementState.team) return false;
+            return (managementState.team.draftPoints || 0) >= getAcquireCost();
+        }
+
+        // Trade in the player's current pick for draft points
+        function tradeInPick() {
+            if (!draftState.active || draftState.picksRemaining <= 0) return false;
+
+            const tradeValue = getTradeInValue();
+
+            // Add draft points
+            managementState.team.draftPoints += tradeValue;
+
+            // Use up the pick without drafting a player
+            draftState.picksRemaining--;
+            draftState.round++;
+            draftState.currentPickNumber++;
+            draftState.isPlayersTurn = false;
+
+            if (draftState.picksRemaining <= 0) {
+                finishDraft();
+                return true;
+            }
+
+            // Simulate other teams picking for next round
+            simulateOtherTeamsPicks();
+            refreshDraftScreen();
+            return true;
+        }
+
+        // Acquire an extra pick by paying the premium cost
+        // This gives the player an extra pick without using their regular pick slot
+        function acquireCurrentPick() {
+            if (!draftState.active || !canAffordAcquirePick()) return false;
+
+            const acquireCost = getAcquireCost();
+
+            // Deduct the cost
+            managementState.team.draftPoints -= acquireCost;
+
+            // Mark that player is using an extra pick
+            draftState.usingExtraPick = true;
+
+            refreshDraftScreen();
+            return true;
+        }
+
         // Toggle draft view between pool and roster
         function toggleDraftView(showRoster) {
             draftState.viewingRoster = showRoster;
@@ -3998,18 +4193,20 @@
             // Set player name
             document.getElementById('playerName').textContent = `${player.firstName} ${player.lastName}`;
 
-            // Check if can afford
+            // Check if can afford (or if using extra pick - free)
             const draftPoints = managementState.team?.draftPoints || 0;
-            const canAfford = draftPoints >= player.draftCost;
+            const isExtraPick = draftState.usingExtraPick;
+            const canAfford = isExtraPick || draftPoints >= player.draftCost;
             const costColor = canAfford ? '#4f4' : '#f84';
 
             // Player info - draft version with cost
+            const costText = isExtraPick ? 'FREE (Extra Pick)' : `Draft Cost: ${player.draftCost}`;
             const infoHtml = `
                 <div><span class="ovr-big">${player.overall}</span></div>
                 <div style="margin-top:10px;">
                     ${POSITIONS[player.position].name} | Age ${player.age} | Peak ${player.peakAge}<br>
                     Salary: ${formatSalary(player.salaryCost)} | Potential: ${'★'.repeat(player.potentialGrade)}<br>
-                    <span style="color:${costColor};font-weight:bold;">Draft Cost: ${player.draftCost}</span>
+                    <span style="color:${costColor};font-weight:bold;">${costText}</span>
                 </div>
             `;
             document.getElementById('playerInfo').innerHTML = infoHtml;
@@ -4020,7 +4217,13 @@
             const alreadyDrafted = draftState.draftedPlayers.includes(playerId);
             const canDraft = canAfford && !alreadyDrafted;
 
-            tradeBtn.textContent = alreadyDrafted ? 'ALREADY DRAFTED' : `DRAFT (${player.draftCost} pts)`;
+            if (alreadyDrafted) {
+                tradeBtn.textContent = 'ALREADY DRAFTED';
+            } else if (isExtraPick) {
+                tradeBtn.textContent = 'DRAFT (FREE)';
+            } else {
+                tradeBtn.textContent = `DRAFT (${player.draftCost} pts)`;
+            }
             tradeBtn.disabled = !canDraft;
             tradeBtn.style.opacity = canDraft ? '1' : '0.5';
             cutBtn.style.display = 'none';
@@ -4103,6 +4306,11 @@
             const finishBtn = document.getElementById('btnFinishDraft');
             const poolBtn = document.getElementById('btnDraftPoolView');
             const rosterBtn = document.getElementById('btnDraftRosterView');
+            const pickInfoEl = document.getElementById('draftPickInfo');
+            const pickValueEl = document.getElementById('draftPickValue');
+            const tradeButtonsEl = document.getElementById('draftTradeButtons');
+            const tradeInBtn = document.getElementById('btnTradeInPick');
+            const acquireBtn = document.getElementById('btnAcquirePick');
 
             // Update budget display
             const draftPoints = managementState.team?.draftPoints || 0;
@@ -4119,14 +4327,60 @@
             if (!draftState.active) {
                 finishBtn.style.display = 'block';
                 skipBtn.style.display = 'none';
+                pickInfoEl.style.display = 'none';
+                tradeButtonsEl.style.display = 'none';
                 statusEl.textContent = 'Draft Complete!';
                 poolListEl.innerHTML = '<p style="color:#4f4;">Your draft picks have been added to the roster.</p>';
                 return;
             }
 
+            // Show pick info and trade buttons
+            pickInfoEl.style.display = 'block';
+            tradeButtonsEl.style.display = draftState.viewingRoster ? 'none' : 'flex';
+
+            // Update pick value display
+            const pickValue = getCurrentPickValue();
+            const tradeInValue = getTradeInValue();
+            const acquireCost = getAcquireCost();
+
+            pickValueEl.innerHTML = `Current Pick Value: <span>${pickValue}</span> pts`;
+
+            // Update trade buttons based on state
+            const available = getAvailableDraftPlayers();
+
+            if (draftState.usingExtraPick) {
+                // Currently using an extra pick - hide trade buttons, show instruction
+                tradeInBtn.style.display = 'none';
+                acquireBtn.style.display = 'none';
+                pickValueEl.innerHTML = `<span style="color:#4f4;">SELECT A PLAYER</span> - Using purchased extra pick`;
+            } else {
+                // Trade In: Only available when player has picks remaining
+                if (draftState.picksRemaining > 0 && available.length > 0) {
+                    tradeInBtn.style.display = 'block';
+                    tradeInBtn.textContent = `TRADE IN PICK (+${tradeInValue} pts)`;
+                    tradeInBtn.disabled = false;
+                } else {
+                    tradeInBtn.style.display = 'none';
+                }
+
+                // Buy Pick: Always available if player can afford it (pays premium for extra pick)
+                if (available.length > 0) {
+                    acquireBtn.style.display = 'block';
+                    acquireBtn.textContent = `BUY EXTRA PICK (${acquireCost} pts)`;
+                    acquireBtn.disabled = !canAffordAcquirePick();
+                } else {
+                    acquireBtn.style.display = 'none';
+                }
+            }
+
             const playerDrafted = draftState.playerPicks.length;
-            statusEl.textContent = `Picks: ${draftState.picksRemaining} remaining | Your selections: ${playerDrafted}`;
-            skipBtn.style.display = draftState.viewingRoster ? 'none' : 'block';
+            if (draftState.usingExtraPick) {
+                statusEl.textContent = `EXTRA PICK - Select a player | Your selections: ${playerDrafted}`;
+                skipBtn.style.display = 'none';  // Can't skip an extra pick
+            } else {
+                statusEl.textContent = `Picks: ${draftState.picksRemaining} remaining | Your selections: ${playerDrafted}`;
+                skipBtn.style.display = draftState.viewingRoster ? 'none' : 'block';
+            }
             finishBtn.style.display = 'none';
 
             if (draftState.viewingRoster) {
@@ -12992,6 +13246,58 @@
         });
         document.getElementById('btnDraftRosterView').addEventListener('click', () => {
             toggleDraftView(true);
+        });
+
+        // Pick trading handlers
+        document.getElementById('btnTradeInPick').addEventListener('click', () => {
+            if (tradeInPick()) {
+                // Show feedback
+                const btn = document.getElementById('btnTradeInPick');
+                const originalText = btn.textContent;
+                btn.textContent = 'PICK TRADED!';
+                btn.disabled = true;
+                setTimeout(() => {
+                    btn.textContent = originalText;
+                    refreshDraftScreen();
+                }, 1000);
+            }
+        });
+
+        document.getElementById('btnAcquirePick').addEventListener('click', () => {
+            if (acquireCurrentPick()) {
+                // Show feedback
+                const btn = document.getElementById('btnAcquirePick');
+                btn.textContent = 'PICK ACQUIRED!';
+                btn.disabled = true;
+                setTimeout(() => {
+                    refreshDraftScreen();
+                }, 1000);
+            }
+        });
+
+        // Draft options modal handlers
+        document.getElementById('btnDraftOptions').addEventListener('click', () => {
+            // Load current settings into inputs
+            document.getElementById('pickTradeInPenalty').value = managementState.settings.pickTradeInPenalty || 50;
+            document.getElementById('pickAcquirePremium').value = managementState.settings.pickAcquirePremium || 10;
+            document.getElementById('draftOptionsModal').style.display = 'flex';
+        });
+
+        document.getElementById('btnSaveDraftOptions').addEventListener('click', () => {
+            // Save settings
+            managementState.settings.pickTradeInPenalty = parseInt(document.getElementById('pickTradeInPenalty').value) || 50;
+            managementState.settings.pickAcquirePremium = parseInt(document.getElementById('pickAcquirePremium').value) || 10;
+            document.getElementById('draftOptionsModal').style.display = 'none';
+            // Refresh draft screen to show updated values
+            if (draftState.active) {
+                refreshDraftScreen();
+            }
+            // Save if auto-save is on
+            if (managementState.settings.autoSave) SaveSystem.save();
+        });
+
+        document.getElementById('btnCloseDraftOptions').addEventListener('click', () => {
+            document.getElementById('draftOptionsModal').style.display = 'none';
         });
 
         // Player detail modal handlers
