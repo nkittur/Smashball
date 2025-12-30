@@ -13545,8 +13545,15 @@
         });
         document.getElementById('btnCutPlayer').addEventListener('click', cutPlayerFromDetail);
         console.log('Setting up btnTradePlayer click handler...');
-        document.getElementById('btnTradePlayer').addEventListener('click', () => {
-            console.log('Trade/Draft button clicked');
+        const tradeBtnEl = document.getElementById('btnTradePlayer');
+        console.log('Found btnTradePlayer element:', tradeBtnEl);
+        if (!tradeBtnEl) {
+            console.error('ERROR: btnTradePlayer not found in DOM!');
+            alert('ERROR: Draft button not found!');
+        }
+        tradeBtnEl.addEventListener('click', (e) => {
+            console.log('Trade/Draft button clicked', e);
+            alert('Button clicked! Check console for details.');
             // Handle draft player differently
             if (draftState.selectedDraftPlayer) {
                 console.log('Selected draft player:', draftState.selectedDraftPlayer);
