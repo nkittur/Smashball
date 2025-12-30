@@ -519,7 +519,7 @@
             </div>
             <div id="draftPlayerList" class="roster-list draft-list"></div>
             <div id="draftRosterList" class="roster-list draft-list" style="display:none;"></div>
-            <button id="btnSkipRound" class="mgmt-btn secondary" style="margin-top: 15px;">NEXT ROUND</button>
+            <button id="btnSkipRound" class="mgmt-btn secondary" style="margin-top: 15px;">SKIP PICK</button>
             <button id="btnFinishDraft" class="mgmt-btn primary" style="margin-top: 10px; display: none;">FINISH DRAFT</button>
         </div>
     </div>
@@ -3723,11 +3723,13 @@
             active: false,
             round: 1,
             pick: 1,
+            picksRemaining: 0,  // How many picks the player has left
             draftPool: [],
-            draftedPlayers: [],
-            isNewGame: false,  // Track if this is a new game draft
-            viewingRoster: false,  // Toggle between draft pool and roster view
-            selectedDraftPlayer: null  // Currently selected draft player for details
+            draftedPlayers: [],  // IDs of all drafted players (by any team)
+            playerPicks: [],     // IDs of players drafted by the user
+            isNewGame: false,
+            viewingRoster: false,
+            selectedDraftPlayer: null
         };
 
         // Generate draft class with realistic ratings
@@ -3842,8 +3844,10 @@
             draftState.active = true;
             draftState.round = 1;
             draftState.pick = 1;
+            draftState.picksRemaining = DRAFT.ROUNDS;  // Player gets one pick per round
             draftState.draftPool = generateDraftClass();
             draftState.draftedPlayers = [];
+            draftState.playerPicks = [];
             draftState.isNewGame = isNewGame;
             draftState.viewingRoster = false;
             draftState.selectedDraftPlayer = null;
@@ -3861,15 +3865,33 @@
                 managementState.team.draftPoints = DRAFT.NEW_GAME_BUDGET;
             }
 
+            // Simulate other teams picking before player's turn (player picks last)
+            simulateOtherTeamsPicks();
+
             showScreen('draft');
         }
 
-        // Get available players for current round
+        // Simulate other teams making their picks (they pick before player each round)
+        function simulateOtherTeamsPicks() {
+            const otherTeams = DRAFT.NUM_TEAMS - 1;  // All teams except player
+            const available = getAvailableDraftPlayers();
+
+            // Each other team picks one player (picking from best available)
+            for (let i = 0; i < otherTeams && available.length > 0; i++) {
+                // Teams pick semi-randomly from top available players
+                // Better teams (lower index) pick slightly worse players
+                const pickRange = Math.min(5, available.length);
+                const pickIdx = Math.floor(Math.random() * pickRange);
+                const picked = available.splice(pickIdx, 1)[0];
+                if (picked) {
+                    draftState.draftedPlayers.push(picked.id);
+                }
+            }
+        }
+
+        // Get all available (undrafted) players
         function getAvailableDraftPlayers() {
-            const startIdx = (draftState.round - 1) * DRAFT.PLAYERS_PER_ROUND;
-            const endIdx = startIdx + DRAFT.PLAYERS_PER_ROUND;
             return draftState.draftPool
-                .slice(startIdx, endIdx)
                 .filter(p => !draftState.draftedPlayers.includes(p.id));
         }
 
@@ -3885,6 +3907,9 @@
             const player = draftState.draftPool.find(p => p.id === playerId);
             if (!player || draftState.draftedPlayers.includes(playerId)) return false;
 
+            // Check if player has picks remaining
+            if (draftState.picksRemaining <= 0) return false;
+
             // Check if team can afford this player
             if (!canAffordDraftPlayer(playerId)) {
                 return false;  // Can't afford
@@ -3896,25 +3921,46 @@
             // Add to team roster
             managementState.team.roster.push(player);
             draftState.draftedPlayers.push(playerId);
+            draftState.playerPicks.push(playerId);
+            draftState.picksRemaining--;
+            draftState.round++;
 
             // Update depth chart
             updateDepthChart(managementState.team);
 
-            // Refresh the screen (don't auto-advance, let player keep picking)
+            // Check if draft is complete
+            if (draftState.picksRemaining <= 0) {
+                finishDraft();
+                return true;
+            }
+
+            // Simulate other teams picking for next round
+            simulateOtherTeamsPicks();
+
+            // Refresh the screen
             refreshDraftScreen();
 
             return true;
         }
 
-        // Skip current round
+        // Skip current pick (use pick without selecting a player)
         function skipDraftPick() {
-            advanceDraft();
+            draftState.picksRemaining--;
+            draftState.round++;
+
+            if (draftState.picksRemaining <= 0) {
+                finishDraft();
+                return;
+            }
+
+            // Simulate other teams picking for next round
+            simulateOtherTeamsPicks();
+            refreshDraftScreen();
         }
 
-        // Advance to next round
+        // Legacy function - now just completes draft
         function advanceDraft() {
-            draftState.round++;
-            draftState.pick = 1;
+            // No longer needed - draft advances after each pick
 
             if (draftState.round > DRAFT.ROUNDS) {
                 // Draft complete
@@ -4078,8 +4124,8 @@
                 return;
             }
 
-            const pickedThisSession = draftState.draftedPlayers.length;
-            statusEl.textContent = `Round ${draftState.round} of ${DRAFT.ROUNDS} | Drafted: ${pickedThisSession}`;
+            const playerDrafted = draftState.playerPicks.length;
+            statusEl.textContent = `Picks: ${draftState.picksRemaining} remaining | Your selections: ${playerDrafted}`;
             skipBtn.style.display = draftState.viewingRoster ? 'none' : 'block';
             finishBtn.style.display = 'none';
 
@@ -4099,7 +4145,7 @@
             listEl.innerHTML = '';
 
             if (available.length === 0) {
-                listEl.innerHTML = '<p style="color:#888;">No more players available this round.</p>';
+                listEl.innerHTML = '<p style="color:#888;">No more players available.</p>';
                 return;
             }
 
