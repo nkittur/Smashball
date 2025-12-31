@@ -12516,14 +12516,30 @@
                 console.log('Overlay has hidden class:', overlay?.classList.contains('hidden'));
                 console.log('Overlay display:', getComputedStyle(overlay).display);
 
-                // Force canvas to be visible
+                // Force canvas to be visible with high z-index
                 canvas.style.display = 'block';
                 canvas.style.visibility = 'visible';
                 canvas.style.opacity = '1';
-                canvas.style.zIndex = '1';
+                canvas.style.zIndex = '999';
+                canvas.style.position = 'absolute';
+                canvas.style.top = '0';
+                canvas.style.left = '0';
+                canvas.style.background = 'blue'; // If we see blue, canvas is visible but scene isn't rendering
 
-                // Check if gameState.scene is the same as the global scene being rendered
-                console.log('Is gameState.scene === scene?', gameState.scene === scene);
+                // Log canvas computed style
+                const computedStyle = getComputedStyle(canvas);
+                console.log('Canvas computed position:', computedStyle.position);
+                console.log('Canvas computed zIndex:', computedStyle.zIndex);
+                console.log('Canvas computed width:', computedStyle.width);
+                console.log('Canvas computed height:', computedStyle.height);
+
+                // Try to access global scene
+                try {
+                    console.log('Global scene exists:', typeof scene !== 'undefined');
+                    console.log('gameState.scene === scene:', gameState.scene === scene);
+                } catch (e) {
+                    console.log('Error accessing scene:', e.message);
+                }
 
                 // Update UI
                 updateDownDistance();
