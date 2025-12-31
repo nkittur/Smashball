@@ -516,6 +516,8 @@
             <p id="draftStatus" class="draft-status">Round 1 of 5</p>
             <div id="draftPickInfo" class="draft-pick-info">
                 <p id="draftPickValue">Current Pick Value: <span>0</span></p>
+                <button id="btnAcquirePick" class="mgmt-btn trade-btn acquire" style="display:none;">TRADE FOR PICK</button>
+                <button id="btnTradeInPick" class="mgmt-btn trade-btn" style="display:none;">TRADE IN PICK</button>
             </div>
             <div id="draftCurrentPick" class="draft-current-pick" style="display:none;">
                 <div id="draftPickAnnouncement"></div>
@@ -530,10 +532,6 @@
             </div>
             <div id="draftPlayerList" class="roster-list draft-list"></div>
             <div id="draftRosterList" class="roster-list draft-list" style="display:none;"></div>
-            <div id="draftTradeButtons" class="draft-trade-buttons">
-                <button id="btnTradeInPick" class="mgmt-btn trade-btn">TRADE IN PICK (+0 pts)</button>
-                <button id="btnAcquirePick" class="mgmt-btn trade-btn acquire">TRADE FOR PICK</button>
-            </div>
             <button id="btnSkipRound" class="mgmt-btn secondary" style="margin-top: 15px;">SKIP PICK</button>
             <button id="btnFinishDraft" class="mgmt-btn primary" style="margin-top: 10px; display: none;">FINISH DRAFT</button>
         </div>
@@ -704,8 +702,13 @@
             background: #1a1a2a;
             border: 1px solid #333;
             border-radius: 8px;
-            padding: 10px;
+            padding: 12px;
             margin-bottom: 10px;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
         }
         .draft-pick-info p {
             margin: 0;
@@ -716,25 +719,22 @@
             color: #ffd700;
             font-weight: bold;
         }
-        .draft-trade-buttons {
-            display: flex;
-            gap: 10px;
-            margin-top: 15px;
-            justify-content: center;
+        .draft-pick-info .trade-btn {
+            padding: 8px 14px;
+            font-size: 12px;
+            margin: 0;
         }
-        .draft-trade-buttons .trade-btn {
-            flex: 1;
-            max-width: 180px;
-            padding: 10px 12px;
-            font-size: 11px;
-            background: #2a3a2a;
-            border-color: #4a4;
-        }
-        .draft-trade-buttons .trade-btn.acquire {
+        .draft-pick-info .trade-btn.acquire {
             background: #3a2a2a;
-            border-color: #a44;
+            border-color: #a66;
+            color: #faa;
         }
-        .draft-trade-buttons .trade-btn:disabled {
+        .draft-pick-info .trade-btn:not(.acquire) {
+            background: #2a3a2a;
+            border-color: #6a6;
+            color: #afa;
+        }
+        .draft-pick-info .trade-btn:disabled {
             opacity: 0.4;
             cursor: not-allowed;
         }
@@ -4447,7 +4447,6 @@
             const rosterBtn = document.getElementById('btnDraftRosterView');
             const pickInfoEl = document.getElementById('draftPickInfo');
             const pickValueEl = document.getElementById('draftPickValue');
-            const tradeButtonsEl = document.getElementById('draftTradeButtons');
             const tradeInBtn = document.getElementById('btnTradeInPick');
             const acquireBtn = document.getElementById('btnAcquirePick');
             const currentPickEl = document.getElementById('draftCurrentPick');
@@ -4476,7 +4475,8 @@
                 finishBtn.style.display = 'block';
                 skipBtn.style.display = 'none';
                 pickInfoEl.style.display = 'none';
-                tradeButtonsEl.style.display = 'none';
+                tradeInBtn.style.display = 'none';
+                acquireBtn.style.display = 'none';
                 currentPickEl.style.display = 'none';
                 navButtonsEl.style.display = 'none';
                 statusEl.textContent = 'Draft Complete!';
@@ -4486,13 +4486,12 @@
 
             // Show pick announcement area
             currentPickEl.style.display = 'block';
+            pickInfoEl.style.display = 'block';
 
             // Update pick value display
             const pickValue = getCurrentPickValue();
             const tradeInValue = getTradeInValue();
             const acquireCost = getAcquireCost();
-
-            pickValueEl.innerHTML = `Pick #${draftState.currentPickNumber} Value: <span>${pickValue}</span> pts`;
 
             // Check if it's a computer's turn
             const isComputerTurn = !isPlayersTurnNow();
@@ -4511,11 +4510,7 @@
                         <span class="overall">${pick.player.overall}</span>
                     </div>
                 `;
-                // Show nav buttons if still computer's turn
                 navButtonsEl.style.display = isComputerTurn ? 'flex' : 'none';
-                // Show BUY PICK on computer's turn (to buy upcoming pick)
-                tradeButtonsEl.style.display = (isComputerTurn && !draftState.viewingRoster) ? 'flex' : 'none';
-                pickInfoEl.style.display = 'block';
                 skipBtn.style.display = 'none';
             } else if (draftState.isPlayersTurn) {
                 // Show player's turn (compact format)
@@ -4524,10 +4519,7 @@
                     <div class="pick-number">Pick #${draftState.currentPickNumber}</div>
                     <div class="team-name">YOUR TURN</div>
                 `;
-                // Hide nav buttons, show trade buttons
                 navButtonsEl.style.display = 'none';
-                pickInfoEl.style.display = 'block';
-                tradeButtonsEl.style.display = draftState.viewingRoster ? 'none' : 'flex';
             } else if (isComputerTurn) {
                 // Waiting for user to click Next Pick
                 currentPickEl.className = 'draft-current-pick';
@@ -4536,9 +4528,6 @@
                     <div class="team-name">Computer's Turn</div>
                 `;
                 navButtonsEl.style.display = 'flex';
-                // Show BUY PICK on computer's turn
-                tradeButtonsEl.style.display = draftState.viewingRoster ? 'none' : 'flex';
-                pickInfoEl.style.display = 'block';
             } else {
                 // Player's turn but not flagged yet
                 draftState.isPlayersTurn = true;
@@ -4548,39 +4537,43 @@
                     <div class="team-name">YOUR TURN</div>
                 `;
                 navButtonsEl.style.display = 'none';
-                tradeButtonsEl.style.display = draftState.viewingRoster ? 'none' : 'flex';
-                pickInfoEl.style.display = 'block';
             }
 
-            // Update trade buttons based on state
+            // Update trade buttons and pick value display based on state
             const available = getAvailableDraftPlayers();
 
-            if (!draftState.viewingRoster && !draftState.simulatingPicks) {
-                if (draftState.usingExtraPick) {
-                    // Currently using an extra pick - hide trade buttons, show instruction
-                    tradeInBtn.style.display = 'none';
-                    acquireBtn.style.display = 'none';
-                    pickValueEl.innerHTML = `<span style="color:#4f4;">YOUR PICK</span> - Select a player to draft`;
-                } else if (draftState.isPlayersTurn) {
-                    // Player's turn: Show TRADE IN, hide BUY PICK (they already have the pick)
-                    if (draftState.picksRemaining > 0 && available.length > 0) {
-                        tradeInBtn.style.display = 'block';
-                        tradeInBtn.textContent = `TRADE IN PICK (+${tradeInValue} pts)`;
-                        tradeInBtn.disabled = false;
-                    } else {
-                        tradeInBtn.style.display = 'none';
-                    }
-                    acquireBtn.style.display = 'none';  // Hide BUY PICK on player's turn
-                } else if (isComputerTurn && available.length > 0) {
-                    // Computer's turn: Show BUY PICK, hide TRADE IN
-                    tradeInBtn.style.display = 'none';  // Hide TRADE IN on computer's turn
-                    acquireBtn.style.display = 'block';
-                    acquireBtn.textContent = `TRADE FOR PICK (${acquireCost} pts)`;
-                    acquireBtn.disabled = !canAffordAcquirePick();
+            // Hide both buttons by default when viewing roster
+            if (draftState.viewingRoster || draftState.simulatingPicks) {
+                tradeInBtn.style.display = 'none';
+                acquireBtn.style.display = 'none';
+                pickValueEl.innerHTML = `Pick #${draftState.currentPickNumber} Value: <span>${pickValue}</span> pts`;
+            } else if (draftState.usingExtraPick) {
+                // Using a traded pick - hide buttons, show instruction
+                tradeInBtn.style.display = 'none';
+                acquireBtn.style.display = 'none';
+                pickValueEl.innerHTML = `<span style="color:#4f4;">YOUR PICK</span> - Select a player`;
+            } else if (draftState.isPlayersTurn) {
+                // Player's turn: Show TRADE IN only, hide TRADE FOR (they have the pick)
+                pickValueEl.innerHTML = `Pick #${draftState.currentPickNumber} Value: <span>${pickValue}</span> pts`;
+                acquireBtn.style.display = 'none';
+                if (draftState.picksRemaining > 0 && available.length > 0) {
+                    tradeInBtn.style.display = 'inline-block';
+                    tradeInBtn.textContent = `TRADE IN (+${tradeInValue})`;
+                    tradeInBtn.disabled = false;
                 } else {
                     tradeInBtn.style.display = 'none';
-                    acquireBtn.style.display = 'none';
                 }
+            } else if (isComputerTurn && available.length > 0) {
+                // Computer's turn: Show TRADE FOR only, hide TRADE IN
+                pickValueEl.innerHTML = `Pick #${draftState.currentPickNumber} Value: <span>${pickValue}</span> pts`;
+                tradeInBtn.style.display = 'none';
+                acquireBtn.style.display = 'inline-block';
+                acquireBtn.textContent = `TRADE FOR (${acquireCost})`;
+                acquireBtn.disabled = !canAffordAcquirePick();
+            } else {
+                tradeInBtn.style.display = 'none';
+                acquireBtn.style.display = 'none';
+                pickValueEl.innerHTML = `Pick #${draftState.currentPickNumber} Value: <span>${pickValue}</span> pts`;
             }
 
             const playerDrafted = draftState.playerPicks.length;
