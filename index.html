@@ -519,16 +519,14 @@
 
             <!-- On The Clock Section -->
             <div id="draftOnClock" class="draft-on-clock computer">
-                <div class="clock-header">
+                <div class="clock-row">
                     <span id="draftRoundPick">Round 1 • Pick 1</span>
                     <span id="draftPoints">1500 pts</span>
                 </div>
-                <div class="clock-team">
-                    <span id="draftTeamName">Computer's Turn</span>
-                </div>
-                <div class="clock-actions">
-                    <button id="btnAcquirePick" class="trade-for-btn" style="display:none;">TRADE FOR PICK <span class="trade-cost">0 / 0</span></button>
-                    <button id="btnTradeInPick" class="trade-in-btn" style="display:none;">TRADE IN PICK <span class="trade-value">+0</span></button>
+                <div class="clock-row clock-main">
+                    <span id="draftTeamName">Team Name</span>
+                    <button id="btnAcquirePick" class="trade-for-btn" style="display:none;">TRADE <span class="trade-cost">0/0</span></button>
+                    <button id="btnTradeInPick" class="trade-in-btn" style="display:none;">TRADE IN <span class="trade-value">+0</span></button>
                 </div>
             </div>
 
@@ -734,48 +732,40 @@
         .draft-last-pick .overall { color: #4f4; }
 
         .draft-on-clock {
-            border-radius: 8px;
-            padding: 12px;
-            margin-bottom: 10px;
+            border-radius: 6px;
+            padding: 8px 12px;
+            margin-bottom: 8px;
             transition: background 0.3s;
         }
         .draft-on-clock.computer {
-            background: linear-gradient(135deg, #2a2a3a 0%, #1a1a2a 100%);
+            background: #1a1a2a;
             border: 1px solid #444;
         }
         .draft-on-clock.player {
-            background: linear-gradient(135deg, #1a3a1a 0%, #0a2a0a 100%);
+            background: #0a2a0a;
             border: 1px solid #4a4;
         }
-        .clock-header {
+        .clock-row {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 6px;
         }
-        #draftRoundPick { color: #888; font-size: 12px; }
-        #draftPoints { color: #ffd700; font-size: 12px; font-weight: bold; }
-        .clock-team {
-            text-align: center;
-            margin: 8px 0;
+        .clock-row.clock-main {
+            margin-top: 4px;
         }
+        #draftRoundPick { color: #888; font-size: 11px; }
+        #draftPoints { color: #ffd700; font-size: 11px; font-weight: bold; }
         #draftTeamName {
-            font-size: 18px;
+            font-size: 16px;
             font-weight: bold;
         }
         .draft-on-clock.computer #draftTeamName { color: #aaa; }
         .draft-on-clock.player #draftTeamName { color: #4f4; }
-        .clock-actions {
-            display: flex;
-            justify-content: center;
-            gap: 10px;
-            margin-top: 8px;
-        }
         .trade-for-btn, .trade-in-btn {
-            padding: 8px 16px;
+            padding: 6px 12px;
             border-radius: 4px;
             font-family: 'Courier New', monospace;
-            font-size: 11px;
+            font-size: 10px;
             cursor: pointer;
             border: 1px solid;
         }
@@ -785,7 +775,7 @@
             color: #faa;
         }
         .trade-for-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-        .trade-for-btn .trade-cost { display: block; font-size: 10px; color: #f88; margin-top: 2px; }
+        .trade-for-btn .trade-cost { color: #f88; margin-left: 4px; }
         .trade-in-btn {
             background: #2a3a2a;
             border-color: #6a6;
@@ -4540,7 +4530,9 @@
                 navButtonsEl.style.display = 'none';
             } else {
                 onClockEl.className = 'draft-on-clock computer';
-                teamNameEl.textContent = "Computer's Turn";
+                // Show actual team name on the clock
+                const teamIndex = (draftState.currentPickNumber - 1) % (DRAFT.NUM_TEAMS - 1);
+                teamNameEl.textContent = COMPUTER_TEAM_NAMES[teamIndex] || 'Team';
                 navButtonsEl.style.display = 'flex';
             }
 
