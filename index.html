@@ -12485,6 +12485,17 @@
                 // Reset play
                 if (gameState.scene) {
                     resetPlay(gameState.scene);
+
+                    // Debug: Check mesh positions after reset
+                    console.log('After resetPlay:');
+                    console.log('QB position:', gameState.scene.qb?.position);
+                    console.log('QB isEnabled:', gameState.scene.qb?.isEnabled());
+                    if (gameState.receivers[0]) {
+                        console.log('Receiver 0 position:', gameState.receivers[0].position);
+                        console.log('Receiver 0 isEnabled:', gameState.receivers[0].isEnabled());
+                    }
+                    console.log('Camera target:', gameState.scene.activeCamera?.target);
+                    console.log('Camera position:', gameState.scene.activeCamera?.position);
                 } else {
                     console.error('Scene not available for training mode!');
                 }
