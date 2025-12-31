@@ -509,31 +509,49 @@
         </div>
 
         <!-- Draft Screen -->
-        <div id="draftScreen" class="mgmt-screen" style="display:none;max-width:600px;">
-            <h2>DRAFT</h2>
-            <button id="btnDraftOptions" class="mgmt-btn back-btn" style="position:absolute;top:10px;right:10px;left:auto;">⚙</button>
-            <p id="draftBudget" class="draft-budget">Draft Points: 1500</p>
-            <p id="draftStatus" class="draft-status">Round 1 of 5</p>
-            <div id="draftPickInfo" class="draft-pick-info">
-                <p id="draftPickValue">Current Pick Value: <span>0</span></p>
-                <button id="btnAcquirePick" class="mgmt-btn trade-btn acquire" style="display:none;">TRADE FOR PICK</button>
-                <button id="btnTradeInPick" class="mgmt-btn trade-btn" style="display:none;">TRADE IN PICK</button>
+        <div id="draftScreen" class="mgmt-screen draft-screen" style="display:none;max-width:600px;">
+            <button id="btnDraftOptions" class="mgmt-btn back-btn" style="position:absolute;top:10px;right:10px;left:auto;z-index:10;">⚙</button>
+
+            <!-- Last Pick Notification Bar -->
+            <div id="draftLastPick" class="draft-last-pick">
+                <span id="draftLastPickText">Draft starting...</span>
             </div>
-            <div id="draftCurrentPick" class="draft-current-pick" style="display:none;">
-                <div id="draftPickAnnouncement"></div>
+
+            <!-- On The Clock Section -->
+            <div id="draftOnClock" class="draft-on-clock computer">
+                <div class="clock-header">
+                    <span id="draftRoundPick">Round 1 • Pick 1</span>
+                    <span id="draftPoints">1500 pts</span>
+                </div>
+                <div class="clock-team">
+                    <span id="draftTeamName">Computer's Turn</span>
+                </div>
+                <div class="clock-actions">
+                    <button id="btnAcquirePick" class="trade-for-btn" style="display:none;">TRADE FOR PICK <span class="trade-cost">0 / 0</span></button>
+                    <button id="btnTradeInPick" class="trade-in-btn" style="display:none;">TRADE IN PICK <span class="trade-value">+0</span></button>
+                </div>
             </div>
-            <div id="draftNavButtons" class="draft-nav-buttons" style="display:none;">
-                <button id="btnNextPick" class="mgmt-btn nav-btn">NEXT PICK</button>
-                <button id="btnSkipToYourPick" class="mgmt-btn nav-btn skip-btn">SKIP TO YOUR PICK →</button>
-            </div>
+
+            <!-- Toggle Buttons -->
             <div class="draft-toggle-buttons">
                 <button id="btnDraftPoolView" class="mgmt-btn toggle-btn active">DRAFT POOL</button>
                 <button id="btnDraftRosterView" class="mgmt-btn toggle-btn">MY ROSTER</button>
             </div>
+
+            <!-- Player Lists -->
             <div id="draftPlayerList" class="roster-list draft-list"></div>
             <div id="draftRosterList" class="roster-list draft-list" style="display:none;"></div>
-            <button id="btnSkipRound" class="mgmt-btn secondary" style="margin-top: 15px;">SKIP PICK</button>
-            <button id="btnFinishDraft" class="mgmt-btn primary" style="margin-top: 10px; display: none;">FINISH DRAFT</button>
+
+            <!-- Status -->
+            <p id="draftStatus" class="draft-status"></p>
+            <button id="btnSkipRound" class="mgmt-btn secondary" style="display:none;">SKIP PICK</button>
+            <button id="btnFinishDraft" class="mgmt-btn primary" style="display:none;">FINISH DRAFT</button>
+
+            <!-- Fixed Bottom Nav Buttons -->
+            <div id="draftNavButtons" class="draft-nav-buttons-fixed">
+                <button id="btnNextPick" class="mgmt-btn nav-btn">NEXT PICK</button>
+                <button id="btnSkipToYourPick" class="mgmt-btn nav-btn skip-btn">SKIP TO YOUR PICK →</button>
+            </div>
         </div>
 
         <!-- Draft Options Modal -->
@@ -698,45 +716,106 @@
         .draft-list .roster-item.unaffordable:hover { border-left-color: #833; }
         .draft-cost { color: #4f4; font-size: 12px; font-weight: bold; }
         .draft-cost.expensive { color: #f84; }
-        .draft-pick-info {
+        /* Draft Screen Layout */
+        .draft-screen {
+            padding-bottom: 70px; /* Space for fixed bottom buttons */
+        }
+        .draft-last-pick {
             background: #1a1a2a;
-            border: 1px solid #333;
+            padding: 6px 12px;
+            margin: -10px -15px 10px -15px;
+            font-size: 11px;
+            color: #888;
+            border-bottom: 1px solid #333;
+            text-align: center;
+        }
+        .draft-last-pick .player-name { color: #fff; }
+        .draft-last-pick .team-name { color: #ffd700; }
+        .draft-last-pick .overall { color: #4f4; }
+
+        .draft-on-clock {
             border-radius: 8px;
             padding: 12px;
             margin-bottom: 10px;
+            transition: background 0.3s;
+        }
+        .draft-on-clock.computer {
+            background: linear-gradient(135deg, #2a2a3a 0%, #1a1a2a 100%);
+            border: 1px solid #444;
+        }
+        .draft-on-clock.player {
+            background: linear-gradient(135deg, #1a3a1a 0%, #0a2a0a 100%);
+            border: 1px solid #4a4;
+        }
+        .clock-header {
             display: flex;
-            flex-wrap: wrap;
-            align-items: center;
             justify-content: space-between;
-            gap: 10px;
+            align-items: center;
+            margin-bottom: 6px;
         }
-        .draft-pick-info p {
-            margin: 0;
-            color: #aaa;
-            font-size: 14px;
+        #draftRoundPick { color: #888; font-size: 12px; }
+        #draftPoints { color: #ffd700; font-size: 12px; font-weight: bold; }
+        .clock-team {
+            text-align: center;
+            margin: 8px 0;
         }
-        .draft-pick-info span {
-            color: #ffd700;
+        #draftTeamName {
+            font-size: 18px;
             font-weight: bold;
         }
-        .draft-pick-info .trade-btn {
-            padding: 8px 14px;
-            font-size: 12px;
-            margin: 0;
+        .draft-on-clock.computer #draftTeamName { color: #aaa; }
+        .draft-on-clock.player #draftTeamName { color: #4f4; }
+        .clock-actions {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 8px;
         }
-        .draft-pick-info .trade-btn.acquire {
+        .trade-for-btn, .trade-in-btn {
+            padding: 8px 16px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 11px;
+            cursor: pointer;
+            border: 1px solid;
+        }
+        .trade-for-btn {
             background: #3a2a2a;
             border-color: #a66;
             color: #faa;
         }
-        .draft-pick-info .trade-btn:not(.acquire) {
+        .trade-for-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+        .trade-for-btn .trade-cost { display: block; font-size: 10px; color: #f88; margin-top: 2px; }
+        .trade-in-btn {
             background: #2a3a2a;
             border-color: #6a6;
             color: #afa;
         }
-        .draft-pick-info .trade-btn:disabled {
-            opacity: 0.4;
-            cursor: not-allowed;
+        .trade-in-btn .trade-value { color: #4f4; font-weight: bold; }
+
+        .draft-nav-buttons-fixed {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            display: flex;
+            gap: 10px;
+            padding: 12px;
+            background: #0a0a14;
+            border-top: 1px solid #333;
+            justify-content: center;
+            z-index: 100;
+        }
+        .draft-nav-buttons-fixed .nav-btn {
+            flex: 1;
+            max-width: 180px;
+            padding: 12px;
+            font-size: 12px;
+            background: #2a2a4a;
+        }
+        .draft-nav-buttons-fixed .nav-btn.skip-btn {
+            background: #3a3a2a;
+            border-color: #aa4;
         }
         .options-row {
             display: flex;
@@ -755,66 +834,6 @@
             padding: 8px;
             border-radius: 4px;
             font-family: 'Courier New', monospace;
-        }
-        .draft-current-pick {
-            background: linear-gradient(135deg, #2a2a4a 0%, #1a1a3a 100%);
-            border: 2px solid #ffd700;
-            border-radius: 8px;
-            padding: 8px 12px;
-            margin: 8px 0;
-            text-align: center;
-        }
-        .draft-current-pick .pick-number {
-            color: #888;
-            font-size: 11px;
-            text-transform: uppercase;
-            display: inline;
-            margin-right: 8px;
-        }
-        .draft-current-pick .team-name {
-            color: #ffd700;
-            font-size: 14px;
-            font-weight: bold;
-            display: inline;
-        }
-        .draft-current-pick .player-picked {
-            color: #fff;
-            font-size: 13px;
-            margin-top: 4px;
-        }
-        .draft-current-pick .player-picked .position {
-            color: #4f4;
-            font-size: 11px;
-            margin-left: 6px;
-        }
-        .draft-current-pick .player-picked .overall {
-            color: #ffd700;
-            font-weight: bold;
-            margin-left: 6px;
-        }
-        .draft-current-pick.your-turn {
-            border-color: #4f4;
-            background: linear-gradient(135deg, #1a3a1a 0%, #0a2a0a 100%);
-        }
-        .draft-current-pick.your-turn .team-name {
-            color: #4f4;
-        }
-        .draft-nav-buttons {
-            display: flex;
-            gap: 10px;
-            margin: 8px 0;
-            justify-content: center;
-        }
-        .draft-nav-buttons .nav-btn {
-            flex: 1;
-            max-width: 160px;
-            padding: 10px 12px;
-            font-size: 12px;
-            background: #2a2a4a;
-        }
-        .draft-nav-buttons .nav-btn.skip-btn {
-            background: #3a3a2a;
-            border-color: #aa4;
         }
         .fa-btn { padding: 8px 16px; font-size: 14px; }
         .match-score { font-size: 36px; margin: 20px 0; }
@@ -4448,7 +4467,12 @@
 
         // Refresh draft screen
         function refreshDraftScreen() {
-            const budgetEl = document.getElementById('draftBudget');
+            const lastPickEl = document.getElementById('draftLastPick');
+            const lastPickTextEl = document.getElementById('draftLastPickText');
+            const onClockEl = document.getElementById('draftOnClock');
+            const roundPickEl = document.getElementById('draftRoundPick');
+            const pointsEl = document.getElementById('draftPoints');
+            const teamNameEl = document.getElementById('draftTeamName');
             const statusEl = document.getElementById('draftStatus');
             const poolListEl = document.getElementById('draftPlayerList');
             const rosterListEl = document.getElementById('draftRosterList');
@@ -4456,23 +4480,22 @@
             const finishBtn = document.getElementById('btnFinishDraft');
             const poolBtn = document.getElementById('btnDraftPoolView');
             const rosterBtn = document.getElementById('btnDraftRosterView');
-            const pickInfoEl = document.getElementById('draftPickInfo');
-            const pickValueEl = document.getElementById('draftPickValue');
             const tradeInBtn = document.getElementById('btnTradeInPick');
             const acquireBtn = document.getElementById('btnAcquirePick');
-            const currentPickEl = document.getElementById('draftCurrentPick');
-            const pickAnnouncementEl = document.getElementById('draftPickAnnouncement');
             const navButtonsEl = document.getElementById('draftNavButtons');
 
             // Safety check for missing elements
-            if (!budgetEl || !statusEl || !poolListEl || !navButtonsEl) {
+            if (!onClockEl || !statusEl || !poolListEl || !navButtonsEl) {
                 console.error('Draft screen elements not found');
                 return;
             }
 
-            // Update budget display
             const draftPoints = managementState.team?.draftPoints || 0;
-            budgetEl.textContent = `Draft Points: ${draftPoints}`;
+            const pickValue = getCurrentPickValue();
+            const tradeInValue = getTradeInValue();
+            const acquireCost = getAcquireCost();
+            const isComputerTurn = !isPlayersTurnNow();
+            const available = getAvailableDraftPlayers();
 
             // Update toggle button states
             poolBtn.classList.toggle('active', !draftState.viewingRoster);
@@ -4485,126 +4508,83 @@
             if (!draftState.active) {
                 finishBtn.style.display = 'block';
                 skipBtn.style.display = 'none';
-                pickInfoEl.style.display = 'none';
-                tradeInBtn.style.display = 'none';
-                acquireBtn.style.display = 'none';
-                currentPickEl.style.display = 'none';
+                onClockEl.style.display = 'none';
+                lastPickEl.style.display = 'none';
                 navButtonsEl.style.display = 'none';
                 statusEl.textContent = 'Draft Complete!';
                 poolListEl.innerHTML = '<p style="color:#4f4;">Your draft picks have been added to the roster.</p>';
                 return;
             }
 
-            // Show pick announcement area
-            currentPickEl.style.display = 'block';
-            pickInfoEl.style.display = 'block';
-
-            // Update pick value display
-            const pickValue = getCurrentPickValue();
-            const tradeInValue = getTradeInValue();
-            const acquireCost = getAcquireCost();
-
-            // Check if it's a computer's turn
-            const isComputerTurn = !isPlayersTurnNow();
-
-            // Show computer pick or player's turn
+            // Update last pick notification bar
             if (draftState.lastComputerPick) {
-                // Show last computer pick (compact format)
                 const pick = draftState.lastComputerPick;
-                currentPickEl.className = 'draft-current-pick';
-                pickAnnouncementEl.innerHTML = `
-                    <div class="pick-number">Pick #${pick.pickNumber}</div>
-                    <div class="team-name">${pick.teamName}</div>
-                    <div class="player-picked">
-                        ${pick.player.firstName} ${pick.player.lastName}
-                        <span class="position">${pick.player.position}</span>
-                        <span class="overall">${pick.player.overall}</span>
-                    </div>
-                `;
-                navButtonsEl.style.display = isComputerTurn ? 'flex' : 'none';
-                skipBtn.style.display = 'none';
-            } else if (draftState.isPlayersTurn) {
-                // Show player's turn (compact format)
-                currentPickEl.className = 'draft-current-pick your-turn';
-                pickAnnouncementEl.innerHTML = `
-                    <div class="pick-number">Pick #${draftState.currentPickNumber}</div>
-                    <div class="team-name">YOUR TURN</div>
-                `;
-                navButtonsEl.style.display = 'none';
-            } else if (isComputerTurn) {
-                // Waiting for user to click Next Pick
-                currentPickEl.className = 'draft-current-pick';
-                pickAnnouncementEl.innerHTML = `
-                    <div class="pick-number">Pick #${draftState.currentPickNumber}</div>
-                    <div class="team-name">Computer's Turn</div>
-                `;
-                navButtonsEl.style.display = 'flex';
+                lastPickTextEl.innerHTML = `Pick #${pick.pickNumber}: <span class="team-name">${pick.teamName}</span> → <span class="player-name">${pick.player.firstName} ${pick.player.lastName}</span> <span class="overall">${pick.player.overall}</span>`;
             } else {
-                // Player's turn but not flagged yet
-                draftState.isPlayersTurn = true;
-                currentPickEl.className = 'draft-current-pick your-turn';
-                pickAnnouncementEl.innerHTML = `
-                    <div class="pick-number">Pick #${draftState.currentPickNumber}</div>
-                    <div class="team-name">YOUR TURN</div>
-                `;
-                navButtonsEl.style.display = 'none';
+                lastPickTextEl.textContent = 'Draft in progress...';
             }
 
-            // Update trade buttons and pick value display based on state
-            const available = getAvailableDraftPlayers();
+            // Update round/pick info
+            roundPickEl.textContent = `Round ${draftState.round} • Pick ${draftState.currentPickNumber}`;
+            pointsEl.textContent = `${draftPoints} pts`;
 
-            // Hide both buttons by default when viewing roster
-            if (draftState.viewingRoster || draftState.simulatingPicks) {
+            // Update on-the-clock section
+            if (draftState.usingExtraPick) {
+                onClockEl.className = 'draft-on-clock player';
+                teamNameEl.textContent = 'YOUR PICK';
+                navButtonsEl.style.display = 'none';
+            } else if (draftState.isPlayersTurn || !isComputerTurn) {
+                if (!draftState.isPlayersTurn) draftState.isPlayersTurn = true;
+                onClockEl.className = 'draft-on-clock player';
+                teamNameEl.textContent = 'YOUR TURN';
+                navButtonsEl.style.display = 'none';
+            } else {
+                onClockEl.className = 'draft-on-clock computer';
+                teamNameEl.textContent = "Computer's Turn";
+                navButtonsEl.style.display = 'flex';
+            }
+
+            // Update trade buttons
+            if (draftState.viewingRoster || draftState.simulatingPicks || draftState.usingExtraPick) {
                 tradeInBtn.style.display = 'none';
                 acquireBtn.style.display = 'none';
-                pickValueEl.innerHTML = `Pick #${draftState.currentPickNumber} Value: <span>${pickValue}</span> pts`;
-            } else if (draftState.usingExtraPick) {
-                // Using a traded pick - hide buttons, show instruction
-                tradeInBtn.style.display = 'none';
-                acquireBtn.style.display = 'none';
-                pickValueEl.innerHTML = `<span style="color:#4f4;">YOUR PICK</span> - Select a player`;
             } else if (draftState.isPlayersTurn) {
-                // Player's turn: Show TRADE IN only, hide TRADE FOR (they have the pick)
-                pickValueEl.innerHTML = `Pick #${draftState.currentPickNumber} Value: <span>${pickValue}</span> pts`;
+                // Player's turn: Show TRADE IN only
                 acquireBtn.style.display = 'none';
                 if (draftState.picksRemaining > 0 && available.length > 0) {
                     tradeInBtn.style.display = 'inline-block';
-                    tradeInBtn.textContent = `TRADE IN (+${tradeInValue})`;
-                    tradeInBtn.disabled = false;
+                    tradeInBtn.innerHTML = `TRADE IN PICK <span class="trade-value">+${tradeInValue}</span>`;
                 } else {
                     tradeInBtn.style.display = 'none';
                 }
             } else if (isComputerTurn && available.length > 0) {
-                // Computer's turn: Show TRADE FOR only, hide TRADE IN
-                pickValueEl.innerHTML = `Pick #${draftState.currentPickNumber} Value: <span>${pickValue}</span> pts`;
+                // Computer's turn: Show TRADE FOR only
                 tradeInBtn.style.display = 'none';
                 acquireBtn.style.display = 'inline-block';
-                acquireBtn.textContent = `TRADE FOR (${acquireCost})`;
+                acquireBtn.innerHTML = `TRADE FOR PICK <span class="trade-cost">${acquireCost} / ${draftPoints}</span>`;
                 acquireBtn.disabled = !canAffordAcquirePick();
             } else {
                 tradeInBtn.style.display = 'none';
                 acquireBtn.style.display = 'none';
-                pickValueEl.innerHTML = `Pick #${draftState.currentPickNumber} Value: <span>${pickValue}</span> pts`;
             }
 
+            // Update status line
             const playerDrafted = draftState.playerPicks.length;
             if (draftState.usingExtraPick) {
-                statusEl.textContent = `YOUR PICK - Select a player | Drafted: ${playerDrafted}`;
+                statusEl.textContent = `Select a player | Drafted: ${playerDrafted}`;
                 skipBtn.style.display = 'none';
             } else if (draftState.isPlayersTurn) {
-                statusEl.textContent = `Picks: ${draftState.picksRemaining} left | Drafted: ${playerDrafted}`;
+                statusEl.textContent = `Picks remaining: ${draftState.picksRemaining} | Drafted: ${playerDrafted}`;
                 skipBtn.style.display = draftState.viewingRoster ? 'none' : 'block';
             } else {
-                statusEl.textContent = `Round ${draftState.round} | Drafted: ${playerDrafted}`;
+                statusEl.textContent = `Drafted: ${playerDrafted}`;
                 skipBtn.style.display = 'none';
             }
             finishBtn.style.display = 'none';
 
             if (draftState.viewingRoster) {
-                // Show current roster
                 refreshDraftRosterView(rosterListEl);
             } else {
-                // Show draft pool
                 refreshDraftPoolView(poolListEl);
             }
         }
