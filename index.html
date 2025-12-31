@@ -4553,7 +4553,7 @@
                 // Computer's turn: Show TRADE FOR only
                 tradeInBtn.style.display = 'none';
                 acquireBtn.style.display = 'inline-block';
-                acquireBtn.innerHTML = `TRADE FOR PICK <span class="trade-cost">${acquireCost} / ${draftPoints}</span>`;
+                acquireBtn.innerHTML = `TRADE <span class="trade-cost">${acquireCost}</span>`;
                 acquireBtn.disabled = !canAffordAcquirePick();
             } else {
                 tradeInBtn.style.display = 'none';
