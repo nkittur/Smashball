@@ -12505,6 +12505,14 @@
                     engine.resize();
                 }
 
+                // Debug: Check canvas and overlay state
+                const canvas = document.getElementById('renderCanvas');
+                const overlay = document.getElementById('managementOverlay');
+                console.log('Canvas size:', canvas?.width, 'x', canvas?.height);
+                console.log('Canvas display style:', canvas?.style.display);
+                console.log('Overlay has hidden class:', overlay?.classList.contains('hidden'));
+                console.log('Overlay display:', getComputedStyle(overlay).display);
+
                 // Update UI
                 updateDownDistance();
                 console.log('Training mode started successfully');
