@@ -12516,6 +12516,15 @@
                 console.log('Overlay has hidden class:', overlay?.classList.contains('hidden'));
                 console.log('Overlay display:', getComputedStyle(overlay).display);
 
+                // Force canvas to be visible
+                canvas.style.display = 'block';
+                canvas.style.visibility = 'visible';
+                canvas.style.opacity = '1';
+                canvas.style.zIndex = '1';
+
+                // Check if gameState.scene is the same as the global scene being rendered
+                console.log('Is gameState.scene === scene?', gameState.scene === scene);
+
                 // Update UI
                 updateDownDistance();
                 console.log('Training mode started successfully');
