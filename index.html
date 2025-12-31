@@ -12437,6 +12437,7 @@
 
         // Start training mode (no defenders, throw ratings)
         function startTrainingMode() {
+            console.log('Starting training mode...');
             gameState.trainingMode = true;
             gameState.lastThrowRating = null;
 
@@ -12461,13 +12462,27 @@
             gameState.offensiveLine.forEach(lineman => lineman.setEnabled(false));
             gameState.defensiveLine.forEach(lineman => lineman.setEnabled(false));
 
+            // Make sure receivers and QB are visible
+            gameState.receivers.forEach(receiver => receiver.setEnabled(true));
+            if (gameState.scene && gameState.scene.qb) {
+                gameState.scene.qb.setEnabled(true);
+            }
+
             // Reset play
             if (gameState.scene) {
                 resetPlay(gameState.scene);
+            } else {
+                console.error('Scene not available for training mode!');
+            }
+
+            // Ensure engine is running
+            if (engine && !engine.isDisposed) {
+                engine.resize();
             }
 
             // Update UI
             updateDownDisplay();
+            console.log('Training mode started, receivers:', gameState.receivers.length);
         }
 
         // Exit training mode and return to hub
