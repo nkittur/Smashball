@@ -4053,6 +4053,9 @@
 
             showScreen('draft');
             refreshDraftScreen();
+
+            // Save game at start of draft so progress isn't lost on reload
+            if (managementState.settings.autoSave) SaveSystem.save();
         }
 
         // Check if it's the player's turn based on current pick number
