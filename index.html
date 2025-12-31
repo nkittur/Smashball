@@ -4153,18 +4153,9 @@
                 return false;
             }
 
-            // If using a traded pick, it works like your own pick (still pay draft cost)
+            // If using a traded pick, it works like your own pick (FREE to draft)
             if (draftState.usingExtraPick) {
-                // Check if team can afford this player
-                if (!canAffordDraftPlayer(playerId)) {
-                    console.log('FAIL: Cannot afford player with traded pick. Cost:', player.draftCost);
-                    return false;
-                }
-
-                // Deduct draft points
-                managementState.team.draftPoints -= player.draftCost;
-
-                // Add to team roster
+                // Add to team roster (no draft cost - picks are free)
                 managementState.team.roster.push(player);
                 draftState.draftedPlayers.push(playerId);
                 draftState.playerPicks.push(playerId);
@@ -4185,21 +4176,9 @@
                 return false;
             }
 
-            // Check if team can afford this player
-            if (!canAffordDraftPlayer(playerId)) {
-                console.log('FAIL: Cannot afford player. Cost:', player.draftCost, 'Points:', managementState.team?.draftPoints);
-                return false;
-            }
-
             console.log('SUCCESS: Drafting player...');
 
-            const pickNumber = draftState.currentPickNumber;
-
-            // Deduct draft points
-            managementState.team.draftPoints -= player.draftCost;
-            console.log('Draft points after deduction:', managementState.team.draftPoints);
-
-            // Add to team roster
+            // Add to team roster (no draft cost - picks are free to use)
             managementState.team.roster.push(player);
             draftState.draftedPlayers.push(playerId);
             draftState.playerPicks.push(playerId);
@@ -4362,43 +4341,31 @@
             // Set player name
             document.getElementById('playerName').textContent = `${player.firstName} ${player.lastName}`;
 
-            // Check if can afford
-            const draftPoints = managementState.team?.draftPoints || 0;
-            const canAfford = draftPoints >= player.draftCost;
-            const costColor = canAfford ? '#4f4' : '#f84';
-
-            // Player info - draft version with cost
-            const costText = `Draft Cost: ${player.draftCost}`;
+            // Player info - draft version (no cost - picks are free)
             const infoHtml = `
                 <div><span class="ovr-big">${player.overall}</span></div>
                 <div style="margin-top:10px;">
                     ${POSITIONS[player.position].name} | Age ${player.age} | Peak ${player.peakAge}<br>
-                    Salary: ${formatSalary(player.salaryCost)} | Potential: ${'★'.repeat(player.potentialGrade)}<br>
-                    <span style="color:${costColor};font-weight:bold;">${costText}</span>
+                    Salary: ${formatSalary(player.salaryCost)} | Potential: ${'★'.repeat(player.potentialGrade)}
                 </div>
             `;
             document.getElementById('playerInfo').innerHTML = infoHtml;
 
-            // Hide cut button, show draft button with cost
+            // Hide cut button, show draft button
             const tradeBtn = document.getElementById('btnTradePlayer');
             const cutBtn = document.getElementById('btnCutPlayer');
             const alreadyDrafted = draftState.draftedPlayers.includes(playerId);
-            const canDraft = canAfford && !alreadyDrafted;
 
             if (alreadyDrafted) {
                 tradeBtn.textContent = 'ALREADY DRAFTED';
-            } else if (!canAfford) {
-                tradeBtn.textContent = `NEED ${player.draftCost} pts`;
+                tradeBtn.disabled = true;
+                tradeBtn.style.opacity = '0.5';
             } else {
-                tradeBtn.textContent = `DRAFT (${player.draftCost} pts)`;
+                tradeBtn.textContent = 'DRAFT';
+                tradeBtn.disabled = false;
+                tradeBtn.style.opacity = '1';
             }
-            // Never disable - handle click in handler for better debugging
-            tradeBtn.disabled = false;
-            tradeBtn.style.opacity = canDraft ? '1' : '0.5';
-            tradeBtn.dataset.canDraft = canDraft ? 'true' : 'false';
-            tradeBtn.dataset.reason = alreadyDrafted ? 'already-drafted' : (!canAfford ? 'cannot-afford' : 'ok');
             cutBtn.style.display = 'none';
-            console.log('Draft button setup:', { canDraft, canAfford, alreadyDrafted, isExtraPick, draftCost: player.draftCost });
 
             const getColorClass = (val) => val >= 90 ? 'stat-elite' : val >= 80 ? 'stat-good' : val >= 70 ? 'stat-average' : val >= 60 ? 'stat-below' : 'stat-poor';
 
@@ -4641,7 +4608,6 @@
         // Refresh draft pool view
         function refreshDraftPoolView(listEl) {
             const available = getAvailableDraftPlayers();
-            const draftPoints = managementState.team?.draftPoints || 0;
             listEl.innerHTML = '';
 
             if (available.length === 0) {
@@ -4655,18 +4621,14 @@
                     potentialDisplay = '★'.repeat(player.potentialGrade);
                 }
 
-                const canAfford = draftPoints >= player.draftCost;
-                const costClass = canAfford ? 'draft-cost' : 'draft-cost expensive';
-
                 const item = document.createElement('div');
-                item.className = 'roster-item' + (canAfford ? '' : ' unaffordable');
+                item.className = 'roster-item';
                 item.innerHTML = `
                     <div style="flex:1;">
                         <div class="name">${player.firstName} ${player.lastName}</div>
                         <div class="stats">${POSITIONS[player.position].name}</div>
                     </div>
                     <div style="display:flex;align-items:center;gap:10px;">
-                        <span class="${costClass}">${player.draftCost}</span>
                         <span class="ovr" style="min-width:28px;text-align:right;">${player.overall}</span>
                         <span class="potential-ind" style="min-width:30px;color:#ffd700;font-size:14px;">${potentialDisplay}</span>
                     </div>
