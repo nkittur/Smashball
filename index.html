@@ -2508,12 +2508,25 @@
                 if (!managementState.initialized) return false;
 
                 const saveData = {
-                    version: 1,
+                    version: 2,
                     timestamp: Date.now(),
                     team: managementState.team,
                     season: managementState.season,
                     freeAgents: managementState.freeAgents,
-                    settings: managementState.settings
+                    settings: managementState.settings,
+                    // Save draft state if active
+                    draftState: draftState.active ? {
+                        active: draftState.active,
+                        round: draftState.round,
+                        pick: draftState.pick,
+                        picksRemaining: draftState.picksRemaining,
+                        currentPickNumber: draftState.currentPickNumber,
+                        isPlayersTurn: draftState.isPlayersTurn,
+                        draftPool: draftState.draftPool,
+                        draftedPlayers: draftState.draftedPlayers,
+                        playerPicks: draftState.playerPicks,
+                        isNewGame: draftState.isNewGame
+                    } : null
                 };
 
                 try {
@@ -2562,6 +2575,25 @@
                 if (managementState.team && managementState.team.credits !== undefined) {
                     managementState.team.fame = Math.round(managementState.team.credits / 10);
                     delete managementState.team.credits;
+                }
+
+                // Restore draft state if saved
+                if (saveData.draftState && saveData.draftState.active) {
+                    draftState.active = saveData.draftState.active;
+                    draftState.round = saveData.draftState.round;
+                    draftState.pick = saveData.draftState.pick;
+                    draftState.picksRemaining = saveData.draftState.picksRemaining;
+                    draftState.currentPickNumber = saveData.draftState.currentPickNumber;
+                    draftState.isPlayersTurn = saveData.draftState.isPlayersTurn;
+                    draftState.draftPool = saveData.draftState.draftPool;
+                    draftState.draftedPlayers = saveData.draftState.draftedPlayers;
+                    draftState.playerPicks = saveData.draftState.playerPicks;
+                    draftState.isNewGame = saveData.draftState.isNewGame;
+                    draftState.usingExtraPick = false;
+                    draftState.simulatingPicks = false;
+                    draftState.lastComputerPick = null;
+                    draftState.viewingRoster = false;
+                    draftState.selectedDraftPlayer = null;
                 }
 
                 return true;
@@ -4186,6 +4218,9 @@
                 // Update depth chart
                 autoAssignDepthChart(managementState.team);
 
+                // Save progress
+                if (managementState.settings.autoSave) SaveSystem.save();
+
                 // Just refresh - modal shows feedback
                 refreshDraftScreen();
                 return true;
@@ -4219,6 +4254,9 @@
                 finishDraft();
                 return true;
             }
+
+            // Save progress
+            if (managementState.settings.autoSave) SaveSystem.save();
 
             // Just refresh the screen - no animation needed since modal shows feedback
             draftState.lastComputerPick = null;
@@ -6674,7 +6712,13 @@
                 const saveData = SaveSystem.load();
                 if (saveData && SaveSystem.applySaveData(saveData)) {
                     console.log('Loaded existing save');
-                    managementState.currentScreen = 'hub';
+                    // Resume draft if one was in progress
+                    if (draftState.active) {
+                        console.log('Resuming draft in progress');
+                        managementState.currentScreen = 'draft';
+                    } else {
+                        managementState.currentScreen = 'hub';
+                    }
                     return;
                 }
             }
