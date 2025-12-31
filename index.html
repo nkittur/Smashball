@@ -12484,6 +12484,9 @@
                 console.log('About to reset play...');
                 // Reset play
                 if (gameState.scene) {
+                    // Debug: Make background bright red to confirm scene is rendering
+                    gameState.scene.clearColor = new BABYLON.Color4(1, 0, 0, 1);
+
                     resetPlay(gameState.scene);
 
                     // Debug: Check mesh positions after reset
