@@ -12541,6 +12541,11 @@
                     console.log('Error accessing scene:', e.message);
                 }
 
+                // Check render loop status
+                if (window.checkRenderLoop) {
+                    window.checkRenderLoop();
+                }
+
                 // Update UI
                 updateDownDistance();
                 console.log('Training mode started successfully');
@@ -13700,7 +13705,17 @@
         });
         updateHeatMapButton();
 
+        // Debug: Add render frame counter
+        let renderFrameCount = 0;
+        window.checkRenderLoop = () => {
+            console.log('Render frames since last check:', renderFrameCount);
+            console.log('Engine disposed?', engine.isDisposed);
+            console.log('WebGL context lost?', engine._gl.isContextLost());
+            renderFrameCount = 0;
+        };
+
         engine.runRenderLoop(() => {
+            renderFrameCount++;
             scene.render();
         });
 
