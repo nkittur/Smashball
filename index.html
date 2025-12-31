@@ -4153,6 +4153,12 @@
                 return false;
             }
 
+            // Check if it's the player's turn (or using a traded pick)
+            if (!draftState.isPlayersTurn && !draftState.usingExtraPick) {
+                console.log('FAIL: Not your turn to draft');
+                return false;
+            }
+
             // If using a traded pick, it works like your own pick (FREE to draft)
             if (draftState.usingExtraPick) {
                 // Add to team roster (no draft cost - picks are free)
@@ -4355,9 +4361,14 @@
             const tradeBtn = document.getElementById('btnTradePlayer');
             const cutBtn = document.getElementById('btnCutPlayer');
             const alreadyDrafted = draftState.draftedPlayers.includes(playerId);
+            const canDraftNow = draftState.isPlayersTurn || draftState.usingExtraPick;
 
             if (alreadyDrafted) {
                 tradeBtn.textContent = 'ALREADY DRAFTED';
+                tradeBtn.disabled = true;
+                tradeBtn.style.opacity = '0.5';
+            } else if (!canDraftNow) {
+                tradeBtn.textContent = 'NOT YOUR TURN';
                 tradeBtn.disabled = true;
                 tradeBtn.style.opacity = '0.5';
             } else {
