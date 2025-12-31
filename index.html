@@ -12437,52 +12437,69 @@
 
         // Start training mode (no defenders, throw ratings)
         function startTrainingMode() {
-            console.log('Starting training mode...');
-            gameState.trainingMode = true;
-            gameState.lastThrowRating = null;
+            try {
+                console.log('Starting training mode...');
+                console.log('gameState.receivers:', gameState.receivers?.length);
+                console.log('gameState.scene:', !!gameState.scene);
+                console.log('gameState.offensiveLine:', gameState.offensiveLine?.length);
 
-            // Hide management overlay and show game elements
-            document.getElementById('managementOverlay').classList.add('hidden');
-            document.getElementById('topBar').style.display = 'flex';
-            document.getElementById('viewButtons').style.display = 'none'; // Hide view buttons in training
-            document.getElementById('trainingModeUI').style.display = 'block';
-            document.getElementById('catchDisplay').style.display = 'none'; // Hide top-right catch display in training
-            gameSceneActive = true; // Enable game input
+                gameState.trainingMode = true;
+                gameState.lastThrowRating = null;
 
-            // Reset game state
-            gameState.down = 1;
-            gameState.yardsToGo = 10;
-            gameState.catches = 0;
-            gameState.attempts = 0;
-            gameState.touchdowns = 0;
-            gameState.lineOfScrimmage = gameState.startingLineOfScrimmage;
-            gameState.firstDownMarker = gameState.startingLineOfScrimmage + 10;
+                // Hide management overlay and show game elements
+                document.getElementById('managementOverlay').classList.add('hidden');
+                document.getElementById('topBar').style.display = 'flex';
+                document.getElementById('viewButtons').style.display = 'none'; // Hide view buttons in training
+                document.getElementById('trainingModeUI').style.display = 'block';
+                document.getElementById('catchDisplay').style.display = 'none'; // Hide top-right catch display in training
+                gameSceneActive = true; // Enable game input
 
-            // Keep defensive backs visible but hide offensive and defensive lines
-            gameState.offensiveLine.forEach(lineman => lineman.setEnabled(false));
-            gameState.defensiveLine.forEach(lineman => lineman.setEnabled(false));
+                // Reset game state
+                gameState.down = 1;
+                gameState.yardsToGo = 10;
+                gameState.catches = 0;
+                gameState.attempts = 0;
+                gameState.touchdowns = 0;
+                gameState.lineOfScrimmage = gameState.startingLineOfScrimmage;
+                gameState.firstDownMarker = gameState.startingLineOfScrimmage + 10;
 
-            // Make sure receivers and QB are visible
-            gameState.receivers.forEach(receiver => receiver.setEnabled(true));
-            if (gameState.scene && gameState.scene.qb) {
-                gameState.scene.qb.setEnabled(true);
+                console.log('About to hide lines...');
+                // Keep defensive backs visible but hide offensive and defensive lines
+                if (gameState.offensiveLine) {
+                    gameState.offensiveLine.forEach(lineman => lineman.setEnabled(false));
+                }
+                if (gameState.defensiveLine) {
+                    gameState.defensiveLine.forEach(lineman => lineman.setEnabled(false));
+                }
+
+                console.log('About to show receivers...');
+                // Make sure receivers and QB are visible
+                if (gameState.receivers) {
+                    gameState.receivers.forEach(receiver => receiver.setEnabled(true));
+                }
+                if (gameState.scene && gameState.scene.qb) {
+                    gameState.scene.qb.setEnabled(true);
+                }
+
+                console.log('About to reset play...');
+                // Reset play
+                if (gameState.scene) {
+                    resetPlay(gameState.scene);
+                } else {
+                    console.error('Scene not available for training mode!');
+                }
+
+                // Ensure engine is running
+                if (engine && !engine.isDisposed) {
+                    engine.resize();
+                }
+
+                // Update UI
+                updateDownDisplay();
+                console.log('Training mode started successfully');
+            } catch (error) {
+                console.error('Error in startTrainingMode:', error);
             }
-
-            // Reset play
-            if (gameState.scene) {
-                resetPlay(gameState.scene);
-            } else {
-                console.error('Scene not available for training mode!');
-            }
-
-            // Ensure engine is running
-            if (engine && !engine.isDisposed) {
-                engine.resize();
-            }
-
-            // Update UI
-            updateDownDisplay();
-            console.log('Training mode started, receivers:', gameState.receivers.length);
         }
 
         // Exit training mode and return to hub
