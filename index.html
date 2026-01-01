@@ -13422,13 +13422,8 @@
             });
         });
         document.getElementById('btnPlayGame').addEventListener('click', () => {
-            if (!managementState.season || managementState.season.week > SEASON.WEEKS) return;
-            const game = managementState.season.schedule[managementState.season.week - 1];
-            if (game.result) return;
-            // TEST: Skip pre_game screen, go directly to game
-            const result = startMatch();
-            if (result.success) startArcadeGame();
-            // showPreGame(game.opponent);  // Original code
+            // TEST: Call startTrainingMode instead to see if IT works from hub
+            startTrainingMode();
         });
         document.getElementById('btnStartGame').addEventListener('click', () => {
             const result = startMatch();
