@@ -12468,19 +12468,18 @@
 
             updateDownDistance();
 
-            // Ensure canvas is properly sized and scene is ready
+            // Ensure canvas is properly sized
             engine.resize();
 
-            // Force scene to fully refresh
+            // Force GPU/shader initialization by creating a temp mesh
             if (gameState.scene) {
-                // Mark all meshes as dirty to force re-render
-                gameState.scene.meshes.forEach(mesh => {
-                    if (mesh.material) {
-                        mesh.material.markDirty();
-                    }
-                });
-                // Force an immediate render
-                gameState.scene.render();
+                gameState.scene.clearColor = new BABYLON.Color4(0.1, 0.1, 0.18, 1);
+                const tempSphere = BABYLON.MeshBuilder.CreateSphere('_init', { diameter: 0.01 }, gameState.scene);
+                const tempMat = new BABYLON.StandardMaterial('_initMat', gameState.scene);
+                tempMat.emissiveColor = new BABYLON.Color3(0, 1, 0);
+                tempSphere.material = tempMat;
+                tempSphere.position.y = -100;
+                setTimeout(() => { tempSphere.dispose(); tempMat.dispose(); }, 50);
             }
         }
 
