@@ -12423,9 +12423,9 @@
         function startArcadeGame() {
             console.log('[ARCADE] Starting arcade game...');
 
-            // TEMP TEST: Set trainingMode = true to mimic training mode
+            // TEST: trainingMode = false but keep lines/defenders disabled
             try {
-                gameState.trainingMode = true;  // TEST: Using true instead of false
+                gameState.trainingMode = false;  // TEST: Back to false
             } catch(e) { console.error('[ARCADE] Error setting trainingMode:', e); }
 
             // Hide management overlay and show game elements
