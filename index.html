@@ -12437,37 +12437,11 @@
 
         // Start training mode (no defenders, throw ratings)
         function startTrainingMode() {
-            console.log('[TRAINING] startTrainingMode called');
             gameState.trainingMode = true;
             gameState.lastThrowRating = null;
 
             // Hide management overlay and show game elements
-            const overlay = document.getElementById('managementOverlay');
-            const canvas = document.getElementById('renderCanvas');
-            console.log('[TRAINING] Before hide - overlay display:', getComputedStyle(overlay).display);
-            console.log('[TRAINING] Before hide - canvas display:', getComputedStyle(canvas).display);
-
-            overlay.classList.add('hidden');
-
-            console.log('[TRAINING] After hide - overlay display:', getComputedStyle(overlay).display);
-            console.log('[TRAINING] After hide - overlay z-index:', getComputedStyle(overlay).zIndex);
-            console.log('[TRAINING] Canvas z-index:', getComputedStyle(canvas).zIndex);
-            console.log('[TRAINING] Canvas position:', getComputedStyle(canvas).position);
-
-            // Check ALL direct body children for visibility
-            console.log('[TRAINING] Checking all body children...');
-            Array.from(document.body.children).forEach(el => {
-                const style = getComputedStyle(el);
-                const pos = style.position;
-                const display = style.display;
-                const visibility = style.visibility;
-                const zIndex = style.zIndex;
-                if (display !== 'none' && visibility !== 'hidden') {
-                    console.log('[TRAINING] Visible child:', el.tagName, el.id || el.className,
-                        'pos:', pos, 'display:', display, 'z:', zIndex);
-                }
-            });
-
+            document.getElementById('managementOverlay').classList.add('hidden');
             document.getElementById('topBar').style.display = 'flex';
             document.getElementById('viewButtons').style.display = 'none';
             document.getElementById('trainingModeUI').style.display = 'block';
@@ -12494,29 +12468,10 @@
 
             updateDownDistance();
 
-            // Final verification
-            console.log('[TRAINING] === FINAL CHECKS ===');
-            console.log('[TRAINING] gameState.scene exists:', !!gameState.scene);
-            console.log('[TRAINING] engine._activeRenderLoops:', engine._activeRenderLoops ? engine._activeRenderLoops.length : 'undefined');
-
-            // Force engine resize in case canvas dimensions changed
+            // IMPORTANT: Force engine resize after overlay is hidden
+            // This fixes a rendering issue where canvas stays black
+            // See TRAINING_MODE_FIX.md for details
             engine.resize();
-            console.log('[TRAINING] Called engine.resize()');
-
-            // Verify scene is ready
-            if (gameState.scene) {
-                // Verify engine canvas matches DOM canvas
-                const engineCanvas = engine.getRenderingCanvas();
-                const domCanvas = document.getElementById('renderCanvas');
-                console.log('[TRAINING] Engine canvas === DOM canvas:', engineCanvas === domCanvas);
-                console.log('[TRAINING] DOM canvas size:', domCanvas.width, 'x', domCanvas.height);
-
-                // Log camera position/target
-                const cam = gameState.scene.activeCamera;
-                if (cam) {
-                    console.log('[TRAINING] Camera:', cam.alpha, cam.beta, cam.radius);
-                }
-            }
         }
 
         // Exit training mode and return to hub
@@ -13670,34 +13625,19 @@
         });
         updateHeatMapButton();
 
-        let frameCount = 0;
-        let lastTrainingCheck = 0;
-        console.log('[RENDER] Setting up render loop...');
+        // Render loop - try/catch prevents silent failures from stopping rendering
+        // See TRAINING_MODE_FIX.md for why this is important
         engine.runRenderLoop(() => {
-            frameCount++;
-
-            // Log every 60 frames (about 1 second) when in training mode
-            if (gameState.trainingMode && frameCount - lastTrainingCheck >= 60) {
-                lastTrainingCheck = frameCount;
-                console.log('[RENDER] Training mode active - frame', frameCount,
-                    '- scene exists:', !!scene,
-                    '- meshes:', scene.meshes.length,
-                    '- camera:', scene.activeCamera ? scene.activeCamera.name : 'MISSING');
-            }
-
             try {
                 scene.render();
             } catch (e) {
-                console.error('[RENDER] ERROR in scene.render():', e);
+                console.error('Render error:', e);
             }
         });
-        console.log('[RENDER] Render loop setup complete');
 
         window.addEventListener('resize', () => {
             engine.resize();
         });
-
-        console.log('=== SMASHBALL SCRIPT FULLY LOADED ===');
     </script>
 </body>
 </html>
