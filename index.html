@@ -12438,6 +12438,11 @@
             if (gameState.scene) {
                 resetPlay(gameState.scene);
             }
+
+            // IMPORTANT: Force engine resize after all setup
+            // This fixes a rendering issue where canvas stays black
+            // See TRAINING_MODE_FIX.md for details
+            engine.resize();
         }
 
         // Start training mode (no defenders, throw ratings)
