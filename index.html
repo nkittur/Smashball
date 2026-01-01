@@ -12421,7 +12421,11 @@
 
         // Start the arcade game portion
         function startArcadeGame() {
-            gameState.trainingMode = false;  // Ensure we're not in training mode
+            console.log('[ARCADE] Starting arcade game...');
+
+            try {
+                gameState.trainingMode = false;
+            } catch(e) { console.error('[ARCADE] Error setting trainingMode:', e); }
 
             // Hide management overlay and show game elements
             document.getElementById('managementOverlay').classList.add('hidden');
@@ -12439,26 +12443,48 @@
             gameState.touchdowns = 0;
             gameState.lineOfScrimmage = gameState.startingLineOfScrimmage;
             gameState.firstDownMarker = gameState.startingLineOfScrimmage + 10;
-            gameStats.reset();
 
-            // Show offensive and defensive lines (they may have been hidden by training mode)
-            gameState.offensiveLine.forEach(lineman => lineman.setEnabled(true));
-            gameState.defensiveLine.forEach(lineman => lineman.setEnabled(true));
+            try {
+                gameStats.reset();
+                console.log('[ARCADE] gameStats.reset() OK');
+            } catch(e) { console.error('[ARCADE] Error in gameStats.reset():', e); }
+
+            // Show offensive and defensive lines
+            try {
+                gameState.offensiveLine.forEach(lineman => lineman.setEnabled(true));
+                gameState.defensiveLine.forEach(lineman => lineman.setEnabled(true));
+                console.log('[ARCADE] Lines enabled OK');
+            } catch(e) { console.error('[ARCADE] Error enabling lines:', e); }
 
             // Update game meshes with roster player data
-            updateGamePlayersFromRoster();
+            try {
+                updateGamePlayersFromRoster();
+                console.log('[ARCADE] updateGamePlayersFromRoster() OK');
+            } catch(e) { console.error('[ARCADE] Error in updateGamePlayersFromRoster():', e); }
 
             // Reset play to position all players at the line of scrimmage
-            if (gameState.scene) {
-                resetPlay(gameState.scene);
-            }
+            try {
+                if (gameState.scene) {
+                    resetPlay(gameState.scene);
+                    console.log('[ARCADE] resetPlay() OK');
+                }
+            } catch(e) { console.error('[ARCADE] Error in resetPlay():', e); }
 
-            updateDownDistance();
+            try {
+                updateDownDistance();
+                console.log('[ARCADE] updateDownDistance() OK');
+            } catch(e) { console.error('[ARCADE] Error in updateDownDistance():', e); }
 
             // IMPORTANT: Force engine resize after overlay is hidden
-            // Use setTimeout to ensure browser has recalculated layout
-            // See TRAINING_MODE_FIX.md for details
-            setTimeout(() => engine.resize(), 50);
+            console.log('[ARCADE] About to call engine.resize()');
+            setTimeout(() => {
+                try {
+                    engine.resize();
+                    console.log('[ARCADE] engine.resize() OK');
+                } catch(e) { console.error('[ARCADE] Error in engine.resize():', e); }
+            }, 50);
+
+            console.log('[ARCADE] startArcadeGame() completed');
         }
 
         // Start training mode (no defenders, throw ratings)
@@ -13422,8 +13448,12 @@
             });
         });
         document.getElementById('btnPlayGame').addEventListener('click', () => {
-            // TEST: Call startTrainingMode instead to see if IT works from hub
-            startTrainingMode();
+            if (!managementState.season || managementState.season.week > SEASON.WEEKS) return;
+            const game = managementState.season.schedule[managementState.season.week - 1];
+            if (game.result) return;
+            // Skip pre_game for testing, go directly to game
+            const result = startMatch();
+            if (result.success) startArcadeGame();
         });
         document.getElementById('btnStartGame').addEventListener('click', () => {
             const result = startMatch();
