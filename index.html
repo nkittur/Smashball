@@ -12450,13 +12450,13 @@
                 console.log('[ARCADE] gameStats.reset() OK');
             } catch(e) { console.error('[ARCADE] Error in gameStats.reset():', e); }
 
-            // TEMP TEST: Disable lines like training mode does to see if this fixes render error
+            // TEST: Enable only defenders (not lines) to isolate render error
             try {
                 gameState.offensiveLine.forEach(lineman => lineman.setEnabled(false));
                 gameState.defensiveLine.forEach(lineman => lineman.setEnabled(false));
-                gameState.defenders.forEach(defender => defender.setEnabled(false));
-                console.log('[ARCADE] Lines and defenders DISABLED for testing');
-            } catch(e) { console.error('[ARCADE] Error disabling lines:', e); }
+                gameState.defenders.forEach(defender => defender.setEnabled(true));  // Enable defenders only
+                console.log('[ARCADE] TEST: Only defenders enabled');
+            } catch(e) { console.error('[ARCADE] Error in line/defender setup:', e); }
 
             // Update game meshes with roster player data
             // TEMP: Skip this to test if it causes the render error
