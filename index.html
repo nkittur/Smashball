@@ -12450,10 +12450,11 @@
             } catch(e) { console.error('[ARCADE] Error in gameStats.reset():', e); }
 
             // Show offensive and defensive lines
+            // TEMP: Skip enabling lines to test if this causes render error
             try {
-                gameState.offensiveLine.forEach(lineman => lineman.setEnabled(true));
-                gameState.defensiveLine.forEach(lineman => lineman.setEnabled(true));
-                console.log('[ARCADE] Lines enabled OK');
+                // gameState.offensiveLine.forEach(lineman => lineman.setEnabled(true));
+                // gameState.defensiveLine.forEach(lineman => lineman.setEnabled(true));
+                console.log('[ARCADE] Lines enabling SKIPPED FOR TESTING');
             } catch(e) { console.error('[ARCADE] Error enabling lines:', e); }
 
             // Update game meshes with roster player data
@@ -12464,10 +12465,11 @@
             } catch(e) { console.error('[ARCADE] Error in updateGamePlayersFromRoster():', e); }
 
             // Reset play to position all players at the line of scrimmage
+            // TEMP: Skip resetPlay to test if this causes render error
             try {
                 if (gameState.scene) {
-                    resetPlay(gameState.scene);
-                    console.log('[ARCADE] resetPlay() OK');
+                    // resetPlay(gameState.scene);  // TEMPORARILY DISABLED FOR TESTING
+                    console.log('[ARCADE] resetPlay() SKIPPED FOR TESTING');
                 }
             } catch(e) { console.error('[ARCADE] Error in resetPlay():', e); }
 
