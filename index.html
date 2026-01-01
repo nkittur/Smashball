@@ -12468,18 +12468,23 @@
 
             updateDownDistance();
 
-            // Ensure canvas is properly sized
-            engine.resize();
+            // DEBUG: Adding back exact working code
+            console.log('[TRAINING] === FINAL CHECKS ===');
+            console.log('[TRAINING] gameState.scene exists:', !!gameState.scene);
 
-            // Force GPU/shader initialization by creating a temp mesh
+            engine.resize();
+            console.log('[TRAINING] Called engine.resize()');
+
             if (gameState.scene) {
-                gameState.scene.clearColor = new BABYLON.Color4(0.1, 0.1, 0.18, 1);
-                const tempSphere = BABYLON.MeshBuilder.CreateSphere('_init', { diameter: 0.01 }, gameState.scene);
-                const tempMat = new BABYLON.StandardMaterial('_initMat', gameState.scene);
-                tempMat.emissiveColor = new BABYLON.Color3(0, 1, 0);
-                tempSphere.material = tempMat;
-                tempSphere.position.y = -100;
-                setTimeout(() => { tempSphere.dispose(); tempMat.dispose(); }, 50);
+                gameState.scene.clearColor = new BABYLON.Color4(1, 0, 0, 1); // Bright red
+                console.log('[TRAINING] Set clearColor to BRIGHT RED');
+
+                const testSphere = BABYLON.MeshBuilder.CreateSphere('debugSphere', { diameter: 5 }, gameState.scene);
+                testSphere.position = new BABYLON.Vector3(0, 2, 5);
+                const testMat = new BABYLON.StandardMaterial('debugMat', gameState.scene);
+                testMat.emissiveColor = new BABYLON.Color3(0, 1, 0);
+                testSphere.material = testMat;
+                console.log('[TRAINING] Created bright green debug sphere at (0, 2, 5)');
             }
         }
 
