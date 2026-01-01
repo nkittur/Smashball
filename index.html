@@ -12421,7 +12421,14 @@
 
         // Start the arcade game portion
         function startArcadeGame() {
-            showScreen('game');
+            // Hide management overlay and show game elements (same pattern as training mode)
+            document.getElementById('managementOverlay').classList.add('hidden');
+            document.getElementById('topBar').style.display = 'flex';
+            document.getElementById('viewButtons').style.display = 'flex';
+            document.getElementById('trainingModeUI').style.display = 'none';
+            document.getElementById('catchDisplay').style.display = '';
+            gameSceneActive = true;
+
             gameState.down = 1;
             gameState.yardsToGo = 10;
             gameState.catches = 0;
@@ -12439,7 +12446,7 @@
                 resetPlay(gameState.scene);
             }
 
-            // IMPORTANT: Force engine resize after all setup
+            // IMPORTANT: Force engine resize after overlay is hidden
             // This fixes a rendering issue where canvas stays black
             // See TRAINING_MODE_FIX.md for details
             engine.resize();
