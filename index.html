@@ -13669,27 +13669,23 @@
         });
         updateHeatMapButton();
 
-        let renderDebugDone = false;
         let frameCount = 0;
+        let lastTrainingCheck = 0;
         console.log('[RENDER] Setting up render loop...');
         engine.runRenderLoop(() => {
-            if (!renderDebugDone) {
-                console.log('[RENDER] First callback - checking scene...');
-                console.log('[RENDER] Scene meshes:', scene.meshes.length);
-                console.log('[RENDER] Active camera:', scene.activeCamera ? scene.activeCamera.name : 'MISSING');
-                renderDebugDone = true;
-            }
-
             frameCount++;
-            if (frameCount <= 10) {
-                console.log('[RENDER] Frame ' + frameCount + ' - about to call scene.render()');
+
+            // Log every 60 frames (about 1 second) when in training mode
+            if (gameState.trainingMode && frameCount - lastTrainingCheck >= 60) {
+                lastTrainingCheck = frameCount;
+                console.log('[RENDER] Training mode active - frame', frameCount,
+                    '- scene exists:', !!scene,
+                    '- meshes:', scene.meshes.length,
+                    '- camera:', scene.activeCamera ? scene.activeCamera.name : 'MISSING');
             }
 
             try {
                 scene.render();
-                if (frameCount <= 10) {
-                    console.log('[RENDER] Frame ' + frameCount + ' - scene.render() completed');
-                }
             } catch (e) {
                 console.error('[RENDER] ERROR in scene.render():', e);
             }
