@@ -34,10 +34,24 @@ Training mode shows black/empty canvas instead of the game scene.
 5. ~~Mesh visibility~~ - All meshes enabled with valid positions
 6. ~~Camera configuration~~ - Camera has valid target/position
 
-### Current Test:
-Added immediate scene.render() right after createScene() with green background.
-This tests whether the scene CAN render at all, before any overlays are shown.
+### Current Debug Code (commit 623363e):
+1. **startTrainingMode()** now logs:
+   - Before/after overlay hide - display and z-index values
+   - Canvas position and z-index
+   - All visible body children with their position, display, and z-index
+   - Final checks: scene exists, active render loops
+   - Delayed (500ms) framebuffer pixel check
+
+2. **Render loop** now logs:
+   - Every ~1 second (60 frames) ONLY when training mode is active
+   - Scene exists, mesh count, camera status
+
+### Key Insight:
+If `canvas.style.background = blue` shows BLACK, something is DEFINITELY covering the canvas.
+This is a pure CSS issue, not WebGL. Need to identify what element is on top.
 
 ### Next Steps:
-1. If green shows briefly at startup - problem is with how overlay hiding works
-2. If green never shows - problem is with scene creation itself
+1. Check console logs when clicking Training Mode
+2. Look for any visible body children that shouldn't be there
+3. Check the delayed framebuffer pixel result
+4. Verify render loop logs appear every second during training mode
