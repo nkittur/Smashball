@@ -12503,48 +12503,20 @@
             engine.resize();
             console.log('[TRAINING] Called engine.resize()');
 
-            // VISUAL TEST: Force bright red background
+            // Verify scene is ready
             if (gameState.scene) {
-                gameState.scene.clearColor = new BABYLON.Color4(1, 0, 0, 1); // Bright red!
-                console.log('[TRAINING] Set clearColor to BRIGHT RED');
-
                 // Verify engine canvas matches DOM canvas
                 const engineCanvas = engine.getRenderingCanvas();
                 const domCanvas = document.getElementById('renderCanvas');
                 console.log('[TRAINING] Engine canvas === DOM canvas:', engineCanvas === domCanvas);
-                console.log('[TRAINING] Engine canvas id:', engineCanvas.id);
                 console.log('[TRAINING] DOM canvas size:', domCanvas.width, 'x', domCanvas.height);
 
                 // Log camera position/target
                 const cam = gameState.scene.activeCamera;
                 if (cam) {
-                    console.log('[TRAINING] Camera position:', cam.position.toString());
-                    console.log('[TRAINING] Camera target:', cam.target.toString());
-                    console.log('[TRAINING] Camera alpha/beta/radius:', cam.alpha, cam.beta, cam.radius);
+                    console.log('[TRAINING] Camera:', cam.alpha, cam.beta, cam.radius);
                 }
-
-                // Also create a test sphere right in front of camera
-                const testSphere = BABYLON.MeshBuilder.CreateSphere('debugSphere', { diameter: 5 }, gameState.scene);
-                testSphere.position = new BABYLON.Vector3(0, 2, 5);
-                const testMat = new BABYLON.StandardMaterial('debugMat', gameState.scene);
-                testMat.emissiveColor = new BABYLON.Color3(0, 1, 0); // Bright green
-                testSphere.material = testMat;
-                console.log('[TRAINING] Created bright green debug sphere at (0, 2, 5)');
             }
-
-            // Schedule a check after a short delay to see if rendering is happening
-            setTimeout(() => {
-                const cvs = document.getElementById('renderCanvas');
-                const ctx = cvs.getContext('webgl2') || cvs.getContext('webgl');
-                if (ctx) {
-                    const pixels = new Uint8Array(4);
-                    ctx.readPixels(100, 100, 1, 1, ctx.RGBA, ctx.UNSIGNED_BYTE, pixels);
-                    console.log('[TRAINING DELAYED] Framebuffer pixel at 100,100:', pixels[0], pixels[1], pixels[2], pixels[3]);
-                    if (pixels[0] === 0 && pixels[1] === 0 && pixels[2] === 0 && pixels[3] === 0) {
-                        console.log('[TRAINING DELAYED] !!! Canvas is completely black/empty !!!');
-                    }
-                }
-            }, 500);
         }
 
         // Exit training mode and return to hub
