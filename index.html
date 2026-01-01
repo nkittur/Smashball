@@ -2732,7 +2732,10 @@
 
             const clamp = (val) => Math.max(0, Math.min(99, Math.round(val)));
 
-            switch (player.position) {
+            // Use positionType for mesh objects (linemen), position for roster players
+            const pos = player.positionType || player.position;
+
+            switch (pos) {
                 case 'DL':
                     return {
                         bullRush: clamp(core.strength * 0.60 + (player.stats.passRush || 70) * 0.25 + core.intelligence * 0.15),
@@ -7195,7 +7198,7 @@
                 oLineman.displayName = config.name;
                 oLineman.playerId = config.playerId || null;  // Link to roster player
                 oLineman.position_label = config.position;
-                oLineman.position = 'OL';  // For ability calculations
+                oLineman.positionType = 'OL';  // For ability calculations (don't use 'position' - it's a Babylon.js Vector3!)
                 oLineman.stats = config.stats;
                 oLineman.coreAttributes = config.coreAttributes || null;
                 oLineman.startPos = startPos.clone();
@@ -7259,7 +7262,7 @@
                 dLineman.displayName = config.name;
                 dLineman.playerId = config.playerId || null;  // Link to roster player
                 dLineman.position_label = config.position;
-                dLineman.position = 'DL';  // For ability calculations
+                dLineman.positionType = 'DL';  // For ability calculations (don't use 'position' - it's a Babylon.js Vector3!)
                 dLineman.stats = config.stats;
                 dLineman.coreAttributes = config.coreAttributes || null;
                 dLineman.startPos = startPos.clone();
@@ -12423,10 +12426,7 @@
         function startArcadeGame() {
             console.log('[ARCADE] Starting arcade game...');
 
-            // TEST: trainingMode = false but keep lines/defenders disabled
-            try {
-                gameState.trainingMode = false;  // TEST: Back to false
-            } catch(e) { console.error('[ARCADE] Error setting trainingMode:', e); }
+            gameState.trainingMode = false;
 
             // Hide management overlay and show game elements
             document.getElementById('managementOverlay').classList.add('hidden');
@@ -12445,49 +12445,28 @@
             gameState.lineOfScrimmage = gameState.startingLineOfScrimmage;
             gameState.firstDownMarker = gameState.startingLineOfScrimmage + 10;
 
-            try {
-                gameStats.reset();
-                console.log('[ARCADE] gameStats.reset() OK');
-            } catch(e) { console.error('[ARCADE] Error in gameStats.reset():', e); }
+            gameStats.reset();
 
-            // TEST: Enable only offensive line to isolate render error
-            try {
-                gameState.offensiveLine.forEach(lineman => lineman.setEnabled(true));  // Enable O-line only
-                gameState.defensiveLine.forEach(lineman => lineman.setEnabled(false));
-                gameState.defenders.forEach(defender => defender.setEnabled(false));
-                console.log('[ARCADE] TEST: Only O-line enabled');
-            } catch(e) { console.error('[ARCADE] Error in line/defender setup:', e); }
+            // Enable offensive and defensive lines and defenders
+            gameState.offensiveLine.forEach(lineman => lineman.setEnabled(true));
+            gameState.defensiveLine.forEach(lineman => lineman.setEnabled(true));
+            gameState.defenders.forEach(defender => defender.setEnabled(true));
 
             // Update game meshes with roster player data
-            // TEMP: Skip this to test if it causes the render error
-            try {
-                // updateGamePlayersFromRoster();  // TEMPORARILY DISABLED FOR TESTING
-                console.log('[ARCADE] updateGamePlayersFromRoster() SKIPPED FOR TESTING');
-            } catch(e) { console.error('[ARCADE] Error in updateGamePlayersFromRoster():', e); }
+            updateGamePlayersFromRoster();
 
             // Reset play to position all players at the line of scrimmage
-            try {
-                if (gameState.scene) {
-                    resetPlay(gameState.scene);
-                    console.log('[ARCADE] resetPlay() OK');
-                }
-            } catch(e) { console.error('[ARCADE] Error in resetPlay():', e); }
+            if (gameState.scene) {
+                resetPlay(gameState.scene);
+            }
 
-            try {
-                updateDownDistance();
-                console.log('[ARCADE] updateDownDistance() OK');
-            } catch(e) { console.error('[ARCADE] Error in updateDownDistance():', e); }
+            updateDownDistance();
 
             // IMPORTANT: Force engine resize after overlay is hidden
-            console.log('[ARCADE] About to call engine.resize()');
+            // See TRAINING_MODE_FIX.md for why this is needed
             setTimeout(() => {
-                try {
-                    engine.resize();
-                    console.log('[ARCADE] engine.resize() OK');
-                } catch(e) { console.error('[ARCADE] Error in engine.resize():', e); }
+                engine.resize();
             }, 50);
-
-            console.log('[ARCADE] startArcadeGame() completed');
         }
 
         // Start training mode (no defenders, throw ratings)
