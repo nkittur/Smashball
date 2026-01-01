@@ -13621,6 +13621,7 @@
         updateHeatMapButton();
 
         let renderDebugDone = false;
+        let frameCount = 0;
         engine.runRenderLoop(() => {
             if (!renderDebugDone) {
                 console.log('First render frame executing...');
@@ -13640,6 +13641,19 @@
                 renderDebugDone = true;
             }
             scene.render();
+            frameCount++;
+
+            // After 60 frames, check if pixels are actually being drawn
+            if (frameCount === 60) {
+                const gl = engine._gl;
+                const pixels = new Uint8Array(4);
+                gl.readPixels(480, 778, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+                console.log('Pixel at center after 60 frames (RGBA):', pixels[0], pixels[1], pixels[2], pixels[3]);
+                console.log('Expected ~25,25,46,255 for clearColor 0.1,0.1,0.18');
+                if (pixels[0] === 0 && pixels[1] === 0 && pixels[2] === 0 && pixels[3] === 0) {
+                    console.log('WARNING: Framebuffer is empty/black!');
+                }
+            }
         });
 
         window.addEventListener('resize', () => {
