@@ -1,10 +1,10 @@
-# Training Mode Rendering Fix
+# Canvas Rendering Fix (Training Mode & Play Game)
 
 ## Problem
-Training mode was showing a black/empty canvas instead of the game scene when clicking the "Training Mode" button from the main menu.
+When transitioning from the management overlay to the game canvas (either Training Mode or Play Game), the canvas would show black/empty instead of the game scene.
 
 ## Root Cause
-The issue was related to the render loop and scene initialization timing. When the management overlay was hidden and training mode started, the canvas would remain black even though:
+The issue was related to Babylon.js render target dimensions. When the management overlay was hidden, the canvas would remain black even though:
 - The scene existed with 126+ meshes
 - The camera was properly configured
 - The WebGL context was valid
@@ -21,20 +21,28 @@ engine.runRenderLoop(() => {
     try {
         scene.render();
     } catch (e) {
-        console.error('[RENDER] ERROR in scene.render():', e);
+        console.error('Render error:', e);
     }
 });
 ```
 
-### 2. Engine Resize on Training Mode Start
-When entering training mode, `engine.resize()` must be called to ensure the canvas dimensions are synchronized:
+### 2. Engine Resize When Showing Game Canvas
+When transitioning from overlay to game view, `engine.resize()` must be called:
 
+**In `showScreen('game')`:**
+```javascript
+if (screenName === 'game') {
+    overlay.classList.add('hidden');
+    // ... other setup ...
+    engine.resize();  // CRITICAL
+}
+```
+
+**In `startTrainingMode()`:**
 ```javascript
 function startTrainingMode() {
     // ... hide overlay, setup game state ...
-
-    // Force engine resize - CRITICAL for rendering to work
-    engine.resize();
+    engine.resize();  // CRITICAL
 }
 ```
 

@@ -11576,6 +11576,11 @@
                 topBar.style.display = 'flex';
                 viewButtons.style.display = 'flex';
                 gameSceneActive = true;
+
+                // IMPORTANT: Force engine resize after overlay is hidden
+                // This fixes a rendering issue where canvas stays black
+                // See TRAINING_MODE_FIX.md for details
+                engine.resize();
             } else {
                 // Management mode - show overlay, hide game
                 overlay.classList.remove('hidden');
