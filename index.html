@@ -12457,9 +12457,10 @@
             } catch(e) { console.error('[ARCADE] Error enabling lines:', e); }
 
             // Update game meshes with roster player data
+            // TEMP: Skip this to test if it causes the render error
             try {
-                updateGamePlayersFromRoster();
-                console.log('[ARCADE] updateGamePlayersFromRoster() OK');
+                // updateGamePlayersFromRoster();  // TEMPORARILY DISABLED FOR TESTING
+                console.log('[ARCADE] updateGamePlayersFromRoster() SKIPPED FOR TESTING');
             } catch(e) { console.error('[ARCADE] Error in updateGamePlayersFromRoster():', e); }
 
             // Reset play to position all players at the line of scrimmage
