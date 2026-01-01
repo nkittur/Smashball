@@ -12423,8 +12423,9 @@
         function startArcadeGame() {
             console.log('[ARCADE] Starting arcade game...');
 
+            // TEMP TEST: Set trainingMode = true to mimic training mode
             try {
-                gameState.trainingMode = false;
+                gameState.trainingMode = true;  // TEST: Using true instead of false
             } catch(e) { console.error('[ARCADE] Error setting trainingMode:', e); }
 
             // Hide management overlay and show game elements
@@ -12449,13 +12450,13 @@
                 console.log('[ARCADE] gameStats.reset() OK');
             } catch(e) { console.error('[ARCADE] Error in gameStats.reset():', e); }
 
-            // Show offensive and defensive lines
-            // TEMP: Skip enabling lines to test if this causes render error
+            // TEMP TEST: Disable lines like training mode does to see if this fixes render error
             try {
-                // gameState.offensiveLine.forEach(lineman => lineman.setEnabled(true));
-                // gameState.defensiveLine.forEach(lineman => lineman.setEnabled(true));
-                console.log('[ARCADE] Lines enabling SKIPPED FOR TESTING');
-            } catch(e) { console.error('[ARCADE] Error enabling lines:', e); }
+                gameState.offensiveLine.forEach(lineman => lineman.setEnabled(false));
+                gameState.defensiveLine.forEach(lineman => lineman.setEnabled(false));
+                gameState.defenders.forEach(defender => defender.setEnabled(false));
+                console.log('[ARCADE] Lines and defenders DISABLED for testing');
+            } catch(e) { console.error('[ARCADE] Error disabling lines:', e); }
 
             // Update game meshes with roster player data
             // TEMP: Skip this to test if it causes the render error
@@ -12465,11 +12466,10 @@
             } catch(e) { console.error('[ARCADE] Error in updateGamePlayersFromRoster():', e); }
 
             // Reset play to position all players at the line of scrimmage
-            // TEMP: Skip resetPlay to test if this causes render error
             try {
                 if (gameState.scene) {
-                    // resetPlay(gameState.scene);  // TEMPORARILY DISABLED FOR TESTING
-                    console.log('[ARCADE] resetPlay() SKIPPED FOR TESTING');
+                    resetPlay(gameState.scene);
+                    console.log('[ARCADE] resetPlay() OK');
                 }
             } catch(e) { console.error('[ARCADE] Error in resetPlay():', e); }
 
