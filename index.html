@@ -12861,21 +12861,26 @@
             // Update QB
             const rosterQB = getDepthChartPlayer('QB');
             if (rosterQB && scene.qb) {
-                scene.qb.playerId = rosterQB.id;
-                scene.qb.displayName = `${rosterQB.firstName} ${rosterQB.lastName.charAt(0)}.`;
-                scene.qb.stats = { ...rosterQB.stats };
-                scene.qb.coreAttributes = rosterQB.coreAttributes || null;
-                scene.qb.lastName = rosterQB.lastName;
-                scene.qb.overall = rosterQB.overall;
-                // Update name label TextBlocks
-                if (scene.qb.nameTextBlock) {
-                    scene.qb.nameTextBlock.text = rosterQB.lastName.toUpperCase();
-                }
-                if (scene.qb.ovrTextBlock) {
-                    scene.qb.ovrTextBlock.text = getRatingText(rosterQB.overall);
-                }
-                if (scene.qb.nameLabel) {
-                    scene.qb.nameLabel.background = getOffenseLabelBg(rosterQB.overall) || 'rgba(0, 0, 0, 0.7)';
+                try {
+                    scene.qb.playerId = rosterQB.id;
+                    scene.qb.displayName = `${rosterQB.firstName} ${rosterQB.lastName.charAt(0)}.`;
+                    scene.qb.stats = { ...rosterQB.stats };
+                    scene.qb.coreAttributes = rosterQB.coreAttributes ? { ...rosterQB.coreAttributes } : null;
+                    scene.qb.lastName = rosterQB.lastName;
+                    scene.qb.overall = rosterQB.overall;
+                    // Update name label TextBlocks
+                    if (scene.qb.nameTextBlock) {
+                        scene.qb.nameTextBlock.text = rosterQB.lastName.toUpperCase();
+                    }
+                    if (scene.qb.ovrTextBlock) {
+                        scene.qb.ovrTextBlock.text = getRatingText(rosterQB.overall);
+                    }
+                    if (scene.qb.nameLabel) {
+                        scene.qb.nameLabel.background = getOffenseLabelBg(rosterQB.overall) || 'rgba(0, 0, 0, 0.7)';
+                    }
+                    console.log(`[ROSTER] QB updated: ${scene.qb.displayName} (${scene.qb.overall})`);
+                } catch (e) {
+                    console.error('[ROSTER] Error updating QB:', e);
                 }
             }
 
@@ -12884,21 +12889,26 @@
                 const player = getDepthChartPlayer(slot);
                 const receiver = gameState.receivers[index];
                 if (player && receiver) {
-                    receiver.playerId = player.id;
-                    receiver.displayName = `${player.firstName} ${player.lastName.charAt(0)}.`;
-                    receiver.stats = { ...player.stats };
-                    receiver.coreAttributes = player.coreAttributes || null;
-                    receiver.lastName = player.lastName;
-                    receiver.overall = player.overall;
-                    // Update name label TextBlocks
-                    if (receiver.nameTextBlock) {
-                        receiver.nameTextBlock.text = player.lastName.toUpperCase();
-                    }
-                    if (receiver.ovrTextBlock) {
-                        receiver.ovrTextBlock.text = getRatingText(player.overall);
-                    }
-                    if (receiver.nameLabel) {
-                        receiver.nameLabel.background = getOffenseLabelBg(player.overall) || 'rgba(0, 0, 0, 0.65)';
+                    try {
+                        receiver.playerId = player.id;
+                        receiver.displayName = `${player.firstName} ${player.lastName.charAt(0)}.`;
+                        receiver.stats = { ...player.stats };
+                        receiver.coreAttributes = player.coreAttributes ? { ...player.coreAttributes } : null;
+                        receiver.lastName = player.lastName;
+                        receiver.overall = player.overall;
+                        // Update name label TextBlocks
+                        if (receiver.nameTextBlock) {
+                            receiver.nameTextBlock.text = player.lastName.toUpperCase();
+                        }
+                        if (receiver.ovrTextBlock) {
+                            receiver.ovrTextBlock.text = getRatingText(player.overall);
+                        }
+                        if (receiver.nameLabel) {
+                            receiver.nameLabel.background = getOffenseLabelBg(player.overall) || 'rgba(0, 0, 0, 0.65)';
+                        }
+                        console.log(`[ROSTER] Receiver ${slot} updated: ${receiver.displayName} (${receiver.overall})`);
+                    } catch (e) {
+                        console.error(`[ROSTER] Error updating receiver ${slot}:`, e);
                     }
                 }
             });
@@ -12921,20 +12931,32 @@
                 gameState.defenders.forEach((defender, index) => {
                     const player = oppCBs[index];
                     if (player && defender) {
-                        defender.playerId = player.id;
-                        defender.displayName = `${player.firstName} ${player.lastName.charAt(0)}.`;
-                        defender.stats = { ...player.stats };
-                        defender.coreAttributes = player.coreAttributes || null;
-                        defender.overall = player.overall;
-                        // Update name label TextBlocks
-                        if (defender.nameTextBlock) {
-                            defender.nameTextBlock.text = defender.displayName.toUpperCase();
-                        }
-                        if (defender.ovrTextBlock) {
-                            defender.ovrTextBlock.text = getRatingText(player.overall);
-                        }
-                        if (defender.nameLabel) {
-                            defender.nameLabel.background = getDefenderLabelBg(player.overall);
+                        try {
+                            defender.playerId = player.id;
+                            defender.displayName = `${player.firstName} ${player.lastName.charAt(0)}.`;
+                            // Preserve essential defender stats (zoneCoverage, manCoverage) while updating from roster
+                            const originalZoneCov = defender.stats?.zoneCoverage || 70;
+                            const originalManCov = defender.stats?.manCoverage || 70;
+                            defender.stats = {
+                                ...player.stats,
+                                zoneCoverage: player.stats.zoneCoverage || originalZoneCov,
+                                manCoverage: player.stats.manCoverage || originalManCov
+                            };
+                            defender.coreAttributes = player.coreAttributes ? { ...player.coreAttributes } : null;
+                            defender.overall = player.overall;
+                            // Update name label TextBlocks
+                            if (defender.nameTextBlock) {
+                                defender.nameTextBlock.text = defender.displayName.toUpperCase();
+                            }
+                            if (defender.ovrTextBlock) {
+                                defender.ovrTextBlock.text = getRatingText(player.overall);
+                            }
+                            if (defender.nameLabel) {
+                                defender.nameLabel.background = getDefenderLabelBg(player.overall);
+                            }
+                            console.log(`[ROSTER] Defender ${index} updated: ${defender.displayName} (${defender.overall})`);
+                        } catch (e) {
+                            console.error(`[ROSTER] Error updating defender ${index}:`, e);
                         }
                     }
                 });
@@ -12945,9 +12967,15 @@
                 const player = managementState.team.roster.find(p => p.id === playerId);
                 const oLineman = gameState.offensiveLine[index];
                 if (player && oLineman) {
-                    oLineman.playerId = player.id;
-                    oLineman.displayName = `${player.firstName} ${player.lastName.charAt(0)}.`;
-                    oLineman.stats = { ...player.stats };
+                    try {
+                        oLineman.playerId = player.id;
+                        oLineman.displayName = `${player.firstName} ${player.lastName.charAt(0)}.`;
+                        oLineman.stats = { ...player.stats };
+                        oLineman.coreAttributes = player.coreAttributes ? { ...player.coreAttributes } : null;
+                        console.log(`[ROSTER] O-Line ${index} updated: ${oLineman.displayName}`);
+                    } catch (e) {
+                        console.error(`[ROSTER] Error updating O-Line ${index}:`, e);
+                    }
                 }
             });
 
@@ -12960,9 +12988,15 @@
                 gameState.defensiveLine.forEach((dLineman, index) => {
                     const player = oppDL[index];
                     if (player && dLineman) {
-                        dLineman.playerId = player.id;
-                        dLineman.displayName = `${player.firstName} ${player.lastName.charAt(0)}.`;
-                        dLineman.stats = { ...player.stats };
+                        try {
+                            dLineman.playerId = player.id;
+                            dLineman.displayName = `${player.firstName} ${player.lastName.charAt(0)}.`;
+                            dLineman.stats = { ...player.stats };
+                            dLineman.coreAttributes = player.coreAttributes ? { ...player.coreAttributes } : null;
+                            console.log(`[ROSTER] D-Line ${index} updated: ${dLineman.displayName}`);
+                        } catch (e) {
+                            console.error(`[ROSTER] Error updating D-Line ${index}:`, e);
+                        }
                     }
                 });
             }
@@ -13686,6 +13720,7 @@
                 scene.render();
             } catch (e) {
                 console.error('Render error:', e);
+                console.error('Stack:', e.stack);
             }
         });
 
