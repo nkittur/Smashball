@@ -12471,9 +12471,16 @@
             // Ensure canvas is properly sized and scene is ready
             engine.resize();
 
-            // Force scene to update (accessing camera triggers internal updates)
-            if (gameState.scene && gameState.scene.activeCamera) {
-                gameState.scene.activeCamera.update();
+            // Force scene to fully refresh
+            if (gameState.scene) {
+                // Mark all meshes as dirty to force re-render
+                gameState.scene.meshes.forEach(mesh => {
+                    if (mesh.material) {
+                        mesh.material.markDirty();
+                    }
+                });
+                // Force an immediate render
+                gameState.scene.render();
             }
         }
 
