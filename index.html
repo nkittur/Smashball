@@ -12437,11 +12437,37 @@
 
         // Start training mode (no defenders, throw ratings)
         function startTrainingMode() {
+            console.log('[TRAINING] startTrainingMode called');
             gameState.trainingMode = true;
             gameState.lastThrowRating = null;
 
             // Hide management overlay and show game elements
-            document.getElementById('managementOverlay').classList.add('hidden');
+            const overlay = document.getElementById('managementOverlay');
+            const canvas = document.getElementById('renderCanvas');
+            console.log('[TRAINING] Before hide - overlay display:', getComputedStyle(overlay).display);
+            console.log('[TRAINING] Before hide - canvas display:', getComputedStyle(canvas).display);
+
+            overlay.classList.add('hidden');
+
+            console.log('[TRAINING] After hide - overlay display:', getComputedStyle(overlay).display);
+            console.log('[TRAINING] After hide - overlay z-index:', getComputedStyle(overlay).zIndex);
+            console.log('[TRAINING] Canvas z-index:', getComputedStyle(canvas).zIndex);
+            console.log('[TRAINING] Canvas position:', getComputedStyle(canvas).position);
+
+            // Check ALL direct body children for visibility
+            console.log('[TRAINING] Checking all body children...');
+            Array.from(document.body.children).forEach(el => {
+                const style = getComputedStyle(el);
+                const pos = style.position;
+                const display = style.display;
+                const visibility = style.visibility;
+                const zIndex = style.zIndex;
+                if (display !== 'none' && visibility !== 'hidden') {
+                    console.log('[TRAINING] Visible child:', el.tagName, el.id || el.className,
+                        'pos:', pos, 'display:', display, 'z:', zIndex);
+                }
+            });
+
             document.getElementById('topBar').style.display = 'flex';
             document.getElementById('viewButtons').style.display = 'none';
             document.getElementById('trainingModeUI').style.display = 'block';
@@ -12467,6 +12493,29 @@
             }
 
             updateDownDistance();
+
+            // Final verification
+            console.log('[TRAINING] === FINAL CHECKS ===');
+            console.log('[TRAINING] gameState.scene exists:', !!gameState.scene);
+            console.log('[TRAINING] engine._activeRenderLoops:', engine._activeRenderLoops ? engine._activeRenderLoops.length : 'undefined');
+
+            // Force engine resize in case canvas dimensions changed
+            engine.resize();
+            console.log('[TRAINING] Called engine.resize()');
+
+            // Schedule a check after a short delay to see if rendering is happening
+            setTimeout(() => {
+                const cvs = document.getElementById('renderCanvas');
+                const ctx = cvs.getContext('webgl2') || cvs.getContext('webgl');
+                if (ctx) {
+                    const pixels = new Uint8Array(4);
+                    ctx.readPixels(100, 100, 1, 1, ctx.RGBA, ctx.UNSIGNED_BYTE, pixels);
+                    console.log('[TRAINING DELAYED] Framebuffer pixel at 100,100:', pixels[0], pixels[1], pixels[2], pixels[3]);
+                    if (pixels[0] === 0 && pixels[1] === 0 && pixels[2] === 0 && pixels[3] === 0) {
+                        console.log('[TRAINING DELAYED] !!! Canvas is completely black/empty !!!');
+                    }
+                }
+            }, 500);
         }
 
         // Exit training mode and return to hub
@@ -13622,40 +13671,30 @@
 
         let renderDebugDone = false;
         let frameCount = 0;
+        console.log('[RENDER] Setting up render loop...');
         engine.runRenderLoop(() => {
             if (!renderDebugDone) {
-                console.log('First render frame executing...');
-                console.log('Scene meshes count:', scene.meshes.length);
-                console.log('Scene lights count:', scene.lights.length);
-                console.log('Active camera:', scene.activeCamera ? 'exists' : 'MISSING');
-
-                // Check engine's canvas
-                const engineCanvas = engine.getRenderingCanvas();
-                const htmlCanvas = document.getElementById('renderCanvas');
-                console.log('Engine canvas === HTML canvas:', engineCanvas === htmlCanvas);
-                console.log('Engine canvas dimensions:', engineCanvas.width, 'x', engineCanvas.height);
-                console.log('HTML canvas computed style:', getComputedStyle(htmlCanvas).display, getComputedStyle(htmlCanvas).visibility);
-                console.log('HTML canvas offsetParent:', htmlCanvas.offsetParent ? 'exists' : 'null (hidden!)');
-                console.log('Scene clearColor:', scene.clearColor);
-
+                console.log('[RENDER] First callback - checking scene...');
+                console.log('[RENDER] Scene meshes:', scene.meshes.length);
+                console.log('[RENDER] Active camera:', scene.activeCamera ? scene.activeCamera.name : 'MISSING');
                 renderDebugDone = true;
             }
-            scene.render();
-            frameCount++;
 
-            // After 5 frames, check if pixels are actually being drawn
-            if (frameCount === 5) {
-                const gl = engine._gl;
-                const pixels = new Uint8Array(4);
-                gl.readPixels(480, 778, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
-                console.log('PIXEL CHECK - Framebuffer RGBA:', pixels[0], pixels[1], pixels[2], pixels[3]);
-                if (pixels[0] === 0 && pixels[1] === 0 && pixels[2] === 0) {
-                    console.log('!!! FRAMEBUFFER IS BLACK - WebGL not rendering !!!');
-                } else {
-                    console.log('Framebuffer has content - rendering is working');
+            frameCount++;
+            if (frameCount <= 10) {
+                console.log('[RENDER] Frame ' + frameCount + ' - about to call scene.render()');
+            }
+
+            try {
+                scene.render();
+                if (frameCount <= 10) {
+                    console.log('[RENDER] Frame ' + frameCount + ' - scene.render() completed');
                 }
+            } catch (e) {
+                console.error('[RENDER] ERROR in scene.render():', e);
             }
         });
+        console.log('[RENDER] Render loop setup complete');
 
         window.addEventListener('resize', () => {
             engine.resize();
