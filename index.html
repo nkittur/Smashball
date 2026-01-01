@@ -12456,8 +12456,9 @@
             updateDownDistance();
 
             // IMPORTANT: Force engine resize after overlay is hidden
+            // Use setTimeout to ensure browser has recalculated layout
             // See TRAINING_MODE_FIX.md for details
-            engine.resize();
+            setTimeout(() => engine.resize(), 50);
         }
 
         // Start training mode (no defenders, throw ratings)
