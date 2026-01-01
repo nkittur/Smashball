@@ -12468,8 +12468,13 @@
 
             updateDownDistance();
 
-            // Ensure canvas is properly sized
+            // Ensure canvas is properly sized and scene is ready
             engine.resize();
+
+            // Force scene to update (accessing camera triggers internal updates)
+            if (gameState.scene && gameState.scene.activeCamera) {
+                gameState.scene.activeCamera.update();
+            }
         }
 
         // Exit training mode and return to hub
