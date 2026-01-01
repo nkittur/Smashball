@@ -13305,15 +13305,6 @@
 
         // Main
         const scene = createScene();
-
-        // DEBUG: Verify scene renders at startup
-        console.log('Scene created, testing render...');
-        const originalClearColor = scene.clearColor.clone();
-        scene.clearColor = new BABYLON.Color4(0, 1, 0, 1); // Green background
-        scene.render();
-        console.log('Initial render complete. Canvas should show green briefly.');
-        scene.clearColor = originalClearColor; // Restore original
-
         setupInput(scene);
         setupIdleAnimations(scene);
 
@@ -13629,7 +13620,15 @@
         });
         updateHeatMapButton();
 
+        let renderDebugDone = false;
         engine.runRenderLoop(() => {
+            if (!renderDebugDone) {
+                console.log('First render frame executing...');
+                console.log('Scene meshes count:', scene.meshes.length);
+                console.log('Scene lights count:', scene.lights.length);
+                console.log('Active camera:', scene.activeCamera ? 'exists' : 'MISSING');
+                renderDebugDone = true;
+            }
             scene.render();
         });
 
