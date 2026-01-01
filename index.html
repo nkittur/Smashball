@@ -12503,6 +12503,20 @@
             engine.resize();
             console.log('[TRAINING] Called engine.resize()');
 
+            // VISUAL TEST: Force bright red background
+            if (gameState.scene) {
+                gameState.scene.clearColor = new BABYLON.Color4(1, 0, 0, 1); // Bright red!
+                console.log('[TRAINING] Set clearColor to BRIGHT RED');
+
+                // Also create a test sphere right in front of camera
+                const testSphere = BABYLON.MeshBuilder.CreateSphere('debugSphere', { diameter: 5 }, gameState.scene);
+                testSphere.position = new BABYLON.Vector3(0, 2, 5);
+                const testMat = new BABYLON.StandardMaterial('debugMat', gameState.scene);
+                testMat.emissiveColor = new BABYLON.Color3(0, 1, 0); // Bright green
+                testSphere.material = testMat;
+                console.log('[TRAINING] Created bright green debug sphere at (0, 2, 5)');
+            }
+
             // Schedule a check after a short delay to see if rendering is happening
             setTimeout(() => {
                 const cvs = document.getElementById('renderCanvas');
