@@ -12508,6 +12508,21 @@
                 gameState.scene.clearColor = new BABYLON.Color4(1, 0, 0, 1); // Bright red!
                 console.log('[TRAINING] Set clearColor to BRIGHT RED');
 
+                // Verify engine canvas matches DOM canvas
+                const engineCanvas = engine.getRenderingCanvas();
+                const domCanvas = document.getElementById('renderCanvas');
+                console.log('[TRAINING] Engine canvas === DOM canvas:', engineCanvas === domCanvas);
+                console.log('[TRAINING] Engine canvas id:', engineCanvas.id);
+                console.log('[TRAINING] DOM canvas size:', domCanvas.width, 'x', domCanvas.height);
+
+                // Log camera position/target
+                const cam = gameState.scene.activeCamera;
+                if (cam) {
+                    console.log('[TRAINING] Camera position:', cam.position.toString());
+                    console.log('[TRAINING] Camera target:', cam.target.toString());
+                    console.log('[TRAINING] Camera alpha/beta/radius:', cam.alpha, cam.beta, cam.radius);
+                }
+
                 // Also create a test sphere right in front of camera
                 const testSphere = BABYLON.MeshBuilder.CreateSphere('debugSphere', { diameter: 5 }, gameState.scene);
                 testSphere.position = new BABYLON.Vector3(0, 2, 5);
