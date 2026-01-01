@@ -62,3 +62,59 @@ The combination of:
 - Do NOT simplify the render loop to just `scene.render()` without try/catch
 - Always call `engine.resize()` when transitioning from overlay-covered to visible canvas
 - The canvas verification and camera logging can be removed - they were just for debugging
+
+---
+
+# Linemen Render Error Fix (Play Game Only)
+
+## Problem
+Play Game mode showed a black screen with continuous render errors:
+```
+Render error: TypeError: Attempted to assign to readonly property
+```
+
+Training Mode worked fine, but Play Game (arcade mode) failed.
+
+## Root Cause
+The O-line and D-line mesh creation was overwriting Babylon.js's `position` property:
+
+```javascript
+// WRONG - This breaks Babylon.js!
+oLineman.position = 'OL';  // Overwrites Vector3 with string
+dLineman.position = 'DL';  // Overwrites Vector3 with string
+```
+
+In Babylon.js, `TransformNode.position` is a `Vector3` used for 3D positioning. By setting it to a string like `'OL'`, the mesh could no longer be positioned. When Babylon.js tried to update the position during rendering (e.g., `this.position.x = ...`), it failed because strings are immutable/readonly.
+
+## Why Training Mode Worked
+Training mode disables linemen via `lineman.setEnabled(false)`, so Babylon.js never tried to render/update their positions. Arcade mode enables them, triggering the error.
+
+## The Fix
+Renamed the property to avoid conflicting with Babylon.js:
+
+```javascript
+// CORRECT - Use a different property name
+oLineman.positionType = 'OL';  // For ability calculations
+dLineman.positionType = 'DL';  // For ability calculations
+```
+
+Also updated `calculateAbilities()` to check both properties:
+```javascript
+const pos = player.positionType || player.position;
+```
+
+## Key Lesson: Reserved Property Names in Babylon.js
+
+**NEVER overwrite these properties on Babylon.js nodes:**
+- `position` - Vector3 for 3D position
+- `rotation` - Vector3 for Euler rotation
+- `scaling` - Vector3 for scale
+- `rotationQuaternion` - Quaternion for rotation
+- `parent` - Parent node reference
+- `name` - Node name (string, but used by Babylon.js)
+
+If you need to store game-specific data on a mesh/node, use custom property names that don't conflict:
+- ✅ `positionType`, `positionLabel`, `gamePosition`
+- ✅ `playerName`, `displayName`
+- ✅ `stats`, `coreAttributes`, `playerId`
+- ❌ `position`, `rotation`, `scaling`
