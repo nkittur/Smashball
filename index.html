@@ -12421,6 +12421,8 @@
 
         // Start the arcade game portion
         function startArcadeGame() {
+            console.log('[ARCADE] startArcadeGame called');
+
             // Hide management overlay and show game elements (same pattern as training mode)
             document.getElementById('managementOverlay').classList.add('hidden');
             document.getElementById('topBar').style.display = 'flex';
@@ -12428,6 +12430,8 @@
             document.getElementById('trainingModeUI').style.display = 'none';
             document.getElementById('catchDisplay').style.display = '';
             gameSceneActive = true;
+
+            console.log('[ARCADE] Overlay hidden, UI shown');
 
             gameState.down = 1;
             gameState.yardsToGo = 10;
@@ -12446,10 +12450,14 @@
                 resetPlay(gameState.scene);
             }
 
+            updateDownDistance();
+
             // IMPORTANT: Force engine resize after overlay is hidden
             // This fixes a rendering issue where canvas stays black
             // See TRAINING_MODE_FIX.md for details
+            console.log('[ARCADE] About to call engine.resize()');
             engine.resize();
+            console.log('[ARCADE] engine.resize() complete, canvas:', document.getElementById('renderCanvas').width, 'x', document.getElementById('renderCanvas').height);
         }
 
         // Start training mode (no defenders, throw ratings)
