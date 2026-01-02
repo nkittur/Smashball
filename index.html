@@ -13474,13 +13474,18 @@
             if (result.success) startArcadeGame();
         });
         document.getElementById('btnSimulateGame').addEventListener('click', () => {
+            console.log('[SIMULATE] Button clicked');
             const simResult = simulateFullGame();
+            console.log('[SIMULATE] Result:', simResult);
             if (simResult.success) {
                 // End match to record result and get matchResult object
                 const matchResult = endMatch();
+                console.log('[SIMULATE] Match result:', matchResult);
                 if (matchResult) {
                     showMatchEnd(matchResult);
                 }
+            } else {
+                console.error('[SIMULATE] Failed:', simResult.error);
             }
         });
         document.getElementById('btnPreGameBack').addEventListener('click', () => showScreen('hub'));
