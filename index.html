@@ -6229,17 +6229,28 @@
 
         // Simulate entire game without playing arcade mode
         function simulateFullGame() {
-            if (!managementState.season || managementState.season.week > SEASON.WEEKS) {
-                return { success: false, error: 'Season is over' };
-            }
+            try {
+                if (!managementState.season || managementState.season.week > SEASON.WEEKS) {
+                    return { success: false, error: 'Season is over' };
+                }
 
-            const game = managementState.season.schedule[managementState.season.week - 1];
-            if (game.result) {
-                return { success: false, error: 'Game already played' };
-            }
+                const game = managementState.season.schedule[managementState.season.week - 1];
+                if (game.result) {
+                    return { success: false, error: 'Game already played' };
+                }
 
-            const playerTeam = managementState.team;
-            const opponent = game.opponent;
+                const playerTeam = managementState.team;
+                const opponent = game.opponent;
+
+                // Generate opponent roster if missing
+                if (!opponent.roster) {
+                    console.log('[SIMULATE] Generating missing opponent roster');
+                    if (opponent.targetOverall) {
+                        opponent.roster = generateRosterWithTargetOverall(opponent.targetOverall);
+                    } else {
+                        opponent.roster = generateOpponentRoster(opponent.difficulty || 'medium');
+                    }
+                }
 
             // Initialize simulation log
             managementState.simulationLog = [];
@@ -6355,6 +6366,10 @@
                 possessionResults,
                 opponent
             };
+            } catch (e) {
+                console.error('[SIMULATE] Error during simulation:', e);
+                return { success: false, error: e.message };
+            }
         }
 
         // Get simulation log as text
