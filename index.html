@@ -3972,10 +3972,9 @@
                 const need = ideal - current;
 
                 if (need > 0) {
-                    // Weight by how many spots still needed and position importance
-                    // QB is critical if missing, others weighted by count needed
-                    const urgency = pos === 'QB' && current === 0 ? 10 : need;
-                    needs.push({ position: pos, need, urgency });
+                    // Urgency based on spots needed - positions with more spots get higher base urgency
+                    // This naturally prioritizes filling OL (5 spots) over QB (1 spot)
+                    needs.push({ position: pos, need, urgency: need });
                 }
             });
 
