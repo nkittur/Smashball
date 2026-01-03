@@ -3969,6 +3969,8 @@
                         });
                     }
                     player.overall = calculateOverall(player);
+                    // Sync seasonStartStats with modified stats
+                    player.seasonStartStats = { ...player.stats };
                 }
                 // Cap at 92
                 if (player.overall > 92) {
@@ -3977,6 +3979,8 @@
                         player.stats[stat] = Math.floor(player.stats[stat] * scale);
                     });
                     player.overall = calculateOverall(player);
+                    // Sync seasonStartStats with modified stats
+                    player.seasonStartStats = { ...player.stats };
                 }
                 player.salaryCost = calculateSalary(player.stats, player.position);
                 draftClass.push(player);
@@ -4003,6 +4007,8 @@
                         });
                     }
                     player.overall = calculateOverall(player);
+                    // Sync seasonStartStats with modified stats
+                    player.seasonStartStats = { ...player.stats };
                 }
                 player.salaryCost = calculateSalary(player.stats, player.position);
                 draftClass.push(player);
@@ -4032,6 +4038,8 @@
                         player.stats[stat] = Math.floor(player.stats[stat] * scale);
                     });
                     player.overall = calculateOverall(player);
+                    // Sync seasonStartStats with modified stats
+                    player.seasonStartStats = { ...player.stats };
                 }
 
                 player.salaryCost = calculateSalary(player.stats, player.position);
@@ -4407,7 +4415,7 @@
             const infoHtml = `
                 <div><span class="ovr-big">${player.overall}</span></div>
                 <div style="margin-top:10px;">
-                    ${POSITIONS[player.position].name} | Age ${player.age} | Peak ${player.peakAge}<br>
+                    ${POSITIONS[player.position].name} | Age ${player.age}<br>
                     Salary: ${formatSalary(player.salaryCost)} | Potential: ${'★'.repeat(player.potentialGrade)}
                 </div>
             `;
@@ -11783,7 +11791,7 @@
             const infoHtml = `
                 <div><span class="ovr-big">${player.overall}</span>${overallChangeText}</div>
                 <div style="margin-top:10px;">
-                    ${POSITIONS[player.position].name} | Age ${player.age} | Peak ${player.peakAge}<br>
+                    ${POSITIONS[player.position].name} | Age ${player.age}<br>
                     Salary: ${formatSalary(player.salaryCost)} | Potential: ${'★'.repeat(player.potentialGrade)}<br>
                     <span style="color:#ffd700;">Fame Bank: ${fameBank}</span> | <span style="color:#4af;">Hype: ${hypeDisplay}</span><br>
                     <span style="color:${tradeValue > 0 ? '#4f4' : '#888'}">${tradeText}</span>
