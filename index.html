@@ -526,7 +526,7 @@
                 <div class="clock-row clock-main">
                     <span id="draftTeamName">Team Name</span>
                     <button id="btnAcquirePick" class="trade-for-btn" style="display:none;">TRADE <span class="trade-cost">0/0</span></button>
-                    <button id="btnTradeInPick" class="trade-in-btn" style="display:none;">TRADE IN <span class="trade-value">+0</span></button>
+                    <button id="btnTradeInPick" class="trade-in-btn" style="display:none;">TRADE PICK <span class="trade-value">+0 pts</span></button>
                 </div>
             </div>
 
@@ -4791,11 +4791,11 @@
                 tradeInBtn.style.display = 'none';
                 acquireBtn.style.display = 'none';
             } else if (draftState.isPlayersTurn) {
-                // Player's turn: Show TRADE IN only
+                // Player's turn: Show TRADE PICK option
                 acquireBtn.style.display = 'none';
                 if (draftState.picksRemaining > 0 && available.length > 0) {
                     tradeInBtn.style.display = 'inline-block';
-                    tradeInBtn.innerHTML = `TRADE IN PICK <span class="trade-value">+${tradeInValue}</span>`;
+                    tradeInBtn.innerHTML = `TRADE PICK <span class="trade-value">+${tradeInValue} pts</span>`;
                 } else {
                     tradeInBtn.style.display = 'none';
                 }
