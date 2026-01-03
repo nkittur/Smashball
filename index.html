@@ -3954,13 +3954,35 @@
         };
 
         // Calculate positional needs for a team based on what they've drafted
+        // Considers both roster gaps AND quality of existing players
         function calculatePositionalNeeds(teamRoster) {
-            const counts = { QB: 0, WR: 0, CB: 0, OL: 0, DL: 0 };
+            const roster = teamRoster || [];
+            const positionData = {};
 
-            // Count current roster
-            (teamRoster || []).forEach(player => {
-                if (counts[player.position] !== undefined) {
-                    counts[player.position]++;
+            // Initialize position data
+            Object.keys(IDEAL_ROSTER).forEach(pos => {
+                positionData[pos] = {
+                    players: [],
+                    count: 0,
+                    bestOverall: 0,
+                    avgOverall: 0
+                };
+            });
+
+            // Gather data for each position
+            roster.forEach(player => {
+                if (positionData[player.position]) {
+                    positionData[player.position].players.push(player);
+                    positionData[player.position].count++;
+                }
+            });
+
+            // Calculate best and average overall for each position
+            Object.keys(positionData).forEach(pos => {
+                const players = positionData[pos].players;
+                if (players.length > 0) {
+                    positionData[pos].bestOverall = Math.max(...players.map(p => p.overall));
+                    positionData[pos].avgOverall = players.reduce((sum, p) => sum + p.overall, 0) / players.length;
                 }
             });
 
@@ -3968,13 +3990,42 @@
             const needs = [];
             Object.keys(IDEAL_ROSTER).forEach(pos => {
                 const ideal = IDEAL_ROSTER[pos];
-                const current = counts[pos];
-                const need = ideal - current;
+                const data = positionData[pos];
+                const spotsNeeded = ideal - data.count;
 
-                if (need > 0) {
-                    // Urgency based on spots needed - positions with more spots get higher base urgency
-                    // This naturally prioritizes filling OL (5 spots) over QB (1 spot)
-                    needs.push({ position: pos, need, urgency: need });
+                let urgency = 0;
+
+                if (data.count === 0) {
+                    // Position completely empty - critical need
+                    urgency = 5;
+                } else if (spotsNeeded > 0) {
+                    // Have some players but not enough
+                    // Base urgency from spots needed (1-4)
+                    urgency = Math.min(4, spotsNeeded);
+
+                    // Bonus if current players are weak (best player < 75)
+                    if (data.bestOverall < 75) {
+                        urgency += 2;
+                    } else if (data.bestOverall < 80) {
+                        urgency += 1;
+                    }
+                } else {
+                    // At ideal count - might still want to upgrade if players are weak
+                    if (data.bestOverall < 70) {
+                        urgency = 2; // Weak starter, consider upgrading
+                    } else if (data.bestOverall < 75) {
+                        urgency = 1; // Below average, slight interest
+                    }
+                    // Otherwise urgency stays 0 - position is filled with good players
+                }
+
+                if (urgency > 0) {
+                    needs.push({
+                        position: pos,
+                        need: spotsNeeded,
+                        urgency: urgency,
+                        bestOverall: data.bestOverall
+                    });
                 }
             });
 
