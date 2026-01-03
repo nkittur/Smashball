@@ -3805,8 +3805,32 @@
             ROUND_DROP: 0.70,       // 30% drop at round boundaries
             // Pick trading defaults
             DEFAULT_TRADE_IN_PENALTY: 50,    // Penalty points when trading in your pick (like a round 5 pick cost)
-            DEFAULT_ACQUIRE_PREMIUM: 0.10    // 10% premium when acquiring another team's pick
+            DEFAULT_ACQUIRE_PREMIUM: 0.10,   // 10% premium when acquiring another team's pick
+            // Rookie contract salaries
+            ROOKIE_SALARY: {
+                PICK_1: 15,          // $15M/year for #1 pick
+                PICK_2: 12,          // $12M/year for #2 pick
+                MIN: 1               // $1M/year minimum for late round picks
+            }
         };
+
+        // Calculate rookie contract salary based on draft pick position
+        // Pick 1: $15M, Pick 2: $12M, decreasing to ~$1M by round 3+
+        function calculateRookieSalary(pickNumber) {
+            if (pickNumber === 1) return DRAFT.ROOKIE_SALARY.PICK_1;
+            if (pickNumber === 2) return DRAFT.ROOKIE_SALARY.PICK_2;
+
+            const totalPicks = DRAFT.NUM_TEAMS * DRAFT.ROUNDS; // 60 picks
+            const maxSalary = DRAFT.ROOKIE_SALARY.PICK_2;
+            const minSalary = DRAFT.ROOKIE_SALARY.MIN;
+
+            // Exponential decay from pick 2's value down to minimum
+            const normalizedPick = (pickNumber - 1) / (totalPicks - 1);
+            const decayFactor = Math.exp(-4 * normalizedPick);
+            const salary = minSalary + (maxSalary - minSalary) * decayFactor;
+
+            return Math.round(salary * 10) / 10; // Round to 1 decimal
+        }
 
         // Calculate cost of a draft pick based on position in pool
         // Picks 1-7: Exact values from EARLY_COSTS
@@ -4643,12 +4667,15 @@
             // Set player name
             document.getElementById('playerName').textContent = `${player.firstName} ${player.lastName}`;
 
-            // Player info - draft version (no cost - picks are free)
+            // Calculate rookie salary based on current pick number
+            const rookieSalary = calculateRookieSalary(draftState.currentPickNumber);
+
+            // Player info - draft version showing rookie contract salary
             const infoHtml = `
                 <div><span class="ovr-big">${player.overall}</span></div>
                 <div style="margin-top:10px;">
                     ${POSITIONS[player.position].name} | Age ${player.age}<br>
-                    Salary: ${formatSalary(player.salaryCost)} | Potential: ${'★'.repeat(player.potentialGrade)}
+                    Rookie Contract: $${rookieSalary}M/yr | Potential: ${'★'.repeat(player.potentialGrade)}
                 </div>
             `;
             document.getElementById('playerInfo').innerHTML = infoHtml;
