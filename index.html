@@ -509,18 +509,68 @@
         </div>
 
         <!-- Draft Screen -->
-        <div id="draftScreen" class="mgmt-screen" style="display:none;max-width:600px;">
-            <h2>DRAFT</h2>
-            <p id="draftBudget" class="draft-budget">Draft Points: 1500</p>
-            <p id="draftStatus" class="draft-status">Round 1 of 5</p>
+        <div id="draftScreen" class="mgmt-screen draft-screen" style="display:none;max-width:600px;">
+            <button id="btnDraftOptions" class="mgmt-btn back-btn" style="position:absolute;top:10px;right:10px;left:auto;z-index:10;">⚙</button>
+
+            <!-- Last Pick Notification Bar -->
+            <div id="draftLastPick" class="draft-last-pick">
+                <span id="draftLastPickText">Draft starting...</span>
+            </div>
+
+            <!-- On The Clock Section -->
+            <div id="draftOnClock" class="draft-on-clock computer">
+                <div class="clock-row">
+                    <span id="draftRoundPick">Round 1 • Pick 1</span>
+                    <span id="draftPoints">1500 pts</span>
+                </div>
+                <div class="clock-row clock-main">
+                    <span id="draftTeamName">Team Name</span>
+                    <button id="btnAcquirePick" class="trade-for-btn" style="display:none;">TRADE <span class="trade-cost">0/0</span></button>
+                    <button id="btnTradeInPick" class="trade-in-btn" style="display:none;">TRADE IN <span class="trade-value">+0</span></button>
+                </div>
+            </div>
+
+            <!-- Toggle Buttons -->
             <div class="draft-toggle-buttons">
                 <button id="btnDraftPoolView" class="mgmt-btn toggle-btn active">DRAFT POOL</button>
                 <button id="btnDraftRosterView" class="mgmt-btn toggle-btn">MY ROSTER</button>
             </div>
+
+            <!-- Player Lists -->
             <div id="draftPlayerList" class="roster-list draft-list"></div>
             <div id="draftRosterList" class="roster-list draft-list" style="display:none;"></div>
-            <button id="btnSkipRound" class="mgmt-btn secondary" style="margin-top: 15px;">SKIP PICK</button>
-            <button id="btnFinishDraft" class="mgmt-btn primary" style="margin-top: 10px; display: none;">FINISH DRAFT</button>
+
+            <!-- Status -->
+            <p id="draftStatus" class="draft-status"></p>
+            <button id="btnSkipRound" class="mgmt-btn secondary" style="display:none;">SKIP PICK</button>
+            <button id="btnFinishDraft" class="mgmt-btn primary" style="display:none;">FINISH DRAFT</button>
+
+            <!-- Fixed Bottom Nav Buttons -->
+            <div id="draftNavButtons" class="draft-nav-buttons-fixed">
+                <button id="btnNextPick" class="mgmt-btn nav-btn">NEXT PICK</button>
+                <button id="btnSkipToYourPick" class="mgmt-btn nav-btn skip-btn">SKIP TO YOUR PICK →</button>
+            </div>
+        </div>
+
+        <!-- Draft Options Modal -->
+        <div id="draftOptionsModal" class="modal" style="display:none;">
+            <div class="modal-content" style="max-width:400px;">
+                <h3 style="color:#ffd700;margin-bottom:20px;">DRAFT OPTIONS</h3>
+                <div class="options-row">
+                    <label for="pickTradeInPenalty">Trade In Penalty (pts):</label>
+                    <input type="number" id="pickTradeInPenalty" min="0" max="500" value="50" style="width:80px;">
+                </div>
+                <div class="options-row">
+                    <label for="pickAcquirePremium">Acquire Premium (%):</label>
+                    <input type="number" id="pickAcquirePremium" min="0" max="100" value="10" style="width:80px;">
+                </div>
+                <div class="options-info" style="color:#888;font-size:12px;margin:15px 0;">
+                    <p>• Trade In Penalty: Points deducted when trading your pick for draft points</p>
+                    <p>• Acquire Premium: Extra % cost when buying another team's pick</p>
+                </div>
+                <button id="btnSaveDraftOptions" class="mgmt-btn primary">SAVE</button>
+                <button id="btnCloseDraftOptions" class="mgmt-btn secondary">CANCEL</button>
+            </div>
         </div>
     </div>
 
@@ -664,6 +714,120 @@
         .draft-list .roster-item.unaffordable:hover { border-left-color: #833; }
         .draft-cost { color: #4f4; font-size: 12px; font-weight: bold; }
         .draft-cost.expensive { color: #f84; }
+        /* Draft Screen Layout */
+        .draft-screen {
+            padding-bottom: 70px; /* Space for fixed bottom buttons */
+        }
+        .draft-last-pick {
+            background: #1a1a2a;
+            padding: 6px 12px;
+            margin: 0 -15px 10px -15px;
+            font-size: 11px;
+            color: #888;
+            border-bottom: 1px solid #333;
+            text-align: center;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .draft-last-pick .player-name { color: #fff; }
+        .draft-last-pick .team-name { color: #ffd700; }
+        .draft-last-pick .overall { color: #4f4; }
+
+        .draft-on-clock {
+            border-radius: 6px;
+            padding: 8px 12px;
+            margin-bottom: 8px;
+            transition: background 0.3s;
+        }
+        .draft-on-clock.computer {
+            background: #1a1a2a;
+            border: 1px solid #444;
+        }
+        .draft-on-clock.player {
+            background: #0a2a0a;
+            border: 1px solid #4a4;
+        }
+        .clock-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .clock-row.clock-main {
+            margin-top: 4px;
+        }
+        #draftRoundPick { color: #888; font-size: 11px; }
+        #draftPoints { color: #ffd700; font-size: 11px; font-weight: bold; }
+        #draftTeamName {
+            font-size: 16px;
+            font-weight: bold;
+        }
+        .draft-on-clock.computer #draftTeamName { color: #aaa; }
+        .draft-on-clock.player #draftTeamName { color: #4f4; }
+        .trade-for-btn, .trade-in-btn {
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 10px;
+            cursor: pointer;
+            border: 1px solid;
+        }
+        .trade-for-btn {
+            background: #3a2a2a;
+            border-color: #a66;
+            color: #faa;
+        }
+        .trade-for-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+        .trade-for-btn .trade-cost { color: #f88; margin-left: 4px; }
+        .trade-in-btn {
+            background: #2a3a2a;
+            border-color: #6a6;
+            color: #afa;
+        }
+        .trade-in-btn .trade-value { color: #4f4; font-weight: bold; }
+
+        .draft-nav-buttons-fixed {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            display: flex;
+            gap: 10px;
+            padding: 12px;
+            background: #0a0a14;
+            border-top: 1px solid #333;
+            justify-content: center;
+            z-index: 100;
+        }
+        .draft-nav-buttons-fixed .nav-btn {
+            flex: 1;
+            max-width: 180px;
+            padding: 12px;
+            font-size: 12px;
+            background: #2a2a4a;
+        }
+        .draft-nav-buttons-fixed .nav-btn.skip-btn {
+            background: #3a3a2a;
+            border-color: #aa4;
+        }
+        .options-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 12px 0;
+            color: #fff;
+        }
+        .options-row label {
+            font-size: 14px;
+        }
+        .options-row input {
+            background: #2a2a40;
+            border: 1px solid #444;
+            color: #fff;
+            padding: 8px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+        }
         .fa-btn { padding: 8px 16px; font-size: 14px; }
         .match-score { font-size: 36px; margin: 20px 0; }
         .match-revenue { color: #4f4; font-size: 18px; margin-bottom: 15px; }
@@ -1203,6 +1367,7 @@
     <script src="https://cdn.babylonjs.com/babylon.js"></script>
     <script src="https://cdn.babylonjs.com/gui/babylon.gui.min.js"></script>
     <script>
+        console.log('=== SMASHBALL SCRIPT LOADING ===');
         // Game State
         const gameState = {
             catches: 0,
@@ -1835,7 +2000,9 @@
             freeAgents: [],
             settings: {
                 difficulty: 'normal',  // easy, normal, hard
-                autoSave: true
+                autoSave: true,
+                pickTradeInPenalty: 50,    // Penalty points when trading in your pick
+                pickAcquirePremium: 10     // Premium percentage when acquiring another team's pick
             },
             initialized: false,
             currentScreen: 'main_menu',  // main_menu, hub, roster, player_detail, free_agency, facilities, schedule, game, draft
@@ -2341,12 +2508,25 @@
                 if (!managementState.initialized) return false;
 
                 const saveData = {
-                    version: 1,
+                    version: 2,
                     timestamp: Date.now(),
                     team: managementState.team,
                     season: managementState.season,
                     freeAgents: managementState.freeAgents,
-                    settings: managementState.settings
+                    settings: managementState.settings,
+                    // Save draft state if active
+                    draftState: draftState.active ? {
+                        active: draftState.active,
+                        round: draftState.round,
+                        pick: draftState.pick,
+                        picksRemaining: draftState.picksRemaining,
+                        currentPickNumber: draftState.currentPickNumber,
+                        isPlayersTurn: draftState.isPlayersTurn,
+                        draftPool: draftState.draftPool,
+                        draftedPlayers: draftState.draftedPlayers,
+                        playerPicks: draftState.playerPicks,
+                        isNewGame: draftState.isNewGame
+                    } : null
                 };
 
                 try {
@@ -2395,6 +2575,25 @@
                 if (managementState.team && managementState.team.credits !== undefined) {
                     managementState.team.fame = Math.round(managementState.team.credits / 10);
                     delete managementState.team.credits;
+                }
+
+                // Restore draft state if saved
+                if (saveData.draftState && saveData.draftState.active) {
+                    draftState.active = saveData.draftState.active;
+                    draftState.round = saveData.draftState.round;
+                    draftState.pick = saveData.draftState.pick;
+                    draftState.picksRemaining = saveData.draftState.picksRemaining;
+                    draftState.currentPickNumber = saveData.draftState.currentPickNumber;
+                    draftState.isPlayersTurn = saveData.draftState.isPlayersTurn;
+                    draftState.draftPool = saveData.draftState.draftPool;
+                    draftState.draftedPlayers = saveData.draftState.draftedPlayers;
+                    draftState.playerPicks = saveData.draftState.playerPicks;
+                    draftState.isNewGame = saveData.draftState.isNewGame;
+                    draftState.usingExtraPick = false;
+                    draftState.simulatingPicks = false;
+                    draftState.lastComputerPick = null;
+                    draftState.viewingRoster = false;
+                    draftState.selectedDraftPlayer = null;
                 }
 
                 return true;
@@ -2533,7 +2732,10 @@
 
             const clamp = (val) => Math.max(0, Math.min(99, Math.round(val)));
 
-            switch (player.position) {
+            // Use positionType for mesh objects (linemen), position for roster players
+            const pos = player.positionType || player.position;
+
+            switch (pos) {
                 case 'DL':
                     return {
                         bullRush: clamp(core.strength * 0.60 + (player.stats.passRush || 70) * 0.25 + core.intelligence * 0.15),
@@ -3600,7 +3802,10 @@
             EARLY_COSTS: [1000, 800, 700, 600, 520, 450, 390],
             ROUND_2_START: 13,      // First pick of round 2 (in 12-team league)
             ROUND_3_START: 25,      // First pick of round 3
-            ROUND_DROP: 0.70        // 30% drop at round boundaries
+            ROUND_DROP: 0.70,       // 30% drop at round boundaries
+            // Pick trading defaults
+            DEFAULT_TRADE_IN_PENALTY: 50,    // Penalty points when trading in your pick (like a round 5 pick cost)
+            DEFAULT_ACQUIRE_PREMIUM: 0.10    // 10% premium when acquiring another team's pick
         };
 
         // Calculate cost of a draft pick based on position in pool
@@ -3724,6 +3929,11 @@
             round: 1,
             pick: 1,
             picksRemaining: 0,  // How many picks the player has left
+            currentPickNumber: 1,  // Overall pick number in the draft (1-60)
+            isPlayersTurn: false,  // True when it's the player's turn to pick
+            usingExtraPick: false,  // True when player is using a purchased extra pick
+            simulatingPicks: false,  // True when computer picks are being animated
+            lastComputerPick: null,  // Last computer pick for display { team, player }
             draftPool: [],
             draftedPlayers: [],  // IDs of all drafted players (by any team)
             playerPicks: [],     // IDs of players drafted by the user
@@ -3839,12 +4049,23 @@
             return sorted;
         }
 
+        // Computer team names for draft display
+        const COMPUTER_TEAM_NAMES = [
+            'Storm', 'Titans', 'Wolves', 'Hawks', 'Dragons', 'Knights',
+            'Vipers', 'Cobras', 'Bears', 'Eagles', 'Sharks'
+        ];
+
         // Start the draft
         function startDraft(isNewGame = false) {
             draftState.active = true;
             draftState.round = 1;
             draftState.pick = 1;
             draftState.picksRemaining = DRAFT.ROUNDS;  // Player gets one pick per round
+            draftState.currentPickNumber = 1;  // Start at pick 1
+            draftState.isPlayersTurn = false;  // Other teams pick first
+            draftState.usingExtraPick = false;
+            draftState.simulatingPicks = false;
+            draftState.lastComputerPick = null;
             draftState.draftPool = generateDraftClass();
             draftState.draftedPlayers = [];
             draftState.playerPicks = [];
@@ -3865,28 +4086,85 @@
                 managementState.team.draftPoints = DRAFT.NEW_GAME_BUDGET;
             }
 
-            // Simulate other teams picking before player's turn (player picks last)
-            simulateOtherTeamsPicks();
-
             showScreen('draft');
+            refreshDraftScreen();
+
+            // Save game at start of draft so progress isn't lost on reload
+            if (managementState.settings.autoSave) SaveSystem.save();
         }
 
-        // Simulate other teams making their picks (they pick before player each round)
-        function simulateOtherTeamsPicks() {
-            const otherTeams = DRAFT.NUM_TEAMS - 1;  // All teams except player
+        // Check if it's the player's turn based on current pick number
+        function isPlayersTurnNow() {
+            if (!draftState.currentPickNumber || !DRAFT.NUM_TEAMS) return false;
+            const pickInRound = ((draftState.currentPickNumber - 1) % DRAFT.NUM_TEAMS) + 1;
+            return pickInRound === DRAFT.NUM_TEAMS;
+        }
+
+        // Simulate a single computer team pick (called when user clicks Next Pick)
+        function simulateNextComputerPick() {
             const available = getAvailableDraftPlayers();
 
-            // Each other team picks one player (picking from best available)
-            for (let i = 0; i < otherTeams && available.length > 0; i++) {
-                // Teams pick semi-randomly from top available players
-                // Better teams (lower index) pick slightly worse players
-                const pickRange = Math.min(5, available.length);
+            // Check if it's player's turn
+            if (isPlayersTurnNow()) {
+                draftState.isPlayersTurn = true;
+                draftState.lastComputerPick = null;
+                refreshDraftScreen();
+                return;
+            }
+
+            if (available.length === 0) {
+                draftState.isPlayersTurn = true;
+                refreshDraftScreen();
+                return;
+            }
+
+            // Computer team picks from top available players (with some randomness)
+            const pickRange = Math.min(3, available.length);
+            const pickIdx = Math.floor(Math.random() * pickRange);
+            const picked = available[pickIdx];
+
+            if (picked) {
+                draftState.draftedPlayers.push(picked.id);
+
+                // Store the pick for display
+                const teamIndex = (draftState.currentPickNumber - 1) % (DRAFT.NUM_TEAMS - 1);
+                draftState.lastComputerPick = {
+                    teamName: COMPUTER_TEAM_NAMES[teamIndex],
+                    player: picked,
+                    pickNumber: draftState.currentPickNumber
+                };
+
+                draftState.currentPickNumber++;
+
+                // Update display (user will click Next Pick to continue)
+                refreshDraftScreen();
+            }
+        }
+
+        // Skip all computer picks and go directly to player's turn
+        function skipToPlayerTurn() {
+            const available = getAvailableDraftPlayers();
+
+            while (!isPlayersTurnNow() && available.length > 0) {
+                // Computer team picks from top available
+                const pickRange = Math.min(3, available.length);
                 const pickIdx = Math.floor(Math.random() * pickRange);
                 const picked = available.splice(pickIdx, 1)[0];
+
                 if (picked) {
                     draftState.draftedPlayers.push(picked.id);
+                    draftState.currentPickNumber++;
                 }
             }
+
+            draftState.isPlayersTurn = true;
+            draftState.lastComputerPick = null;
+            refreshDraftScreen();
+        }
+
+        // Legacy function - no longer auto-plays, user uses Next Pick button
+        function simulateOtherTeamsPicks() {
+            // No-op - user navigates manually now
         }
 
         // Get all available (undrafted) players
@@ -3904,41 +4182,90 @@
 
         // Draft a player
         function draftPlayer(playerId) {
+            console.log('draftPlayer called with:', playerId);
+            console.log('draftState:', {
+                active: draftState.active,
+                picksRemaining: draftState.picksRemaining,
+                isPlayersTurn: draftState.isPlayersTurn,
+                usingExtraPick: draftState.usingExtraPick,
+                draftedPlayers: draftState.draftedPlayers
+            });
+
             const player = draftState.draftPool.find(p => p.id === playerId);
-            if (!player || draftState.draftedPlayers.includes(playerId)) return false;
+            console.log('Found player:', player);
 
-            // Check if player has picks remaining
-            if (draftState.picksRemaining <= 0) return false;
-
-            // Check if team can afford this player
-            if (!canAffordDraftPlayer(playerId)) {
-                return false;  // Can't afford
+            if (!player) {
+                console.log('FAIL: Player not found in draft pool');
+                return false;
+            }
+            if (draftState.draftedPlayers.includes(playerId)) {
+                console.log('FAIL: Player already drafted');
+                return false;
             }
 
-            // Deduct draft points
-            managementState.team.draftPoints -= player.draftCost;
+            // Check if it's the player's turn (or using a traded pick)
+            if (!draftState.isPlayersTurn && !draftState.usingExtraPick) {
+                console.log('FAIL: Not your turn to draft');
+                return false;
+            }
 
-            // Add to team roster
+            // If using a traded pick, it works like your own pick (FREE to draft)
+            if (draftState.usingExtraPick) {
+                // Add to team roster (no draft cost - picks are free)
+                managementState.team.roster.push(player);
+                draftState.draftedPlayers.push(playerId);
+                draftState.playerPicks.push(playerId);
+                draftState.currentPickNumber++;
+                draftState.usingExtraPick = false;  // Reset traded pick flag
+
+                // Update depth chart
+                autoAssignDepthChart(managementState.team);
+
+                // Save progress
+                if (managementState.settings.autoSave) SaveSystem.save();
+
+                // Just refresh - modal shows feedback
+                refreshDraftScreen();
+                return true;
+            }
+
+            // Normal draft pick - check if player has picks remaining
+            if (draftState.picksRemaining <= 0) {
+                console.log('FAIL: No picks remaining');
+                return false;
+            }
+
+            console.log('SUCCESS: Drafting player...');
+
+            // Add to team roster (no draft cost - picks are free to use)
             managementState.team.roster.push(player);
             draftState.draftedPlayers.push(playerId);
             draftState.playerPicks.push(playerId);
             draftState.picksRemaining--;
             draftState.round++;
+            draftState.currentPickNumber++;
+            draftState.isPlayersTurn = false;
+            console.log('State updated. Picks remaining:', draftState.picksRemaining, 'Round:', draftState.round);
 
             // Update depth chart
-            updateDepthChart(managementState.team);
+            autoAssignDepthChart(managementState.team);
+            console.log('Depth chart updated');
 
             // Check if draft is complete
             if (draftState.picksRemaining <= 0) {
+                console.log('Draft complete, calling finishDraft');
                 finishDraft();
                 return true;
             }
 
-            // Simulate other teams picking for next round
-            simulateOtherTeamsPicks();
+            // Save progress
+            if (managementState.settings.autoSave) SaveSystem.save();
 
-            // Refresh the screen
+            // Just refresh the screen - no animation needed since modal shows feedback
+            draftState.lastComputerPick = null;
+            console.log('Calling refreshDraftScreen...');
             refreshDraftScreen();
+            console.log('refreshDraftScreen completed');
 
             return true;
         }
@@ -3947,14 +4274,16 @@
         function skipDraftPick() {
             draftState.picksRemaining--;
             draftState.round++;
+            draftState.currentPickNumber++;
+            draftState.isPlayersTurn = false;
+            draftState.lastComputerPick = null;
 
             if (draftState.picksRemaining <= 0) {
                 finishDraft();
                 return;
             }
 
-            // Simulate other teams picking for next round
-            simulateOtherTeamsPicks();
+            // Just refresh - user will click Next Pick to continue
             refreshDraftScreen();
         }
 
@@ -3982,6 +4311,79 @@
             showScreen('hub');
         }
 
+        // ========================================
+        // PICK TRADING SYSTEM
+        // ========================================
+
+        // Get value of the current pick based on its position in the draft order
+        // This is static - pick 1 = 1000, pick 2 = 800, etc. (uses calculatePickCost)
+        function getCurrentPickValue() {
+            return calculatePickCost(draftState.currentPickNumber);
+        }
+
+        // Get value player receives when trading in their pick
+        function getTradeInValue() {
+            const pickValue = getCurrentPickValue();
+            const penalty = managementState.settings.pickTradeInPenalty || DRAFT.DEFAULT_TRADE_IN_PENALTY;
+            return Math.max(0, pickValue - penalty);
+        }
+
+        // Get cost to acquire the current pick from another team
+        function getAcquireCost() {
+            const pickValue = getCurrentPickValue();
+            const premiumPercent = managementState.settings.pickAcquirePremium || (DRAFT.DEFAULT_ACQUIRE_PREMIUM * 100);
+            return Math.ceil(pickValue * (1 + premiumPercent / 100));
+        }
+
+        // Check if player can afford to acquire the current pick
+        function canAffordAcquirePick() {
+            if (!managementState.team) return false;
+            return (managementState.team.draftPoints || 0) >= getAcquireCost();
+        }
+
+        // Trade in the player's current pick for draft points
+        function tradeInPick() {
+            if (!draftState.active || draftState.picksRemaining <= 0) return false;
+
+            const tradeValue = getTradeInValue();
+
+            // Add draft points
+            managementState.team.draftPoints += tradeValue;
+
+            // Use up the pick without drafting a player
+            draftState.picksRemaining--;
+            draftState.round++;
+            draftState.currentPickNumber++;
+            draftState.isPlayersTurn = false;
+
+            if (draftState.picksRemaining <= 0) {
+                finishDraft();
+                return true;
+            }
+
+            // Simulate other teams picking for next round
+            simulateOtherTeamsPicks();
+            refreshDraftScreen();
+            return true;
+        }
+
+        // Trade for a pick by paying the premium cost
+        // This gives the player the current pick without using their regular pick slot
+        function acquireCurrentPick() {
+            if (!draftState.active || !canAffordAcquirePick()) return false;
+
+            const acquireCost = getAcquireCost();
+
+            // Deduct the cost
+            managementState.team.draftPoints -= acquireCost;
+
+            // Mark that player is using an extra pick
+            draftState.usingExtraPick = true;
+
+            refreshDraftScreen();
+            return true;
+        }
+
         // Toggle draft view between pool and roster
         function toggleDraftView(showRoster) {
             draftState.viewingRoster = showRoster;
@@ -3990,39 +4392,46 @@
 
         // Show player detail for draft player
         function showDraftPlayerDetail(playerId) {
+            console.log('showDraftPlayerDetail called with:', playerId);
             const player = draftState.draftPool.find(p => p.id === playerId);
+            console.log('Found player in pool:', player);
             if (!player) return;
 
             draftState.selectedDraftPlayer = player;
+            console.log('Set selectedDraftPlayer:', draftState.selectedDraftPlayer);
 
             // Set player name
             document.getElementById('playerName').textContent = `${player.firstName} ${player.lastName}`;
 
-            // Check if can afford
-            const draftPoints = managementState.team?.draftPoints || 0;
-            const canAfford = draftPoints >= player.draftCost;
-            const costColor = canAfford ? '#4f4' : '#f84';
-
-            // Player info - draft version with cost
+            // Player info - draft version (no cost - picks are free)
             const infoHtml = `
                 <div><span class="ovr-big">${player.overall}</span></div>
                 <div style="margin-top:10px;">
                     ${POSITIONS[player.position].name} | Age ${player.age} | Peak ${player.peakAge}<br>
-                    Salary: ${formatSalary(player.salaryCost)} | Potential: ${'★'.repeat(player.potentialGrade)}<br>
-                    <span style="color:${costColor};font-weight:bold;">Draft Cost: ${player.draftCost}</span>
+                    Salary: ${formatSalary(player.salaryCost)} | Potential: ${'★'.repeat(player.potentialGrade)}
                 </div>
             `;
             document.getElementById('playerInfo').innerHTML = infoHtml;
 
-            // Hide cut button, show draft button with cost
+            // Hide cut button, show draft button
             const tradeBtn = document.getElementById('btnTradePlayer');
             const cutBtn = document.getElementById('btnCutPlayer');
             const alreadyDrafted = draftState.draftedPlayers.includes(playerId);
-            const canDraft = canAfford && !alreadyDrafted;
+            const canDraftNow = draftState.isPlayersTurn || draftState.usingExtraPick;
 
-            tradeBtn.textContent = alreadyDrafted ? 'ALREADY DRAFTED' : `DRAFT (${player.draftCost} pts)`;
-            tradeBtn.disabled = !canDraft;
-            tradeBtn.style.opacity = canDraft ? '1' : '0.5';
+            if (alreadyDrafted) {
+                tradeBtn.textContent = 'ALREADY DRAFTED';
+                tradeBtn.disabled = true;
+                tradeBtn.style.opacity = '0.5';
+            } else if (!canDraftNow) {
+                tradeBtn.textContent = 'NOT YOUR TURN';
+                tradeBtn.disabled = true;
+                tradeBtn.style.opacity = '0.5';
+            } else {
+                tradeBtn.textContent = 'DRAFT';
+                tradeBtn.disabled = false;
+                tradeBtn.style.opacity = '1';
+            }
             cutBtn.style.display = 'none';
 
             const getColorClass = (val) => val >= 90 ? 'stat-elite' : val >= 80 ? 'stat-good' : val >= 70 ? 'stat-average' : val >= 60 ? 'stat-below' : 'stat-poor';
@@ -4095,7 +4504,12 @@
 
         // Refresh draft screen
         function refreshDraftScreen() {
-            const budgetEl = document.getElementById('draftBudget');
+            const lastPickEl = document.getElementById('draftLastPick');
+            const lastPickTextEl = document.getElementById('draftLastPickText');
+            const onClockEl = document.getElementById('draftOnClock');
+            const roundPickEl = document.getElementById('draftRoundPick');
+            const pointsEl = document.getElementById('draftPoints');
+            const teamNameEl = document.getElementById('draftTeamName');
             const statusEl = document.getElementById('draftStatus');
             const poolListEl = document.getElementById('draftPlayerList');
             const rosterListEl = document.getElementById('draftRosterList');
@@ -4103,10 +4517,22 @@
             const finishBtn = document.getElementById('btnFinishDraft');
             const poolBtn = document.getElementById('btnDraftPoolView');
             const rosterBtn = document.getElementById('btnDraftRosterView');
+            const tradeInBtn = document.getElementById('btnTradeInPick');
+            const acquireBtn = document.getElementById('btnAcquirePick');
+            const navButtonsEl = document.getElementById('draftNavButtons');
 
-            // Update budget display
+            // Safety check for missing elements
+            if (!onClockEl || !statusEl || !poolListEl || !navButtonsEl) {
+                console.error('Draft screen elements not found');
+                return;
+            }
+
             const draftPoints = managementState.team?.draftPoints || 0;
-            budgetEl.textContent = `Draft Points: ${draftPoints}`;
+            const pickValue = getCurrentPickValue();
+            const tradeInValue = getTradeInValue();
+            const acquireCost = getAcquireCost();
+            const isComputerTurn = !isPlayersTurnNow();
+            const available = getAvailableDraftPlayers();
 
             // Update toggle button states
             poolBtn.classList.toggle('active', !draftState.viewingRoster);
@@ -4119,21 +4545,85 @@
             if (!draftState.active) {
                 finishBtn.style.display = 'block';
                 skipBtn.style.display = 'none';
+                onClockEl.style.display = 'none';
+                lastPickEl.style.display = 'none';
+                navButtonsEl.style.display = 'none';
                 statusEl.textContent = 'Draft Complete!';
                 poolListEl.innerHTML = '<p style="color:#4f4;">Your draft picks have been added to the roster.</p>';
                 return;
             }
 
+            // Update last pick notification bar
+            if (draftState.lastComputerPick) {
+                const pick = draftState.lastComputerPick;
+                lastPickTextEl.innerHTML = `Pick #${pick.pickNumber}: <span class="team-name">${pick.teamName}</span> → <span class="player-name">${pick.player.firstName} ${pick.player.lastName}</span> <span class="overall">${pick.player.overall}</span>`;
+            } else {
+                lastPickTextEl.textContent = 'Draft in progress...';
+            }
+
+            // Update round/pick info
+            roundPickEl.textContent = `Round ${draftState.round} • Pick ${draftState.currentPickNumber}`;
+            pointsEl.textContent = `${draftPoints} pts`;
+
+            // Update on-the-clock section
+            if (draftState.usingExtraPick) {
+                onClockEl.className = 'draft-on-clock player';
+                teamNameEl.textContent = 'YOUR PICK';
+                navButtonsEl.style.display = 'none';
+            } else if (draftState.isPlayersTurn || !isComputerTurn) {
+                if (!draftState.isPlayersTurn) draftState.isPlayersTurn = true;
+                onClockEl.className = 'draft-on-clock player';
+                teamNameEl.textContent = 'YOUR TURN';
+                navButtonsEl.style.display = 'none';
+            } else {
+                onClockEl.className = 'draft-on-clock computer';
+                // Show actual team name on the clock
+                const teamIndex = (draftState.currentPickNumber - 1) % (DRAFT.NUM_TEAMS - 1);
+                teamNameEl.textContent = COMPUTER_TEAM_NAMES[teamIndex] || 'Team';
+                navButtonsEl.style.display = 'flex';
+            }
+
+            // Update trade buttons
+            if (draftState.viewingRoster || draftState.simulatingPicks || draftState.usingExtraPick) {
+                tradeInBtn.style.display = 'none';
+                acquireBtn.style.display = 'none';
+            } else if (draftState.isPlayersTurn) {
+                // Player's turn: Show TRADE IN only
+                acquireBtn.style.display = 'none';
+                if (draftState.picksRemaining > 0 && available.length > 0) {
+                    tradeInBtn.style.display = 'inline-block';
+                    tradeInBtn.innerHTML = `TRADE IN PICK <span class="trade-value">+${tradeInValue}</span>`;
+                } else {
+                    tradeInBtn.style.display = 'none';
+                }
+            } else if (isComputerTurn && available.length > 0) {
+                // Computer's turn: Show TRADE FOR only
+                tradeInBtn.style.display = 'none';
+                acquireBtn.style.display = 'inline-block';
+                acquireBtn.innerHTML = `TRADE <span class="trade-cost">${acquireCost}</span>`;
+                acquireBtn.disabled = !canAffordAcquirePick();
+            } else {
+                tradeInBtn.style.display = 'none';
+                acquireBtn.style.display = 'none';
+            }
+
+            // Update status line
             const playerDrafted = draftState.playerPicks.length;
-            statusEl.textContent = `Picks: ${draftState.picksRemaining} remaining | Your selections: ${playerDrafted}`;
-            skipBtn.style.display = draftState.viewingRoster ? 'none' : 'block';
+            if (draftState.usingExtraPick) {
+                statusEl.textContent = `Select a player | Drafted: ${playerDrafted}`;
+                skipBtn.style.display = 'none';
+            } else if (draftState.isPlayersTurn) {
+                statusEl.textContent = `Picks remaining: ${draftState.picksRemaining} | Drafted: ${playerDrafted}`;
+                skipBtn.style.display = draftState.viewingRoster ? 'none' : 'block';
+            } else {
+                statusEl.textContent = `Drafted: ${playerDrafted}`;
+                skipBtn.style.display = 'none';
+            }
             finishBtn.style.display = 'none';
 
             if (draftState.viewingRoster) {
-                // Show current roster
                 refreshDraftRosterView(rosterListEl);
             } else {
-                // Show draft pool
                 refreshDraftPoolView(poolListEl);
             }
         }
@@ -4141,7 +4631,6 @@
         // Refresh draft pool view
         function refreshDraftPoolView(listEl) {
             const available = getAvailableDraftPlayers();
-            const draftPoints = managementState.team?.draftPoints || 0;
             listEl.innerHTML = '';
 
             if (available.length === 0) {
@@ -4155,23 +4644,22 @@
                     potentialDisplay = '★'.repeat(player.potentialGrade);
                 }
 
-                const canAfford = draftPoints >= player.draftCost;
-                const costClass = canAfford ? 'draft-cost' : 'draft-cost expensive';
-
                 const item = document.createElement('div');
-                item.className = 'roster-item' + (canAfford ? '' : ' unaffordable');
+                item.className = 'roster-item';
                 item.innerHTML = `
                     <div style="flex:1;">
                         <div class="name">${player.firstName} ${player.lastName}</div>
                         <div class="stats">${POSITIONS[player.position].name}</div>
                     </div>
                     <div style="display:flex;align-items:center;gap:10px;">
-                        <span class="${costClass}">${player.draftCost}</span>
                         <span class="ovr" style="min-width:28px;text-align:right;">${player.overall}</span>
                         <span class="potential-ind" style="min-width:30px;color:#ffd700;font-size:14px;">${potentialDisplay}</span>
                     </div>
                 `;
-                item.addEventListener('click', () => showDraftPlayerDetail(player.id));
+                item.addEventListener('click', () => {
+                    console.log('Draft player item clicked, ID:', player.id);
+                    showDraftPlayerDetail(player.id);
+                });
                 listEl.appendChild(item);
             });
         }
@@ -4589,8 +5077,8 @@
                 state.lineMatchups.push({
                     dl: dl.player,
                     ol: ol.player,
-                    dlRoll: Math.round(dlRoll),
-                    olRoll: Math.round(olRoll),
+                    dlRoll: Math.round(adjustedDlRoll),
+                    olRoll: Math.round(adjustedOlRoll),
                     result: result,
                     pressure: dl.pressureContribution
                 });
@@ -4680,7 +5168,9 @@
                 // ========================================
                 // BASE SEPARATION ROLL
                 // ========================================
-                let receiverRoll = weightedStatRoll(receiver.stats, CLASH_WEIGHTS.separation.receiver, receiver.player.coreAttributes);
+                // Use stats (visible to player) for separation, not coreAttributes
+                // This ensures the simulation matches what players see on their roster
+                let receiverRoll = weightedStatRoll(receiver.stats, CLASH_WEIGHTS.separation.receiver, null);
 
                 // Crossing route bonus - route running helps execute cuts cleanly
                 // Reduced from 0.3 to 0.10 for better balance
@@ -4699,7 +5189,8 @@
                 // ========================================
                 // DEFENDER ROLL
                 // ========================================
-                let defenderRoll = weightedStatRoll(defender.stats, CLASH_WEIGHTS.separation.defender, defender.player.coreAttributes);
+                // Use stats (visible to player) for separation, not coreAttributes
+                let defenderRoll = weightedStatRoll(defender.stats, CLASH_WEIGHTS.separation.defender, null);
 
                 // Defender counter-bonuses to balance WR route bonuses
                 // Awareness helps read the route and anticipate breaks
@@ -5741,17 +6232,28 @@
 
         // Simulate entire game without playing arcade mode
         function simulateFullGame() {
-            if (!managementState.season || managementState.season.week > SEASON.WEEKS) {
-                return { success: false, error: 'Season is over' };
-            }
+            try {
+                if (!managementState.season || managementState.season.week > SEASON.WEEKS) {
+                    return { success: false, error: 'Season is over' };
+                }
 
-            const game = managementState.season.schedule[managementState.season.week - 1];
-            if (game.result) {
-                return { success: false, error: 'Game already played' };
-            }
+                const game = managementState.season.schedule[managementState.season.week - 1];
+                if (game.result) {
+                    return { success: false, error: 'Game already played' };
+                }
 
-            const playerTeam = managementState.team;
-            const opponent = game.opponent;
+                const playerTeam = managementState.team;
+                const opponent = game.opponent;
+
+                // Generate opponent roster if missing
+                if (!opponent.roster) {
+                    console.log('[SIMULATE] Generating missing opponent roster');
+                    if (opponent.targetOverall) {
+                        opponent.roster = generateRosterWithTargetOverall(opponent.targetOverall);
+                    } else {
+                        opponent.roster = generateOpponentRoster(opponent.difficulty || 'medium');
+                    }
+                }
 
             // Initialize simulation log
             managementState.simulationLog = [];
@@ -5867,6 +6369,10 @@
                 possessionResults,
                 opponent
             };
+            } catch (e) {
+                console.error('[SIMULATE] Error during simulation:', e);
+                return { success: false, error: e.message };
+            }
         }
 
         // Get simulation log as text
@@ -6227,7 +6733,13 @@
                 const saveData = SaveSystem.load();
                 if (saveData && SaveSystem.applySaveData(saveData)) {
                     console.log('Loaded existing save');
-                    managementState.currentScreen = 'hub';
+                    // Resume draft if one was in progress
+                    if (draftState.active) {
+                        console.log('Resuming draft in progress');
+                        managementState.currentScreen = 'draft';
+                    } else {
+                        managementState.currentScreen = 'hub';
+                    }
                     return;
                 }
             }
@@ -6704,7 +7216,7 @@
                 oLineman.displayName = config.name;
                 oLineman.playerId = config.playerId || null;  // Link to roster player
                 oLineman.position_label = config.position;
-                oLineman.position = 'OL';  // For ability calculations
+                oLineman.positionType = 'OL';  // For ability calculations (don't use 'position' - it's a Babylon.js Vector3!)
                 oLineman.stats = config.stats;
                 oLineman.coreAttributes = config.coreAttributes || null;
                 oLineman.startPos = startPos.clone();
@@ -6768,7 +7280,7 @@
                 dLineman.displayName = config.name;
                 dLineman.playerId = config.playerId || null;  // Link to roster player
                 dLineman.position_label = config.position;
-                dLineman.position = 'DL';  // For ability calculations
+                dLineman.positionType = 'DL';  // For ability calculations (don't use 'position' - it's a Babylon.js Vector3!)
                 dLineman.stats = config.stats;
                 dLineman.coreAttributes = config.coreAttributes || null;
                 dLineman.startPos = startPos.clone();
@@ -11085,6 +11597,11 @@
                 topBar.style.display = 'flex';
                 viewButtons.style.display = 'flex';
                 gameSceneActive = true;
+
+                // IMPORTANT: Force engine resize after overlay is hidden
+                // This fixes a rendering issue where canvas stays black
+                // See TRAINING_MODE_FIX.md for details
+                engine.resize();
             } else {
                 // Management mode - show overlay, hide game
                 overlay.classList.remove('hidden');
@@ -11925,37 +12442,17 @@
 
         // Start the arcade game portion
         function startArcadeGame() {
-            showScreen('game');
-            gameState.down = 1;
-            gameState.yardsToGo = 10;
-            gameState.catches = 0;
-            gameState.attempts = 0;
-            gameState.touchdowns = 0;
-            gameState.lineOfScrimmage = gameState.startingLineOfScrimmage;
-            gameState.firstDownMarker = gameState.startingLineOfScrimmage + 10;
-            gameStats.reset();  // Reset per-game stats
+            console.log('[ARCADE] Starting arcade game...');
 
-            // Update game meshes with roster player data
-            updateGamePlayersFromRoster();
-
-            // Reset play to position all players at the line of scrimmage
-            if (gameState.scene) {
-                resetPlay(gameState.scene);
-            }
-        }
-
-        // Start training mode (no defenders, throw ratings)
-        function startTrainingMode() {
-            gameState.trainingMode = true;
-            gameState.lastThrowRating = null;
+            gameState.trainingMode = false;
 
             // Hide management overlay and show game elements
             document.getElementById('managementOverlay').classList.add('hidden');
             document.getElementById('topBar').style.display = 'flex';
-            document.getElementById('viewButtons').style.display = 'none'; // Hide view buttons in training
-            document.getElementById('trainingModeUI').style.display = 'block';
-            document.getElementById('catchDisplay').style.display = 'none'; // Hide top-right catch display in training
-            gameSceneActive = true; // Enable game input
+            document.getElementById('viewButtons').style.display = 'flex';
+            document.getElementById('trainingModeUI').style.display = 'none';
+            document.getElementById('catchDisplay').style.display = '';
+            gameSceneActive = true;
 
             // Reset game state
             gameState.down = 1;
@@ -11966,7 +12463,53 @@
             gameState.lineOfScrimmage = gameState.startingLineOfScrimmage;
             gameState.firstDownMarker = gameState.startingLineOfScrimmage + 10;
 
-            // Keep defensive backs visible but hide offensive and defensive lines
+            gameStats.reset();
+
+            // Enable offensive and defensive lines and defenders
+            gameState.offensiveLine.forEach(lineman => lineman.setEnabled(true));
+            gameState.defensiveLine.forEach(lineman => lineman.setEnabled(true));
+            gameState.defenders.forEach(defender => defender.setEnabled(true));
+
+            // Update game meshes with roster player data
+            updateGamePlayersFromRoster();
+
+            // Reset play to position all players at the line of scrimmage
+            if (gameState.scene) {
+                resetPlay(gameState.scene);
+            }
+
+            updateDownDistance();
+
+            // IMPORTANT: Force engine resize after overlay is hidden
+            // See TRAINING_MODE_FIX.md for why this is needed
+            setTimeout(() => {
+                engine.resize();
+            }, 50);
+        }
+
+        // Start training mode (no defenders, throw ratings)
+        function startTrainingMode() {
+            gameState.trainingMode = true;
+            gameState.lastThrowRating = null;
+
+            // Hide management overlay and show game elements
+            document.getElementById('managementOverlay').classList.add('hidden');
+            document.getElementById('topBar').style.display = 'flex';
+            document.getElementById('viewButtons').style.display = 'none';
+            document.getElementById('trainingModeUI').style.display = 'block';
+            document.getElementById('catchDisplay').style.display = 'none';
+            gameSceneActive = true;
+
+            // Reset game state
+            gameState.down = 1;
+            gameState.yardsToGo = 10;
+            gameState.catches = 0;
+            gameState.attempts = 0;
+            gameState.touchdowns = 0;
+            gameState.lineOfScrimmage = gameState.startingLineOfScrimmage;
+            gameState.firstDownMarker = gameState.startingLineOfScrimmage + 10;
+
+            // Hide offensive and defensive lines
             gameState.offensiveLine.forEach(lineman => lineman.setEnabled(false));
             gameState.defensiveLine.forEach(lineman => lineman.setEnabled(false));
 
@@ -11975,8 +12518,12 @@
                 resetPlay(gameState.scene);
             }
 
-            // Update UI
-            updateDownDisplay();
+            updateDownDistance();
+
+            // IMPORTANT: Force engine resize after overlay is hidden
+            // This fixes a rendering issue where canvas stays black
+            // See TRAINING_MODE_FIX.md for details
+            engine.resize();
         }
 
         // Exit training mode and return to hub
@@ -12314,21 +12861,26 @@
             // Update QB
             const rosterQB = getDepthChartPlayer('QB');
             if (rosterQB && scene.qb) {
-                scene.qb.playerId = rosterQB.id;
-                scene.qb.displayName = `${rosterQB.firstName} ${rosterQB.lastName.charAt(0)}.`;
-                scene.qb.stats = { ...rosterQB.stats };
-                scene.qb.coreAttributes = rosterQB.coreAttributes || null;
-                scene.qb.lastName = rosterQB.lastName;
-                scene.qb.overall = rosterQB.overall;
-                // Update name label TextBlocks
-                if (scene.qb.nameTextBlock) {
-                    scene.qb.nameTextBlock.text = rosterQB.lastName.toUpperCase();
-                }
-                if (scene.qb.ovrTextBlock) {
-                    scene.qb.ovrTextBlock.text = getRatingText(rosterQB.overall);
-                }
-                if (scene.qb.nameLabel) {
-                    scene.qb.nameLabel.background = getOffenseLabelBg(rosterQB.overall) || 'rgba(0, 0, 0, 0.7)';
+                try {
+                    scene.qb.playerId = rosterQB.id;
+                    scene.qb.displayName = `${rosterQB.firstName} ${rosterQB.lastName.charAt(0)}.`;
+                    scene.qb.stats = { ...rosterQB.stats };
+                    scene.qb.coreAttributes = rosterQB.coreAttributes ? { ...rosterQB.coreAttributes } : null;
+                    scene.qb.lastName = rosterQB.lastName;
+                    scene.qb.overall = rosterQB.overall;
+                    // Update name label TextBlocks
+                    if (scene.qb.nameTextBlock) {
+                        scene.qb.nameTextBlock.text = rosterQB.lastName.toUpperCase();
+                    }
+                    if (scene.qb.ovrTextBlock) {
+                        scene.qb.ovrTextBlock.text = getRatingText(rosterQB.overall);
+                    }
+                    if (scene.qb.nameLabel) {
+                        scene.qb.nameLabel.background = getOffenseLabelBg(rosterQB.overall) || 'rgba(0, 0, 0, 0.7)';
+                    }
+                    console.log(`[ROSTER] QB updated: ${scene.qb.displayName} (${scene.qb.overall})`);
+                } catch (e) {
+                    console.error('[ROSTER] Error updating QB:', e);
                 }
             }
 
@@ -12337,21 +12889,26 @@
                 const player = getDepthChartPlayer(slot);
                 const receiver = gameState.receivers[index];
                 if (player && receiver) {
-                    receiver.playerId = player.id;
-                    receiver.displayName = `${player.firstName} ${player.lastName.charAt(0)}.`;
-                    receiver.stats = { ...player.stats };
-                    receiver.coreAttributes = player.coreAttributes || null;
-                    receiver.lastName = player.lastName;
-                    receiver.overall = player.overall;
-                    // Update name label TextBlocks
-                    if (receiver.nameTextBlock) {
-                        receiver.nameTextBlock.text = player.lastName.toUpperCase();
-                    }
-                    if (receiver.ovrTextBlock) {
-                        receiver.ovrTextBlock.text = getRatingText(player.overall);
-                    }
-                    if (receiver.nameLabel) {
-                        receiver.nameLabel.background = getOffenseLabelBg(player.overall) || 'rgba(0, 0, 0, 0.65)';
+                    try {
+                        receiver.playerId = player.id;
+                        receiver.displayName = `${player.firstName} ${player.lastName.charAt(0)}.`;
+                        receiver.stats = { ...player.stats };
+                        receiver.coreAttributes = player.coreAttributes ? { ...player.coreAttributes } : null;
+                        receiver.lastName = player.lastName;
+                        receiver.overall = player.overall;
+                        // Update name label TextBlocks
+                        if (receiver.nameTextBlock) {
+                            receiver.nameTextBlock.text = player.lastName.toUpperCase();
+                        }
+                        if (receiver.ovrTextBlock) {
+                            receiver.ovrTextBlock.text = getRatingText(player.overall);
+                        }
+                        if (receiver.nameLabel) {
+                            receiver.nameLabel.background = getOffenseLabelBg(player.overall) || 'rgba(0, 0, 0, 0.65)';
+                        }
+                        console.log(`[ROSTER] Receiver ${slot} updated: ${receiver.displayName} (${receiver.overall})`);
+                    } catch (e) {
+                        console.error(`[ROSTER] Error updating receiver ${slot}:`, e);
                     }
                 }
             });
@@ -12374,20 +12931,32 @@
                 gameState.defenders.forEach((defender, index) => {
                     const player = oppCBs[index];
                     if (player && defender) {
-                        defender.playerId = player.id;
-                        defender.displayName = `${player.firstName} ${player.lastName.charAt(0)}.`;
-                        defender.stats = { ...player.stats };
-                        defender.coreAttributes = player.coreAttributes || null;
-                        defender.overall = player.overall;
-                        // Update name label TextBlocks
-                        if (defender.nameTextBlock) {
-                            defender.nameTextBlock.text = defender.displayName.toUpperCase();
-                        }
-                        if (defender.ovrTextBlock) {
-                            defender.ovrTextBlock.text = getRatingText(player.overall);
-                        }
-                        if (defender.nameLabel) {
-                            defender.nameLabel.background = getDefenderLabelBg(player.overall);
+                        try {
+                            defender.playerId = player.id;
+                            defender.displayName = `${player.firstName} ${player.lastName.charAt(0)}.`;
+                            // Preserve essential defender stats (zoneCoverage, manCoverage) while updating from roster
+                            const originalZoneCov = defender.stats?.zoneCoverage || 70;
+                            const originalManCov = defender.stats?.manCoverage || 70;
+                            defender.stats = {
+                                ...player.stats,
+                                zoneCoverage: player.stats.zoneCoverage || originalZoneCov,
+                                manCoverage: player.stats.manCoverage || originalManCov
+                            };
+                            defender.coreAttributes = player.coreAttributes ? { ...player.coreAttributes } : null;
+                            defender.overall = player.overall;
+                            // Update name label TextBlocks
+                            if (defender.nameTextBlock) {
+                                defender.nameTextBlock.text = defender.displayName.toUpperCase();
+                            }
+                            if (defender.ovrTextBlock) {
+                                defender.ovrTextBlock.text = getRatingText(player.overall);
+                            }
+                            if (defender.nameLabel) {
+                                defender.nameLabel.background = getDefenderLabelBg(player.overall);
+                            }
+                            console.log(`[ROSTER] Defender ${index} updated: ${defender.displayName} (${defender.overall})`);
+                        } catch (e) {
+                            console.error(`[ROSTER] Error updating defender ${index}:`, e);
                         }
                     }
                 });
@@ -12398,9 +12967,15 @@
                 const player = managementState.team.roster.find(p => p.id === playerId);
                 const oLineman = gameState.offensiveLine[index];
                 if (player && oLineman) {
-                    oLineman.playerId = player.id;
-                    oLineman.displayName = `${player.firstName} ${player.lastName.charAt(0)}.`;
-                    oLineman.stats = { ...player.stats };
+                    try {
+                        oLineman.playerId = player.id;
+                        oLineman.displayName = `${player.firstName} ${player.lastName.charAt(0)}.`;
+                        oLineman.stats = { ...player.stats };
+                        oLineman.coreAttributes = player.coreAttributes ? { ...player.coreAttributes } : null;
+                        console.log(`[ROSTER] O-Line ${index} updated: ${oLineman.displayName}`);
+                    } catch (e) {
+                        console.error(`[ROSTER] Error updating O-Line ${index}:`, e);
+                    }
                 }
             });
 
@@ -12413,9 +12988,15 @@
                 gameState.defensiveLine.forEach((dLineman, index) => {
                     const player = oppDL[index];
                     if (player && dLineman) {
-                        dLineman.playerId = player.id;
-                        dLineman.displayName = `${player.firstName} ${player.lastName.charAt(0)}.`;
-                        dLineman.stats = { ...player.stats };
+                        try {
+                            dLineman.playerId = player.id;
+                            dLineman.displayName = `${player.firstName} ${player.lastName.charAt(0)}.`;
+                            dLineman.stats = { ...player.stats };
+                            dLineman.coreAttributes = player.coreAttributes ? { ...player.coreAttributes } : null;
+                            console.log(`[ROSTER] D-Line ${index} updated: ${dLineman.displayName}`);
+                        } catch (e) {
+                            console.error(`[ROSTER] Error updating D-Line ${index}:`, e);
+                        }
                     }
                 });
             }
@@ -12911,13 +13492,18 @@
             if (result.success) startArcadeGame();
         });
         document.getElementById('btnSimulateGame').addEventListener('click', () => {
+            console.log('[SIMULATE] Button clicked');
             const simResult = simulateFullGame();
+            console.log('[SIMULATE] Result:', simResult);
             if (simResult.success) {
                 // End match to record result and get matchResult object
                 const matchResult = endMatch();
+                console.log('[SIMULATE] Match result:', matchResult);
                 if (matchResult) {
                     showMatchEnd(matchResult);
                 }
+            } else {
+                console.error('[SIMULATE] Failed:', simResult.error);
             }
         });
         document.getElementById('btnPreGameBack').addEventListener('click', () => showScreen('hub'));
@@ -12994,6 +13580,67 @@
             toggleDraftView(true);
         });
 
+        // Draft navigation handlers
+        document.getElementById('btnNextPick').addEventListener('click', () => {
+            simulateNextComputerPick();
+        });
+
+        document.getElementById('btnSkipToYourPick').addEventListener('click', () => {
+            skipToPlayerTurn();
+        });
+
+        // Pick trading handlers
+        document.getElementById('btnTradeInPick').addEventListener('click', () => {
+            if (tradeInPick()) {
+                // Show feedback
+                const btn = document.getElementById('btnTradeInPick');
+                const originalText = btn.textContent;
+                btn.textContent = 'PICK TRADED!';
+                btn.disabled = true;
+                setTimeout(() => {
+                    btn.textContent = originalText;
+                    refreshDraftScreen();
+                }, 1000);
+            }
+        });
+
+        document.getElementById('btnAcquirePick').addEventListener('click', () => {
+            if (acquireCurrentPick()) {
+                // Show feedback
+                const btn = document.getElementById('btnAcquirePick');
+                btn.textContent = 'PICK ACQUIRED!';
+                btn.disabled = true;
+                setTimeout(() => {
+                    refreshDraftScreen();
+                }, 1000);
+            }
+        });
+
+        // Draft options modal handlers
+        document.getElementById('btnDraftOptions').addEventListener('click', () => {
+            // Load current settings into inputs
+            document.getElementById('pickTradeInPenalty').value = managementState.settings.pickTradeInPenalty || 50;
+            document.getElementById('pickAcquirePremium').value = managementState.settings.pickAcquirePremium || 10;
+            document.getElementById('draftOptionsModal').style.display = 'flex';
+        });
+
+        document.getElementById('btnSaveDraftOptions').addEventListener('click', () => {
+            // Save settings
+            managementState.settings.pickTradeInPenalty = parseInt(document.getElementById('pickTradeInPenalty').value) || 50;
+            managementState.settings.pickAcquirePremium = parseInt(document.getElementById('pickAcquirePremium').value) || 10;
+            document.getElementById('draftOptionsModal').style.display = 'none';
+            // Refresh draft screen to show updated values
+            if (draftState.active) {
+                refreshDraftScreen();
+            }
+            // Save if auto-save is on
+            if (managementState.settings.autoSave) SaveSystem.save();
+        });
+
+        document.getElementById('btnCloseDraftOptions').addEventListener('click', () => {
+            document.getElementById('draftOptionsModal').style.display = 'none';
+        });
+
         // Player detail modal handlers
         document.getElementById('btnCloseDetail').addEventListener('click', () => {
             // Reset draft player state when closing
@@ -13005,23 +13652,48 @@
             closePlayerDetail();
         });
         document.getElementById('btnCutPlayer').addEventListener('click', cutPlayerFromDetail);
-        document.getElementById('btnTradePlayer').addEventListener('click', () => {
+        console.log('Setting up btnTradePlayer click handler...');
+        const tradeBtnEl = document.getElementById('btnTradePlayer');
+        console.log('Found btnTradePlayer element:', tradeBtnEl);
+        if (!tradeBtnEl) {
+            console.error('ERROR: btnTradePlayer not found in DOM!');
+            alert('ERROR: Draft button not found!');
+        }
+        tradeBtnEl.addEventListener('click', (e) => {
+            console.log('Trade/Draft button clicked', e);
             // Handle draft player differently
             if (draftState.selectedDraftPlayer) {
+                console.log('Selected draft player:', draftState.selectedDraftPlayer);
                 const playerId = draftState.selectedDraftPlayer.id;
                 const playerName = draftState.selectedDraftPlayer.name;
-                if (draftPlayer(playerId)) {
+                console.log('Attempting to draft player ID:', playerId);
+                const result = draftPlayer(playerId);
+                console.log('draftPlayer result:', result);
+                if (result) {
+                    console.log('Draft succeeded! Showing confirmation...');
                     draftState.selectedDraftPlayer = null;
-                    document.getElementById('btnCutPlayer').style.display = 'block';
                     // Show confirmation on the button briefly
                     const btn = document.getElementById('btnTradePlayer');
                     btn.textContent = 'DRAFTED!';
                     btn.style.backgroundColor = '#4CAF50';
+                    console.log('Button updated to DRAFTED!, closing modal in 600ms...');
                     setTimeout(() => {
+                        console.log('Timeout fired, closing modal...');
                         btn.textContent = 'DRAFT';
                         btn.style.backgroundColor = '';
                         closePlayerDetail();
                     }, 600);
+                } else {
+                    // Draft failed - show error briefly
+                    console.log('Draft failed - showing error on button');
+                    const btn = document.getElementById('btnTradePlayer');
+                    const originalText = btn.textContent;
+                    btn.textContent = 'FAILED!';
+                    btn.style.backgroundColor = '#f44';
+                    setTimeout(() => {
+                        btn.textContent = originalText;
+                        btn.style.backgroundColor = '';
+                    }, 1000);
                 }
             } else {
                 tradePlayerFromDetail();
@@ -13044,8 +13716,15 @@
         });
         updateHeatMapButton();
 
+        // Render loop - try/catch prevents silent failures from stopping rendering
+        // See TRAINING_MODE_FIX.md for why this is important
         engine.runRenderLoop(() => {
-            scene.render();
+            try {
+                scene.render();
+            } catch (e) {
+                console.error('Render error:', e);
+                console.error('Stack:', e.stack);
+            }
         });
 
         window.addEventListener('resize', () => {
