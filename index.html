@@ -3937,10 +3937,119 @@
             draftPool: [],
             draftedPlayers: [],  // IDs of all drafted players (by any team)
             playerPicks: [],     // IDs of players drafted by the user
+            computerTeamRosters: {},  // Track what each computer team has drafted: { teamIndex: [players] }
             isNewGame: false,
             viewingRoster: false,
             selectedDraftPlayer: null
         };
+
+        // Ideal roster composition per position
+        const IDEAL_ROSTER = {
+            QB: 1,
+            WR: 3,
+            CB: 4,
+            OL: 5,
+            DL: 4
+        };
+
+        // Calculate positional needs for a team based on what they've drafted
+        function calculatePositionalNeeds(teamRoster) {
+            const counts = { QB: 0, WR: 0, CB: 0, OL: 0, DL: 0 };
+
+            // Count current roster
+            (teamRoster || []).forEach(player => {
+                if (counts[player.position] !== undefined) {
+                    counts[player.position]++;
+                }
+            });
+
+            // Calculate need scores (higher = more needed)
+            const needs = [];
+            Object.keys(IDEAL_ROSTER).forEach(pos => {
+                const ideal = IDEAL_ROSTER[pos];
+                const current = counts[pos];
+                const need = ideal - current;
+
+                if (need > 0) {
+                    // Weight by how many spots still needed and position importance
+                    // QB is critical if missing, others weighted by count needed
+                    const urgency = pos === 'QB' && current === 0 ? 10 : need;
+                    needs.push({ position: pos, need, urgency });
+                }
+            });
+
+            // Sort by urgency (highest first)
+            needs.sort((a, b) => b.urgency - a.urgency);
+
+            return needs;
+        }
+
+        // Get top N positional needs as a display string
+        function getPositionalNeedsDisplay(teamRoster, count = 2) {
+            const needs = calculatePositionalNeeds(teamRoster);
+            if (needs.length === 0) return '';
+
+            const topNeeds = needs.slice(0, count).map(n => n.position);
+            return topNeeds.join(', ');
+        }
+
+        // Calculate player value for draft selection
+        // Weighs overall rating, growth potential, and positional need
+        function calculateDraftValue(player, teamRoster) {
+            // Base value from overall (0-100 scale)
+            let value = player.overall;
+
+            // Growth potential bonus (age + potential grade)
+            // Young players with high potential are more valuable
+            const ageBonus = Math.max(0, (24 - player.age) * 2); // Up to +6 for age 21
+            const potentialBonus = player.potentialGrade * 4; // Up to +12 for 3-star potential
+            value += ageBonus + potentialBonus;
+
+            // Positional need multiplier
+            const needs = calculatePositionalNeeds(teamRoster);
+            const posNeed = needs.find(n => n.position === player.position);
+
+            if (posNeed) {
+                // Multiply value based on need (1.0 to 1.5)
+                const needMultiplier = 1 + (posNeed.urgency * 0.1);
+                value *= Math.min(1.5, needMultiplier);
+            } else {
+                // Position already filled - reduce value significantly
+                value *= 0.5;
+            }
+
+            return value;
+        }
+
+        // Smart computer team selection
+        function selectBestPlayerForTeam(available, teamRoster) {
+            if (available.length === 0) return null;
+
+            // Score all available players
+            const scored = available.map(player => ({
+                player,
+                value: calculateDraftValue(player, teamRoster)
+            }));
+
+            // Sort by value (highest first)
+            scored.sort((a, b) => b.value - a.value);
+
+            // Add some randomness: pick from top 3 candidates with weighted probability
+            const topCandidates = scored.slice(0, Math.min(3, scored.length));
+
+            // Weight towards higher value picks but allow some variance
+            const totalValue = topCandidates.reduce((sum, c) => sum + c.value, 0);
+            let roll = Math.random() * totalValue;
+
+            for (const candidate of topCandidates) {
+                roll -= candidate.value;
+                if (roll <= 0) {
+                    return candidate.player;
+                }
+            }
+
+            return topCandidates[0].player; // Fallback to best
+        }
 
         // Generate draft class with realistic ratings
         // Guaranteed: 1-3 elite (90+), 6+ standouts (85-89), rest are developmental
@@ -4077,6 +4186,7 @@
             draftState.draftPool = generateDraftClass();
             draftState.draftedPlayers = [];
             draftState.playerPicks = [];
+            draftState.computerTeamRosters = {};  // Reset computer team rosters for new draft
             draftState.isNewGame = isNewGame;
             draftState.viewingRoster = false;
             draftState.selectedDraftPlayer = null;
@@ -4126,18 +4236,26 @@
                 return;
             }
 
-            // Computer team picks from top available players (with some randomness)
-            const pickRange = Math.min(3, available.length);
-            const pickIdx = Math.floor(Math.random() * pickRange);
-            const picked = available[pickIdx];
+            // Get the current team's roster for smart selection
+            const teamIndex = (draftState.currentPickNumber - 1) % (DRAFT.NUM_TEAMS - 1);
+            const teamRoster = draftState.computerTeamRosters[teamIndex] || [];
+
+            // Smart selection based on overall, growth potential, and positional need
+            const picked = selectBestPlayerForTeam(available, teamRoster);
 
             if (picked) {
                 draftState.draftedPlayers.push(picked.id);
 
+                // Track this pick in the team's roster
+                if (!draftState.computerTeamRosters[teamIndex]) {
+                    draftState.computerTeamRosters[teamIndex] = [];
+                }
+                draftState.computerTeamRosters[teamIndex].push(picked);
+
                 // Store the pick for display
-                const teamIndex = (draftState.currentPickNumber - 1) % (DRAFT.NUM_TEAMS - 1);
                 draftState.lastComputerPick = {
                     teamName: COMPUTER_TEAM_NAMES[teamIndex],
+                    teamIndex: teamIndex,
                     player: picked,
                     pickNumber: draftState.currentPickNumber
                 };
@@ -4151,17 +4269,29 @@
 
         // Skip all computer picks and go directly to player's turn
         function skipToPlayerTurn() {
-            const available = getAvailableDraftPlayers();
+            let available = getAvailableDraftPlayers();
 
             while (!isPlayersTurnNow() && available.length > 0) {
-                // Computer team picks from top available
-                const pickRange = Math.min(3, available.length);
-                const pickIdx = Math.floor(Math.random() * pickRange);
-                const picked = available.splice(pickIdx, 1)[0];
+                // Get the current team's roster for smart selection
+                const teamIndex = (draftState.currentPickNumber - 1) % (DRAFT.NUM_TEAMS - 1);
+                const teamRoster = draftState.computerTeamRosters[teamIndex] || [];
+
+                // Smart selection based on overall, growth potential, and positional need
+                const picked = selectBestPlayerForTeam(available, teamRoster);
 
                 if (picked) {
                     draftState.draftedPlayers.push(picked.id);
+
+                    // Track this pick in the team's roster
+                    if (!draftState.computerTeamRosters[teamIndex]) {
+                        draftState.computerTeamRosters[teamIndex] = [];
+                    }
+                    draftState.computerTeamRosters[teamIndex].push(picked);
+
                     draftState.currentPickNumber++;
+
+                    // Remove picked player from available list
+                    available = available.filter(p => p.id !== picked.id);
                 }
             }
 
@@ -4564,7 +4694,12 @@
             // Update last pick notification bar
             if (draftState.lastComputerPick) {
                 const pick = draftState.lastComputerPick;
-                lastPickTextEl.innerHTML = `Pick #${pick.pickNumber}: <span class="team-name">${pick.teamName}</span> → <span class="player-name">${pick.player.firstName} ${pick.player.lastName}</span> <span class="overall">${pick.player.overall}</span>`;
+                const pickTeamRoster = draftState.computerTeamRosters[pick.teamIndex] || [];
+                const pickNeedsDisplay = getPositionalNeedsDisplay(pickTeamRoster, 2);
+                const needsSpan = pickNeedsDisplay
+                    ? ` <span style="font-size:11px;font-style:italic;opacity:0.7;">(${pickNeedsDisplay})</span>`
+                    : '';
+                lastPickTextEl.innerHTML = `Pick #${pick.pickNumber}: <span class="team-name">${pick.teamName}</span>${needsSpan} → <span class="player-name">${pick.player.firstName} ${pick.player.lastName}</span> <span class="overall">${pick.player.overall}</span>`;
             } else {
                 lastPickTextEl.textContent = 'Draft in progress...';
             }
@@ -4576,18 +4711,23 @@
             // Update on-the-clock section
             if (draftState.usingExtraPick) {
                 onClockEl.className = 'draft-on-clock player';
-                teamNameEl.textContent = 'YOUR PICK';
+                teamNameEl.innerHTML = 'YOUR PICK';
                 navButtonsEl.style.display = 'none';
             } else if (draftState.isPlayersTurn || !isComputerTurn) {
                 if (!draftState.isPlayersTurn) draftState.isPlayersTurn = true;
                 onClockEl.className = 'draft-on-clock player';
-                teamNameEl.textContent = 'YOUR TURN';
+                teamNameEl.innerHTML = 'YOUR TURN';
                 navButtonsEl.style.display = 'none';
             } else {
                 onClockEl.className = 'draft-on-clock computer';
-                // Show actual team name on the clock
+                // Show actual team name on the clock with positional needs
                 const teamIndex = (draftState.currentPickNumber - 1) % (DRAFT.NUM_TEAMS - 1);
-                teamNameEl.textContent = COMPUTER_TEAM_NAMES[teamIndex] || 'Team';
+                const teamRoster = draftState.computerTeamRosters[teamIndex] || [];
+                const needsDisplay = getPositionalNeedsDisplay(teamRoster, 2);
+                const teamName = COMPUTER_TEAM_NAMES[teamIndex] || 'Team';
+                teamNameEl.innerHTML = needsDisplay
+                    ? `${teamName} <span style="font-size:12px;font-style:italic;opacity:0.8;">(${needsDisplay})</span>`
+                    : teamName;
                 navButtonsEl.style.display = 'flex';
             }
 
