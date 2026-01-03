@@ -5168,7 +5168,9 @@
                 // ========================================
                 // BASE SEPARATION ROLL
                 // ========================================
-                let receiverRoll = weightedStatRoll(receiver.stats, CLASH_WEIGHTS.separation.receiver, receiver.player.coreAttributes);
+                // Use stats (visible to player) for separation, not coreAttributes
+                // This ensures the simulation matches what players see on their roster
+                let receiverRoll = weightedStatRoll(receiver.stats, CLASH_WEIGHTS.separation.receiver, null);
 
                 // Crossing route bonus - route running helps execute cuts cleanly
                 // Reduced from 0.3 to 0.10 for better balance
@@ -5187,7 +5189,8 @@
                 // ========================================
                 // DEFENDER ROLL
                 // ========================================
-                let defenderRoll = weightedStatRoll(defender.stats, CLASH_WEIGHTS.separation.defender, defender.player.coreAttributes);
+                // Use stats (visible to player) for separation, not coreAttributes
+                let defenderRoll = weightedStatRoll(defender.stats, CLASH_WEIGHTS.separation.defender, null);
 
                 // Defender counter-bonuses to balance WR route bonuses
                 // Awareness helps read the route and anticipate breaks
@@ -5902,21 +5905,6 @@
                 dLine: oppDL.slice(0, 4)
             };
 
-            // Debug: Log WR and CB stats for player offense
-            console.log('[DEBUG PLAYER OFFENSE]');
-            offense.receivers.forEach((wr, i) => {
-                const core = wr.coreAttributes;
-                const stats = wr.stats;
-                const hasCore = !!core;
-                console.log(`  WR${i+1}: hasCore=${hasCore} coreSpd=${core?.speed} coreAgi=${core?.agility} statsSpd=${stats?.speed} statsAgi=${stats?.agility} routeRun=${stats?.routeRunning} accel=${stats?.acceleration} catch=${stats?.catching}`);
-            });
-            defense.dbs.forEach((cb, i) => {
-                const core = cb.coreAttributes;
-                const stats = cb.stats;
-                const hasCore = !!core;
-                console.log(`  CB${i+1}: hasCore=${hasCore} coreSpd=${core?.speed} coreAgi=${core?.agility} statsSpd=${stats?.speed} statsAgi=${stats?.agility} aware=${stats?.awareness} pursuit=${stats?.pursuit}`);
-            });
-
             const startingFieldPosition = {
                 yardsFromGoal: 75,  // Own 25
                 yardsToGo: 10,
@@ -6033,21 +6021,6 @@
                 dbs: playerCBs.slice(0, 4),
                 dLine: playerDL.slice(0, 4)
             };
-
-            // Debug: Log WR and CB stats for opponent offense
-            console.log('[DEBUG OPPONENT OFFENSE]');
-            offense.receivers.forEach((wr, i) => {
-                const core = wr.coreAttributes;
-                const stats = wr.stats;
-                const hasCore = !!core;
-                console.log(`  WR${i+1}: hasCore=${hasCore} coreSpd=${core?.speed} coreAgi=${core?.agility} statsSpd=${stats?.speed} statsAgi=${stats?.agility} routeRun=${stats?.routeRunning} accel=${stats?.acceleration} catch=${stats?.catching}`);
-            });
-            defense.dbs.forEach((cb, i) => {
-                const core = cb.coreAttributes;
-                const stats = cb.stats;
-                const hasCore = !!core;
-                console.log(`  CB${i+1}: hasCore=${hasCore} coreSpd=${core?.speed} coreAgi=${core?.agility} statsSpd=${stats?.speed} statsAgi=${stats?.agility} aware=${stats?.awareness} pursuit=${stats?.pursuit}`);
-            });
 
             const startingFieldPosition = {
                 yardsFromGoal: 75,  // Own 25
