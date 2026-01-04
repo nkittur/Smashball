@@ -4135,8 +4135,13 @@
 
             // Refresh the views
             refreshDraftScreen();
+            console.log('After refreshDraftScreen, selectedDraftPlayer:', draftState.selectedDraftPlayer);
+            console.log('Checking if should refresh detail:', draftState.selectedDraftPlayer?.id, '===', playerId);
             if (draftState.selectedDraftPlayer && draftState.selectedDraftPlayer.id === playerId) {
+                console.log('Calling showDraftPlayerDetail to refresh...');
                 showDraftPlayerDetail(playerId);
+            } else {
+                console.log('NOT refreshing detail - condition failed');
             }
 
             return true;
