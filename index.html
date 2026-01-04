@@ -4156,6 +4156,7 @@
         // Scout a player (spend points to reduce uncertainty)
         // Exposed globally for onclick handlers
         window.scoutPlayer = function(playerId) {
+            console.log('scoutPlayer called:', playerId);
             const currentLevel = getPlayerScoutLevel(playerId);
 
             if (currentLevel >= SCOUTING.MAX_LEVEL) {
@@ -4874,8 +4875,12 @@
 
         // Show player detail for draft player
         function showDraftPlayerDetail(playerId) {
+            console.log('showDraftPlayerDetail called:', playerId);
             const player = draftState.draftPool.find(p => p.id === playerId);
-            if (!player) return;
+            if (!player) {
+                console.log('Player not found in pool');
+                return;
+            }
 
             draftState.selectedDraftPlayer = player;
 
@@ -4922,8 +4927,10 @@
             // Attach scout button event listener after innerHTML is set
             if (scoutLevel < SCOUTING.MAX_LEVEL) {
                 const scoutBtn = document.getElementById(scoutBtnId);
+                console.log('Looking for scout button:', scoutBtnId, 'found:', !!scoutBtn);
                 if (scoutBtn) {
                     scoutBtn.addEventListener('click', (e) => {
+                        console.log('Scout button clicked');
                         e.stopPropagation();
                         window.scoutPlayer(playerId);
                     });
