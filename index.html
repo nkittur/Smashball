@@ -3976,9 +3976,9 @@
             MAX_LEVEL: 3,           // Maximum times a player can be scouted
             MIN_COST: 5,            // Minimum scouting cost
             MAX_COST: 50,           // Maximum scouting cost
-            RANGE_UNSCOUTED: 25,    // Rating range for unscouted players (±25)
-            RANGE_PER_LEVEL: 7,     // Range reduction per scout level (25 -> 18 -> 11 -> 4)
-            MAX_OFFSET: 12          // Maximum offset from center at level 0
+            RANGE_UNSCOUTED: 50,    // Rating range for unscouted players (±50)
+            RANGE_PER_LEVEL: 14,    // Range reduction per scout level (50 -> 36 -> 22 -> 8)
+            MAX_OFFSET: 24          // Maximum offset from center at level 0
         };
 
         // Calculate scouting cost based on current pick value
@@ -3998,7 +3998,7 @@
         }
 
         // Calculate rating range based on scout level
-        // Level 0: ±25, Level 1: ±18, Level 2: ±11, Level 3: ±4
+        // Level 0: ±50, Level 1: ±36, Level 2: ±22, Level 3: ±8
         function getRatingRange(scoutLevel) {
             return SCOUTING.RANGE_UNSCOUTED - (scoutLevel * SCOUTING.RANGE_PER_LEVEL);
         }
