@@ -3982,6 +3982,7 @@
         };
 
         // Generate combine stats for a draft player based on their core attributes
+        // Stats are correlated but not perfectly deterministic - significant variance
         function generateCombineStats(player) {
             const core = player.coreAttributes || {};
             const str = core.strength || 50;
@@ -3989,58 +3990,82 @@
             const agi = core.agility || 50;
             const intel = core.intelligence || 50;
 
-            // Use player ID for consistent random variance
+            // Use player ID for consistent random variance (±15-25% variance for imperfect correlation)
             let hash = 0;
             for (let i = 0; i < player.id.length; i++) {
                 hash = ((hash << 5) - hash) + player.id.charCodeAt(i);
                 hash = hash & hash;
             }
-            const variance = (stat) => {
+            const variance = (stat, range = 0.20) => {
                 hash = ((hash << 5) - hash) + stat;
-                return ((Math.abs(hash) % 100) - 50) / 500; // ±10% variance
+                return ((Math.abs(hash) % 1000) - 500) / 500 * range; // ±range variance
+            };
+
+            // Calculate raw values with significant variance
+            const fortyRaw = (5.30 - (spd * 0.012) - (agi * 0.003)) * (1 + variance(1, 0.06));
+            const benchRaw = ((str - 30) * 0.50 + 14) * (1 + variance(2, 0.25));
+            const vertRaw = (24 + (spd * 0.14) + (agi * 0.10)) * (1 + variance(3, 0.12));
+            const broadRaw = (90 + (str * 0.20) + (spd * 0.16)) * (1 + variance(4, 0.10));
+            const threeRaw = (7.70 - (agi * 0.018) - (spd * 0.004)) * (1 + variance(5, 0.06));
+            const shuttleRaw = (4.65 - (agi * 0.012) - (spd * 0.005)) * (1 + variance(6, 0.06));
+            const wonderRaw = (intel * 0.42 + 10) * (1 + variance(7, 0.18));
+
+            // Clamp to realistic ranges
+            const forty = Math.max(4.25, Math.min(5.35, fortyRaw));
+            const bench = Math.max(10, Math.min(38, Math.round(benchRaw)));
+            const vert = Math.max(26, Math.min(44, vertRaw));
+            const broad = Math.max(102, Math.min(138, Math.round(broadRaw)));
+            const three = Math.max(6.50, Math.min(7.70, threeRaw));
+            const shuttle = Math.max(3.80, Math.min(4.60, shuttleRaw));
+            const wonder = Math.max(12, Math.min(48, Math.round(wonderRaw)));
+
+            // Elite benchmarks (what a 100-rated player would get on average)
+            const ELITE = {
+                forty: 4.28,      // Elite 40 time
+                bench: 35,        // Elite bench reps
+                vert: 42,         // Elite vertical
+                broad: 134,       // Elite broad jump (11'2")
+                three: 6.55,      // Elite 3-cone
+                shuttle: 3.85,    // Elite shuttle
+                wonder: 48        // Elite wonderlic
+            };
+
+            // Calculate percentiles (100 = elite level, 0 = worst)
+            const calcPercentile = (val, elite, worst, lowerBetter = false) => {
+                if (lowerBetter) {
+                    return Math.max(0, Math.min(99, Math.round(100 * (worst - val) / (worst - elite))));
+                }
+                return Math.max(0, Math.min(99, Math.round(100 * (val - worst) / (elite - worst))));
             };
 
             return {
-                // Pure speed test
-                fortyYard: Math.max(4.20, Math.min(5.40,
-                    (5.30 - (spd * 0.014) - (agi * 0.003)) * (1 + variance(1))
-                )).toFixed(2),
+                fortyYard: forty.toFixed(2),
+                fortyPct: calcPercentile(forty, ELITE.forty, 5.35, true),
 
-                // Pure strength test (225 lb reps)
-                benchPress: Math.max(8, Math.min(40, Math.round(
-                    ((str - 30) * 0.55 + 12) * (1 + variance(2))
-                ))),
+                benchPress: bench,
+                benchPct: calcPercentile(bench, ELITE.bench, 10),
 
-                // Explosiveness - speed/agility focused
-                verticalJump: Math.max(24, Math.min(46,
-                    (22 + (spd * 0.15) + (agi * 0.12)) * (1 + variance(3))
-                )).toFixed(1),
+                verticalJump: vert.toFixed(1),
+                vertPct: calcPercentile(vert, ELITE.vert, 26),
 
-                // Lower body power - strength + speed
-                broadJump: Math.max(100, Math.min(140, Math.round(
-                    (85 + (str * 0.22) + (spd * 0.18)) * (1 + variance(4))
-                ))),
+                broadJump: broad,
+                broadFeetInches: `${Math.floor(broad / 12)}'${broad % 12}"`,
+                broadPct: calcPercentile(broad, ELITE.broad, 102),
 
-                // Pure agility/change of direction
-                threeCone: Math.max(6.40, Math.min(7.80,
-                    (7.80 - (agi * 0.020) - (spd * 0.004)) * (1 + variance(5))
-                )).toFixed(2),
+                threeCone: three.toFixed(2),
+                threePct: calcPercentile(three, ELITE.three, 7.70, true),
 
-                // Agility + speed combo
-                shuttle: Math.max(3.70, Math.min(4.70,
-                    (4.70 - (agi * 0.014) - (spd * 0.006)) * (1 + variance(6))
-                )).toFixed(2),
+                shuttle: shuttle.toFixed(2),
+                shuttlePct: calcPercentile(shuttle, ELITE.shuttle, 4.60, true),
 
-                // Cognitive test (0-50 scale, like Wonderlic)
-                wonderlic: Math.max(10, Math.min(50, Math.round(
-                    (intel * 0.45 + 8) * (1 + variance(7) * 0.5)
-                ))),
+                wonderlic: wonder,
+                wonderPct: calcPercentile(wonder, ELITE.wonder, 12),
 
                 // Film study/football IQ grade
-                filmGrade: getLetterGrade((intel * 0.7 + agi * 0.15 + spd * 0.15) * (1 + variance(8) * 0.3)),
+                filmGrade: getLetterGrade((intel * 0.65 + agi * 0.18 + spd * 0.17) * (1 + variance(8, 0.15))),
 
                 // Position drills grade (technique + learning ability)
-                drillGrade: getLetterGrade((intel * 0.4 + agi * 0.3 + spd * 0.3) * (1 + variance(9) * 0.3))
+                drillGrade: getLetterGrade((intel * 0.35 + agi * 0.35 + spd * 0.30) * (1 + variance(9, 0.15)))
             };
         }
 
@@ -5316,22 +5341,26 @@
             // Combine Stats section - Athletic Testing
             if (player.combineStats) {
                 const cs = player.combineStats;
+                // Helper to format stat with percentile coloring
+                const pctColor = (pct) => pct >= 85 ? '#ffd700' : pct >= 70 ? '#4CAF50' : pct >= 50 ? '#8BC34A' : pct >= 30 ? '#FFC107' : '#f44336';
+                const formatWithPct = (val, pct, suffix = '') => `<span style="color:${pctColor(pct)}">${val}${suffix}</span> <span style="opacity:0.6;font-size:10px;">(${pct}%)</span>`;
+
                 statsHtml += `
                     <div class="stats-section">
                         <div class="stats-section-title">Athletic Testing</div>
                         <div class="stats-grid" style="font-size:12px;">
-                            <div class="stat-row"><span class="stat-row-name">40-Yard</span><span class="stat-row-value">${formatCombineStat(cs.fortyYard, scoutLevel, 's', true)}</span></div>
-                            <div class="stat-row"><span class="stat-row-name">Vertical</span><span class="stat-row-value">${formatCombineStat(cs.verticalJump, scoutLevel, '"')}</span></div>
-                            <div class="stat-row"><span class="stat-row-name">3-Cone</span><span class="stat-row-value">${formatCombineStat(cs.threeCone, scoutLevel, 's', true)}</span></div>
-                            <div class="stat-row"><span class="stat-row-name">Shuttle</span><span class="stat-row-value">${formatCombineStat(cs.shuttle, scoutLevel, 's', true)}</span></div>
-                            <div class="stat-row"><span class="stat-row-name">Bench</span><span class="stat-row-value">${formatCombineStat(cs.benchPress, scoutLevel, ' reps')}</span></div>
-                            <div class="stat-row"><span class="stat-row-name">Broad</span><span class="stat-row-value">${formatCombineStat(cs.broadJump, scoutLevel, '"')}</span></div>
+                            <div class="stat-row"><span class="stat-row-name">40-Yard</span><span class="stat-row-value">${formatWithPct(cs.fortyYard, cs.fortyPct, 's')}</span></div>
+                            <div class="stat-row"><span class="stat-row-name">Vertical</span><span class="stat-row-value">${formatWithPct(cs.verticalJump, cs.vertPct, '"')}</span></div>
+                            <div class="stat-row"><span class="stat-row-name">3-Cone</span><span class="stat-row-value">${formatWithPct(cs.threeCone, cs.threePct, 's')}</span></div>
+                            <div class="stat-row"><span class="stat-row-name">Shuttle</span><span class="stat-row-value">${formatWithPct(cs.shuttle, cs.shuttlePct, 's')}</span></div>
+                            <div class="stat-row"><span class="stat-row-name">Bench</span><span class="stat-row-value">${formatWithPct(cs.benchPress, cs.benchPct, ' reps')}</span></div>
+                            <div class="stat-row"><span class="stat-row-name">Broad</span><span class="stat-row-value">${formatWithPct(cs.broadFeetInches, cs.broadPct, '')}</span></div>
                         </div>
                     </div>
                     <div class="stats-section">
                         <div class="stats-section-title">Mental/Interview</div>
                         <div class="stats-grid" style="font-size:12px;">
-                            <div class="stat-row"><span class="stat-row-name">Wonderlic</span><span class="stat-row-value">${formatCombineStat(cs.wonderlic, scoutLevel, '/50')}</span></div>
+                            <div class="stat-row"><span class="stat-row-name">Wonderlic</span><span class="stat-row-value">${formatWithPct(cs.wonderlic, cs.wonderPct, '/50')}</span></div>
                             <div class="stat-row"><span class="stat-row-name">Film Study</span><span class="stat-row-value" style="color:#ffd700;">${cs.filmGrade}</span></div>
                             <div class="stat-row"><span class="stat-row-name">Pos. Drills</span><span class="stat-row-value" style="color:#ffd700;">${cs.drillGrade}</span></div>
                         </div>
