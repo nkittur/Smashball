@@ -2525,7 +2525,8 @@
                         draftPool: draftState.draftPool,
                         draftedPlayers: draftState.draftedPlayers,
                         playerPicks: draftState.playerPicks,
-                        isNewGame: draftState.isNewGame
+                        isNewGame: draftState.isNewGame,
+                        scoutLevels: draftState.scoutLevels
                     } : null
                 };
 
@@ -2589,6 +2590,7 @@
                     draftState.draftedPlayers = saveData.draftState.draftedPlayers;
                     draftState.playerPicks = saveData.draftState.playerPicks;
                     draftState.isNewGame = saveData.draftState.isNewGame;
+                    draftState.scoutLevels = saveData.draftState.scoutLevels || {};
                     draftState.usingExtraPick = false;
                     draftState.simulatingPicks = false;
                     draftState.lastComputerPick = null;
@@ -3965,8 +3967,128 @@
             computerTeamStrategies: {},  // Each team's draft strategy: { teamIndex: 'contender'|'balanced'|'rebuilder' }
             isNewGame: false,
             viewingRoster: false,
-            selectedDraftPlayer: null
+            selectedDraftPlayer: null,
+            scoutLevels: {}  // Track scouting level per player: { playerId: 0-3 }
         };
+
+        // Scouting constants
+        const SCOUTING = {
+            MAX_LEVEL: 3,           // Maximum times a player can be scouted
+            MIN_COST: 5,            // Minimum scouting cost
+            MAX_COST: 50,           // Maximum scouting cost
+            RANGE_UNSCOUTED: 15,    // Rating range for unscouted players (±15)
+            RANGE_PER_LEVEL: 4      // Range reduction per scout level
+        };
+
+        // Calculate scouting cost based on current pick value
+        // Scales from 5-50 based on pick value (early picks cost more to scout)
+        function calculateScoutingCost(pickNumber) {
+            const pickValue = calculatePickCost(pickNumber);
+            // Pick 1 (1000 value) should cost ~50, late picks (~10 value) should cost ~5
+            const maxPickValue = DRAFT.EARLY_COSTS[0]; // 1000
+            const normalizedValue = pickValue / maxPickValue;
+            const cost = SCOUTING.MIN_COST + (SCOUTING.MAX_COST - SCOUTING.MIN_COST) * normalizedValue;
+            return Math.round(cost);
+        }
+
+        // Get the scout level for a player (0-3)
+        function getPlayerScoutLevel(playerId) {
+            return draftState.scoutLevels[playerId] || 0;
+        }
+
+        // Calculate rating range based on scout level
+        // Level 0: ±15, Level 1: ±11, Level 2: ±7, Level 3: ±3 (nearly exact)
+        function getRatingRange(scoutLevel) {
+            return SCOUTING.RANGE_UNSCOUTED - (scoutLevel * SCOUTING.RANGE_PER_LEVEL);
+        }
+
+        // Get display value for a rating with uncertainty
+        // Returns { display: string, min: number, max: number }
+        function getScoutedRating(actualValue, scoutLevel) {
+            const range = getRatingRange(scoutLevel);
+            if (range <= 3) {
+                // Level 3: show exact value
+                return { display: String(actualValue), min: actualValue, max: actualValue, isExact: true };
+            }
+            const min = Math.max(1, actualValue - range);
+            const max = Math.min(99, actualValue + range);
+            return { display: `${min}-${max}`, min, max, isExact: false };
+        }
+
+        // Get growth estimate based on potential grade and scout level
+        // Returns a text description instead of exact stars
+        function getGrowthEstimate(potentialGrade, scoutLevel) {
+            if (scoutLevel >= 3) {
+                // Fully scouted - show exact stars
+                return { display: '★'.repeat(potentialGrade), isExact: true };
+            }
+
+            // Give a range estimate based on scout level
+            // Level 0: very vague, Level 1-2: somewhat vague
+            if (scoutLevel === 0) {
+                // Very uncertain - give a broad category
+                if (potentialGrade === 0) {
+                    return { display: 'Low-Avg', isExact: false };
+                } else if (potentialGrade === 1) {
+                    return { display: 'Low-High', isExact: false };
+                } else if (potentialGrade === 2) {
+                    return { display: 'Avg-High', isExact: false };
+                } else {
+                    return { display: 'Avg-Elite', isExact: false };
+                }
+            } else if (scoutLevel === 1) {
+                // Somewhat uncertain
+                if (potentialGrade === 0) {
+                    return { display: 'Low', isExact: false };
+                } else if (potentialGrade === 1) {
+                    return { display: 'Low-Avg', isExact: false };
+                } else if (potentialGrade === 2) {
+                    return { display: 'Avg-High', isExact: false };
+                } else {
+                    return { display: 'High-Elite', isExact: false };
+                }
+            } else {
+                // Scout level 2 - fairly accurate
+                if (potentialGrade === 0) {
+                    return { display: '☆', isExact: false };  // Empty star hint
+                } else if (potentialGrade === 1) {
+                    return { display: '★☆', isExact: false };
+                } else if (potentialGrade === 2) {
+                    return { display: '★★☆', isExact: false };
+                } else {
+                    return { display: '★★★', isExact: true };  // Max is max
+                }
+            }
+        }
+
+        // Scout a player (spend points to reduce uncertainty)
+        function scoutPlayer(playerId) {
+            const currentLevel = getPlayerScoutLevel(playerId);
+            if (currentLevel >= SCOUTING.MAX_LEVEL) {
+                showNotification('Player fully scouted!', 'info');
+                return false;
+            }
+
+            const cost = calculateScoutingCost(draftState.currentPickNumber);
+            if (managementState.team.draftPoints < cost) {
+                showNotification(`Need ${cost} draft points to scout!`, 'error');
+                return false;
+            }
+
+            // Deduct points and increase scout level
+            managementState.team.draftPoints -= cost;
+            draftState.scoutLevels[playerId] = currentLevel + 1;
+
+            showNotification(`Scouted player! (Level ${currentLevel + 1}/${SCOUTING.MAX_LEVEL})`, 'success');
+
+            // Refresh the views
+            refreshDraftScreen();
+            if (draftState.selectedDraftPlayer && draftState.selectedDraftPlayer.id === playerId) {
+                showDraftPlayerDetail(playerId);
+            }
+
+            return true;
+        }
 
         // Ideal roster composition per position
         const IDEAL_ROSTER = {
@@ -4314,6 +4436,7 @@
             draftState.isNewGame = isNewGame;
             draftState.viewingRoster = false;
             draftState.selectedDraftPlayer = null;
+            draftState.scoutLevels = {};  // Reset scouting data for new draft
 
             // Calculate and set draft budget based on season ranking
             if (isNewGame && managementState.team) {
@@ -4664,18 +4787,36 @@
             draftState.selectedDraftPlayer = player;
             console.log('Set selectedDraftPlayer:', draftState.selectedDraftPlayer);
 
+            // Get scouting info
+            const scoutLevel = getPlayerScoutLevel(playerId);
+            const ovrInfo = getScoutedRating(player.overall, scoutLevel);
+            const growthInfo = getGrowthEstimate(player.potentialGrade, scoutLevel);
+            const scoutCost = calculateScoutingCost(draftState.currentPickNumber);
+            const canScout = scoutLevel < SCOUTING.MAX_LEVEL && managementState.team.draftPoints >= scoutCost;
+
             // Set player name
             document.getElementById('playerName').textContent = `${player.firstName} ${player.lastName}`;
 
             // Calculate rookie salary based on current pick number
             const rookieSalary = calculateRookieSalary(draftState.currentPickNumber);
 
-            // Player info - draft version showing rookie contract salary
+            // Scout button HTML
+            const scoutBtnHtml = scoutLevel >= SCOUTING.MAX_LEVEL
+                ? `<span style="color:#4CAF50;font-size:12px;">Fully Scouted ${'●'.repeat(SCOUTING.MAX_LEVEL)}</span>`
+                : `<button onclick="scoutPlayer('${playerId}')" style="background:${canScout ? '#2196F3' : '#666'};color:white;border:none;padding:6px 12px;border-radius:4px;cursor:${canScout ? 'pointer' : 'not-allowed'};font-size:12px;" ${canScout ? '' : 'disabled'}>
+                    SCOUT (${scoutCost} pts) ${'●'.repeat(scoutLevel)}${'○'.repeat(SCOUTING.MAX_LEVEL - scoutLevel)}
+                   </button>`;
+
+            // Player info - draft version showing rookie contract salary with ranges
+            const ovrStyle = ovrInfo.isExact ? '' : 'font-size:28px;';
             const infoHtml = `
-                <div><span class="ovr-big">${player.overall}</span></div>
+                <div><span class="ovr-big" style="${ovrStyle}">${ovrInfo.display}</span></div>
                 <div style="margin-top:10px;">
                     ${POSITIONS[player.position].name} | Age ${player.age}<br>
-                    Rookie Contract: $${rookieSalary}M/yr | Potential: ${'★'.repeat(player.potentialGrade)}
+                    Rookie Contract: $${rookieSalary}M/yr | Growth: <span style="color:#ffd700;">${growthInfo.display}</span>
+                </div>
+                <div style="margin-top:10px;">
+                    ${scoutBtnHtml}
                 </div>
             `;
             document.getElementById('playerInfo').innerHTML = infoHtml;
@@ -4701,7 +4842,9 @@
             }
             cutBtn.style.display = 'none';
 
+            // Helper to get color class based on the middle of the range
             const getColorClass = (val) => val >= 90 ? 'stat-elite' : val >= 80 ? 'stat-good' : val >= 70 ? 'stat-average' : val >= 60 ? 'stat-below' : 'stat-poor';
+            const getColorClassFromRange = (info) => getColorClass(Math.floor((info.min + info.max) / 2));
 
             // Build unified stats panel
             const core = player.coreAttributes;
@@ -4711,22 +4854,27 @@
 
             let statsHtml = '<div class="stats-panel">';
 
-            // Core Attributes section
+            // Core Attributes section with ranges
             if (core) {
+                const strInfo = getScoutedRating(core.strength, scoutLevel);
+                const spdInfo = getScoutedRating(core.speed, scoutLevel);
+                const agiInfo = getScoutedRating(core.agility, scoutLevel);
+                const intInfo = getScoutedRating(core.intelligence, scoutLevel);
+
                 statsHtml += `
                     <div class="stats-section">
                         <div class="stats-section-title">Core</div>
                         <div class="stats-grid">
-                            <div class="stat-row str-row"><span class="stat-row-name">STR</span><span class="stat-row-value ${getColorClass(core.strength)}">${core.strength}</span></div>
-                            <div class="stat-row spd-row"><span class="stat-row-name">SPD</span><span class="stat-row-value ${getColorClass(core.speed)}">${core.speed}</span></div>
-                            <div class="stat-row agi-row"><span class="stat-row-name">AGI</span><span class="stat-row-value ${getColorClass(core.agility)}">${core.agility}</span></div>
-                            <div class="stat-row int-row"><span class="stat-row-name">INT</span><span class="stat-row-value ${getColorClass(core.intelligence)}">${core.intelligence}</span></div>
+                            <div class="stat-row str-row"><span class="stat-row-name">STR</span><span class="stat-row-value ${getColorClassFromRange(strInfo)}" style="font-size:${strInfo.isExact ? '14px' : '12px'};">${strInfo.display}</span></div>
+                            <div class="stat-row spd-row"><span class="stat-row-name">SPD</span><span class="stat-row-value ${getColorClassFromRange(spdInfo)}" style="font-size:${spdInfo.isExact ? '14px' : '12px'};">${spdInfo.display}</span></div>
+                            <div class="stat-row agi-row"><span class="stat-row-name">AGI</span><span class="stat-row-value ${getColorClassFromRange(agiInfo)}" style="font-size:${agiInfo.isExact ? '14px' : '12px'};">${agiInfo.display}</span></div>
+                            <div class="stat-row int-row"><span class="stat-row-name">INT</span><span class="stat-row-value ${getColorClassFromRange(intInfo)}" style="font-size:${intInfo.isExact ? '14px' : '12px'};">${intInfo.display}</span></div>
                         </div>
                     </div>
                 `;
             }
 
-            // Abilities section
+            // Abilities section with ranges
             if (abilities) {
                 statsHtml += `
                     <div class="stats-section">
@@ -4736,14 +4884,15 @@
                                 const isBest = bestAbility && bestAbility.name === key;
                                 const dots = getAbilityDots(key);
                                 const name = getAbilityDisplayName(key);
-                                return `<div class="stat-row ${isBest ? 'best-ability' : ''}"><span class="stat-row-name">${dots}${name}</span><span class="stat-row-value ${getColorClass(value)}">${value}</span></div>`;
+                                const abilityInfo = getScoutedRating(value, scoutLevel);
+                                return `<div class="stat-row ${isBest ? 'best-ability' : ''}"><span class="stat-row-name">${dots}${name}</span><span class="stat-row-value ${getColorClassFromRange(abilityInfo)}" style="font-size:${abilityInfo.isExact ? '14px' : '12px'};">${abilityInfo.display}</span></div>`;
                             }).join('')}
                         </div>
                     </div>
                 `;
             }
 
-            // Technique section
+            // Technique section with ranges
             if (techniqueStats.length > 0) {
                 statsHtml += `
                     <div class="stats-section">
@@ -4752,7 +4901,8 @@
                             ${techniqueStats.map(stat => {
                                 const current = Math.floor(player.stats[stat] || 0);
                                 const statName = stat.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase());
-                                return `<div class="stat-row"><span class="stat-row-name">${statName}</span><span class="stat-row-value ${getColorClass(current)}">${current}</span></div>`;
+                                const techInfo = getScoutedRating(current, scoutLevel);
+                                return `<div class="stat-row"><span class="stat-row-name">${statName}</span><span class="stat-row-value ${getColorClassFromRange(techInfo)}" style="font-size:${techInfo.isExact ? '14px' : '12px'};">${techInfo.display}</span></div>`;
                             }).join('')}
                         </div>
                     </div>
@@ -4919,21 +5069,23 @@
             }
 
             available.forEach(player => {
-                let potentialDisplay = '';
-                if (player.potentialGrade > 0) {
-                    potentialDisplay = '★'.repeat(player.potentialGrade);
-                }
+                const scoutLevel = getPlayerScoutLevel(player.id);
+                const ovrInfo = getScoutedRating(player.overall, scoutLevel);
+                const growthInfo = getGrowthEstimate(player.potentialGrade, scoutLevel);
+
+                // Show scout indicator if player has been scouted
+                const scoutIndicator = scoutLevel > 0 ? `<span style="color:#4CAF50;font-size:10px;margin-left:4px;">` + '●'.repeat(scoutLevel) + `</span>` : '';
 
                 const item = document.createElement('div');
                 item.className = 'roster-item';
                 item.innerHTML = `
                     <div style="flex:1;">
-                        <div class="name">${player.firstName} ${player.lastName}</div>
+                        <div class="name">${player.firstName} ${player.lastName}${scoutIndicator}</div>
                         <div class="stats">${POSITIONS[player.position].name}</div>
                     </div>
                     <div style="display:flex;align-items:center;gap:10px;">
-                        <span class="ovr" style="min-width:28px;text-align:right;">${player.overall}</span>
-                        <span class="potential-ind" style="min-width:30px;color:#ffd700;font-size:14px;">${potentialDisplay}</span>
+                        <span class="ovr" style="min-width:50px;text-align:right;font-size:${ovrInfo.isExact ? '16px' : '13px'};">${ovrInfo.display}</span>
+                        <span class="potential-ind" style="min-width:50px;color:#ffd700;font-size:12px;">${growthInfo.display}</span>
                     </div>
                 `;
                 item.addEventListener('click', () => {
