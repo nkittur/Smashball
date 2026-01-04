@@ -4033,26 +4033,27 @@
             const shuttle = Math.max(3.90, Math.min(4.50, shuttleRaw));
             const wonder = Math.max(18, Math.min(46, Math.round(wonderRaw)));
 
-            // Elite benchmarks (100-rated player)
+            // Elite benchmarks - aligned with clamp limits for full range
             const ELITE = {
-                forty: 4.35,
-                bench: 34,
-                vert: 41,
-                broad: 130,
-                three: 6.70,
-                shuttle: 3.95,
-                wonder: 42
+                forty: 4.30,    // matches clamp min
+                bench: 38,      // matches clamp max
+                vert: 44,       // matches clamp max
+                broad: 136,     // matches clamp max
+                three: 6.65,    // matches clamp min
+                shuttle: 3.90,  // matches clamp min
+                wonder: 46      // matches clamp max
             };
 
-            // Poor benchmarks (55-rated player)
+            // Poor benchmarks - aligned with clamp limits so worst possible = ~5%, not 0%
+            // This accounts for variance pushing 55-attr players below baseline
             const WORST = {
-                forty: 4.95,
-                bench: 18,
-                vert: 32,
-                broad: 112,
-                three: 7.30,
-                shuttle: 4.40,
-                wonder: 22
+                forty: 5.05,    // matches clamp max
+                bench: 15,      // matches clamp min
+                vert: 30,       // matches clamp min
+                broad: 108,     // matches clamp min
+                three: 7.40,    // matches clamp max
+                shuttle: 4.50,  // matches clamp max
+                wonder: 18      // matches clamp min
             };
 
             // Calculate percentiles (100 = elite level, 0 = worst)
@@ -4126,9 +4127,9 @@
                     const decision = stats.decisionMaking || core.intelligence || 55;
                     const pocket = stats.pocketPresence || 55;
 
-                    // Elite (100 attr) and Worst (55 attr) benchmarks for QB
-                    const QB_ELITE = { compPct: 72, tdInt: 4.0, ypa: 10.5, sackPct: 3.0 };
-                    const QB_WORST = { compPct: 56, tdInt: 1.2, ypa: 6.0, sackPct: 10.0 };
+                    // Elite (100 attr) and Worst benchmarks (aligned with clamps)
+                    const QB_ELITE = { compPct: 72, tdInt: 4.0, ypa: 10.5, sackPct: 2.0 };
+                    const QB_WORST = { compPct: 52, tdInt: 0.8, ypa: 5.5, sackPct: 12.0 };
 
                     const compPct = clamp((50 + accuracy * 0.25 + decision * 0.08) * (1 + variance(10, 0.08)), 52, 74);
                     const tdInt = clamp((0.8 + decision * 0.025 + accuracy * 0.012) * (1 + variance(11, 0.2)), 0.8, 4.5);
@@ -4152,9 +4153,9 @@
                     const spd = core.speed || 55;
                     const jump = stats.jumping || 55;
 
-                    // Elite and Worst benchmarks for WR
-                    const WR_ELITE = { ypc: 18, catchRate: 75, contested: 65, yac: 7.5, dropRate: 2 };
-                    const WR_WORST = { ypc: 11, catchRate: 55, contested: 38, yac: 3.0, dropRate: 10 };
+                    // Elite and Worst benchmarks for WR (aligned with clamps)
+                    const WR_ELITE = { ypc: 20, catchRate: 78, contested: 70, yac: 8.5, dropRate: 1.5 };
+                    const WR_WORST = { ypc: 9, catchRate: 50, contested: 35, yac: 2.5, dropRate: 12 };
 
                     const ypc = clamp((10 + spd * 0.06 + routes * 0.04) * (1 + variance(20, 0.12)), 9, 20);
                     const catchRate = clamp((45 + hands * 0.25 + routes * 0.12) * (1 + variance(21, 0.1)), 50, 78);
@@ -4181,9 +4182,9 @@
                     const tackling = stats.tackling || 55;
                     const cbSpd = core.speed || 55;
 
-                    // Elite and Worst benchmarks for CB
-                    const CB_ELITE = { ints: 8, pbu: 18, prAllow: 65, compAllow: 48, tackles: 70 };
-                    const CB_WORST = { ints: 2, pbu: 6, prAllow: 110, compAllow: 65, tackles: 30 };
+                    // Elite and Worst benchmarks for CB (aligned with clamps)
+                    const CB_ELITE = { ints: 10, pbu: 22, prAllow: 55, compAllow: 42, tackles: 85 };
+                    const CB_WORST = { ints: 0, pbu: 3, prAllow: 120, compAllow: 68, tackles: 20 };
 
                     const ints = clamp(Math.round((ballSkills * 0.06 + coverage * 0.03 + cbSpd * 0.02) * (1 + variance(30, 0.3))), 0, 10);
                     const pbu = clamp(Math.round((coverage * 0.12 + cbSpd * 0.06 + (core.agility || 55) * 0.04) * (1 + variance(31, 0.25))), 3, 22);
@@ -4211,9 +4212,9 @@
                     const olAgi = core.agility || 55;
                     const olInt = core.intelligence || 55;
 
-                    // Elite and Worst benchmarks for OL
-                    const OL_ELITE = { sacksAllow: 0, pressAllow: 8, pancakes: 50, penalties: 2 };
-                    const OL_WORST = { sacksAllow: 8, pressAllow: 28, pancakes: 15, penalties: 10 };
+                    // Elite and Worst benchmarks for OL (aligned with clamps)
+                    const OL_ELITE = { sacksAllow: 0, pressAllow: 4, pancakes: 60, penalties: 1 };
+                    const OL_WORST = { sacksAllow: 10, pressAllow: 35, pancakes: 8, penalties: 14 };
 
                     const sacksAllow = clamp(Math.round((8 - passBlock * 0.07 - olInt * 0.02) * (1 + variance(40, 0.3))), 0, 10);
                     const pressAllow = clamp(Math.round((30 - passBlock * 0.2 - olStr * 0.08) * (1 + variance(41, 0.25))), 4, 35);
@@ -4241,9 +4242,9 @@
                     const dlSpd = core.speed || 55;
                     const dlBallSkills = stats.ballSkills || 40;
 
-                    // Elite and Worst benchmarks for DL
-                    const DL_ELITE = { sacks: 14, tfl: 20, hurries: 40, runStops: 50, ff: 5 };
-                    const DL_WORST = { sacks: 3, tfl: 6, hurries: 12, runStops: 18, ff: 0 };
+                    // Elite and Worst benchmarks for DL (aligned with clamps)
+                    const DL_ELITE = { sacks: 18, tfl: 25, hurries: 50, runStops: 55, ff: 6 };
+                    const DL_WORST = { sacks: 1, tfl: 3, hurries: 8, runStops: 12, ff: 0 };
 
                     const dlSacks = clamp((passRush * 0.1 + dlSpd * 0.04 + dlStr * 0.02) * (1 + variance(50, 0.3)), 1, 18);
                     const tfl = clamp(Math.round((runDef * 0.12 + dlSpd * 0.08 + dlStr * 0.06) * (1 + variance(51, 0.25))), 3, 25);
