@@ -4015,6 +4015,45 @@
             return { display: `${min}-${max}`, min, max, isExact: false };
         }
 
+        // Convert a numeric rating to a letter grade
+        function ratingToGrade(rating) {
+            if (rating >= 90) return 'A+';
+            if (rating >= 85) return 'A';
+            if (rating >= 80) return 'A-';
+            if (rating >= 75) return 'B+';
+            if (rating >= 70) return 'B';
+            if (rating >= 65) return 'B-';
+            if (rating >= 60) return 'C+';
+            if (rating >= 55) return 'C';
+            if (rating >= 50) return 'C-';
+            if (rating >= 45) return 'D+';
+            if (rating >= 40) return 'D';
+            return 'F';
+        }
+
+        // Get letter grade display for overall rating based on scout level
+        // Returns { display: string, isExact: boolean }
+        function getOverallGrade(actualValue, scoutLevel) {
+            if (scoutLevel >= 3) {
+                // Fully scouted - show exact grade
+                return { display: ratingToGrade(actualValue), isExact: true };
+            }
+
+            const range = getRatingRange(scoutLevel);
+            const min = Math.max(1, actualValue - range);
+            const max = Math.min(99, actualValue + range);
+            const minGrade = ratingToGrade(min);
+            const maxGrade = ratingToGrade(max);
+
+            if (minGrade === maxGrade) {
+                // Same grade even with uncertainty
+                return { display: minGrade, isExact: false };
+            }
+
+            // Show grade range (lower to higher, e.g., "C-B" or "B-A")
+            return { display: `${minGrade}–${maxGrade}`, isExact: false };
+        }
+
         // Get growth estimate based on potential grade and scout level
         // Returns a text description instead of exact stars
         function getGrowthEstimate(potentialGrade, scoutLevel) {
@@ -4062,7 +4101,8 @@
         }
 
         // Scout a player (spend points to reduce uncertainty)
-        function scoutPlayer(playerId) {
+        // Exposed globally for onclick handlers
+        window.scoutPlayer = function(playerId) {
             const currentLevel = getPlayerScoutLevel(playerId);
             if (currentLevel >= SCOUTING.MAX_LEVEL) {
                 showNotification('Player fully scouted!', 'info');
@@ -4789,7 +4829,7 @@
 
             // Get scouting info
             const scoutLevel = getPlayerScoutLevel(playerId);
-            const ovrInfo = getScoutedRating(player.overall, scoutLevel);
+            const gradeInfo = getOverallGrade(player.overall, scoutLevel);
             const growthInfo = getGrowthEstimate(player.potentialGrade, scoutLevel);
             const scoutCost = calculateScoutingCost(draftState.currentPickNumber);
             const canScout = scoutLevel < SCOUTING.MAX_LEVEL && managementState.team.draftPoints >= scoutCost;
@@ -4807,10 +4847,9 @@
                     SCOUT (${scoutCost} pts) ${'●'.repeat(scoutLevel)}${'○'.repeat(SCOUTING.MAX_LEVEL - scoutLevel)}
                    </button>`;
 
-            // Player info - draft version showing rookie contract salary with ranges
-            const ovrStyle = ovrInfo.isExact ? '' : 'font-size:28px;';
+            // Player info - draft version showing rookie contract salary with letter grade
             const infoHtml = `
-                <div><span class="ovr-big" style="${ovrStyle}">${ovrInfo.display}</span></div>
+                <div><span class="ovr-big">${gradeInfo.display}</span></div>
                 <div style="margin-top:10px;">
                     ${POSITIONS[player.position].name} | Age ${player.age}<br>
                     Rookie Contract: $${rookieSalary}M/yr | Growth: <span style="color:#ffd700;">${growthInfo.display}</span>
@@ -5070,7 +5109,7 @@
 
             available.forEach(player => {
                 const scoutLevel = getPlayerScoutLevel(player.id);
-                const ovrInfo = getScoutedRating(player.overall, scoutLevel);
+                const gradeInfo = getOverallGrade(player.overall, scoutLevel);
                 const growthInfo = getGrowthEstimate(player.potentialGrade, scoutLevel);
 
                 // Show scout indicator if player has been scouted
@@ -5084,7 +5123,7 @@
                         <div class="stats">${POSITIONS[player.position].name}</div>
                     </div>
                     <div style="display:flex;align-items:center;gap:10px;">
-                        <span class="ovr" style="min-width:50px;text-align:right;font-size:${ovrInfo.isExact ? '16px' : '13px'};">${ovrInfo.display}</span>
+                        <span class="ovr" style="min-width:50px;text-align:right;font-size:${gradeInfo.isExact ? '16px' : '13px'};">${gradeInfo.display}</span>
                         <span class="potential-ind" style="min-width:50px;color:#ffd700;font-size:12px;">${growthInfo.display}</span>
                     </div>
                 `;
