@@ -510,6 +510,7 @@
 
         <!-- Draft Screen -->
         <div id="draftScreen" class="mgmt-screen draft-screen" style="display:none;max-width:600px;">
+            <button id="btnDraftBack" class="mgmt-btn back-btn" style="position:absolute;top:10px;left:10px;z-index:10;">←</button>
             <button id="btnDraftOptions" class="mgmt-btn back-btn" style="position:absolute;top:10px;right:10px;left:auto;z-index:10;">⚙</button>
 
             <!-- Last Pick Notification Bar -->
@@ -12591,7 +12592,14 @@
                 switch (screenName) {
                     case 'main_menu':
                         document.getElementById('mainMenuScreen').style.display = 'block';
-                        document.getElementById('btnContinue').disabled = !managementState.initialized;
+                        const continueBtn = document.getElementById('btnContinue');
+                        continueBtn.disabled = !managementState.initialized;
+                        // Update button text based on whether there's an active draft
+                        if (draftState.active) {
+                            continueBtn.textContent = 'CONTINUE DRAFT';
+                        } else {
+                            continueBtn.textContent = 'CONTINUE';
+                        }
                         break;
                     case 'hub':
                         document.getElementById('hubScreen').style.display = 'block';
@@ -14400,7 +14408,14 @@
             // Draft screen is shown by startNewGame() via startDraft()
         });
         document.getElementById('btnContinue').addEventListener('click', () => {
-            if (managementState.initialized) showScreen('hub');
+            if (managementState.initialized) {
+                // Go to draft if there's an active draft, otherwise go to hub
+                if (draftState.active) {
+                    showScreen('draft');
+                } else {
+                    showScreen('hub');
+                }
+            }
         });
         document.getElementById('btnTrainingMode').addEventListener('click', () => {
             startTrainingMode();
@@ -14591,6 +14606,13 @@
                     refreshDraftScreen();
                 }, 1000);
             }
+        });
+
+        // Draft back button - return to main menu
+        document.getElementById('btnDraftBack').addEventListener('click', () => {
+            // Save the game state (draft will be preserved)
+            if (managementState.settings.autoSave) SaveSystem.save();
+            showScreen('main_menu');
         });
 
         // Draft options modal handlers
