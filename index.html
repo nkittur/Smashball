@@ -4379,18 +4379,23 @@
         // Create visual range indicator HTML for a rating
         // Shows a bar with the possible range highlighted - never shows exact numbers
         // playerId and statName are used to create consistent but varied offsets
+        // Visual scale uses 55-99 since players can't have stats below ~55
         function createRangeIndicator(actualValue, scoutLevel, playerId, statName, width = 60) {
+            const STAT_MIN = 55;  // Players can't have stats below this
+            const STAT_MAX = 99;
+            const STAT_RANGE = STAT_MAX - STAT_MIN; // 44
+
             const range = getRatingRange(scoutLevel);
             const offset = getStatOffset(playerId || '', statName || '', scoutLevel);
 
             // Apply offset - the range isn't centered on actual value
             const center = actualValue + offset;
-            const min = Math.max(0, center - range);
-            const max = Math.min(99, center + range);
+            const min = Math.max(STAT_MIN, center - range);
+            const max = Math.min(STAT_MAX, center + range);
 
-            // Calculate positions as percentages
-            const leftPct = min;
-            const widthPct = Math.max(5, max - min); // Minimum 5% width so it's visible
+            // Calculate positions as percentages of the 55-99 range
+            const leftPct = ((min - STAT_MIN) / STAT_RANGE) * 100;
+            const widthPct = Math.max(5, ((max - min) / STAT_RANGE) * 100);
 
             // Color based on the midpoint value
             const mid = (min + max) / 2;
@@ -4399,23 +4404,30 @@
             else if (mid >= 75) color = '#4CAF50'; // Good - green
             else if (mid >= 65) color = '#8BC34A'; // Above avg - light green
             else if (mid >= 55) color = '#FFC107'; // Average - yellow
-            else if (mid >= 45) color = '#FF9800'; // Below avg - orange
-            else color = '#f44336';                // Poor - red
+            else color = '#f44336';                // Poor - red (shouldn't happen with 55 min)
+
+            // Calculate midpoint position for the indicator dot
+            const midPct = ((mid - STAT_MIN) / STAT_RANGE) * 100;
 
             return `<div class="range-indicator" style="width:${width}px;height:12px;background:#333;border-radius:3px;position:relative;display:inline-block;vertical-align:middle;">
-                <div style="position:absolute;left:${leftPct}%;width:${widthPct}%;height:100%;background:${color};border-radius:3px;opacity:0.9;"></div>
+                <div style="position:absolute;left:${leftPct}%;width:${widthPct}%;height:100%;background:${color};border-radius:3px;opacity:0.7;"></div>
+                <div style="position:absolute;left:${midPct}%;top:50%;transform:translate(-50%,-50%);width:6px;height:6px;background:${color};border-radius:50%;border:1px solid #222;"></div>
             </div>`;
         }
 
         // Create a compact range indicator for list views - never shows exact numbers
+        // Visual scale uses 55-99 since players can't have stats below ~55
         function createCompactRangeIndicator(actualValue, scoutLevel, playerId) {
+            const STAT_MIN = 55;
+            const STAT_MAX = 99;
+
             const range = getRatingRange(scoutLevel);
             const offset = getStatOffset(playerId || '', 'overall', scoutLevel);
 
             // Apply offset - the range isn't centered on actual value
             const center = actualValue + offset;
-            const min = Math.max(0, center - range);
-            const max = Math.min(99, center + range);
+            const min = Math.max(STAT_MIN, center - range);
+            const max = Math.min(STAT_MAX, center + range);
             const mid = (min + max) / 2;
 
             // Color based on midpoint
@@ -4424,7 +4436,6 @@
             else if (mid >= 75) color = '#4CAF50';
             else if (mid >= 65) color = '#8BC34A';
             else if (mid >= 55) color = '#FFC107';
-            else if (mid >= 45) color = '#FF9800';
             else color = '#f44336';
 
             // Show narrower bar for higher certainty, minimum width so always visible
