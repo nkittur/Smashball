@@ -4060,11 +4060,6 @@
         function getGrowthEstimate(potentialGrade, scoutLevel, playerId) {
             const labels = ['Low', 'Average', 'High', 'Elite'];
 
-            if (scoutLevel >= 3) {
-                // Fully scouted - show exact value
-                return { display: labels[potentialGrade], isExact: true };
-            }
-
             // Generate a consistent "error" based on player ID
             // This ensures the same player always shows the same estimate until scouted more
             let hash = 0;
@@ -4076,7 +4071,7 @@
             }
 
             // Determine potential error based on scout level
-            // Level 0: can be off by up to 2, Level 1: off by up to 1, Level 2: off by up to 1 (less likely)
+            // Even fully scouted players have small chance of being wrong
             let maxError, errorChance;
             if (scoutLevel === 0) {
                 maxError = 2;
@@ -4084,9 +4079,12 @@
             } else if (scoutLevel === 1) {
                 maxError = 1;
                 errorChance = 0.5;  // 50% chance of being wrong
-            } else {
+            } else if (scoutLevel === 2) {
                 maxError = 1;
                 errorChance = 0.25; // 25% chance of being wrong
+            } else {
+                maxError = 1;
+                errorChance = 0.15; // 15% chance of surprise even fully scouted
             }
 
             // Use hash to deterministically decide if there's an error and which direction
