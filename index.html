@@ -3976,8 +3976,9 @@
             MAX_LEVEL: 3,           // Maximum times a player can be scouted
             MIN_COST: 5,            // Minimum scouting cost
             MAX_COST: 50,           // Maximum scouting cost
-            RANGE_UNSCOUTED: 15,    // Rating range for unscouted players (±15)
-            RANGE_PER_LEVEL: 4      // Range reduction per scout level
+            RANGE_UNSCOUTED: 25,    // Rating range for unscouted players (±25)
+            RANGE_PER_LEVEL: 7,     // Range reduction per scout level (25 -> 18 -> 11 -> 4)
+            MAX_OFFSET: 12          // Maximum offset from center at level 0
         };
 
         // Calculate scouting cost based on current pick value
@@ -3997,9 +3998,28 @@
         }
 
         // Calculate rating range based on scout level
-        // Level 0: ±15, Level 1: ±11, Level 2: ±7, Level 3: ±3 (nearly exact)
+        // Level 0: ±25, Level 1: ±18, Level 2: ±11, Level 3: ±4
         function getRatingRange(scoutLevel) {
             return SCOUTING.RANGE_UNSCOUTED - (scoutLevel * SCOUTING.RANGE_PER_LEVEL);
+        }
+
+        // Calculate deterministic offset for a stat (so ranges aren't centered on actual value)
+        // Returns offset that decreases as scout level increases
+        function getStatOffset(playerId, statName, scoutLevel) {
+            // Create hash from player ID and stat name
+            let hash = 0;
+            const seed = playerId + (statName || '');
+            for (let i = 0; i < seed.length; i++) {
+                hash = ((hash << 5) - hash) + seed.charCodeAt(i);
+                hash = hash & hash;
+            }
+
+            // Convert to offset between -MAX_OFFSET and +MAX_OFFSET
+            const normalizedHash = (Math.abs(hash) % 1000) / 1000; // 0-1
+            const maxOffset = SCOUTING.MAX_OFFSET * (1 - scoutLevel / SCOUTING.MAX_LEVEL);
+            const offset = (normalizedHash * 2 - 1) * maxOffset; // -maxOffset to +maxOffset
+
+            return Math.round(offset);
         }
 
         // Get display value for a rating with uncertainty
@@ -4017,21 +4037,19 @@
 
         // Create visual range indicator HTML for a rating
         // Shows a bar with the possible range highlighted - never shows exact numbers
-        function createRangeIndicator(actualValue, scoutLevel, width = 60) {
+        // playerId and statName are used to create consistent but varied offsets
+        function createRangeIndicator(actualValue, scoutLevel, playerId, statName, width = 60) {
             const range = getRatingRange(scoutLevel);
-            const min = Math.max(0, actualValue - range);
-            const max = Math.min(99, actualValue + range);
+            const offset = getStatOffset(playerId || '', statName || '', scoutLevel);
 
-            // Debug: log first few calls to verify range narrowing
-            if (window._rangeIndicatorLogCount === undefined) window._rangeIndicatorLogCount = 0;
-            if (window._rangeIndicatorLogCount < 5) {
-                console.log('createRangeIndicator:', { actualValue, scoutLevel, range, min, max, widthPct: max - min });
-                window._rangeIndicatorLogCount++;
-            }
+            // Apply offset - the range isn't centered on actual value
+            const center = actualValue + offset;
+            const min = Math.max(0, center - range);
+            const max = Math.min(99, center + range);
 
             // Calculate positions as percentages
             const leftPct = min;
-            const widthPct = Math.max(3, max - min); // Minimum 3% width so it's visible
+            const widthPct = Math.max(5, max - min); // Minimum 5% width so it's visible
 
             // Color based on the midpoint value
             const mid = (min + max) / 2;
@@ -4049,10 +4067,14 @@
         }
 
         // Create a compact range indicator for list views - never shows exact numbers
-        function createCompactRangeIndicator(actualValue, scoutLevel) {
+        function createCompactRangeIndicator(actualValue, scoutLevel, playerId) {
             const range = getRatingRange(scoutLevel);
-            const min = Math.max(0, actualValue - range);
-            const max = Math.min(99, actualValue + range);
+            const offset = getStatOffset(playerId || '', 'overall', scoutLevel);
+
+            // Apply offset - the range isn't centered on actual value
+            const center = actualValue + offset;
+            const min = Math.max(0, center - range);
+            const max = Math.min(99, center + range);
             const mid = (min + max) / 2;
 
             // Color based on midpoint
@@ -4065,7 +4087,7 @@
             else color = '#f44336';
 
             // Show narrower bar for higher certainty, minimum width so always visible
-            const barWidth = Math.max(6, Math.min(40, (max - min) * 0.8));
+            const barWidth = Math.max(8, Math.min(50, (max - min) * 1.0));
 
             return `<div style="display:inline-flex;align-items:center;">
                 <div style="width:${barWidth}px;height:8px;background:${color};border-radius:2px;"></div>
@@ -4970,7 +4992,7 @@
                    </button>`;
 
             // Create large overall range indicator
-            const ovrRangeIndicator = createRangeIndicator(player.overall, scoutLevel, 120);
+            const ovrRangeIndicator = createRangeIndicator(player.overall, scoutLevel, playerId, 'overall', 120);
 
             // Player info - draft version showing rookie contract salary with visual range
             const infoHtml = `
@@ -5040,10 +5062,10 @@
                     <div class="stats-section">
                         <div class="stats-section-title">Core</div>
                         <div class="stats-grid">
-                            <div class="stat-row str-row"><span class="stat-row-name">STR</span><span class="stat-row-value">${createRangeIndicator(core.strength, scoutLevel)}</span></div>
-                            <div class="stat-row spd-row"><span class="stat-row-name">SPD</span><span class="stat-row-value">${createRangeIndicator(core.speed, scoutLevel)}</span></div>
-                            <div class="stat-row agi-row"><span class="stat-row-name">AGI</span><span class="stat-row-value">${createRangeIndicator(core.agility, scoutLevel)}</span></div>
-                            <div class="stat-row int-row"><span class="stat-row-name">INT</span><span class="stat-row-value">${createRangeIndicator(core.intelligence, scoutLevel)}</span></div>
+                            <div class="stat-row str-row"><span class="stat-row-name">STR</span><span class="stat-row-value">${createRangeIndicator(core.strength, scoutLevel, playerId, 'strength')}</span></div>
+                            <div class="stat-row spd-row"><span class="stat-row-name">SPD</span><span class="stat-row-value">${createRangeIndicator(core.speed, scoutLevel, playerId, 'speed')}</span></div>
+                            <div class="stat-row agi-row"><span class="stat-row-name">AGI</span><span class="stat-row-value">${createRangeIndicator(core.agility, scoutLevel, playerId, 'agility')}</span></div>
+                            <div class="stat-row int-row"><span class="stat-row-name">INT</span><span class="stat-row-value">${createRangeIndicator(core.intelligence, scoutLevel, playerId, 'intelligence')}</span></div>
                         </div>
                     </div>
                 `;
@@ -5059,7 +5081,7 @@
                                 const isBest = bestAbility && bestAbility.name === key;
                                 const dots = getAbilityDots(key);
                                 const name = getAbilityDisplayName(key);
-                                return `<div class="stat-row ${isBest ? 'best-ability' : ''}"><span class="stat-row-name">${dots}${name}</span><span class="stat-row-value">${createRangeIndicator(value, scoutLevel)}</span></div>`;
+                                return `<div class="stat-row ${isBest ? 'best-ability' : ''}"><span class="stat-row-name">${dots}${name}</span><span class="stat-row-value">${createRangeIndicator(value, scoutLevel, playerId, key)}</span></div>`;
                             }).join('')}
                         </div>
                     </div>
@@ -5074,8 +5096,8 @@
                         <div class="stats-grid">
                             ${techniqueStats.map(stat => {
                                 const current = Math.floor(player.stats[stat] || 0);
-                                const statName = stat.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase());
-                                return `<div class="stat-row"><span class="stat-row-name">${statName}</span><span class="stat-row-value">${createRangeIndicator(current, scoutLevel)}</span></div>`;
+                                const displayName = stat.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase());
+                                return `<div class="stat-row"><span class="stat-row-name">${displayName}</span><span class="stat-row-value">${createRangeIndicator(current, scoutLevel, playerId, stat)}</span></div>`;
                             }).join('')}
                         </div>
                     </div>
@@ -5245,7 +5267,7 @@
                 const scoutLevel = getPlayerScoutLevel(player.id);
                 const gradeInfo = getOverallGrade(player.overall, scoutLevel);
                 const growthInfo = getGrowthEstimate(player.potentialGrade, scoutLevel, player.id);
-                const rangeIndicator = createCompactRangeIndicator(player.overall, scoutLevel);
+                const rangeIndicator = createCompactRangeIndicator(player.overall, scoutLevel, player.id);
 
                 // Show scout indicator if player has been scouted
                 const scoutIndicator = scoutLevel > 0 ? `<span style="color:#4CAF50;font-size:10px;margin-left:4px;">` + '●'.repeat(scoutLevel) + `</span>` : '';
