@@ -3981,6 +3981,195 @@
             MAX_OFFSET: 24          // Maximum offset from center at level 0
         };
 
+        // Generate combine stats for a draft player based on their core attributes
+        function generateCombineStats(player) {
+            const core = player.coreAttributes || {};
+            const str = core.strength || 50;
+            const spd = core.speed || 50;
+            const agi = core.agility || 50;
+            const intel = core.intelligence || 50;
+
+            // Use player ID for consistent random variance
+            let hash = 0;
+            for (let i = 0; i < player.id.length; i++) {
+                hash = ((hash << 5) - hash) + player.id.charCodeAt(i);
+                hash = hash & hash;
+            }
+            const variance = (stat) => {
+                hash = ((hash << 5) - hash) + stat;
+                return ((Math.abs(hash) % 100) - 50) / 500; // ±10% variance
+            };
+
+            return {
+                fortyYard: Math.max(4.20, Math.min(5.40,
+                    (5.20 - (spd * 0.012) - (agi * 0.004) - (str * 0.004)) * (1 + variance(1))
+                )).toFixed(2),
+
+                benchPress: Math.max(8, Math.min(40, Math.round(
+                    ((str - 30) * 0.5 + 15) * (1 + variance(2))
+                ))),
+
+                verticalJump: Math.max(24, Math.min(46,
+                    (20 + (spd * 0.12) + (str * 0.12) + (agi * 0.06)) * (1 + variance(3))
+                )).toFixed(1),
+
+                broadJump: Math.max(100, Math.min(140, Math.round(
+                    (90 + (spd * 0.15) + (str * 0.15) + (agi * 0.08)) * (1 + variance(4))
+                ))),
+
+                threeCone: Math.max(6.40, Math.min(7.80,
+                    (8.0 - (agi * 0.018) - (spd * 0.008) - (intel * 0.004)) * (1 + variance(5))
+                )).toFixed(2),
+
+                shuttle: Math.max(3.70, Math.min(4.70,
+                    (4.8 - (agi * 0.012) - (spd * 0.008) - (intel * 0.005)) * (1 + variance(6))
+                )).toFixed(2)
+            };
+        }
+
+        // Generate college stats for a draft player based on position and skills
+        function generateCollegeStats(player) {
+            const stats = player.stats || {};
+            const core = player.coreAttributes || {};
+            const pos = player.position;
+
+            // Use player ID for consistent random variance
+            let hash = 0;
+            for (let i = 0; i < player.id.length; i++) {
+                hash = ((hash << 5) - hash) + player.id.charCodeAt(i);
+                hash = hash & hash;
+            }
+            const variance = (stat, range = 0.15) => {
+                hash = ((hash << 5) - hash) + stat;
+                return ((Math.abs(hash) % 100) - 50) / 50 * range;
+            };
+
+            const clamp = (val, min, max) => Math.max(min, Math.min(max, val));
+
+            switch (pos) {
+                case 'QB':
+                    const accuracy = stats.accuracy || 50;
+                    const armStr = stats.armStrength || 50;
+                    const decision = stats.decisionMaking || core.intelligence || 50;
+                    const pocket = stats.pocketPresence || 50;
+                    return {
+                        completionPct: clamp((50 + accuracy * 0.25 + decision * 0.08) * (1 + variance(10, 0.08)), 52, 74).toFixed(1),
+                        tdIntRatio: clamp((0.8 + decision * 0.025 + accuracy * 0.012) * (1 + variance(11, 0.2)), 0.8, 4.5).toFixed(1),
+                        yardsPerAttempt: clamp((5.5 + armStr * 0.03 + accuracy * 0.02 + decision * 0.015) * (1 + variance(12, 0.12)), 5.5, 11.0).toFixed(1),
+                        sackPct: clamp((12 - pocket * 0.08 - decision * 0.03) * (1 + variance(13, 0.15)), 2.0, 12.0).toFixed(1)
+                    };
+
+                case 'WR':
+                    const hands = stats.catching || stats.hands || 50;
+                    const routes = stats.routeRunning || 50;
+                    const spd = core.speed || 50;
+                    const jump = stats.jumping || 50;
+                    return {
+                        yardsPerCatch: clamp((10 + spd * 0.06 + routes * 0.04) * (1 + variance(20, 0.12)), 9, 20).toFixed(1),
+                        catchRate: clamp((45 + hands * 0.25 + routes * 0.12) * (1 + variance(21, 0.1)), 50, 78).toFixed(1),
+                        contestedCatchPct: clamp((30 + hands * 0.2 + jump * 0.15 + core.strength * 0.1) * (1 + variance(22, 0.15)), 35, 70).toFixed(1),
+                        yardsAfterCatch: clamp((2.5 + spd * 0.04 + core.agility * 0.03) * (1 + variance(23, 0.15)), 2.5, 8.5).toFixed(1),
+                        dropRate: clamp((15 - hands * 0.12 - core.intelligence * 0.03) * (1 + variance(24, 0.2)), 1.5, 12).toFixed(1)
+                    };
+
+                case 'CB':
+                    const coverage = stats.coverage || stats.manCoverage || 50;
+                    const ballSkills = stats.ballSkills || 50;
+                    const tackling = stats.tackling || 50;
+                    const cbSpd = core.speed || 50;
+                    return {
+                        interceptions: clamp(Math.round((ballSkills * 0.06 + coverage * 0.03 + cbSpd * 0.02) * (1 + variance(30, 0.3))), 0, 10),
+                        passBreakups: clamp(Math.round((coverage * 0.12 + cbSpd * 0.06 + core.agility * 0.04) * (1 + variance(31, 0.25))), 3, 22),
+                        passerRatingAllowed: clamp((130 - coverage * 0.5 - cbSpd * 0.2 - core.intelligence * 0.15) * (1 + variance(32, 0.12)), 55, 120).toFixed(1),
+                        completionPctAllowed: clamp((75 - coverage * 0.22 - cbSpd * 0.08) * (1 + variance(33, 0.1)), 42, 68).toFixed(1),
+                        tackles: clamp(Math.round((25 + tackling * 0.35 + cbSpd * 0.15) * (1 + variance(34, 0.2))), 20, 85)
+                    };
+
+                case 'OL':
+                    const passBlock = stats.passBlocking || 50;
+                    const runBlock = stats.runBlocking || 50;
+                    const olStr = core.strength || 50;
+                    const olAgi = core.agility || 50;
+                    const olInt = core.intelligence || 50;
+                    return {
+                        sacksAllowed: clamp(Math.round((8 - passBlock * 0.07 - olInt * 0.02) * (1 + variance(40, 0.3))), 0, 10),
+                        pressuresAllowed: clamp(Math.round((30 - passBlock * 0.2 - olStr * 0.08) * (1 + variance(41, 0.25))), 4, 35),
+                        pancakeBlocks: clamp(Math.round((runBlock * 0.4 + olStr * 0.25) * (1 + variance(42, 0.25))), 8, 60),
+                        penalties: clamp(Math.round((10 - olInt * 0.06 - olAgi * 0.03) * (1 + variance(43, 0.3))), 1, 14),
+                        runBlockGrade: getLetterGrade((runBlock * 0.6 + olStr * 0.25 + olInt * 0.15) * (1 + variance(44, 0.1)))
+                    };
+
+                case 'DL':
+                    const passRush = stats.passRush || 50;
+                    const runDef = stats.runDefense || 50;
+                    const dlStr = core.strength || 50;
+                    const dlSpd = core.speed || 50;
+                    const dlBallSkills = stats.ballSkills || 40;
+                    return {
+                        sacks: clamp((passRush * 0.1 + dlSpd * 0.04 + dlStr * 0.02) * (1 + variance(50, 0.3)), 1, 18).toFixed(1),
+                        tacklesForLoss: clamp(Math.round((runDef * 0.12 + dlSpd * 0.08 + dlStr * 0.06) * (1 + variance(51, 0.25))), 3, 25),
+                        qbHurries: clamp(Math.round((passRush * 0.3 + dlSpd * 0.15 + core.agility * 0.08) * (1 + variance(52, 0.25))), 8, 50),
+                        runStops: clamp(Math.round((runDef * 0.35 + dlStr * 0.2 + core.intelligence * 0.1) * (1 + variance(53, 0.2))), 12, 55),
+                        forcedFumbles: clamp(Math.round((dlBallSkills * 0.03 + dlStr * 0.025 + dlSpd * 0.015) * (1 + variance(54, 0.4))), 0, 6)
+                    };
+
+                default:
+                    return {};
+            }
+        }
+
+        // Helper to convert numeric grade to letter
+        function getLetterGrade(value) {
+            if (value >= 90) return 'A+';
+            if (value >= 85) return 'A';
+            if (value >= 80) return 'A-';
+            if (value >= 77) return 'B+';
+            if (value >= 73) return 'B';
+            if (value >= 70) return 'B-';
+            if (value >= 67) return 'C+';
+            if (value >= 63) return 'C';
+            if (value >= 60) return 'C-';
+            if (value >= 55) return 'D+';
+            if (value >= 50) return 'D';
+            return 'D-';
+        }
+
+        // Format combine/college stat with scouting uncertainty
+        // Shows a range that narrows with higher scout levels
+        function formatCombineStat(value, scoutLevel, suffix = '', lowerIsBetter = false) {
+            const numVal = parseFloat(value);
+            if (isNaN(numVal)) return value + suffix; // Return as-is if not a number (e.g., letter grade)
+
+            // Variance decreases with scout level: 20% -> 14% -> 8% -> 4%
+            const variancePct = [0.20, 0.14, 0.08, 0.04][scoutLevel] || 0.20;
+            const variance = numVal * variancePct;
+
+            // For integer stats, round appropriately
+            const isInteger = Number.isInteger(numVal);
+            const low = isInteger ? Math.round(numVal - variance) : (numVal - variance).toFixed(1);
+            const high = isInteger ? Math.round(numVal + variance) : (numVal + variance).toFixed(1);
+
+            // Color coding based on whether lower or higher is better
+            let color = '#aaa'; // Default neutral
+            if (scoutLevel >= 2) {
+                // Only show color hints with decent scouting
+                if (lowerIsBetter) {
+                    if (numVal <= 4) color = '#4CAF50';      // Good (low)
+                    else if (numVal >= 8) color = '#f44336'; // Bad (high)
+                } else {
+                    // Higher is better - use relative thresholds based on typical ranges
+                    color = '#aaa'; // Keep neutral for now, could enhance later
+                }
+            }
+
+            if (scoutLevel >= 3) {
+                // Fully scouted: show tight range
+                return `<span style="color:${color}">${low}-${high}${suffix}</span>`;
+            }
+
+            return `<span style="color:${color}">${low}-${high}${suffix}</span>`;
+        }
+
         // Calculate scouting cost based on current pick value
         // Scales from 5-50 based on pick value (early picks cost more to scout)
         function calculateScoutingCost(pickNumber) {
@@ -4584,9 +4773,12 @@
             // Sort by overall rating descending
             const sorted = draftClass.sort((a, b) => b.overall - a.overall);
 
-            // Assign draft cost based on position in pool (best = most expensive)
+            // Assign draft cost and generate scouting data
             sorted.forEach((player, index) => {
                 player.draftCost = calculatePickCost(index + 1);
+                // Generate combine and college stats for scouting
+                player.combineStats = generateCombineStats(player);
+                player.collegeStats = generateCollegeStats(player);
             });
 
             return sorted;
@@ -5102,6 +5294,88 @@
                         </div>
                     </div>
                 `;
+            }
+
+            // Combine Stats section
+            if (player.combineStats) {
+                const cs = player.combineStats;
+                statsHtml += `
+                    <div class="stats-section">
+                        <div class="stats-section-title">Combine Results</div>
+                        <div class="stats-grid" style="font-size:12px;">
+                            <div class="stat-row"><span class="stat-row-name">40-Yard</span><span class="stat-row-value">${formatCombineStat(cs.fortyYard, scoutLevel, 's', true)}</span></div>
+                            <div class="stat-row"><span class="stat-row-name">Bench</span><span class="stat-row-value">${formatCombineStat(cs.benchPress, scoutLevel, ' reps')}</span></div>
+                            <div class="stat-row"><span class="stat-row-name">Vertical</span><span class="stat-row-value">${formatCombineStat(cs.verticalJump, scoutLevel, '"')}</span></div>
+                            <div class="stat-row"><span class="stat-row-name">Broad</span><span class="stat-row-value">${formatCombineStat(cs.broadJump, scoutLevel, '"')}</span></div>
+                            <div class="stat-row"><span class="stat-row-name">3-Cone</span><span class="stat-row-value">${formatCombineStat(cs.threeCone, scoutLevel, 's', true)}</span></div>
+                            <div class="stat-row"><span class="stat-row-name">Shuttle</span><span class="stat-row-value">${formatCombineStat(cs.shuttle, scoutLevel, 's', true)}</span></div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // College Stats section (position-specific)
+            if (player.collegeStats) {
+                const cs = player.collegeStats;
+                let collegeHtml = '';
+
+                switch (player.position) {
+                    case 'QB':
+                        collegeHtml = `
+                            <div class="stat-row"><span class="stat-row-name">Comp %</span><span class="stat-row-value">${formatCombineStat(cs.completionPct, scoutLevel, '%')}</span></div>
+                            <div class="stat-row"><span class="stat-row-name">TD:INT</span><span class="stat-row-value">${formatCombineStat(cs.tdIntRatio, scoutLevel, '')}</span></div>
+                            <div class="stat-row"><span class="stat-row-name">Y/A</span><span class="stat-row-value">${formatCombineStat(cs.yardsPerAttempt, scoutLevel, '')}</span></div>
+                            <div class="stat-row"><span class="stat-row-name">Sack %</span><span class="stat-row-value">${formatCombineStat(cs.sackPct, scoutLevel, '%', true)}</span></div>
+                        `;
+                        break;
+                    case 'WR':
+                        collegeHtml = `
+                            <div class="stat-row"><span class="stat-row-name">Y/Rec</span><span class="stat-row-value">${formatCombineStat(cs.yardsPerCatch, scoutLevel, '')}</span></div>
+                            <div class="stat-row"><span class="stat-row-name">Catch %</span><span class="stat-row-value">${formatCombineStat(cs.catchRate, scoutLevel, '%')}</span></div>
+                            <div class="stat-row"><span class="stat-row-name">Contested</span><span class="stat-row-value">${formatCombineStat(cs.contestedCatchPct, scoutLevel, '%')}</span></div>
+                            <div class="stat-row"><span class="stat-row-name">YAC</span><span class="stat-row-value">${formatCombineStat(cs.yardsAfterCatch, scoutLevel, '')}</span></div>
+                            <div class="stat-row"><span class="stat-row-name">Drop %</span><span class="stat-row-value">${formatCombineStat(cs.dropRate, scoutLevel, '%', true)}</span></div>
+                        `;
+                        break;
+                    case 'CB':
+                        collegeHtml = `
+                            <div class="stat-row"><span class="stat-row-name">INTs</span><span class="stat-row-value">${formatCombineStat(cs.interceptions, scoutLevel, '')}</span></div>
+                            <div class="stat-row"><span class="stat-row-name">PBUs</span><span class="stat-row-value">${formatCombineStat(cs.passBreakups, scoutLevel, '')}</span></div>
+                            <div class="stat-row"><span class="stat-row-name">PR Allowed</span><span class="stat-row-value">${formatCombineStat(cs.passerRatingAllowed, scoutLevel, '', true)}</span></div>
+                            <div class="stat-row"><span class="stat-row-name">Comp% Alw</span><span class="stat-row-value">${formatCombineStat(cs.completionPctAllowed, scoutLevel, '%', true)}</span></div>
+                            <div class="stat-row"><span class="stat-row-name">Tackles</span><span class="stat-row-value">${formatCombineStat(cs.tackles, scoutLevel, '')}</span></div>
+                        `;
+                        break;
+                    case 'OL':
+                        collegeHtml = `
+                            <div class="stat-row"><span class="stat-row-name">Sacks Alw</span><span class="stat-row-value">${formatCombineStat(cs.sacksAllowed, scoutLevel, '', true)}</span></div>
+                            <div class="stat-row"><span class="stat-row-name">Press Alw</span><span class="stat-row-value">${formatCombineStat(cs.pressuresAllowed, scoutLevel, '', true)}</span></div>
+                            <div class="stat-row"><span class="stat-row-name">Pancakes</span><span class="stat-row-value">${formatCombineStat(cs.pancakeBlocks, scoutLevel, '')}</span></div>
+                            <div class="stat-row"><span class="stat-row-name">Penalties</span><span class="stat-row-value">${formatCombineStat(cs.penalties, scoutLevel, '', true)}</span></div>
+                            <div class="stat-row"><span class="stat-row-name">Run Block</span><span class="stat-row-value" style="color:#ffd700;">${cs.runBlockGrade}</span></div>
+                        `;
+                        break;
+                    case 'DL':
+                        collegeHtml = `
+                            <div class="stat-row"><span class="stat-row-name">Sacks</span><span class="stat-row-value">${formatCombineStat(cs.sacks, scoutLevel, '')}</span></div>
+                            <div class="stat-row"><span class="stat-row-name">TFLs</span><span class="stat-row-value">${formatCombineStat(cs.tacklesForLoss, scoutLevel, '')}</span></div>
+                            <div class="stat-row"><span class="stat-row-name">Hurries</span><span class="stat-row-value">${formatCombineStat(cs.qbHurries, scoutLevel, '')}</span></div>
+                            <div class="stat-row"><span class="stat-row-name">Run Stops</span><span class="stat-row-value">${formatCombineStat(cs.runStops, scoutLevel, '')}</span></div>
+                            <div class="stat-row"><span class="stat-row-name">FF</span><span class="stat-row-value">${formatCombineStat(cs.forcedFumbles, scoutLevel, '')}</span></div>
+                        `;
+                        break;
+                }
+
+                if (collegeHtml) {
+                    statsHtml += `
+                        <div class="stats-section">
+                            <div class="stats-section-title">College Stats</div>
+                            <div class="stats-grid" style="font-size:12px;">
+                                ${collegeHtml}
+                            </div>
+                        </div>
+                    `;
+                }
             }
 
             statsHtml += '</div>';
