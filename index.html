@@ -4022,6 +4022,13 @@
             const min = Math.max(0, actualValue - range);
             const max = Math.min(99, actualValue + range);
 
+            // Debug: log first few calls to verify range narrowing
+            if (window._rangeIndicatorLogCount === undefined) window._rangeIndicatorLogCount = 0;
+            if (window._rangeIndicatorLogCount < 5) {
+                console.log('createRangeIndicator:', { actualValue, scoutLevel, range, min, max, widthPct: max - min });
+                window._rangeIndicatorLogCount++;
+            }
+
             // Calculate positions as percentages
             const leftPct = min;
             const widthPct = Math.max(3, max - min); // Minimum 3% width so it's visible
@@ -4185,6 +4192,7 @@
 
                 // Refresh the views
                 console.log('About to refresh. selectedDraftPlayer:', draftState.selectedDraftPlayer ? draftState.selectedDraftPlayer.id : 'null');
+                window._rangeIndicatorLogCount = 0; // Reset so we see new range indicator values
                 refreshDraftScreen();
                 console.log('refreshDraftScreen completed');
 
