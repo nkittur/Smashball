@@ -4131,15 +4131,31 @@
             draftState.scoutLevels[playerId] = currentLevel + 1;
             console.log('Scouted! New level:', draftState.scoutLevels[playerId]);
 
-            showNotification(`Scouted player! (Level ${currentLevel + 1}/${SCOUTING.MAX_LEVEL})`, 'success');
+            try {
+                showNotification(`Scouted player! (Level ${currentLevel + 1}/${SCOUTING.MAX_LEVEL})`, 'success');
+                console.log('Notification shown');
+            } catch (e) {
+                console.error('Error showing notification:', e);
+            }
 
             // Refresh the views
-            refreshDraftScreen();
-            console.log('After refreshDraftScreen, selectedDraftPlayer:', draftState.selectedDraftPlayer);
+            try {
+                console.log('Calling refreshDraftScreen...');
+                refreshDraftScreen();
+                console.log('After refreshDraftScreen, selectedDraftPlayer:', draftState.selectedDraftPlayer);
+            } catch (e) {
+                console.error('Error in refreshDraftScreen:', e);
+            }
+
             console.log('Checking if should refresh detail:', draftState.selectedDraftPlayer?.id, '===', playerId);
             if (draftState.selectedDraftPlayer && draftState.selectedDraftPlayer.id === playerId) {
                 console.log('Calling showDraftPlayerDetail to refresh...');
-                showDraftPlayerDetail(playerId);
+                try {
+                    showDraftPlayerDetail(playerId);
+                    console.log('showDraftPlayerDetail completed');
+                } catch (e) {
+                    console.error('Error in showDraftPlayerDetail:', e);
+                }
             } else {
                 console.log('NOT refreshing detail - condition failed');
             }
