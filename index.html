@@ -4095,6 +4095,7 @@
         }
 
         // Generate college stats for a draft player based on position and skills
+        // Stats are single numbers with percentiles, correlated but not deterministic
         function generateCollegeStats(player) {
             const stats = player.stats || {};
             const core = player.coreAttributes || {};
@@ -4113,71 +4114,154 @@
 
             const clamp = (val, min, max) => Math.max(min, Math.min(max, val));
 
+            // Calculate percentile: higher is better
+            const calcPct = (val, worst, elite) => Math.round(Math.max(0, Math.min(100, ((val - worst) / (elite - worst)) * 100)));
+            // Calculate percentile: lower is better (inverted)
+            const calcPctInv = (val, worst, elite) => Math.round(Math.max(0, Math.min(100, ((worst - val) / (worst - elite)) * 100)));
+
             switch (pos) {
                 case 'QB':
-                    const accuracy = stats.accuracy || 50;
-                    const armStr = stats.armStrength || 50;
-                    const decision = stats.decisionMaking || core.intelligence || 50;
-                    const pocket = stats.pocketPresence || 50;
+                    const accuracy = stats.accuracy || 55;
+                    const armStr = stats.armStrength || 55;
+                    const decision = stats.decisionMaking || core.intelligence || 55;
+                    const pocket = stats.pocketPresence || 55;
+
+                    // Elite (100 attr) and Worst (55 attr) benchmarks for QB
+                    const QB_ELITE = { compPct: 72, tdInt: 4.0, ypa: 10.5, sackPct: 3.0 };
+                    const QB_WORST = { compPct: 56, tdInt: 1.2, ypa: 6.0, sackPct: 10.0 };
+
+                    const compPct = clamp((50 + accuracy * 0.25 + decision * 0.08) * (1 + variance(10, 0.08)), 52, 74);
+                    const tdInt = clamp((0.8 + decision * 0.025 + accuracy * 0.012) * (1 + variance(11, 0.2)), 0.8, 4.5);
+                    const ypa = clamp((5.5 + armStr * 0.03 + accuracy * 0.02 + decision * 0.015) * (1 + variance(12, 0.12)), 5.5, 11.0);
+                    const sackPct = clamp((12 - pocket * 0.08 - decision * 0.03) * (1 + variance(13, 0.15)), 2.0, 12.0);
+
                     return {
-                        completionPct: clamp((50 + accuracy * 0.25 + decision * 0.08) * (1 + variance(10, 0.08)), 52, 74).toFixed(1),
-                        tdIntRatio: clamp((0.8 + decision * 0.025 + accuracy * 0.012) * (1 + variance(11, 0.2)), 0.8, 4.5).toFixed(1),
-                        yardsPerAttempt: clamp((5.5 + armStr * 0.03 + accuracy * 0.02 + decision * 0.015) * (1 + variance(12, 0.12)), 5.5, 11.0).toFixed(1),
-                        sackPct: clamp((12 - pocket * 0.08 - decision * 0.03) * (1 + variance(13, 0.15)), 2.0, 12.0).toFixed(1)
+                        completionPct: compPct.toFixed(1),
+                        compPctPct: calcPct(compPct, QB_WORST.compPct, QB_ELITE.compPct),
+                        tdIntRatio: tdInt.toFixed(1),
+                        tdIntPct: calcPct(tdInt, QB_WORST.tdInt, QB_ELITE.tdInt),
+                        yardsPerAttempt: ypa.toFixed(1),
+                        ypaPct: calcPct(ypa, QB_WORST.ypa, QB_ELITE.ypa),
+                        sackPct: sackPct.toFixed(1),
+                        sackPctPct: calcPctInv(sackPct, QB_WORST.sackPct, QB_ELITE.sackPct)
                     };
 
                 case 'WR':
-                    const hands = stats.catching || stats.hands || 50;
-                    const routes = stats.routeRunning || 50;
-                    const spd = core.speed || 50;
-                    const jump = stats.jumping || 50;
+                    const hands = stats.catching || stats.hands || 55;
+                    const routes = stats.routeRunning || 55;
+                    const spd = core.speed || 55;
+                    const jump = stats.jumping || 55;
+
+                    // Elite and Worst benchmarks for WR
+                    const WR_ELITE = { ypc: 18, catchRate: 75, contested: 65, yac: 7.5, dropRate: 2 };
+                    const WR_WORST = { ypc: 11, catchRate: 55, contested: 38, yac: 3.0, dropRate: 10 };
+
+                    const ypc = clamp((10 + spd * 0.06 + routes * 0.04) * (1 + variance(20, 0.12)), 9, 20);
+                    const catchRate = clamp((45 + hands * 0.25 + routes * 0.12) * (1 + variance(21, 0.1)), 50, 78);
+                    const contested = clamp((30 + hands * 0.2 + jump * 0.15 + (core.strength || 55) * 0.1) * (1 + variance(22, 0.15)), 35, 70);
+                    const yac = clamp((2.5 + spd * 0.04 + (core.agility || 55) * 0.03) * (1 + variance(23, 0.15)), 2.5, 8.5);
+                    const dropRate = clamp((15 - hands * 0.12 - (core.intelligence || 55) * 0.03) * (1 + variance(24, 0.2)), 1.5, 12);
+
                     return {
-                        yardsPerCatch: clamp((10 + spd * 0.06 + routes * 0.04) * (1 + variance(20, 0.12)), 9, 20).toFixed(1),
-                        catchRate: clamp((45 + hands * 0.25 + routes * 0.12) * (1 + variance(21, 0.1)), 50, 78).toFixed(1),
-                        contestedCatchPct: clamp((30 + hands * 0.2 + jump * 0.15 + core.strength * 0.1) * (1 + variance(22, 0.15)), 35, 70).toFixed(1),
-                        yardsAfterCatch: clamp((2.5 + spd * 0.04 + core.agility * 0.03) * (1 + variance(23, 0.15)), 2.5, 8.5).toFixed(1),
-                        dropRate: clamp((15 - hands * 0.12 - core.intelligence * 0.03) * (1 + variance(24, 0.2)), 1.5, 12).toFixed(1)
+                        yardsPerCatch: ypc.toFixed(1),
+                        ypcPct: calcPct(ypc, WR_WORST.ypc, WR_ELITE.ypc),
+                        catchRate: catchRate.toFixed(1),
+                        catchRatePct: calcPct(catchRate, WR_WORST.catchRate, WR_ELITE.catchRate),
+                        contestedCatchPct: contested.toFixed(1),
+                        contestedPct: calcPct(contested, WR_WORST.contested, WR_ELITE.contested),
+                        yardsAfterCatch: yac.toFixed(1),
+                        yacPct: calcPct(yac, WR_WORST.yac, WR_ELITE.yac),
+                        dropRate: dropRate.toFixed(1),
+                        dropRatePct: calcPctInv(dropRate, WR_WORST.dropRate, WR_ELITE.dropRate)
                     };
 
                 case 'CB':
-                    const coverage = stats.coverage || stats.manCoverage || 50;
-                    const ballSkills = stats.ballSkills || 50;
-                    const tackling = stats.tackling || 50;
-                    const cbSpd = core.speed || 50;
+                    const coverage = stats.coverage || stats.manCoverage || 55;
+                    const ballSkills = stats.ballSkills || 55;
+                    const tackling = stats.tackling || 55;
+                    const cbSpd = core.speed || 55;
+
+                    // Elite and Worst benchmarks for CB
+                    const CB_ELITE = { ints: 8, pbu: 18, prAllow: 65, compAllow: 48, tackles: 70 };
+                    const CB_WORST = { ints: 2, pbu: 6, prAllow: 110, compAllow: 65, tackles: 30 };
+
+                    const ints = clamp(Math.round((ballSkills * 0.06 + coverage * 0.03 + cbSpd * 0.02) * (1 + variance(30, 0.3))), 0, 10);
+                    const pbu = clamp(Math.round((coverage * 0.12 + cbSpd * 0.06 + (core.agility || 55) * 0.04) * (1 + variance(31, 0.25))), 3, 22);
+                    const prAllow = clamp((130 - coverage * 0.5 - cbSpd * 0.2 - (core.intelligence || 55) * 0.15) * (1 + variance(32, 0.12)), 55, 120);
+                    const compAllow = clamp((75 - coverage * 0.22 - cbSpd * 0.08) * (1 + variance(33, 0.1)), 42, 68);
+                    const cbTackles = clamp(Math.round((25 + tackling * 0.35 + cbSpd * 0.15) * (1 + variance(34, 0.2))), 20, 85);
+
                     return {
-                        interceptions: clamp(Math.round((ballSkills * 0.06 + coverage * 0.03 + cbSpd * 0.02) * (1 + variance(30, 0.3))), 0, 10),
-                        passBreakups: clamp(Math.round((coverage * 0.12 + cbSpd * 0.06 + core.agility * 0.04) * (1 + variance(31, 0.25))), 3, 22),
-                        passerRatingAllowed: clamp((130 - coverage * 0.5 - cbSpd * 0.2 - core.intelligence * 0.15) * (1 + variance(32, 0.12)), 55, 120).toFixed(1),
-                        completionPctAllowed: clamp((75 - coverage * 0.22 - cbSpd * 0.08) * (1 + variance(33, 0.1)), 42, 68).toFixed(1),
-                        tackles: clamp(Math.round((25 + tackling * 0.35 + cbSpd * 0.15) * (1 + variance(34, 0.2))), 20, 85)
+                        interceptions: ints,
+                        intsPct: calcPct(ints, CB_WORST.ints, CB_ELITE.ints),
+                        passBreakups: pbu,
+                        pbuPct: calcPct(pbu, CB_WORST.pbu, CB_ELITE.pbu),
+                        passerRatingAllowed: prAllow.toFixed(1),
+                        prAllowPct: calcPctInv(prAllow, CB_WORST.prAllow, CB_ELITE.prAllow),
+                        completionPctAllowed: compAllow.toFixed(1),
+                        compAllowPct: calcPctInv(compAllow, CB_WORST.compAllow, CB_ELITE.compAllow),
+                        tackles: cbTackles,
+                        tacklesPct: calcPct(cbTackles, CB_WORST.tackles, CB_ELITE.tackles)
                     };
 
                 case 'OL':
-                    const passBlock = stats.passBlocking || 50;
-                    const runBlock = stats.runBlocking || 50;
-                    const olStr = core.strength || 50;
-                    const olAgi = core.agility || 50;
-                    const olInt = core.intelligence || 50;
+                    const passBlock = stats.passBlocking || 55;
+                    const runBlock = stats.runBlocking || 55;
+                    const olStr = core.strength || 55;
+                    const olAgi = core.agility || 55;
+                    const olInt = core.intelligence || 55;
+
+                    // Elite and Worst benchmarks for OL
+                    const OL_ELITE = { sacksAllow: 0, pressAllow: 8, pancakes: 50, penalties: 2 };
+                    const OL_WORST = { sacksAllow: 8, pressAllow: 28, pancakes: 15, penalties: 10 };
+
+                    const sacksAllow = clamp(Math.round((8 - passBlock * 0.07 - olInt * 0.02) * (1 + variance(40, 0.3))), 0, 10);
+                    const pressAllow = clamp(Math.round((30 - passBlock * 0.2 - olStr * 0.08) * (1 + variance(41, 0.25))), 4, 35);
+                    const pancakes = clamp(Math.round((runBlock * 0.4 + olStr * 0.25) * (1 + variance(42, 0.25))), 8, 60);
+                    const olPenalties = clamp(Math.round((10 - olInt * 0.06 - olAgi * 0.03) * (1 + variance(43, 0.3))), 1, 14);
+                    const runGradeVal = (runBlock * 0.6 + olStr * 0.25 + olInt * 0.15) * (1 + variance(44, 0.1));
+
                     return {
-                        sacksAllowed: clamp(Math.round((8 - passBlock * 0.07 - olInt * 0.02) * (1 + variance(40, 0.3))), 0, 10),
-                        pressuresAllowed: clamp(Math.round((30 - passBlock * 0.2 - olStr * 0.08) * (1 + variance(41, 0.25))), 4, 35),
-                        pancakeBlocks: clamp(Math.round((runBlock * 0.4 + olStr * 0.25) * (1 + variance(42, 0.25))), 8, 60),
-                        penalties: clamp(Math.round((10 - olInt * 0.06 - olAgi * 0.03) * (1 + variance(43, 0.3))), 1, 14),
-                        runBlockGrade: getLetterGrade((runBlock * 0.6 + olStr * 0.25 + olInt * 0.15) * (1 + variance(44, 0.1)))
+                        sacksAllowed: sacksAllow,
+                        sacksAllowPct: calcPctInv(sacksAllow, OL_WORST.sacksAllow, OL_ELITE.sacksAllow),
+                        pressuresAllowed: pressAllow,
+                        pressAllowPct: calcPctInv(pressAllow, OL_WORST.pressAllow, OL_ELITE.pressAllow),
+                        pancakeBlocks: pancakes,
+                        pancakesPct: calcPct(pancakes, OL_WORST.pancakes, OL_ELITE.pancakes),
+                        penalties: olPenalties,
+                        penaltiesPct: calcPctInv(olPenalties, OL_WORST.penalties, OL_ELITE.penalties),
+                        runBlockGrade: getLetterGrade(runGradeVal),
+                        runGradeVal: Math.round(runGradeVal) // For percentile display
                     };
 
                 case 'DL':
-                    const passRush = stats.passRush || 50;
-                    const runDef = stats.runDefense || 50;
-                    const dlStr = core.strength || 50;
-                    const dlSpd = core.speed || 50;
+                    const passRush = stats.passRush || 55;
+                    const runDef = stats.runDefense || 55;
+                    const dlStr = core.strength || 55;
+                    const dlSpd = core.speed || 55;
                     const dlBallSkills = stats.ballSkills || 40;
+
+                    // Elite and Worst benchmarks for DL
+                    const DL_ELITE = { sacks: 14, tfl: 20, hurries: 40, runStops: 50, ff: 5 };
+                    const DL_WORST = { sacks: 3, tfl: 6, hurries: 12, runStops: 18, ff: 0 };
+
+                    const dlSacks = clamp((passRush * 0.1 + dlSpd * 0.04 + dlStr * 0.02) * (1 + variance(50, 0.3)), 1, 18);
+                    const tfl = clamp(Math.round((runDef * 0.12 + dlSpd * 0.08 + dlStr * 0.06) * (1 + variance(51, 0.25))), 3, 25);
+                    const hurries = clamp(Math.round((passRush * 0.3 + dlSpd * 0.15 + (core.agility || 55) * 0.08) * (1 + variance(52, 0.25))), 8, 50);
+                    const runStops = clamp(Math.round((runDef * 0.35 + dlStr * 0.2 + (core.intelligence || 55) * 0.1) * (1 + variance(53, 0.2))), 12, 55);
+                    const ff = clamp(Math.round((dlBallSkills * 0.03 + dlStr * 0.025 + dlSpd * 0.015) * (1 + variance(54, 0.4))), 0, 6);
+
                     return {
-                        sacks: clamp((passRush * 0.1 + dlSpd * 0.04 + dlStr * 0.02) * (1 + variance(50, 0.3)), 1, 18).toFixed(1),
-                        tacklesForLoss: clamp(Math.round((runDef * 0.12 + dlSpd * 0.08 + dlStr * 0.06) * (1 + variance(51, 0.25))), 3, 25),
-                        qbHurries: clamp(Math.round((passRush * 0.3 + dlSpd * 0.15 + core.agility * 0.08) * (1 + variance(52, 0.25))), 8, 50),
-                        runStops: clamp(Math.round((runDef * 0.35 + dlStr * 0.2 + core.intelligence * 0.1) * (1 + variance(53, 0.2))), 12, 55),
-                        forcedFumbles: clamp(Math.round((dlBallSkills * 0.03 + dlStr * 0.025 + dlSpd * 0.015) * (1 + variance(54, 0.4))), 0, 6)
+                        sacks: dlSacks.toFixed(1),
+                        sacksPct: calcPct(dlSacks, DL_WORST.sacks, DL_ELITE.sacks),
+                        tacklesForLoss: tfl,
+                        tflPct: calcPct(tfl, DL_WORST.tfl, DL_ELITE.tfl),
+                        qbHurries: hurries,
+                        hurriesPct: calcPct(hurries, DL_WORST.hurries, DL_ELITE.hurries),
+                        runStops: runStops,
+                        runStopsPct: calcPct(runStops, DL_WORST.runStops, DL_ELITE.runStops),
+                        forcedFumbles: ff,
+                        ffPct: calcPct(ff, DL_WORST.ff, DL_ELITE.ff)
                     };
 
                 default:
@@ -5397,50 +5481,53 @@
             if (player.collegeStats) {
                 const cs = player.collegeStats;
                 let collegeHtml = '';
+                // Use same pctColor and formatWithPct helper as combine stats
+                const collegePctColor = (pct) => pct >= 85 ? '#ffd700' : pct >= 70 ? '#4CAF50' : pct >= 50 ? '#8BC34A' : pct >= 30 ? '#FFC107' : '#f44336';
+                const collegeFormatWithPct = (val, pct, suffix = '') => `<span style="color:${collegePctColor(pct)}">${val}${suffix}</span> <span style="opacity:0.6;font-size:10px;">(${pct}%)</span>`;
 
                 switch (player.position) {
                     case 'QB':
                         collegeHtml = `
-                            <div class="stat-row"><span class="stat-row-name">Comp %</span><span class="stat-row-value">${formatCombineStat(cs.completionPct, scoutLevel, '%')}</span></div>
-                            <div class="stat-row"><span class="stat-row-name">TD:INT</span><span class="stat-row-value">${formatCombineStat(cs.tdIntRatio, scoutLevel, '')}</span></div>
-                            <div class="stat-row"><span class="stat-row-name">Y/A</span><span class="stat-row-value">${formatCombineStat(cs.yardsPerAttempt, scoutLevel, '')}</span></div>
-                            <div class="stat-row"><span class="stat-row-name">Sack %</span><span class="stat-row-value">${formatCombineStat(cs.sackPct, scoutLevel, '%', true)}</span></div>
+                            <div class="stat-row"><span class="stat-row-name">Comp %</span><span class="stat-row-value">${collegeFormatWithPct(cs.completionPct, cs.compPctPct, '%')}</span></div>
+                            <div class="stat-row"><span class="stat-row-name">TD:INT</span><span class="stat-row-value">${collegeFormatWithPct(cs.tdIntRatio, cs.tdIntPct, '')}</span></div>
+                            <div class="stat-row"><span class="stat-row-name">Y/A</span><span class="stat-row-value">${collegeFormatWithPct(cs.yardsPerAttempt, cs.ypaPct, '')}</span></div>
+                            <div class="stat-row"><span class="stat-row-name">Sack %</span><span class="stat-row-value">${collegeFormatWithPct(cs.sackPct, cs.sackPctPct, '%')}</span></div>
                         `;
                         break;
                     case 'WR':
                         collegeHtml = `
-                            <div class="stat-row"><span class="stat-row-name">Y/Rec</span><span class="stat-row-value">${formatCombineStat(cs.yardsPerCatch, scoutLevel, '')}</span></div>
-                            <div class="stat-row"><span class="stat-row-name">Catch %</span><span class="stat-row-value">${formatCombineStat(cs.catchRate, scoutLevel, '%')}</span></div>
-                            <div class="stat-row"><span class="stat-row-name">Contested</span><span class="stat-row-value">${formatCombineStat(cs.contestedCatchPct, scoutLevel, '%')}</span></div>
-                            <div class="stat-row"><span class="stat-row-name">YAC</span><span class="stat-row-value">${formatCombineStat(cs.yardsAfterCatch, scoutLevel, '')}</span></div>
-                            <div class="stat-row"><span class="stat-row-name">Drop %</span><span class="stat-row-value">${formatCombineStat(cs.dropRate, scoutLevel, '%', true)}</span></div>
+                            <div class="stat-row"><span class="stat-row-name">Y/Rec</span><span class="stat-row-value">${collegeFormatWithPct(cs.yardsPerCatch, cs.ypcPct, '')}</span></div>
+                            <div class="stat-row"><span class="stat-row-name">Catch %</span><span class="stat-row-value">${collegeFormatWithPct(cs.catchRate, cs.catchRatePct, '%')}</span></div>
+                            <div class="stat-row"><span class="stat-row-name">Contested</span><span class="stat-row-value">${collegeFormatWithPct(cs.contestedCatchPct, cs.contestedPct, '%')}</span></div>
+                            <div class="stat-row"><span class="stat-row-name">YAC</span><span class="stat-row-value">${collegeFormatWithPct(cs.yardsAfterCatch, cs.yacPct, '')}</span></div>
+                            <div class="stat-row"><span class="stat-row-name">Drop %</span><span class="stat-row-value">${collegeFormatWithPct(cs.dropRate, cs.dropRatePct, '%')}</span></div>
                         `;
                         break;
                     case 'CB':
                         collegeHtml = `
-                            <div class="stat-row"><span class="stat-row-name">INTs</span><span class="stat-row-value">${formatCombineStat(cs.interceptions, scoutLevel, '')}</span></div>
-                            <div class="stat-row"><span class="stat-row-name">PBUs</span><span class="stat-row-value">${formatCombineStat(cs.passBreakups, scoutLevel, '')}</span></div>
-                            <div class="stat-row"><span class="stat-row-name">PR Allowed</span><span class="stat-row-value">${formatCombineStat(cs.passerRatingAllowed, scoutLevel, '', true)}</span></div>
-                            <div class="stat-row"><span class="stat-row-name">Comp% Alw</span><span class="stat-row-value">${formatCombineStat(cs.completionPctAllowed, scoutLevel, '%', true)}</span></div>
-                            <div class="stat-row"><span class="stat-row-name">Tackles</span><span class="stat-row-value">${formatCombineStat(cs.tackles, scoutLevel, '')}</span></div>
+                            <div class="stat-row"><span class="stat-row-name">INTs</span><span class="stat-row-value">${collegeFormatWithPct(cs.interceptions, cs.intsPct, '')}</span></div>
+                            <div class="stat-row"><span class="stat-row-name">PBUs</span><span class="stat-row-value">${collegeFormatWithPct(cs.passBreakups, cs.pbuPct, '')}</span></div>
+                            <div class="stat-row"><span class="stat-row-name">PR Allowed</span><span class="stat-row-value">${collegeFormatWithPct(cs.passerRatingAllowed, cs.prAllowPct, '')}</span></div>
+                            <div class="stat-row"><span class="stat-row-name">Comp% Alw</span><span class="stat-row-value">${collegeFormatWithPct(cs.completionPctAllowed, cs.compAllowPct, '%')}</span></div>
+                            <div class="stat-row"><span class="stat-row-name">Tackles</span><span class="stat-row-value">${collegeFormatWithPct(cs.tackles, cs.tacklesPct, '')}</span></div>
                         `;
                         break;
                     case 'OL':
                         collegeHtml = `
-                            <div class="stat-row"><span class="stat-row-name">Sacks Alw</span><span class="stat-row-value">${formatCombineStat(cs.sacksAllowed, scoutLevel, '', true)}</span></div>
-                            <div class="stat-row"><span class="stat-row-name">Press Alw</span><span class="stat-row-value">${formatCombineStat(cs.pressuresAllowed, scoutLevel, '', true)}</span></div>
-                            <div class="stat-row"><span class="stat-row-name">Pancakes</span><span class="stat-row-value">${formatCombineStat(cs.pancakeBlocks, scoutLevel, '')}</span></div>
-                            <div class="stat-row"><span class="stat-row-name">Penalties</span><span class="stat-row-value">${formatCombineStat(cs.penalties, scoutLevel, '', true)}</span></div>
+                            <div class="stat-row"><span class="stat-row-name">Sacks Alw</span><span class="stat-row-value">${collegeFormatWithPct(cs.sacksAllowed, cs.sacksAllowPct, '')}</span></div>
+                            <div class="stat-row"><span class="stat-row-name">Press Alw</span><span class="stat-row-value">${collegeFormatWithPct(cs.pressuresAllowed, cs.pressAllowPct, '')}</span></div>
+                            <div class="stat-row"><span class="stat-row-name">Pancakes</span><span class="stat-row-value">${collegeFormatWithPct(cs.pancakeBlocks, cs.pancakesPct, '')}</span></div>
+                            <div class="stat-row"><span class="stat-row-name">Penalties</span><span class="stat-row-value">${collegeFormatWithPct(cs.penalties, cs.penaltiesPct, '')}</span></div>
                             <div class="stat-row"><span class="stat-row-name">Run Block</span><span class="stat-row-value" style="color:#ffd700;">${cs.runBlockGrade}</span></div>
                         `;
                         break;
                     case 'DL':
                         collegeHtml = `
-                            <div class="stat-row"><span class="stat-row-name">Sacks</span><span class="stat-row-value">${formatCombineStat(cs.sacks, scoutLevel, '')}</span></div>
-                            <div class="stat-row"><span class="stat-row-name">TFLs</span><span class="stat-row-value">${formatCombineStat(cs.tacklesForLoss, scoutLevel, '')}</span></div>
-                            <div class="stat-row"><span class="stat-row-name">Hurries</span><span class="stat-row-value">${formatCombineStat(cs.qbHurries, scoutLevel, '')}</span></div>
-                            <div class="stat-row"><span class="stat-row-name">Run Stops</span><span class="stat-row-value">${formatCombineStat(cs.runStops, scoutLevel, '')}</span></div>
-                            <div class="stat-row"><span class="stat-row-name">FF</span><span class="stat-row-value">${formatCombineStat(cs.forcedFumbles, scoutLevel, '')}</span></div>
+                            <div class="stat-row"><span class="stat-row-name">Sacks</span><span class="stat-row-value">${collegeFormatWithPct(cs.sacks, cs.sacksPct, '')}</span></div>
+                            <div class="stat-row"><span class="stat-row-name">TFLs</span><span class="stat-row-value">${collegeFormatWithPct(cs.tacklesForLoss, cs.tflPct, '')}</span></div>
+                            <div class="stat-row"><span class="stat-row-name">Hurries</span><span class="stat-row-value">${collegeFormatWithPct(cs.qbHurries, cs.hurriesPct, '')}</span></div>
+                            <div class="stat-row"><span class="stat-row-name">Run Stops</span><span class="stat-row-value">${collegeFormatWithPct(cs.runStops, cs.runStopsPct, '')}</span></div>
+                            <div class="stat-row"><span class="stat-row-name">FF</span><span class="stat-row-value">${collegeFormatWithPct(cs.forcedFumbles, cs.ffPct, '')}</span></div>
                         `;
                         break;
                 }
