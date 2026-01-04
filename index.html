@@ -4055,49 +4055,54 @@
         }
 
         // Get growth estimate based on potential grade and scout level
-        // Returns a text description instead of exact stars
-        function getGrowthEstimate(potentialGrade, scoutLevel) {
+        // Shows a single description that may be inaccurate; scouting improves accuracy
+        // Uses player ID to deterministically generate consistent "scouting error"
+        function getGrowthEstimate(potentialGrade, scoutLevel, playerId) {
+            const labels = ['Low', 'Average', 'High', 'Elite'];
+
             if (scoutLevel >= 3) {
-                // Fully scouted - show exact stars
-                return { display: '★'.repeat(potentialGrade), isExact: true };
+                // Fully scouted - show exact value
+                return { display: labels[potentialGrade], isExact: true };
             }
 
-            // Give a range estimate based on scout level
-            // Level 0: very vague, Level 1-2: somewhat vague
-            if (scoutLevel === 0) {
-                // Very uncertain - give a broad category
-                if (potentialGrade === 0) {
-                    return { display: 'Low-Avg', isExact: false };
-                } else if (potentialGrade === 1) {
-                    return { display: 'Low-High', isExact: false };
-                } else if (potentialGrade === 2) {
-                    return { display: 'Avg-High', isExact: false };
-                } else {
-                    return { display: 'Avg-Elite', isExact: false };
-                }
-            } else if (scoutLevel === 1) {
-                // Somewhat uncertain
-                if (potentialGrade === 0) {
-                    return { display: 'Low', isExact: false };
-                } else if (potentialGrade === 1) {
-                    return { display: 'Low-Avg', isExact: false };
-                } else if (potentialGrade === 2) {
-                    return { display: 'Avg-High', isExact: false };
-                } else {
-                    return { display: 'High-Elite', isExact: false };
-                }
-            } else {
-                // Scout level 2 - fairly accurate
-                if (potentialGrade === 0) {
-                    return { display: '☆', isExact: false };  // Empty star hint
-                } else if (potentialGrade === 1) {
-                    return { display: '★☆', isExact: false };
-                } else if (potentialGrade === 2) {
-                    return { display: '★★☆', isExact: false };
-                } else {
-                    return { display: '★★★', isExact: true };  // Max is max
+            // Generate a consistent "error" based on player ID
+            // This ensures the same player always shows the same estimate until scouted more
+            let hash = 0;
+            if (playerId) {
+                for (let i = 0; i < playerId.length; i++) {
+                    hash = ((hash << 5) - hash) + playerId.charCodeAt(i);
+                    hash = hash & hash;
                 }
             }
+
+            // Determine potential error based on scout level
+            // Level 0: can be off by up to 2, Level 1: off by up to 1, Level 2: off by up to 1 (less likely)
+            let maxError, errorChance;
+            if (scoutLevel === 0) {
+                maxError = 2;
+                errorChance = 0.7;  // 70% chance of being wrong
+            } else if (scoutLevel === 1) {
+                maxError = 1;
+                errorChance = 0.5;  // 50% chance of being wrong
+            } else {
+                maxError = 1;
+                errorChance = 0.25; // 25% chance of being wrong
+            }
+
+            // Use hash to deterministically decide if there's an error and which direction
+            const hashNorm = Math.abs(hash % 100) / 100;
+            let displayGrade = potentialGrade;
+
+            if (hashNorm < errorChance) {
+                // Apply error - use another part of hash to determine direction and magnitude
+                const errorDir = (Math.abs(hash >> 8) % 2 === 0) ? 1 : -1;
+                const errorMag = (Math.abs(hash >> 4) % maxError) + 1;
+                displayGrade = potentialGrade + (errorDir * errorMag);
+                // Clamp to valid range
+                displayGrade = Math.max(0, Math.min(3, displayGrade));
+            }
+
+            return { display: labels[displayGrade], isExact: false };
         }
 
         // Scout a player (spend points to reduce uncertainty)
@@ -4830,7 +4835,7 @@
             // Get scouting info
             const scoutLevel = getPlayerScoutLevel(playerId);
             const gradeInfo = getOverallGrade(player.overall, scoutLevel);
-            const growthInfo = getGrowthEstimate(player.potentialGrade, scoutLevel);
+            const growthInfo = getGrowthEstimate(player.potentialGrade, scoutLevel, playerId);
             const scoutCost = calculateScoutingCost(draftState.currentPickNumber);
             const canScout = scoutLevel < SCOUTING.MAX_LEVEL && managementState.team.draftPoints >= scoutCost;
 
@@ -5110,7 +5115,7 @@
             available.forEach(player => {
                 const scoutLevel = getPlayerScoutLevel(player.id);
                 const gradeInfo = getOverallGrade(player.overall, scoutLevel);
-                const growthInfo = getGrowthEstimate(player.potentialGrade, scoutLevel);
+                const growthInfo = getGrowthEstimate(player.potentialGrade, scoutLevel, player.id);
 
                 // Show scout indicator if player has been scouted
                 const scoutIndicator = scoutLevel > 0 ? `<span style="color:#4CAF50;font-size:10px;margin-left:4px;">` + '●'.repeat(scoutLevel) + `</span>` : '';
