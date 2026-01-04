@@ -4853,10 +4853,11 @@
             // Calculate rookie salary based on current pick number
             const rookieSalary = calculateRookieSalary(draftState.currentPickNumber);
 
-            // Scout button HTML
+            // Scout button HTML - use id and attach event listener after
+            const scoutBtnId = `scoutBtn_${playerId.replace(/-/g, '')}`;
             const scoutBtnHtml = scoutLevel >= SCOUTING.MAX_LEVEL
                 ? `<span style="color:#4CAF50;font-size:12px;">Fully Scouted ${'●'.repeat(SCOUTING.MAX_LEVEL)}</span>`
-                : `<button onclick="console.log('Scout button clicked for ${playerId}'); event.stopPropagation(); scoutPlayer('${playerId}');" style="background:${canScout ? '#2196F3' : '#666'};color:white;border:none;padding:6px 12px;border-radius:4px;cursor:${canScout ? 'pointer' : 'not-allowed'};font-size:12px;" ${canScout ? '' : 'disabled'}>
+                : `<button id="${scoutBtnId}" style="background:${canScout ? '#2196F3' : '#666'};color:white;border:none;padding:6px 12px;border-radius:4px;cursor:${canScout ? 'pointer' : 'not-allowed'};font-size:12px;" ${canScout ? '' : 'disabled'}>
                     SCOUT (${scoutCost} pts) ${'●'.repeat(scoutLevel)}${'○'.repeat(SCOUTING.MAX_LEVEL - scoutLevel)}
                    </button>`;
 
@@ -4872,6 +4873,21 @@
                 </div>
             `;
             document.getElementById('playerInfo').innerHTML = infoHtml;
+
+            // Attach scout button event listener after innerHTML is set
+            if (scoutLevel < SCOUTING.MAX_LEVEL) {
+                const scoutBtn = document.getElementById(scoutBtnId);
+                if (scoutBtn) {
+                    scoutBtn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        console.log('Scout button clicked via addEventListener for:', playerId);
+                        window.scoutPlayer(playerId);
+                    });
+                    console.log('Scout button event listener attached to:', scoutBtnId);
+                } else {
+                    console.error('Could not find scout button with id:', scoutBtnId);
+                }
+            }
 
             // Hide cut button, show draft button
             const tradeBtn = document.getElementById('btnTradePlayer');
