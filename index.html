@@ -4400,18 +4400,14 @@
             // Color based on the midpoint value
             const mid = (min + max) / 2;
             let color;
-            if (mid >= 85) color = '#ffd700';      // Elite - gold
+            if (mid >= 85) color = '#1B5E20';      // Elite - dark green
             else if (mid >= 75) color = '#4CAF50'; // Good - green
             else if (mid >= 65) color = '#8BC34A'; // Above avg - light green
             else if (mid >= 55) color = '#FFC107'; // Average - yellow
             else color = '#f44336';                // Poor - red (shouldn't happen with 55 min)
 
-            // Calculate midpoint position for the indicator dot
-            const midPct = ((mid - STAT_MIN) / STAT_RANGE) * 100;
-
             return `<div class="range-indicator" style="width:${width}px;height:12px;background:#333;border-radius:3px;position:relative;display:inline-block;vertical-align:middle;">
-                <div style="position:absolute;left:${leftPct}%;width:${widthPct}%;height:100%;background:${color};border-radius:3px;opacity:0.7;"></div>
-                <div style="position:absolute;left:${midPct}%;top:50%;transform:translate(-50%,-50%);width:6px;height:6px;background:${color};border-radius:50%;border:1px solid #222;"></div>
+                <div style="position:absolute;left:${leftPct}%;width:${widthPct}%;height:100%;background:${color};border-radius:3px;opacity:0.9;"></div>
             </div>`;
         }
 
@@ -4432,11 +4428,11 @@
 
             // Color based on midpoint
             let color;
-            if (mid >= 85) color = '#ffd700';
-            else if (mid >= 75) color = '#4CAF50';
-            else if (mid >= 65) color = '#8BC34A';
-            else if (mid >= 55) color = '#FFC107';
-            else color = '#f44336';
+            if (mid >= 85) color = '#1B5E20';      // Elite - dark green
+            else if (mid >= 75) color = '#4CAF50'; // Good - green
+            else if (mid >= 65) color = '#8BC34A'; // Above avg - light green
+            else if (mid >= 55) color = '#FFC107'; // Average - yellow
+            else color = '#f44336';                // Poor - red
 
             // Show narrower bar for higher certainty, minimum width so always visible
             const barWidth = Math.max(8, Math.min(50, (max - min) * 1.0));
