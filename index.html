@@ -510,6 +510,7 @@
 
         <!-- Draft Screen -->
         <div id="draftScreen" class="mgmt-screen draft-screen" style="display:none;max-width:600px;">
+            <button id="btnDraftBack" class="mgmt-btn back-btn" style="position:absolute;top:10px;left:10px;z-index:10;">←</button>
             <button id="btnDraftOptions" class="mgmt-btn back-btn" style="position:absolute;top:10px;right:10px;left:auto;z-index:10;">⚙</button>
 
             <!-- Last Pick Notification Bar -->
@@ -2014,42 +2015,48 @@
         };
 
         // Position definitions with stat priorities
-        // primaryStats: used for overall calculation
-        // techniqueStats: all technique stats used in gameplay calculations (excludes core attributes)
+        // coreStats: from player.coreAttributes (strength, speed, agility, intelligence)
+        // techniqueStats: from player.stats (position-specific skills)
+        // Overall = weighted average based on simulation importance
         const POSITIONS = {
             WR: {
                 name: 'Wide Receiver',
                 shortName: 'WR',
-                primaryStats: ['speed', 'catching', 'routeRunning', 'agility'],
-                techniqueStats: ['catching', 'routeRunning', 'acceleration', 'evasion'],
+                // WR simulation uses: speed for separation, agility for routes, catching for hands
+                coreStats: ['speed', 'agility'],           // 40% of overall
+                techniqueStats: ['catching', 'routeRunning', 'evasion'],  // 60% of overall
                 count: 3
             },
             CB: {
                 name: 'Cornerback',
                 shortName: 'CB',
-                primaryStats: ['speed', 'awareness', 'tackling', 'agility'],
-                techniqueStats: ['tackling', 'awareness', 'pursuit'],
+                // CB simulation uses: speed/agility for coverage, intelligence for reads
+                coreStats: ['speed', 'agility', 'intelligence'],  // 50% of overall
+                techniqueStats: ['awareness', 'tackling', 'pursuit'],      // 50% of overall
                 count: 4
             },
             OL: {
                 name: 'Offensive Lineman',
                 shortName: 'OL',
-                primaryStats: ['passBlock', 'strength', 'balance', 'awareness'],
-                techniqueStats: ['passBlock', 'balance', 'awareness'],
+                // OL simulation uses: strength for blocking, intelligence for assignments
+                coreStats: ['strength', 'intelligence'],   // 40% of overall
+                techniqueStats: ['passBlock', 'balance', 'awareness'],     // 60% of overall
                 count: 5
             },
             DL: {
                 name: 'Defensive Lineman',
                 shortName: 'DL',
-                primaryStats: ['passRush', 'strength', 'acceleration', 'tackling'],
-                techniqueStats: ['passRush', 'tackling', 'pursuit', 'acceleration'],
+                // DL simulation uses: strength/speed for rush, agility for moves
+                coreStats: ['strength', 'speed', 'agility'],  // 50% of overall
+                techniqueStats: ['passRush', 'tackling', 'pursuit'],       // 50% of overall
                 count: 4
             },
             QB: {
                 name: 'Quarterback',
                 shortName: 'QB',
-                primaryStats: ['shortPassAcc', 'longPassAcc', 'awareness', 'agility'],
-                techniqueStats: ['shortPassAcc', 'longPassAcc', 'awareness'],
+                // QB simulation uses: intelligence for reads, agility for mobility
+                coreStats: ['intelligence', 'agility'],    // 30% of overall
+                techniqueStats: ['shortPassAcc', 'longPassAcc', 'awareness'],  // 70% of overall
                 count: 1
             }
         };
@@ -2865,16 +2872,17 @@
             const stats = {};
             const positionData = POSITIONS[position];
 
-            // All possible stats
-            const allStats = [
-                'speed', 'acceleration', 'agility', 'strength', 'stamina', 'balance', 'evasion',
+            // Technique stats only - core attributes (speed, agility, strength, intelligence)
+            // are stored separately in player.coreAttributes
+            const techniqueStats = [
+                'acceleration', 'balance', 'evasion',
                 'catching', 'shortPassAcc', 'longPassAcc', 'routeRunning', 'jumping',
                 'manCoverage', 'zoneCoverage', 'press', 'tackling', 'pursuit', 'awareness',
                 'passBlock', 'passRush'
             ];
 
-            // Generate all stats
-            allStats.forEach(stat => {
+            // Generate technique stats
+            techniqueStats.forEach(stat => {
                 // Primary stats get bonus
                 const isPrimary = positionData.primaryStats.includes(stat);
                 const bonus = isPrimary ? 10 : 0;
@@ -2887,22 +2895,56 @@
             return stats;
         }
 
-        // Calculate salary from stats
-        // Calculate overall rating (average of primary stats for position)
+        // Calculate overall rating from coreAttributes + technique stats
+        // Weighted based on simulation importance per position
         function calculateOverall(player) {
             const positionData = POSITIONS[player.position];
-            const primaryStats = positionData.primaryStats;
-            const total = primaryStats.reduce((sum, stat) => sum + (player.stats[stat] || 0), 0);
-            return Math.round(total / primaryStats.length);
+            const core = player.coreAttributes || {};
+            const stats = player.stats || {};
+
+            // Get core attribute values
+            const coreStats = positionData.coreStats || [];
+            const coreTotal = coreStats.reduce((sum, stat) => sum + (core[stat] || 50), 0);
+            const coreAvg = coreStats.length > 0 ? coreTotal / coreStats.length : 50;
+
+            // Get technique stat values
+            const techniqueStats = positionData.techniqueStats || [];
+            const techTotal = techniqueStats.reduce((sum, stat) => sum + (stats[stat] || 50), 0);
+            const techAvg = techniqueStats.length > 0 ? techTotal / techniqueStats.length : 50;
+
+            // Weight: technique matters more for most positions
+            // QB: 30% core, 70% technique (accuracy is everything)
+            // WR: 40% core, 60% technique (need both speed and hands)
+            // CB: 50% core, 50% technique (athleticism + instincts)
+            // OL: 40% core, 60% technique (technique trumps raw strength)
+            // DL: 50% core, 50% technique (need both power and moves)
+            const coreWeight = player.position === 'QB' ? 0.3 :
+                               player.position === 'CB' ? 0.5 :
+                               player.position === 'DL' ? 0.5 : 0.4;
+
+            return Math.round(coreAvg * coreWeight + techAvg * (1 - coreWeight));
         }
 
         // Calculate salary based on overall rating (exponential scaling in $M)
         // 60 OVR = $1M, 80 OVR = $8M, 100 OVR = $30M
-        function calculateSalary(stats, position = 'WR') {
-            const positionData = POSITIONS[position];
-            const primaryStats = positionData.primaryStats;
-            const total = primaryStats.reduce((sum, stat) => sum + (stats[stat] || 0), 0);
-            const overall = Math.round(total / primaryStats.length);
+        // Can pass a player object or just stats+position for backwards compatibility
+        function calculateSalary(statsOrPlayer, position = 'WR') {
+            let overall;
+
+            // Check if we got a player object with overall already calculated
+            if (statsOrPlayer && statsOrPlayer.overall !== undefined) {
+                overall = statsOrPlayer.overall;
+            } else if (statsOrPlayer && statsOrPlayer.coreAttributes) {
+                // Player object without overall - calculate it
+                overall = calculateOverall(statsOrPlayer);
+            } else {
+                // Legacy: just stats passed, estimate from technique stats average
+                const stats = statsOrPlayer || {};
+                const positionData = POSITIONS[position];
+                const techniqueStats = positionData.techniqueStats || [];
+                const total = techniqueStats.reduce((sum, stat) => sum + (stats[stat] || 50), 0);
+                overall = techniqueStats.length > 0 ? Math.round(total / techniqueStats.length) : 50;
+            }
 
             // Exponential scaling: salary = MIN + (MAX - MIN) * ((OVR - 60) / 40)^2
             const minOvr = 60;
@@ -3981,6 +4023,346 @@
             MAX_OFFSET: 24          // Maximum offset from center at level 0
         };
 
+        // Generate combine stats for a draft player based on their core attributes
+        // Stats are correlated but not perfectly deterministic - significant variance
+        function generateCombineStats(player) {
+            const core = player.coreAttributes || {};
+            const str = core.strength || 50;
+            const spd = core.speed || 50;
+            const agi = core.agility || 50;
+            const intel = core.intelligence || 50;
+
+            // Use player ID for consistent random variance (±15-25% variance for imperfect correlation)
+            let hash = 0;
+            for (let i = 0; i < player.id.length; i++) {
+                hash = ((hash << 5) - hash) + player.id.charCodeAt(i);
+                hash = hash & hash;
+            }
+            const variance = (stat, range = 0.20) => {
+                hash = ((hash << 5) - hash) + stat;
+                return ((Math.abs(hash) % 1000) - 500) / 500 * range; // ±range variance
+            };
+
+            // Calculate raw values - calibrated for actual stat range (55 min to 100 max)
+            // 40-yard: 100 attr → 4.35s (elite), 55 attr → 4.95s (poor)
+            const fortyRaw = (5.55 - (spd * 0.0098) - (agi * 0.0022)) * (1 + variance(1, 0.03));
+
+            // Bench: 100 attr → 34 reps, 55 attr → 18 reps
+            const benchRaw = (-2 + (str * 0.36)) * (1 + variance(2, 0.18));
+
+            // Vertical: 100 attr → 41", 55 attr → 32"
+            const vertRaw = (21 + (spd * 0.13) + (agi * 0.07)) * (1 + variance(3, 0.06));
+
+            // Broad jump: 100 attr → 130" (10'10"), 55 attr → 112" (9'4")
+            const broadRaw = (90 + (str * 0.23) + (spd * 0.17)) * (1 + variance(4, 0.05));
+
+            // 3-cone: 100 attr → 6.70s, 55 attr → 7.30s
+            const threeRaw = (8.03 - (agi * 0.011) - (spd * 0.0023)) * (1 + variance(5, 0.03));
+
+            // Shuttle: 100 attr → 3.95s, 55 attr → 4.40s
+            const shuttleRaw = (4.90 - (agi * 0.0067) - (spd * 0.0033)) * (1 + variance(6, 0.03));
+
+            // Wonderlic: 100 attr → 42, 55 attr → 22
+            const wonderRaw = (-2.5 + (intel * 0.445)) * (1 + variance(7, 0.12));
+
+            // Clamp to realistic ranges (slightly beyond the 55-100 range for variance)
+            const forty = Math.max(4.30, Math.min(5.05, fortyRaw));
+            const bench = Math.max(15, Math.min(38, Math.round(benchRaw)));
+            const vert = Math.max(30, Math.min(44, vertRaw));
+            const broad = Math.max(108, Math.min(136, Math.round(broadRaw)));
+            const three = Math.max(6.65, Math.min(7.40, threeRaw));
+            const shuttle = Math.max(3.90, Math.min(4.50, shuttleRaw));
+            const wonder = Math.max(18, Math.min(46, Math.round(wonderRaw)));
+
+            // Elite benchmarks - aligned with clamp limits for full range
+            const ELITE = {
+                forty: 4.30,    // matches clamp min
+                bench: 38,      // matches clamp max
+                vert: 44,       // matches clamp max
+                broad: 136,     // matches clamp max
+                three: 6.65,    // matches clamp min
+                shuttle: 3.90,  // matches clamp min
+                wonder: 46      // matches clamp max
+            };
+
+            // Poor benchmarks - aligned with clamp limits so worst possible = ~5%, not 0%
+            // This accounts for variance pushing 55-attr players below baseline
+            const WORST = {
+                forty: 5.05,    // matches clamp max
+                bench: 15,      // matches clamp min
+                vert: 30,       // matches clamp min
+                broad: 108,     // matches clamp min
+                three: 7.40,    // matches clamp max
+                shuttle: 4.50,  // matches clamp max
+                wonder: 18      // matches clamp min
+            };
+
+            // Calculate percentiles (100 = elite level, 0 = worst)
+            const calcPercentile = (val, elite, worst, lowerBetter = false) => {
+                if (lowerBetter) {
+                    return Math.max(0, Math.min(99, Math.round(100 * (worst - val) / (worst - elite))));
+                }
+                return Math.max(0, Math.min(99, Math.round(100 * (val - worst) / (elite - worst))));
+            };
+
+            return {
+                fortyYard: forty.toFixed(2),
+                fortyPct: calcPercentile(forty, ELITE.forty, WORST.forty, true),
+
+                benchPress: bench,
+                benchPct: calcPercentile(bench, ELITE.bench, WORST.bench),
+
+                verticalJump: vert.toFixed(1),
+                vertPct: calcPercentile(vert, ELITE.vert, WORST.vert),
+
+                broadJump: broad,
+                broadFeetInches: `${Math.floor(broad / 12)}'${broad % 12}"`,
+                broadPct: calcPercentile(broad, ELITE.broad, WORST.broad),
+
+                threeCone: three.toFixed(2),
+                threePct: calcPercentile(three, ELITE.three, WORST.three, true),
+
+                shuttle: shuttle.toFixed(2),
+                shuttlePct: calcPercentile(shuttle, ELITE.shuttle, WORST.shuttle, true),
+
+                wonderlic: wonder,
+                wonderPct: calcPercentile(wonder, ELITE.wonder, WORST.wonder),
+
+                // Film study/football IQ grade
+                filmGrade: getLetterGrade((intel * 0.65 + agi * 0.18 + spd * 0.17) * (1 + variance(8, 0.15))),
+
+                // Position drills grade (technique + learning ability)
+                drillGrade: getLetterGrade((intel * 0.35 + agi * 0.35 + spd * 0.30) * (1 + variance(9, 0.15)))
+            };
+        }
+
+        // Generate college stats for a draft player based on position and skills
+        // Stats are single numbers with percentiles, correlated but not deterministic
+        function generateCollegeStats(player) {
+            const stats = player.stats || {};
+            const core = player.coreAttributes || {};
+            const pos = player.position;
+
+            // Use player ID for consistent random variance
+            let hash = 0;
+            for (let i = 0; i < player.id.length; i++) {
+                hash = ((hash << 5) - hash) + player.id.charCodeAt(i);
+                hash = hash & hash;
+            }
+            const variance = (stat, range = 0.15) => {
+                hash = ((hash << 5) - hash) + stat;
+                return ((Math.abs(hash) % 100) - 50) / 50 * range;
+            };
+
+            const clamp = (val, min, max) => Math.max(min, Math.min(max, val));
+
+            // Calculate percentile: higher is better
+            const calcPct = (val, worst, elite) => Math.round(Math.max(0, Math.min(100, ((val - worst) / (elite - worst)) * 100)));
+            // Calculate percentile: lower is better (inverted)
+            const calcPctInv = (val, worst, elite) => Math.round(Math.max(0, Math.min(100, ((worst - val) / (worst - elite)) * 100)));
+
+            switch (pos) {
+                case 'QB':
+                    const accuracy = stats.accuracy || 55;
+                    const armStr = stats.armStrength || 55;
+                    const decision = stats.decisionMaking || core.intelligence || 55;
+                    const pocket = stats.pocketPresence || 55;
+
+                    // Elite (100 attr) and Worst benchmarks (aligned with clamps)
+                    const QB_ELITE = { compPct: 72, tdInt: 4.0, ypa: 10.5, sackPct: 2.0 };
+                    const QB_WORST = { compPct: 52, tdInt: 0.8, ypa: 5.5, sackPct: 12.0 };
+
+                    const compPct = clamp((50 + accuracy * 0.25 + decision * 0.08) * (1 + variance(10, 0.08)), 52, 74);
+                    const tdInt = clamp((0.8 + decision * 0.025 + accuracy * 0.012) * (1 + variance(11, 0.2)), 0.8, 4.5);
+                    const ypa = clamp((5.5 + armStr * 0.03 + accuracy * 0.02 + decision * 0.015) * (1 + variance(12, 0.12)), 5.5, 11.0);
+                    const sackPct = clamp((12 - pocket * 0.08 - decision * 0.03) * (1 + variance(13, 0.15)), 2.0, 12.0);
+
+                    return {
+                        completionPct: compPct.toFixed(1),
+                        compPctPct: calcPct(compPct, QB_WORST.compPct, QB_ELITE.compPct),
+                        tdIntRatio: tdInt.toFixed(1),
+                        tdIntPct: calcPct(tdInt, QB_WORST.tdInt, QB_ELITE.tdInt),
+                        yardsPerAttempt: ypa.toFixed(1),
+                        ypaPct: calcPct(ypa, QB_WORST.ypa, QB_ELITE.ypa),
+                        sackPct: sackPct.toFixed(1),
+                        sackPctPct: calcPctInv(sackPct, QB_WORST.sackPct, QB_ELITE.sackPct)
+                    };
+
+                case 'WR':
+                    const hands = stats.catching || stats.hands || 55;
+                    const routes = stats.routeRunning || 55;
+                    const spd = core.speed || 55;
+                    const jump = stats.jumping || 55;
+
+                    // Elite and Worst benchmarks for WR (aligned with clamps)
+                    const WR_ELITE = { ypc: 20, catchRate: 78, contested: 70, yac: 8.5, dropRate: 1.5 };
+                    const WR_WORST = { ypc: 9, catchRate: 50, contested: 35, yac: 2.5, dropRate: 12 };
+
+                    const ypc = clamp((10 + spd * 0.06 + routes * 0.04) * (1 + variance(20, 0.12)), 9, 20);
+                    const catchRate = clamp((45 + hands * 0.25 + routes * 0.12) * (1 + variance(21, 0.1)), 50, 78);
+                    const contested = clamp((30 + hands * 0.2 + jump * 0.15 + (core.strength || 55) * 0.1) * (1 + variance(22, 0.15)), 35, 70);
+                    const yac = clamp((2.5 + spd * 0.04 + (core.agility || 55) * 0.03) * (1 + variance(23, 0.15)), 2.5, 8.5);
+                    const dropRate = clamp((15 - hands * 0.12 - (core.intelligence || 55) * 0.03) * (1 + variance(24, 0.2)), 1.5, 12);
+
+                    return {
+                        yardsPerCatch: ypc.toFixed(1),
+                        ypcPct: calcPct(ypc, WR_WORST.ypc, WR_ELITE.ypc),
+                        catchRate: catchRate.toFixed(1),
+                        catchRatePct: calcPct(catchRate, WR_WORST.catchRate, WR_ELITE.catchRate),
+                        contestedCatchPct: contested.toFixed(1),
+                        contestedPct: calcPct(contested, WR_WORST.contested, WR_ELITE.contested),
+                        yardsAfterCatch: yac.toFixed(1),
+                        yacPct: calcPct(yac, WR_WORST.yac, WR_ELITE.yac),
+                        dropRate: dropRate.toFixed(1),
+                        dropRatePct: calcPctInv(dropRate, WR_WORST.dropRate, WR_ELITE.dropRate)
+                    };
+
+                case 'CB':
+                    const coverage = stats.coverage || stats.manCoverage || 55;
+                    const ballSkills = stats.ballSkills || 55;
+                    const tackling = stats.tackling || 55;
+                    const cbSpd = core.speed || 55;
+
+                    // Elite and Worst benchmarks for CB (aligned with clamps)
+                    const CB_ELITE = { ints: 10, pbu: 22, prAllow: 55, compAllow: 42, tackles: 85 };
+                    const CB_WORST = { ints: 0, pbu: 3, prAllow: 120, compAllow: 68, tackles: 20 };
+
+                    const ints = clamp(Math.round((ballSkills * 0.06 + coverage * 0.03 + cbSpd * 0.02) * (1 + variance(30, 0.3))), 0, 10);
+                    const pbu = clamp(Math.round((coverage * 0.12 + cbSpd * 0.06 + (core.agility || 55) * 0.04) * (1 + variance(31, 0.25))), 3, 22);
+                    const prAllow = clamp((130 - coverage * 0.5 - cbSpd * 0.2 - (core.intelligence || 55) * 0.15) * (1 + variance(32, 0.12)), 55, 120);
+                    const compAllow = clamp((75 - coverage * 0.22 - cbSpd * 0.08) * (1 + variance(33, 0.1)), 42, 68);
+                    const cbTackles = clamp(Math.round((25 + tackling * 0.35 + cbSpd * 0.15) * (1 + variance(34, 0.2))), 20, 85);
+
+                    return {
+                        interceptions: ints,
+                        intsPct: calcPct(ints, CB_WORST.ints, CB_ELITE.ints),
+                        passBreakups: pbu,
+                        pbuPct: calcPct(pbu, CB_WORST.pbu, CB_ELITE.pbu),
+                        passerRatingAllowed: prAllow.toFixed(1),
+                        prAllowPct: calcPctInv(prAllow, CB_WORST.prAllow, CB_ELITE.prAllow),
+                        completionPctAllowed: compAllow.toFixed(1),
+                        compAllowPct: calcPctInv(compAllow, CB_WORST.compAllow, CB_ELITE.compAllow),
+                        tackles: cbTackles,
+                        tacklesPct: calcPct(cbTackles, CB_WORST.tackles, CB_ELITE.tackles)
+                    };
+
+                case 'OL':
+                    const passBlock = stats.passBlocking || 55;
+                    const runBlock = stats.runBlocking || 55;
+                    const olStr = core.strength || 55;
+                    const olAgi = core.agility || 55;
+                    const olInt = core.intelligence || 55;
+
+                    // Elite and Worst benchmarks for OL (aligned with clamps)
+                    const OL_ELITE = { sacksAllow: 0, pressAllow: 4, pancakes: 60, penalties: 1 };
+                    const OL_WORST = { sacksAllow: 10, pressAllow: 35, pancakes: 8, penalties: 14 };
+
+                    const sacksAllow = clamp(Math.round((8 - passBlock * 0.07 - olInt * 0.02) * (1 + variance(40, 0.3))), 0, 10);
+                    const pressAllow = clamp(Math.round((30 - passBlock * 0.2 - olStr * 0.08) * (1 + variance(41, 0.25))), 4, 35);
+                    const pancakes = clamp(Math.round((runBlock * 0.4 + olStr * 0.25) * (1 + variance(42, 0.25))), 8, 60);
+                    const olPenalties = clamp(Math.round((10 - olInt * 0.06 - olAgi * 0.03) * (1 + variance(43, 0.3))), 1, 14);
+                    const runGradeVal = (runBlock * 0.6 + olStr * 0.25 + olInt * 0.15) * (1 + variance(44, 0.1));
+
+                    return {
+                        sacksAllowed: sacksAllow,
+                        sacksAllowPct: calcPctInv(sacksAllow, OL_WORST.sacksAllow, OL_ELITE.sacksAllow),
+                        pressuresAllowed: pressAllow,
+                        pressAllowPct: calcPctInv(pressAllow, OL_WORST.pressAllow, OL_ELITE.pressAllow),
+                        pancakeBlocks: pancakes,
+                        pancakesPct: calcPct(pancakes, OL_WORST.pancakes, OL_ELITE.pancakes),
+                        penalties: olPenalties,
+                        penaltiesPct: calcPctInv(olPenalties, OL_WORST.penalties, OL_ELITE.penalties),
+                        runBlockGrade: getLetterGrade(runGradeVal),
+                        runGradeVal: Math.round(runGradeVal) // For percentile display
+                    };
+
+                case 'DL':
+                    const passRush = stats.passRush || 55;
+                    const runDef = stats.runDefense || 55;
+                    const dlStr = core.strength || 55;
+                    const dlSpd = core.speed || 55;
+                    const dlBallSkills = stats.ballSkills || 40;
+
+                    // Elite and Worst benchmarks for DL (aligned with clamps)
+                    const DL_ELITE = { sacks: 18, tfl: 25, hurries: 50, runStops: 55, ff: 6 };
+                    const DL_WORST = { sacks: 1, tfl: 3, hurries: 8, runStops: 12, ff: 0 };
+
+                    const dlSacks = clamp((passRush * 0.1 + dlSpd * 0.04 + dlStr * 0.02) * (1 + variance(50, 0.3)), 1, 18);
+                    const tfl = clamp(Math.round((runDef * 0.12 + dlSpd * 0.08 + dlStr * 0.06) * (1 + variance(51, 0.25))), 3, 25);
+                    const hurries = clamp(Math.round((passRush * 0.3 + dlSpd * 0.15 + (core.agility || 55) * 0.08) * (1 + variance(52, 0.25))), 8, 50);
+                    const runStops = clamp(Math.round((runDef * 0.35 + dlStr * 0.2 + (core.intelligence || 55) * 0.1) * (1 + variance(53, 0.2))), 12, 55);
+                    const ff = clamp(Math.round((dlBallSkills * 0.03 + dlStr * 0.025 + dlSpd * 0.015) * (1 + variance(54, 0.4))), 0, 6);
+
+                    return {
+                        sacks: dlSacks.toFixed(1),
+                        sacksPct: calcPct(dlSacks, DL_WORST.sacks, DL_ELITE.sacks),
+                        tacklesForLoss: tfl,
+                        tflPct: calcPct(tfl, DL_WORST.tfl, DL_ELITE.tfl),
+                        qbHurries: hurries,
+                        hurriesPct: calcPct(hurries, DL_WORST.hurries, DL_ELITE.hurries),
+                        runStops: runStops,
+                        runStopsPct: calcPct(runStops, DL_WORST.runStops, DL_ELITE.runStops),
+                        forcedFumbles: ff,
+                        ffPct: calcPct(ff, DL_WORST.ff, DL_ELITE.ff)
+                    };
+
+                default:
+                    return {};
+            }
+        }
+
+        // Helper to convert numeric grade to letter
+        function getLetterGrade(value) {
+            if (value >= 90) return 'A+';
+            if (value >= 85) return 'A';
+            if (value >= 80) return 'A-';
+            if (value >= 77) return 'B+';
+            if (value >= 73) return 'B';
+            if (value >= 70) return 'B-';
+            if (value >= 67) return 'C+';
+            if (value >= 63) return 'C';
+            if (value >= 60) return 'C-';
+            if (value >= 55) return 'D+';
+            if (value >= 50) return 'D';
+            return 'D-';
+        }
+
+        // Format combine/college stat with scouting uncertainty
+        // Shows a range that narrows with higher scout levels
+        function formatCombineStat(value, scoutLevel, suffix = '', lowerIsBetter = false) {
+            const numVal = parseFloat(value);
+            if (isNaN(numVal)) return value + suffix; // Return as-is if not a number (e.g., letter grade)
+
+            // Variance decreases with scout level: 20% -> 14% -> 8% -> 4%
+            const variancePct = [0.20, 0.14, 0.08, 0.04][scoutLevel] || 0.20;
+            const variance = numVal * variancePct;
+
+            // For integer stats, round appropriately
+            const isInteger = Number.isInteger(numVal);
+            const low = isInteger ? Math.round(numVal - variance) : (numVal - variance).toFixed(1);
+            const high = isInteger ? Math.round(numVal + variance) : (numVal + variance).toFixed(1);
+
+            // Color coding based on whether lower or higher is better
+            let color = '#aaa'; // Default neutral
+            if (scoutLevel >= 2) {
+                // Only show color hints with decent scouting
+                if (lowerIsBetter) {
+                    if (numVal <= 4) color = '#4CAF50';      // Good (low)
+                    else if (numVal >= 8) color = '#f44336'; // Bad (high)
+                } else {
+                    // Higher is better - use relative thresholds based on typical ranges
+                    color = '#aaa'; // Keep neutral for now, could enhance later
+                }
+            }
+
+            if (scoutLevel >= 3) {
+                // Fully scouted: show tight range
+                return `<span style="color:${color}">${low}-${high}${suffix}</span>`;
+            }
+
+            return `<span style="color:${color}">${low}-${high}${suffix}</span>`;
+        }
+
         // Calculate scouting cost based on current pick value
         // Scales from 5-50 based on pick value (early picks cost more to scout)
         function calculateScoutingCost(pickNumber) {
@@ -4038,28 +4420,32 @@
         // Create visual range indicator HTML for a rating
         // Shows a bar with the possible range highlighted - never shows exact numbers
         // playerId and statName are used to create consistent but varied offsets
+        // Visual scale uses 55-99 since players can't have stats below ~55
         function createRangeIndicator(actualValue, scoutLevel, playerId, statName, width = 60) {
+            const STAT_MIN = 55;  // Players can't have stats below this
+            const STAT_MAX = 99;
+            const STAT_RANGE = STAT_MAX - STAT_MIN; // 44
+
             const range = getRatingRange(scoutLevel);
             const offset = getStatOffset(playerId || '', statName || '', scoutLevel);
 
             // Apply offset - the range isn't centered on actual value
             const center = actualValue + offset;
-            const min = Math.max(0, center - range);
-            const max = Math.min(99, center + range);
+            const min = Math.max(STAT_MIN, center - range);
+            const max = Math.min(STAT_MAX, center + range);
 
-            // Calculate positions as percentages
-            const leftPct = min;
-            const widthPct = Math.max(5, max - min); // Minimum 5% width so it's visible
+            // Calculate positions as percentages of the 55-99 range
+            const leftPct = ((min - STAT_MIN) / STAT_RANGE) * 100;
+            const widthPct = Math.max(5, ((max - min) / STAT_RANGE) * 100);
 
             // Color based on the midpoint value
             const mid = (min + max) / 2;
             let color;
-            if (mid >= 85) color = '#ffd700';      // Elite - gold
+            if (mid >= 85) color = '#1B5E20';      // Elite - dark green
             else if (mid >= 75) color = '#4CAF50'; // Good - green
             else if (mid >= 65) color = '#8BC34A'; // Above avg - light green
             else if (mid >= 55) color = '#FFC107'; // Average - yellow
-            else if (mid >= 45) color = '#FF9800'; // Below avg - orange
-            else color = '#f44336';                // Poor - red
+            else color = '#f44336';                // Poor - red (shouldn't happen with 55 min)
 
             return `<div class="range-indicator" style="width:${width}px;height:12px;background:#333;border-radius:3px;position:relative;display:inline-block;vertical-align:middle;">
                 <div style="position:absolute;left:${leftPct}%;width:${widthPct}%;height:100%;background:${color};border-radius:3px;opacity:0.9;"></div>
@@ -4067,24 +4453,27 @@
         }
 
         // Create a compact range indicator for list views - never shows exact numbers
+        // Visual scale uses 55-99 since players can't have stats below ~55
         function createCompactRangeIndicator(actualValue, scoutLevel, playerId) {
+            const STAT_MIN = 55;
+            const STAT_MAX = 99;
+
             const range = getRatingRange(scoutLevel);
             const offset = getStatOffset(playerId || '', 'overall', scoutLevel);
 
             // Apply offset - the range isn't centered on actual value
             const center = actualValue + offset;
-            const min = Math.max(0, center - range);
-            const max = Math.min(99, center + range);
+            const min = Math.max(STAT_MIN, center - range);
+            const max = Math.min(STAT_MAX, center + range);
             const mid = (min + max) / 2;
 
             // Color based on midpoint
             let color;
-            if (mid >= 85) color = '#ffd700';
-            else if (mid >= 75) color = '#4CAF50';
-            else if (mid >= 65) color = '#8BC34A';
-            else if (mid >= 55) color = '#FFC107';
-            else if (mid >= 45) color = '#FF9800';
-            else color = '#f44336';
+            if (mid >= 85) color = '#1B5E20';      // Elite - dark green
+            else if (mid >= 75) color = '#4CAF50'; // Good - green
+            else if (mid >= 65) color = '#8BC34A'; // Above avg - light green
+            else if (mid >= 55) color = '#FFC107'; // Average - yellow
+            else color = '#f44336';                // Poor - red
 
             // Show narrower bar for higher certainty, minimum width so always visible
             const barWidth = Math.max(8, Math.min(50, (max - min) * 1.0));
@@ -4108,6 +4497,71 @@
             if (rating >= 45) return 'D+';
             if (rating >= 40) return 'D';
             return 'F';
+        }
+
+        // Grade steps for variance calculation
+        const GRADE_STEPS = ['F', 'D', 'D+', 'C-', 'C', 'C+', 'B-', 'B', 'B+', 'A-', 'A', 'A+'];
+
+        // Get a "scouted" letter grade for draft list display
+        // Usually accurate but sometimes off - creates uncertainty without ranges
+        // Rough gems have grades several steps below their actual
+        function getScoutedListGrade(player) {
+            const actualGrade = ratingToGrade(player.overall);
+            const actualIndex = GRADE_STEPS.indexOf(actualGrade);
+
+            // Check if this is a rough gem (marked during draft generation)
+            if (player.isRoughGem) {
+                // Show grade 3-5 steps below actual
+                const gemOffset = 3 + Math.abs(hashString(player.id + 'gem') % 3); // 3-5 steps
+                const gemIndex = Math.max(0, actualIndex - gemOffset);
+                return { grade: GRADE_STEPS[gemIndex], isRoughGem: true };
+            }
+
+            // Use player ID hash for consistent but varied offset
+            const hash = hashString(player.id + 'grade');
+            const roll = (hash % 100) / 100;
+
+            let offset = 0;
+            if (roll < 0.45) {
+                // 45% - exactly right
+                offset = 0;
+            } else if (roll < 0.70) {
+                // 25% - off by 1 step (could be higher or lower)
+                offset = (hash % 2 === 0) ? 1 : -1;
+            } else if (roll < 0.85) {
+                // 15% - off by 2 steps
+                offset = (hash % 2 === 0) ? 2 : -2;
+            } else if (roll < 0.95) {
+                // 10% - off by 1 step in misleading direction (good player looks worse)
+                offset = -1;
+            } else {
+                // 5% - off by 2-3 steps (significant miss)
+                offset = (hash % 2 === 0) ? -2 : -3;
+            }
+
+            // Apply offset and clamp to valid range
+            const newIndex = Math.max(0, Math.min(GRADE_STEPS.length - 1, actualIndex + offset));
+            return { grade: GRADE_STEPS[newIndex], isRoughGem: false };
+        }
+
+        // Simple string hash for deterministic randomness
+        function hashString(str) {
+            let hash = 0;
+            for (let i = 0; i < str.length; i++) {
+                hash = ((hash << 5) - hash) + str.charCodeAt(i);
+                hash = hash & hash;
+            }
+            return Math.abs(hash);
+        }
+
+        // Get color for a letter grade (consistent with range indicator colors)
+        function getGradeColor(grade) {
+            const index = GRADE_STEPS.indexOf(grade);
+            if (index >= 10) return '#1B5E20';      // A, A+ - dark green (elite)
+            if (index >= 7) return '#4CAF50';       // B+, A- - green (good)
+            if (index >= 5) return '#8BC34A';       // C+, B, B- - light green (above avg)
+            if (index >= 3) return '#FFC107';       // C-, C - yellow (average)
+            return '#f44336';                        // D range, F - red (poor)
         }
 
         // Get letter grade display for overall rating based on scout level
@@ -4584,9 +5038,24 @@
             // Sort by overall rating descending
             const sorted = draftClass.sort((a, b) => b.overall - a.overall);
 
-            // Assign draft cost based on position in pool (best = most expensive)
+            // Mark 1-2 rough gems in the later half of the draft
+            // These are good players (75+ overall) who will show lower grades
+            const laterHalf = sorted.slice(Math.floor(sorted.length / 2));
+            const goodInLaterHalf = laterHalf.filter(p => p.overall >= 75);
+            const numGems = Math.min(goodInLaterHalf.length, randomInt(1, 2));
+
+            // Shuffle and pick rough gems
+            const shuffled = goodInLaterHalf.sort(() => Math.random() - 0.5);
+            for (let i = 0; i < numGems; i++) {
+                shuffled[i].isRoughGem = true;
+            }
+
+            // Assign draft cost and generate scouting data
             sorted.forEach((player, index) => {
                 player.draftCost = calculatePickCost(index + 1);
+                // Generate combine and college stats for scouting
+                player.combineStats = generateCombineStats(player);
+                player.collegeStats = generateCollegeStats(player);
             });
 
             return sorted;
@@ -5104,6 +5573,133 @@
                 `;
             }
 
+            // Combine Stats section - Athletic Testing
+            if (player.combineStats) {
+                const cs = player.combineStats;
+                // Helper to format stat with percentile coloring (dark green for elite)
+                const pctColor = (pct) => pct >= 85 ? '#1B5E20' : pct >= 70 ? '#4CAF50' : pct >= 50 ? '#8BC34A' : pct >= 30 ? '#FFC107' : '#f44336';
+                const formatWithPct = (val, pct, suffix = '') => `<span style="color:${pctColor(pct)}">${val}${suffix}</span> <span style="opacity:0.6;font-size:10px;">(${pct}%)</span>`;
+
+                statsHtml += `
+                    <div class="stats-section">
+                        <div class="stats-section-title">Athletic Testing</div>
+                        <div class="stats-grid" style="font-size:12px;">
+                            <div class="stat-row"><span class="stat-row-name">40-Yard</span><span class="stat-row-value">${formatWithPct(cs.fortyYard, cs.fortyPct, 's')}</span></div>
+                            <div class="stat-row"><span class="stat-row-name">Vertical</span><span class="stat-row-value">${formatWithPct(cs.verticalJump, cs.vertPct, '"')}</span></div>
+                            <div class="stat-row"><span class="stat-row-name">3-Cone</span><span class="stat-row-value">${formatWithPct(cs.threeCone, cs.threePct, 's')}</span></div>
+                            <div class="stat-row"><span class="stat-row-name">Shuttle</span><span class="stat-row-value">${formatWithPct(cs.shuttle, cs.shuttlePct, 's')}</span></div>
+                            <div class="stat-row"><span class="stat-row-name">Bench</span><span class="stat-row-value">${formatWithPct(cs.benchPress, cs.benchPct, ' reps')}</span></div>
+                            <div class="stat-row"><span class="stat-row-name">Broad</span><span class="stat-row-value">${formatWithPct(cs.broadFeetInches, cs.broadPct, '')}</span></div>
+                        </div>
+                    </div>
+                    <div class="stats-section">
+                        <div class="stats-section-title">Mental/Interview</div>
+                        <div class="stats-grid" style="font-size:12px;">
+                            <div class="stat-row"><span class="stat-row-name">Wonderlic</span><span class="stat-row-value">${formatWithPct(cs.wonderlic, cs.wonderPct, '/50')}</span></div>
+                            <div class="stat-row"><span class="stat-row-name">Film Study</span><span class="stat-row-value" style="color:#ffd700;">${cs.filmGrade}</span></div>
+                            <div class="stat-row"><span class="stat-row-name">Pos. Drills</span><span class="stat-row-value" style="color:#ffd700;">${cs.drillGrade}</span></div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // College Stats section (position-specific)
+            if (player.collegeStats) {
+                const cs = player.collegeStats;
+                let collegeHtml = '';
+                // Use same pctColor and formatWithPct helper as combine stats (dark green for elite)
+                const collegePctColor = (pct) => pct >= 85 ? '#1B5E20' : pct >= 70 ? '#4CAF50' : pct >= 50 ? '#8BC34A' : pct >= 30 ? '#FFC107' : '#f44336';
+                const collegeFormatWithPct = (val, pct, suffix = '') => `<span style="color:${collegePctColor(pct)}">${val}${suffix}</span> <span style="opacity:0.6;font-size:10px;">(${pct}%)</span>`;
+
+                switch (player.position) {
+                    case 'QB':
+                        collegeHtml = `
+                            <div class="stat-row"><span class="stat-row-name">Comp %</span><span class="stat-row-value">${collegeFormatWithPct(cs.completionPct, cs.compPctPct, '%')}</span></div>
+                            <div class="stat-row"><span class="stat-row-name">TD:INT</span><span class="stat-row-value">${collegeFormatWithPct(cs.tdIntRatio, cs.tdIntPct, '')}</span></div>
+                            <div class="stat-row"><span class="stat-row-name">Y/A</span><span class="stat-row-value">${collegeFormatWithPct(cs.yardsPerAttempt, cs.ypaPct, '')}</span></div>
+                            <div class="stat-row"><span class="stat-row-name">Sack %</span><span class="stat-row-value">${collegeFormatWithPct(cs.sackPct, cs.sackPctPct, '%')}</span></div>
+                        `;
+                        break;
+                    case 'WR':
+                        collegeHtml = `
+                            <div class="stat-row"><span class="stat-row-name">Y/Rec</span><span class="stat-row-value">${collegeFormatWithPct(cs.yardsPerCatch, cs.ypcPct, '')}</span></div>
+                            <div class="stat-row"><span class="stat-row-name">Catch %</span><span class="stat-row-value">${collegeFormatWithPct(cs.catchRate, cs.catchRatePct, '%')}</span></div>
+                            <div class="stat-row"><span class="stat-row-name">Contested</span><span class="stat-row-value">${collegeFormatWithPct(cs.contestedCatchPct, cs.contestedPct, '%')}</span></div>
+                            <div class="stat-row"><span class="stat-row-name">YAC</span><span class="stat-row-value">${collegeFormatWithPct(cs.yardsAfterCatch, cs.yacPct, '')}</span></div>
+                            <div class="stat-row"><span class="stat-row-name">Drop %</span><span class="stat-row-value">${collegeFormatWithPct(cs.dropRate, cs.dropRatePct, '%')}</span></div>
+                        `;
+                        break;
+                    case 'CB':
+                        collegeHtml = `
+                            <div class="stat-row"><span class="stat-row-name">INTs</span><span class="stat-row-value">${collegeFormatWithPct(cs.interceptions, cs.intsPct, '')}</span></div>
+                            <div class="stat-row"><span class="stat-row-name">PBUs</span><span class="stat-row-value">${collegeFormatWithPct(cs.passBreakups, cs.pbuPct, '')}</span></div>
+                            <div class="stat-row"><span class="stat-row-name">PR Allowed</span><span class="stat-row-value">${collegeFormatWithPct(cs.passerRatingAllowed, cs.prAllowPct, '')}</span></div>
+                            <div class="stat-row"><span class="stat-row-name">Comp% Alw</span><span class="stat-row-value">${collegeFormatWithPct(cs.completionPctAllowed, cs.compAllowPct, '%')}</span></div>
+                            <div class="stat-row"><span class="stat-row-name">Tackles</span><span class="stat-row-value">${collegeFormatWithPct(cs.tackles, cs.tacklesPct, '')}</span></div>
+                        `;
+                        break;
+                    case 'OL':
+                        collegeHtml = `
+                            <div class="stat-row"><span class="stat-row-name">Sacks Alw</span><span class="stat-row-value">${collegeFormatWithPct(cs.sacksAllowed, cs.sacksAllowPct, '')}</span></div>
+                            <div class="stat-row"><span class="stat-row-name">Press Alw</span><span class="stat-row-value">${collegeFormatWithPct(cs.pressuresAllowed, cs.pressAllowPct, '')}</span></div>
+                            <div class="stat-row"><span class="stat-row-name">Pancakes</span><span class="stat-row-value">${collegeFormatWithPct(cs.pancakeBlocks, cs.pancakesPct, '')}</span></div>
+                            <div class="stat-row"><span class="stat-row-name">Penalties</span><span class="stat-row-value">${collegeFormatWithPct(cs.penalties, cs.penaltiesPct, '')}</span></div>
+                            <div class="stat-row"><span class="stat-row-name">Run Block</span><span class="stat-row-value" style="color:#ffd700;">${cs.runBlockGrade}</span></div>
+                        `;
+                        break;
+                    case 'DL':
+                        collegeHtml = `
+                            <div class="stat-row"><span class="stat-row-name">Sacks</span><span class="stat-row-value">${collegeFormatWithPct(cs.sacks, cs.sacksPct, '')}</span></div>
+                            <div class="stat-row"><span class="stat-row-name">TFLs</span><span class="stat-row-value">${collegeFormatWithPct(cs.tacklesForLoss, cs.tflPct, '')}</span></div>
+                            <div class="stat-row"><span class="stat-row-name">Hurries</span><span class="stat-row-value">${collegeFormatWithPct(cs.qbHurries, cs.hurriesPct, '')}</span></div>
+                            <div class="stat-row"><span class="stat-row-name">Run Stops</span><span class="stat-row-value">${collegeFormatWithPct(cs.runStops, cs.runStopsPct, '')}</span></div>
+                            <div class="stat-row"><span class="stat-row-name">FF</span><span class="stat-row-value">${collegeFormatWithPct(cs.forcedFumbles, cs.ffPct, '')}</span></div>
+                        `;
+                        break;
+                }
+
+                if (collegeHtml) {
+                    statsHtml += `
+                        <div class="stats-section">
+                            <div class="stats-section-title">College Stats</div>
+                            <div class="stats-grid" style="font-size:12px;">
+                                ${collegeHtml}
+                            </div>
+                        </div>
+                    `;
+                }
+            }
+
+            // Debug section - shows actual stats (toggle with button)
+            const debugId = `debug_${playerId.replace(/-/g, '')}`;
+            const actualGrade = ratingToGrade(player.overall);
+            const scoutedGradeInfo = getScoutedListGrade(player);
+
+            // Build debug stats HTML
+            let debugStatsHtml = '';
+            if (core) {
+                debugStatsHtml += `<div><strong>Core:</strong> STR:${core.strength} SPD:${core.speed} AGI:${core.agility} INT:${core.intelligence}</div>`;
+            }
+            debugStatsHtml += `<div><strong>Technique:</strong> `;
+            techniqueStats.forEach(stat => {
+                debugStatsHtml += `${stat}:${player.stats[stat] || '?'} `;
+            });
+            debugStatsHtml += `</div>`;
+            debugStatsHtml += `<div><strong>Overall:</strong> ${player.overall} (${actualGrade})</div>`;
+            debugStatsHtml += `<div><strong>Scouted Grade:</strong> ${scoutedGradeInfo.grade}${scoutedGradeInfo.isRoughGem ? ' (ROUGH GEM!)' : ''}</div>`;
+            debugStatsHtml += `<div><strong>Potential:</strong> ${player.potentialGrade} stars</div>`;
+
+            statsHtml += `
+                <div class="stats-section" style="border-top:1px solid #444;margin-top:10px;padding-top:10px;">
+                    <button id="${debugId}_btn" style="background:#333;color:#888;border:1px solid #555;padding:4px 8px;border-radius:4px;font-size:10px;cursor:pointer;">
+                        Show Debug Info
+                    </button>
+                    <div id="${debugId}_content" style="display:none;margin-top:8px;font-size:11px;color:#aaa;font-family:monospace;">
+                        ${debugStatsHtml}
+                    </div>
+                </div>
+            `;
+
             statsHtml += '</div>';
 
             // Show all stats in main area
@@ -5112,6 +5708,17 @@
             document.getElementById('playerCareerGraph').innerHTML = '';
 
             document.getElementById('playerDetailModal').style.display = 'flex';
+
+            // Attach debug toggle event listener
+            const debugBtn = document.getElementById(`${debugId}_btn`);
+            const debugContent = document.getElementById(`${debugId}_content`);
+            if (debugBtn && debugContent) {
+                debugBtn.addEventListener('click', () => {
+                    const isHidden = debugContent.style.display === 'none';
+                    debugContent.style.display = isHidden ? 'block' : 'none';
+                    debugBtn.textContent = isHidden ? 'Hide Debug Info' : 'Show Debug Info';
+                });
+            }
         }
 
         // Refresh draft screen
@@ -5265,9 +5872,20 @@
 
             available.forEach(player => {
                 const scoutLevel = getPlayerScoutLevel(player.id);
-                const gradeInfo = getOverallGrade(player.overall, scoutLevel);
                 const growthInfo = getGrowthEstimate(player.potentialGrade, scoutLevel, player.id);
-                const rangeIndicator = createCompactRangeIndicator(player.overall, scoutLevel, player.id);
+
+                // Get scouted grade (may be inaccurate) or exact grade if fully scouted
+                let displayGrade, gradeColor;
+                if (scoutLevel >= 3) {
+                    // Fully scouted - show actual grade
+                    displayGrade = ratingToGrade(player.overall);
+                    gradeColor = getGradeColor(displayGrade);
+                } else {
+                    // Not fully scouted - show potentially inaccurate grade
+                    const scoutedInfo = getScoutedListGrade(player);
+                    displayGrade = scoutedInfo.grade;
+                    gradeColor = getGradeColor(displayGrade);
+                }
 
                 // Show scout indicator if player has been scouted
                 const scoutIndicator = scoutLevel > 0 ? `<span style="color:#4CAF50;font-size:10px;margin-left:4px;">` + '●'.repeat(scoutLevel) + `</span>` : '';
@@ -5280,8 +5898,8 @@
                         <div class="stats">${POSITIONS[player.position].name}</div>
                     </div>
                     <div style="display:flex;align-items:center;gap:8px;">
-                        ${rangeIndicator}
-                        <span class="potential-ind" style="min-width:45px;color:#ffd700;font-size:11px;text-align:right;">${growthInfo.display}</span>
+                        <span style="font-weight:bold;font-size:14px;color:${gradeColor};min-width:28px;text-align:center;">${displayGrade}</span>
+                        <span class="potential-ind" style="min-width:45px;color:#4CAF50;font-size:11px;text-align:right;">${growthInfo.display}</span>
                     </div>
                 `;
                 item.addEventListener('click', () => showDraftPlayerDetail(player.id));
@@ -5385,7 +6003,8 @@
                 if (playerId) {
                     const player = roster.find(p => p.id === playerId);
                     if (player) {
-                        total += (player.stats.speed + player.stats.catching + player.stats.routeRunning) / 3;
+                        const spd = player.coreAttributes?.speed || 70;
+                        total += (spd + player.stats.catching + player.stats.routeRunning) / 3;
                         count++;
                     }
                 }
@@ -5396,7 +6015,8 @@
                 if (playerId) {
                     const player = roster.find(p => p.id === playerId);
                     if (player) {
-                        total += (player.stats.passBlock + player.stats.strength) / 2;
+                        const str = player.coreAttributes?.strength || 70;
+                        total += (player.stats.passBlock + str) / 2;
                         count++;
                     }
                 }
@@ -5748,8 +6368,8 @@
                 // The difference: WR pre-plans the cut, DB must REACT
 
                 // Agility determines how well a player changes direction
-                const wrAgility = receiver.stats.agility || 70;
-                const dbAgility = defender.stats.agility || 70;
+                const wrAgility = receiver.coreAttributes?.agility || 70;
+                const dbAgility = defender.coreAttributes?.agility || 70;
 
                 // DB reaction time based on awareness (0-100)
                 // Low awareness = slow to recognize the cut = still moving wrong way
@@ -5859,7 +6479,7 @@
         // Calculate catch probabilities using exponential distribution
         function simCalculateCatchProbabilities(state) {
             const pressure = state.totalPressure;
-            const qbAgility = state.qb.coreAttributes?.agility || state.qb.stats.agility || 70;
+            const qbAgility = state.qb.coreAttributes?.agility || 70;
 
             for (const receiver of state.receivers) {
                 // Use short or long pass accuracy based on depth (12 yards = break point)
@@ -6211,9 +6831,11 @@
 
             // Scrambler might run
             if (trait.scrambleBonus && Math.random() < 0.3) {
+                const qbSpeed = state.qb.coreAttributes?.speed || 70;
+                const qbAgility = state.qb.coreAttributes?.agility || 70;
                 const scrambleYards = Math.floor(
-                    (state.qb.stats.speed * 0.1) +
-                    (state.qb.stats.agility * 0.05) +
+                    (qbSpeed * 0.1) +
+                    (qbAgility * 0.05) +
                     Math.random() * 5
                 );
                 return {
@@ -7602,9 +8224,8 @@
                 receiver.stats = config.stats;
                 receiver.coreAttributes = config.coreAttributes || null;
 
-                // Derive base speed from stats (normalized to game units)
-                // Use core speed if available, otherwise fall back to stats.speed
-                const baseSpeed = receiver.coreAttributes?.speed || config.stats.speed;
+                // Derive base speed from core attributes (normalized to game units)
+                const baseSpeed = receiver.coreAttributes?.speed || 70;
                 receiver.baseSpeed = baseSpeed * SPEED_CONSTANTS.RECEIVER_FACTOR * gameState.gameSpeedMultiplier;
                 receiver.speed = receiver.baseSpeed;
 
@@ -7726,9 +8347,8 @@
                 defender.overall = config.overall || Math.round(cbStats.reduce((sum, stat) => sum + (config.stats[stat] || 0), 0) / cbStats.length);
                 defender.startPos = startPos.clone();
 
-                // Derive base speed from stats
-                // Use core speed if available, otherwise fall back to stats.speed
-                const baseSpeed = defender.coreAttributes?.speed || config.stats.speed;
+                // Derive base speed from core attributes
+                const baseSpeed = defender.coreAttributes?.speed || 70;
                 defender.baseSpeed = baseSpeed * SPEED_CONSTANTS.DEFENDER_FACTOR * gameState.gameSpeedMultiplier;
                 defender.speed = defender.baseSpeed;
 
@@ -7845,8 +8465,8 @@
                 oLineman.stats = config.stats;
                 oLineman.coreAttributes = config.coreAttributes || null;
                 oLineman.startPos = startPos.clone();
-                // Use core speed if available, otherwise fall back to stats.speed
-                const baseSpeed = oLineman.coreAttributes?.speed || config.stats.speed;
+                // Derive base speed from core attributes
+                const baseSpeed = oLineman.coreAttributes?.speed || 70;
                 oLineman.baseSpeed = baseSpeed * SPEED_CONSTANTS.O_LINE_FACTOR * gameState.gameSpeedMultiplier;
                 oLineman.speed = oLineman.baseSpeed;
 
@@ -7909,8 +8529,8 @@
                 dLineman.stats = config.stats;
                 dLineman.coreAttributes = config.coreAttributes || null;
                 dLineman.startPos = startPos.clone();
-                // Use core speed if available, otherwise fall back to stats.speed
-                const baseSpeed = dLineman.coreAttributes?.speed || config.stats.speed;
+                // Derive base speed from core attributes
+                const baseSpeed = dLineman.coreAttributes?.speed || 70;
                 dLineman.baseSpeed = baseSpeed * SPEED_CONSTANTS.D_LINE_FACTOR * gameState.gameSpeedMultiplier;
                 dLineman.speed = dLineman.baseSpeed;
 
@@ -11000,7 +11620,7 @@
         const calculateThrowAccuracy = (qb, throwDistance) => {
             if (!qb || !qb.stats) return 1.0;
 
-            const agility = qb.coreAttributes?.agility || qb.stats.agility || 70;
+            const agility = qb.coreAttributes?.agility || 70;
 
             // Use short pass accuracy for <12 yards, long pass for 12+ yards
             const isShortPass = throwDistance < 12;
@@ -12239,7 +12859,14 @@
                 switch (screenName) {
                     case 'main_menu':
                         document.getElementById('mainMenuScreen').style.display = 'block';
-                        document.getElementById('btnContinue').disabled = !managementState.initialized;
+                        const continueBtn = document.getElementById('btnContinue');
+                        continueBtn.disabled = !managementState.initialized;
+                        // Update button text based on whether there's an active draft
+                        if (draftState.active) {
+                            continueBtn.textContent = 'CONTINUE DRAFT';
+                        } else {
+                            continueBtn.textContent = 'CONTINUE';
+                        }
                         break;
                     case 'hub':
                         document.getElementById('hubScreen').style.display = 'block';
@@ -13179,22 +13806,26 @@
         function updateAllPlayerSpeeds() {
             // Update receivers
             gameState.receivers.forEach(receiver => {
-                receiver.baseSpeed = receiver.stats.speed * SPEED_CONSTANTS.RECEIVER_FACTOR * gameState.gameSpeedMultiplier;
+                const spd = receiver.coreAttributes?.speed || 70;
+                receiver.baseSpeed = spd * SPEED_CONSTANTS.RECEIVER_FACTOR * gameState.gameSpeedMultiplier;
                 receiver.speed = receiver.baseSpeed;
             });
             // Update defenders
             gameState.defenders.forEach(defender => {
-                defender.baseSpeed = defender.stats.speed * SPEED_CONSTANTS.DEFENDER_FACTOR * gameState.gameSpeedMultiplier;
+                const spd = defender.coreAttributes?.speed || 70;
+                defender.baseSpeed = spd * SPEED_CONSTANTS.DEFENDER_FACTOR * gameState.gameSpeedMultiplier;
                 defender.speed = defender.baseSpeed;
             });
             // Update O-line
             gameState.offensiveLine.forEach(lineman => {
-                lineman.baseSpeed = lineman.stats.speed * SPEED_CONSTANTS.O_LINE_FACTOR * gameState.gameSpeedMultiplier;
+                const spd = lineman.coreAttributes?.speed || 70;
+                lineman.baseSpeed = spd * SPEED_CONSTANTS.O_LINE_FACTOR * gameState.gameSpeedMultiplier;
                 lineman.speed = lineman.baseSpeed;
             });
             // Update D-line
             gameState.defensiveLine.forEach(lineman => {
-                lineman.baseSpeed = lineman.stats.speed * SPEED_CONSTANTS.D_LINE_FACTOR * gameState.gameSpeedMultiplier;
+                const spd = lineman.coreAttributes?.speed || 70;
+                lineman.baseSpeed = spd * SPEED_CONSTANTS.D_LINE_FACTOR * gameState.gameSpeedMultiplier;
                 lineman.speed = lineman.baseSpeed;
             });
             // Update display
@@ -13214,14 +13845,17 @@
             const speeds = preset === 'mixed' ? [90, 80, 70] : [preset, preset, preset];
             gameState.receivers.forEach((receiver, i) => {
                 const speedStat = speeds[i % speeds.length];
-                receiver.stats.speed = speedStat;
+                // Update coreAttributes.speed
+                if (!receiver.coreAttributes) receiver.coreAttributes = {};
+                receiver.coreAttributes.speed = speedStat;
                 receiver.baseSpeed = speedStat * SPEED_CONSTANTS.RECEIVER_FACTOR * gameState.gameSpeedMultiplier;
                 receiver.speed = receiver.baseSpeed;
-                // Recalculate overall based on new speed using WR position stats
-                const stats = receiver.stats;
-                stats.speed = speedStat;  // Update speed stat
-                const wrPrimaryStats = POSITIONS.WR.primaryStats;
-                receiver.overall = Math.round(wrPrimaryStats.reduce((sum, stat) => sum + (stats[stat] || 0), 0) / wrPrimaryStats.length);
+                // Recalculate overall using new formula
+                receiver.overall = calculateOverall({
+                    position: 'WR',
+                    coreAttributes: receiver.coreAttributes,
+                    stats: receiver.stats
+                });
                 // Update visual label
                 if (receiver.ovrTextBlock) {
                     const stars = receiver.overall >= 90 ? ' ★★' : receiver.overall >= 85 ? ' ★' : '';
@@ -13236,14 +13870,17 @@
             const speeds = preset === 'mixed' ? [90, 80, 70] : [preset, preset, preset];
             gameState.defenders.forEach((defender, i) => {
                 const speedStat = speeds[i % speeds.length];
-                defender.stats.speed = speedStat;
+                // Update coreAttributes.speed
+                if (!defender.coreAttributes) defender.coreAttributes = {};
+                defender.coreAttributes.speed = speedStat;
                 defender.baseSpeed = speedStat * SPEED_CONSTANTS.DEFENDER_FACTOR * gameState.gameSpeedMultiplier;
                 defender.speed = defender.baseSpeed;
-                // Recalculate overall based on new speed using CB position stats
-                const stats = defender.stats;
-                stats.speed = speedStat;  // Update speed stat
-                const cbPrimaryStats = POSITIONS.CB.primaryStats;
-                defender.overall = Math.round(cbPrimaryStats.reduce((sum, stat) => sum + (stats[stat] || 0), 0) / cbPrimaryStats.length);
+                // Recalculate overall using new formula
+                defender.overall = calculateOverall({
+                    position: 'CB',
+                    coreAttributes: defender.coreAttributes,
+                    stats: defender.stats
+                });
                 // Update visual label
                 if (defender.ovrTextBlock) {
                     const stars = defender.overall >= 90 ? ' ★★' : defender.overall >= 85 ? ' ★' : '';
@@ -14048,7 +14685,14 @@
             // Draft screen is shown by startNewGame() via startDraft()
         });
         document.getElementById('btnContinue').addEventListener('click', () => {
-            if (managementState.initialized) showScreen('hub');
+            if (managementState.initialized) {
+                // Go to draft if there's an active draft, otherwise go to hub
+                if (draftState.active) {
+                    showScreen('draft');
+                } else {
+                    showScreen('hub');
+                }
+            }
         });
         document.getElementById('btnTrainingMode').addEventListener('click', () => {
             startTrainingMode();
@@ -14239,6 +14883,13 @@
                     refreshDraftScreen();
                 }, 1000);
             }
+        });
+
+        // Draft back button - return to main menu
+        document.getElementById('btnDraftBack').addEventListener('click', () => {
+            // Save the game state (draft will be preserved)
+            if (managementState.settings.autoSave) SaveSystem.save();
+            showScreen('main_menu');
         });
 
         // Draft options modal handlers
