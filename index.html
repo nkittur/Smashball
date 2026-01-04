@@ -4016,7 +4016,7 @@
         }
 
         // Create visual range indicator HTML for a rating
-        // Shows a bar with the possible range highlighted
+        // Shows a bar with the possible range highlighted - never shows exact numbers
         function createRangeIndicator(actualValue, scoutLevel, width = 60) {
             const range = getRatingRange(scoutLevel);
             const min = Math.max(0, actualValue - range);
@@ -4024,7 +4024,7 @@
 
             // Calculate positions as percentages
             const leftPct = min;
-            const widthPct = max - min;
+            const widthPct = Math.max(3, max - min); // Minimum 3% width so it's visible
 
             // Color based on the midpoint value
             const mid = (min + max) / 2;
@@ -4036,17 +4036,12 @@
             else if (mid >= 45) color = '#FF9800'; // Below avg - orange
             else color = '#f44336';                // Poor - red
 
-            // Determine if we show the exact value
-            const isExact = range <= 3;
-            const displayValue = isExact ? actualValue : '';
-
             return `<div class="range-indicator" style="width:${width}px;height:12px;background:#333;border-radius:3px;position:relative;display:inline-block;vertical-align:middle;">
-                <div style="position:absolute;left:${leftPct}%;width:${widthPct}%;height:100%;background:${color};border-radius:3px;opacity:0.8;"></div>
-                ${isExact ? `<span style="position:absolute;width:100%;text-align:center;font-size:10px;line-height:12px;color:#fff;font-weight:bold;">${actualValue}</span>` : ''}
+                <div style="position:absolute;left:${leftPct}%;width:${widthPct}%;height:100%;background:${color};border-radius:3px;opacity:0.9;"></div>
             </div>`;
         }
 
-        // Create a compact range indicator for list views
+        // Create a compact range indicator for list views - never shows exact numbers
         function createCompactRangeIndicator(actualValue, scoutLevel) {
             const range = getRatingRange(scoutLevel);
             const min = Math.max(0, actualValue - range);
@@ -4062,14 +4057,11 @@
             else if (mid >= 45) color = '#FF9800';
             else color = '#f44336';
 
-            const isExact = range <= 3;
+            // Show narrower bar for higher certainty, minimum width so always visible
+            const barWidth = Math.max(6, Math.min(40, (max - min) * 0.8));
 
-            // Show narrower bar for higher certainty
-            const barWidth = Math.max(8, Math.min(40, (max - min) * 0.8));
-
-            return `<div style="display:inline-flex;align-items:center;gap:4px;">
-                <div style="width:${barWidth}px;height:8px;background:${color};border-radius:2px;opacity:${isExact ? 1 : 0.7};"></div>
-                ${isExact ? `<span style="font-size:12px;color:${color};font-weight:bold;">${actualValue}</span>` : ''}
+            return `<div style="display:inline-flex;align-items:center;">
+                <div style="width:${barWidth}px;height:8px;background:${color};border-radius:2px;"></div>
             </div>`;
         }
 
