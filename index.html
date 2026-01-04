@@ -5629,6 +5629,36 @@
                 }
             }
 
+            // Debug section - shows actual stats (toggle with button)
+            const debugId = `debug_${playerId.replace(/-/g, '')}`;
+            const actualGrade = ratingToGrade(player.overall);
+            const scoutedGradeInfo = getScoutedListGrade(player);
+
+            // Build debug stats HTML
+            let debugStatsHtml = '';
+            if (core) {
+                debugStatsHtml += `<div><strong>Core:</strong> STR:${core.strength} SPD:${core.speed} AGI:${core.agility} INT:${core.intelligence}</div>`;
+            }
+            debugStatsHtml += `<div><strong>Technique:</strong> `;
+            techniqueStats.forEach(stat => {
+                debugStatsHtml += `${stat}:${player.stats[stat] || '?'} `;
+            });
+            debugStatsHtml += `</div>`;
+            debugStatsHtml += `<div><strong>Overall:</strong> ${player.overall} (${actualGrade})</div>`;
+            debugStatsHtml += `<div><strong>Scouted Grade:</strong> ${scoutedGradeInfo.grade}${scoutedGradeInfo.isRoughGem ? ' (ROUGH GEM!)' : ''}</div>`;
+            debugStatsHtml += `<div><strong>Potential:</strong> ${player.potentialGrade} stars</div>`;
+
+            statsHtml += `
+                <div class="stats-section" style="border-top:1px solid #444;margin-top:10px;padding-top:10px;">
+                    <button id="${debugId}_btn" style="background:#333;color:#888;border:1px solid #555;padding:4px 8px;border-radius:4px;font-size:10px;cursor:pointer;">
+                        Show Debug Info
+                    </button>
+                    <div id="${debugId}_content" style="display:none;margin-top:8px;font-size:11px;color:#aaa;font-family:monospace;">
+                        ${debugStatsHtml}
+                    </div>
+                </div>
+            `;
+
             statsHtml += '</div>';
 
             // Show all stats in main area
@@ -5637,6 +5667,17 @@
             document.getElementById('playerCareerGraph').innerHTML = '';
 
             document.getElementById('playerDetailModal').style.display = 'flex';
+
+            // Attach debug toggle event listener
+            const debugBtn = document.getElementById(`${debugId}_btn`);
+            const debugContent = document.getElementById(`${debugId}_content`);
+            if (debugBtn && debugContent) {
+                debugBtn.addEventListener('click', () => {
+                    const isHidden = debugContent.style.display === 'none';
+                    debugContent.style.display = isHidden ? 'block' : 'none';
+                    debugBtn.textContent = isHidden ? 'Hide Debug Info' : 'Show Debug Info';
+                });
+            }
         }
 
         // Refresh draft screen
