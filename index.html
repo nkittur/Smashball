@@ -5458,8 +5458,8 @@
             // Combine Stats section - Athletic Testing
             if (player.combineStats) {
                 const cs = player.combineStats;
-                // Helper to format stat with percentile coloring
-                const pctColor = (pct) => pct >= 85 ? '#ffd700' : pct >= 70 ? '#4CAF50' : pct >= 50 ? '#8BC34A' : pct >= 30 ? '#FFC107' : '#f44336';
+                // Helper to format stat with percentile coloring (dark green for elite)
+                const pctColor = (pct) => pct >= 85 ? '#1B5E20' : pct >= 70 ? '#4CAF50' : pct >= 50 ? '#8BC34A' : pct >= 30 ? '#FFC107' : '#f44336';
                 const formatWithPct = (val, pct, suffix = '') => `<span style="color:${pctColor(pct)}">${val}${suffix}</span> <span style="opacity:0.6;font-size:10px;">(${pct}%)</span>`;
 
                 statsHtml += `
@@ -5489,8 +5489,8 @@
             if (player.collegeStats) {
                 const cs = player.collegeStats;
                 let collegeHtml = '';
-                // Use same pctColor and formatWithPct helper as combine stats
-                const collegePctColor = (pct) => pct >= 85 ? '#ffd700' : pct >= 70 ? '#4CAF50' : pct >= 50 ? '#8BC34A' : pct >= 30 ? '#FFC107' : '#f44336';
+                // Use same pctColor and formatWithPct helper as combine stats (dark green for elite)
+                const collegePctColor = (pct) => pct >= 85 ? '#1B5E20' : pct >= 70 ? '#4CAF50' : pct >= 50 ? '#8BC34A' : pct >= 30 ? '#FFC107' : '#f44336';
                 const collegeFormatWithPct = (val, pct, suffix = '') => `<span style="color:${collegePctColor(pct)}">${val}${suffix}</span> <span style="opacity:0.6;font-size:10px;">(${pct}%)</span>`;
 
                 switch (player.position) {
