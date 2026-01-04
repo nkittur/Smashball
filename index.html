@@ -4001,57 +4001,57 @@
                 return ((Math.abs(hash) % 1000) - 500) / 500 * range; // ±range variance
             };
 
-            // Calculate raw values - calibrated so 100 attr = elite, 50 attr = average
-            // 40-yard: elite 4.30s, average 4.80s, poor 5.20s (range 0.9s)
-            const fortyRaw = (5.20 - (spd * 0.0075) - (agi * 0.0015)) * (1 + variance(1, 0.04));
+            // Calculate raw values - calibrated for actual stat range (55 min to 100 max)
+            // 40-yard: 100 attr → 4.35s (elite), 55 attr → 4.95s (poor)
+            const fortyRaw = (5.55 - (spd * 0.0098) - (agi * 0.0022)) * (1 + variance(1, 0.03));
 
-            // Bench: elite 35, average 20, poor 12 (range 23 reps)
-            const benchRaw = (12 + (str * 0.23)) * (1 + variance(2, 0.20));
+            // Bench: 100 attr → 34 reps, 55 attr → 18 reps
+            const benchRaw = (-2 + (str * 0.36)) * (1 + variance(2, 0.18));
 
-            // Vertical: elite 42", average 34", poor 28" (range 14")
-            const vertRaw = (28 + (spd * 0.09) + (agi * 0.05)) * (1 + variance(3, 0.08));
+            // Vertical: 100 attr → 41", 55 attr → 32"
+            const vertRaw = (21 + (spd * 0.13) + (agi * 0.07)) * (1 + variance(3, 0.06));
 
-            // Broad jump: elite 132" (11'), average 116" (9'8"), poor 104" (8'8")
-            const broadRaw = (104 + (str * 0.16) + (spd * 0.12)) * (1 + variance(4, 0.06));
+            // Broad jump: 100 attr → 130" (10'10"), 55 attr → 112" (9'4")
+            const broadRaw = (90 + (str * 0.23) + (spd * 0.17)) * (1 + variance(4, 0.05));
 
-            // 3-cone: elite 6.60s, average 7.10s, poor 7.50s (range 0.9s)
-            const threeRaw = (7.50 - (agi * 0.0075) - (spd * 0.0015)) * (1 + variance(5, 0.04));
+            // 3-cone: 100 attr → 6.70s, 55 attr → 7.30s
+            const threeRaw = (8.03 - (agi * 0.011) - (spd * 0.0023)) * (1 + variance(5, 0.03));
 
-            // Shuttle: elite 3.90s, average 4.25s, poor 4.55s (range 0.65s)
-            const shuttleRaw = (4.55 - (agi * 0.0046) - (spd * 0.0019)) * (1 + variance(6, 0.04));
+            // Shuttle: 100 attr → 3.95s, 55 attr → 4.40s
+            const shuttleRaw = (4.90 - (agi * 0.0067) - (spd * 0.0033)) * (1 + variance(6, 0.03));
 
-            // Wonderlic: elite 45, average 28, poor 14 (range 31)
-            const wonderRaw = (14 + (intel * 0.31)) * (1 + variance(7, 0.15));
+            // Wonderlic: 100 attr → 42, 55 attr → 22
+            const wonderRaw = (-2.5 + (intel * 0.445)) * (1 + variance(7, 0.12));
 
-            // Clamp to realistic ranges
-            const forty = Math.max(4.28, Math.min(5.25, fortyRaw));
-            const bench = Math.max(10, Math.min(38, Math.round(benchRaw)));
-            const vert = Math.max(26, Math.min(44, vertRaw));
-            const broad = Math.max(100, Math.min(136, Math.round(broadRaw)));
-            const three = Math.max(6.55, Math.min(7.55, threeRaw));
-            const shuttle = Math.max(3.85, Math.min(4.60, shuttleRaw));
-            const wonder = Math.max(12, Math.min(48, Math.round(wonderRaw)));
+            // Clamp to realistic ranges (slightly beyond the 55-100 range for variance)
+            const forty = Math.max(4.30, Math.min(5.05, fortyRaw));
+            const bench = Math.max(15, Math.min(38, Math.round(benchRaw)));
+            const vert = Math.max(30, Math.min(44, vertRaw));
+            const broad = Math.max(108, Math.min(136, Math.round(broadRaw)));
+            const three = Math.max(6.65, Math.min(7.40, threeRaw));
+            const shuttle = Math.max(3.90, Math.min(4.50, shuttleRaw));
+            const wonder = Math.max(18, Math.min(46, Math.round(wonderRaw)));
 
-            // Elite benchmarks (what a 100-rated player would get on average)
+            // Elite benchmarks (100-rated player)
             const ELITE = {
-                forty: 4.30,      // Elite 40 time
-                bench: 35,        // Elite bench reps
-                vert: 42,         // Elite vertical
-                broad: 132,       // Elite broad jump (11')
-                three: 6.60,      // Elite 3-cone
-                shuttle: 3.90,    // Elite shuttle
-                wonder: 45        // Elite wonderlic
+                forty: 4.35,
+                bench: 34,
+                vert: 41,
+                broad: 130,
+                three: 6.70,
+                shuttle: 3.95,
+                wonder: 42
             };
 
-            // Worst benchmarks for percentile calculation
+            // Poor benchmarks (55-rated player)
             const WORST = {
-                forty: 5.20,
-                bench: 12,
-                vert: 28,
-                broad: 104,
-                three: 7.45,
-                shuttle: 4.50,
-                wonder: 14
+                forty: 4.95,
+                bench: 18,
+                vert: 32,
+                broad: 112,
+                three: 7.30,
+                shuttle: 4.40,
+                wonder: 22
             };
 
             // Calculate percentiles (100 = elite level, 0 = worst)
