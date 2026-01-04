@@ -4156,34 +4156,51 @@
         // Scout a player (spend points to reduce uncertainty)
         // Exposed globally for onclick handlers
         window.scoutPlayer = function(playerId) {
-            console.log('scoutPlayer called:', playerId);
-            const currentLevel = getPlayerScoutLevel(playerId);
+            try {
+                console.log('scoutPlayer called:', playerId);
+                const currentLevel = getPlayerScoutLevel(playerId);
+                console.log('Current scout level:', currentLevel);
 
-            if (currentLevel >= SCOUTING.MAX_LEVEL) {
-                showNotification('Player fully scouted!', 'info');
+                if (currentLevel >= SCOUTING.MAX_LEVEL) {
+                    console.log('Already at max level');
+                    showNotification('Player fully scouted!', 'info');
+                    return false;
+                }
+
+                const cost = calculateScoutingCost(draftState.currentPickNumber);
+                console.log('Scout cost:', cost, 'Available points:', managementState.team.draftPoints);
+
+                if (managementState.team.draftPoints < cost) {
+                    console.log('Not enough draft points');
+                    showNotification(`Need ${cost} draft points to scout!`, 'error');
+                    return false;
+                }
+
+                // Deduct points and increase scout level
+                managementState.team.draftPoints -= cost;
+                draftState.scoutLevels[playerId] = currentLevel + 1;
+                console.log('Scouted! New level:', draftState.scoutLevels[playerId], 'Remaining points:', managementState.team.draftPoints);
+
+                showNotification(`Scouted player! (Level ${currentLevel + 1}/${SCOUTING.MAX_LEVEL})`, 'success');
+
+                // Refresh the views
+                console.log('About to refresh. selectedDraftPlayer:', draftState.selectedDraftPlayer ? draftState.selectedDraftPlayer.id : 'null');
+                refreshDraftScreen();
+                console.log('refreshDraftScreen completed');
+
+                if (draftState.selectedDraftPlayer && draftState.selectedDraftPlayer.id === playerId) {
+                    console.log('Refreshing player detail modal');
+                    showDraftPlayerDetail(playerId);
+                    console.log('showDraftPlayerDetail completed');
+                } else {
+                    console.log('Not refreshing modal - selectedDraftPlayer mismatch or null');
+                }
+
+                return true;
+            } catch (error) {
+                console.error('Error in scoutPlayer:', error);
                 return false;
             }
-
-            const cost = calculateScoutingCost(draftState.currentPickNumber);
-
-            if (managementState.team.draftPoints < cost) {
-                showNotification(`Need ${cost} draft points to scout!`, 'error');
-                return false;
-            }
-
-            // Deduct points and increase scout level
-            managementState.team.draftPoints -= cost;
-            draftState.scoutLevels[playerId] = currentLevel + 1;
-
-            showNotification(`Scouted player! (Level ${currentLevel + 1}/${SCOUTING.MAX_LEVEL})`, 'success');
-
-            // Refresh the views
-            refreshDraftScreen();
-            if (draftState.selectedDraftPlayer && draftState.selectedDraftPlayer.id === playerId) {
-                showDraftPlayerDetail(playerId);
-            }
-
-            return true;
         }
 
         // Ideal roster composition per position
@@ -4886,6 +4903,7 @@
 
             // Get scouting info
             const scoutLevel = getPlayerScoutLevel(playerId);
+            console.log('showDraftPlayerDetail using scoutLevel:', scoutLevel, 'for player:', playerId);
             const gradeInfo = getOverallGrade(player.overall, scoutLevel);
             const growthInfo = getGrowthEstimate(player.potentialGrade, scoutLevel, playerId);
             const scoutCost = calculateScoutingCost(draftState.currentPickNumber);
