@@ -50,6 +50,45 @@ export interface HypeData {
     seasonFameEarnings: number;
 }
 
+/** Contract data for a player */
+export interface ContractData {
+    /** Years remaining on current contract (0 = expired) */
+    yearsRemaining: number;
+    /** Annual salary in millions */
+    annualSalary: number;
+    /** Number of contracts signed (0 = rookie contract, 1 = first extension, 2+ = subsequent) */
+    contractCount: number;
+    /** Draft pick number if rookie (for historical reference) */
+    draftPick?: number;
+}
+
+/** Re-signing decision options */
+export type ResigningChoice = 'resign' | 'trade' | 'release';
+
+/** Result of a re-signing decision */
+export interface ResigningResult {
+    success: boolean;
+    choice: ResigningChoice;
+    player: EconomyPlayer;
+    /** New contract salary if re-signed */
+    newSalary?: number;
+    /** Draft points received if traded */
+    draftPointsReceived?: number;
+    /** Message describing the result */
+    message: string;
+}
+
+/** Player with expired contract pending decision */
+export interface ExpiringContract {
+    player: EconomyPlayer;
+    /** Calculated new contract salary based on current stats */
+    proposedSalary: number;
+    /** Trade value in draft points (may be reduced or 0 based on contract count) */
+    tradeValue: number;
+    /** Whether player can be traded (0 if contractCount >= 2) */
+    canTrade: boolean;
+}
+
 /**
  * Core attributes - foundational physical/mental traits that rarely change.
  * These influence multiple skills and on-field performance.
@@ -158,6 +197,8 @@ export interface EconomyPlayer {
     hypeData: HypeData;
     /** Core attributes - foundational traits that rarely change */
     coreAttributes: CoreAttributes;
+    /** Contract data - tracks contract years, salary, and re-sign status */
+    contractData?: ContractData;
 }
 
 /** Team entity */
@@ -334,6 +375,58 @@ export const ECONOMY_CONSTANTS = {
         BREAKTHROUGH_AMOUNT: { min: 3, max: 5 },
     },
 
+    /** Contract system configuration */
+    CONTRACTS: {
+        /** Standard contract length in years */
+        CONTRACT_LENGTH: 4,
+
+        /** Rookie contract salaries by pick (in millions per year) */
+        ROOKIE_SALARIES: {
+            /** Pick 1 gets the max salary */
+            PICK_1_SALARY: 15,
+            /** Pick 2 salary */
+            PICK_2_SALARY: 12,
+            /** Minimum salary for late round picks (round 3+) */
+            MIN_SALARY: 1,
+            /** Number of teams in the draft (for pick position calculation) */
+            TEAMS_IN_DRAFT: 12,
+            /** Total rounds in draft */
+            DRAFT_ROUNDS: 5,
+        },
+
+        /** Re-sign contract value calculation */
+        RESIGN: {
+            /** Base salary multiplier per overall point */
+            BASE_SALARY_PER_OVERALL: 0.2,
+            /** Bonus for young players (age <= 26) */
+            YOUNG_PLAYER_BONUS: 1.2,
+            /** Penalty for older players (age >= 30) per year over */
+            OLD_PLAYER_PENALTY_PER_YEAR: 0.1,
+            /** Age when old penalty starts */
+            OLD_PLAYER_AGE: 30,
+            /** Minimum re-sign salary */
+            MIN_SALARY: 0.5,
+            /** Maximum re-sign salary */
+            MAX_SALARY: 20,
+        },
+
+        /** Trade value for players (in draft points) */
+        TRADE_VALUE: {
+            /** Base value per overall point */
+            BASE_VALUE_PER_OVERALL: 15,
+            /** Multiplier for young players (age <= 26) */
+            YOUNG_PLAYER_MULTIPLIER: 1.3,
+            /** Penalty for older players (age >= 30) per year over */
+            OLD_PLAYER_PENALTY_PER_YEAR: 0.15,
+            /** Trade value multiplier after first re-sign (contractCount = 1) */
+            FIRST_RESIGN_MULTIPLIER: 0.5,
+            /** Trade value multiplier after second+ re-sign (contractCount >= 2) */
+            SUBSEQUENT_RESIGN_MULTIPLIER: 0,
+            /** Minimum trade value (before contract multiplier) */
+            MIN_VALUE: 50,
+        },
+    },
+
     /** How core attributes influence skills (multipliers) */
     CORE_ATTRIBUTE_SKILL_INFLUENCE: {
         /** Strength influences these skills */
@@ -406,6 +499,344 @@ export function generateId(): string {
  */
 export function clamp(value: number, min: number, max: number): number {
     return Math.max(min, Math.min(max, value));
+}
+
+// ============================================================================
+// CONTRACT SYSTEM
+// ============================================================================
+
+/**
+ * Calculate rookie contract salary based on draft pick position.
+ *
+ * Salary curve:
+ * - Pick 1: 15M/year
+ * - Pick 2: 12M/year
+ * - Decreasing through rounds, reaching ~1M by round 3
+ *
+ * Uses exponential decay for a natural salary curve.
+ */
+export function calculateRookieContractSalary(pickNumber: number): number {
+    const config = ECONOMY_CONSTANTS.CONTRACTS.ROOKIE_SALARIES;
+    const totalPicks = config.TEAMS_IN_DRAFT * config.DRAFT_ROUNDS; // 60 picks
+
+    // Picks 1 and 2 have special values
+    if (pickNumber === 1) {
+        return config.PICK_1_SALARY;
+    }
+    if (pickNumber === 2) {
+        return config.PICK_2_SALARY;
+    }
+
+    // For picks 3+, use exponential decay
+    // We want pick 3 to be around 10M, and by pick 25 (round 3 start) to be around 1M
+    // Formula: salary = maxSalary * e^(-decay * (pick - 1))
+    const maxSalary = config.PICK_2_SALARY;
+    const minSalary = config.MIN_SALARY;
+
+    // Calculate decay rate so that pick 25 = ~1M and pick 60 = 1M
+    // Using a curve that drops steeply early then flattens
+    const normalizedPick = (pickNumber - 1) / (totalPicks - 1); // 0 to 1
+
+    // Exponential decay with a floor
+    const decayFactor = Math.exp(-4 * normalizedPick); // Steeper decay
+    const salary = minSalary + (maxSalary - minSalary) * decayFactor;
+
+    // Round to 1 decimal place
+    return Math.round(salary * 10) / 10;
+}
+
+/**
+ * Initialize contract data for a newly drafted rookie.
+ * Rookies get 4-year contracts with salary based on their pick position.
+ */
+export function initializeRookieContract(pickNumber: number): ContractData {
+    return {
+        yearsRemaining: ECONOMY_CONSTANTS.CONTRACTS.CONTRACT_LENGTH,
+        annualSalary: calculateRookieContractSalary(pickNumber),
+        contractCount: 0,
+        draftPick: pickNumber,
+    };
+}
+
+/**
+ * Calculate the salary for a player re-signing based on their current stats.
+ * Takes into account overall rating, age, and potential.
+ */
+export function calculateResignSalary(player: EconomyPlayer): number {
+    const config = ECONOMY_CONSTANTS.CONTRACTS.RESIGN;
+
+    // Base salary from overall rating
+    let salary = player.overall * config.BASE_SALARY_PER_OVERALL;
+
+    // Young player bonus
+    if (player.age <= 26) {
+        salary *= config.YOUNG_PLAYER_BONUS;
+    }
+
+    // Old player penalty
+    if (player.age >= config.OLD_PLAYER_AGE) {
+        const yearsOver = player.age - config.OLD_PLAYER_AGE;
+        salary *= (1 - yearsOver * config.OLD_PLAYER_PENALTY_PER_YEAR);
+    }
+
+    // Factor in potential (adds value for high-potential players)
+    salary *= (1 + player.potentialGrade * 0.1);
+
+    // Clamp to min/max range
+    salary = clamp(salary, config.MIN_SALARY, config.MAX_SALARY);
+
+    // Round to 1 decimal place
+    return Math.round(salary * 10) / 10;
+}
+
+/**
+ * Calculate trade value in draft points for a player.
+ * Trade value decreases based on contract count:
+ * - 0 (rookie contract ending): 100% value
+ * - 1 (after first re-sign): 50% value
+ * - 2+ (after second+ re-sign): 0% value (can't trade, must re-sign or release)
+ */
+export function calculateTradeValueDraftPoints(player: EconomyPlayer): number {
+    const config = ECONOMY_CONSTANTS.CONTRACTS.TRADE_VALUE;
+    const contractCount = player.contractData?.contractCount ?? 0;
+
+    // Determine trade multiplier based on contract count
+    let tradeMultiplier: number;
+    if (contractCount === 0) {
+        tradeMultiplier = 1.0;
+    } else if (contractCount === 1) {
+        tradeMultiplier = config.FIRST_RESIGN_MULTIPLIER;
+    } else {
+        tradeMultiplier = config.SUBSEQUENT_RESIGN_MULTIPLIER;
+    }
+
+    // If no trade value, return 0 immediately
+    if (tradeMultiplier === 0) {
+        return 0;
+    }
+
+    // Calculate base value from overall
+    let value = player.overall * config.BASE_VALUE_PER_OVERALL;
+
+    // Young player bonus
+    if (player.age <= 26) {
+        value *= config.YOUNG_PLAYER_MULTIPLIER;
+    }
+
+    // Old player penalty
+    if (player.age >= 30) {
+        const yearsOver = player.age - 30;
+        value *= Math.max(0.3, 1 - yearsOver * config.OLD_PLAYER_PENALTY_PER_YEAR);
+    }
+
+    // Factor in potential
+    value *= (1 + player.potentialGrade * 0.15);
+
+    // Apply minimum value floor (before contract multiplier)
+    value = Math.max(config.MIN_VALUE, value);
+
+    // Apply contract count multiplier
+    value *= tradeMultiplier;
+
+    return Math.round(value);
+}
+
+/**
+ * Get all players with expiring contracts on a team.
+ * These are players who need re-signing decisions before the next season.
+ */
+export function getExpiringContracts(team: Team): ExpiringContract[] {
+    return team.roster
+        .filter(player => {
+            // Players without contract data are considered expired
+            if (!player.contractData) return true;
+            return player.contractData.yearsRemaining <= 0;
+        })
+        .map(player => {
+            const contractCount = player.contractData?.contractCount ?? 0;
+            const tradeValue = calculateTradeValueDraftPoints(player);
+
+            return {
+                player,
+                proposedSalary: calculateResignSalary(player),
+                tradeValue,
+                canTrade: tradeValue > 0,
+            };
+        });
+}
+
+/**
+ * Check if a player's contract is expired and needs a decision.
+ */
+export function isContractExpired(player: EconomyPlayer): boolean {
+    if (!player.contractData) return true;
+    return player.contractData.yearsRemaining <= 0;
+}
+
+/**
+ * Decrement contract years for all players on a team.
+ * Called at the end of each season.
+ */
+export function decrementContractYears(team: Team): void {
+    team.roster.forEach(player => {
+        if (player.contractData && player.contractData.yearsRemaining > 0) {
+            player.contractData.yearsRemaining--;
+        }
+    });
+}
+
+/**
+ * Process a re-signing decision for a player.
+ *
+ * @param team - The team the player is on
+ * @param playerId - The player's ID
+ * @param choice - 'resign', 'trade', or 'release'
+ * @param draftPointsManager - Object to track draft points (passed by reference)
+ * @returns Result of the re-signing decision
+ */
+export function processResigningDecision(
+    team: Team,
+    playerId: string,
+    choice: ResigningChoice,
+    draftPointsManager?: { draftPoints: number }
+): ResigningResult {
+    const playerIndex = team.roster.findIndex(p => p.id === playerId);
+    if (playerIndex === -1) {
+        return {
+            success: false,
+            choice,
+            player: {} as EconomyPlayer,
+            message: 'Player not found on team roster',
+        };
+    }
+
+    const player = team.roster[playerIndex];
+    const playerName = `${player.firstName} ${player.lastName}`;
+
+    switch (choice) {
+        case 'resign': {
+            const newSalary = calculateResignSalary(player);
+            const currentContractCount = player.contractData?.contractCount ?? 0;
+
+            // Create new contract
+            player.contractData = {
+                yearsRemaining: ECONOMY_CONSTANTS.CONTRACTS.CONTRACT_LENGTH,
+                annualSalary: newSalary,
+                contractCount: currentContractCount + 1,
+                draftPick: player.contractData?.draftPick,
+            };
+
+            return {
+                success: true,
+                choice,
+                player,
+                newSalary,
+                message: `${playerName} re-signed for ${ECONOMY_CONSTANTS.CONTRACTS.CONTRACT_LENGTH} years at $${newSalary}M/year`,
+            };
+        }
+
+        case 'trade': {
+            const tradeValue = calculateTradeValueDraftPoints(player);
+
+            if (tradeValue === 0) {
+                return {
+                    success: false,
+                    choice,
+                    player,
+                    message: `${playerName} cannot be traded (contract count too high). Must re-sign or release.`,
+                };
+            }
+
+            // Remove player from roster
+            team.roster.splice(playerIndex, 1);
+
+            // Add draft points if manager provided
+            if (draftPointsManager) {
+                draftPointsManager.draftPoints += tradeValue;
+            }
+
+            return {
+                success: true,
+                choice,
+                player,
+                draftPointsReceived: tradeValue,
+                message: `${playerName} traded for ${tradeValue} draft points`,
+            };
+        }
+
+        case 'release': {
+            // Remove player from roster with no compensation
+            team.roster.splice(playerIndex, 1);
+
+            return {
+                success: true,
+                choice,
+                player,
+                draftPointsReceived: 0,
+                message: `${playerName} released`,
+            };
+        }
+
+        default:
+            return {
+                success: false,
+                choice,
+                player,
+                message: 'Invalid choice',
+            };
+    }
+}
+
+/**
+ * Initialize contract data for an existing player (non-rookie).
+ * Used for players generated outside the draft system.
+ * Contract length is randomized between 1-4 years.
+ */
+export function initializeVeteranContract(player: EconomyPlayer): ContractData {
+    const yearsInLeague = player.yearsInLeague || (player.age - 21);
+
+    // Estimate contract count based on years in league
+    // Assume each contract is roughly 4 years
+    const estimatedContractCount = Math.min(3, Math.floor(yearsInLeague / 4));
+
+    // Random years remaining (1-4)
+    const yearsRemaining = randomInt(1, ECONOMY_CONSTANTS.CONTRACTS.CONTRACT_LENGTH);
+
+    // Calculate salary based on current stats
+    const salary = calculateResignSalary(player);
+
+    return {
+        yearsRemaining,
+        annualSalary: salary,
+        contractCount: estimatedContractCount,
+    };
+}
+
+/**
+ * Get a summary of contract status for display
+ */
+export function getContractStatusSummary(player: EconomyPlayer): {
+    yearsRemaining: number;
+    annualSalary: number;
+    contractCount: number;
+    isExpired: boolean;
+    canBeTrad: boolean;
+    tradeValue: number;
+    proposedResignSalary: number;
+} {
+    const contractData = player.contractData;
+    const isExpired = isContractExpired(player);
+    const tradeValue = calculateTradeValueDraftPoints(player);
+
+    return {
+        yearsRemaining: contractData?.yearsRemaining ?? 0,
+        annualSalary: contractData?.annualSalary ?? 0,
+        contractCount: contractData?.contractCount ?? 0,
+        isExpired,
+        canBeTrad: tradeValue > 0,
+        tradeValue,
+        proposedResignSalary: calculateResignSalary(player),
+    };
 }
 
 // ============================================================================
@@ -2108,7 +2539,10 @@ export class FootballEconomyEngine {
     // ========================================================================
 
     /**
-     * Process end of season for all teams
+     * Process end of season for all teams.
+     * This handles aging, contract year decrements, and resets.
+     * Note: Contract re-signing should be handled separately via getExpiringContracts
+     * and processResigningDecision before calling this.
      */
     processEndOfSeason(): void {
         this.teams.forEach(team => {
@@ -2118,6 +2552,9 @@ export class FootballEconomyEngine {
                 player.yearsInLeague++;
             });
 
+            // Decrement contract years for all players
+            decrementContractYears(team);
+
             // Reset season stats
             this.resetSeasonEarnings(team.id);
 
@@ -2125,6 +2562,95 @@ export class FootballEconomyEngine {
             team.record = { wins: 0, losses: 0 };
             team.playoffFinish = undefined;
         });
+    }
+
+    // ========================================================================
+    // CONTRACT MANAGEMENT
+    // ========================================================================
+
+    /**
+     * Get all players with expiring contracts for a team.
+     * Call this before processEndOfSeason to handle re-signing.
+     */
+    getExpiringContracts(teamId: string): ExpiringContract[] {
+        const team = this.teams.get(teamId);
+        if (!team) return [];
+        return getExpiringContracts(team);
+    }
+
+    /**
+     * Process a re-signing decision for a player.
+     * @param teamId - The team ID
+     * @param playerId - The player ID
+     * @param choice - 'resign', 'trade', or 'release'
+     * @param draftPointsManager - Object to track draft points
+     */
+    processResigning(
+        teamId: string,
+        playerId: string,
+        choice: ResigningChoice,
+        draftPointsManager?: { draftPoints: number }
+    ): ResigningResult {
+        const team = this.teams.get(teamId);
+        if (!team) {
+            return {
+                success: false,
+                choice,
+                player: {} as EconomyPlayer,
+                message: 'Team not found',
+            };
+        }
+        return processResigningDecision(team, playerId, choice, draftPointsManager);
+    }
+
+    /**
+     * Initialize a rookie contract for a drafted player.
+     * @param playerId - The player ID
+     * @param teamId - The team that drafted the player
+     * @param pickNumber - The overall draft pick number (1-60)
+     */
+    initializeRookieContract(teamId: string, playerId: string, pickNumber: number): boolean {
+        const team = this.teams.get(teamId);
+        if (!team) return false;
+
+        const player = team.roster.find(p => p.id === playerId);
+        if (!player) return false;
+
+        player.contractData = initializeRookieContract(pickNumber);
+        return true;
+    }
+
+    /**
+     * Get contract summary for a player
+     */
+    getContractSummary(teamId: string, playerId: string): {
+        yearsRemaining: number;
+        annualSalary: number;
+        contractCount: number;
+        isExpired: boolean;
+        canBeTrad: boolean;
+        tradeValue: number;
+        proposedResignSalary: number;
+    } | null {
+        const team = this.teams.get(teamId);
+        if (!team) return null;
+
+        const player = team.roster.find(p => p.id === playerId);
+        if (!player) return null;
+
+        return getContractStatusSummary(player);
+    }
+
+    /**
+     * Calculate total salary cap usage for a team
+     */
+    getTeamSalaryTotal(teamId: string): number {
+        const team = this.teams.get(teamId);
+        if (!team) return 0;
+
+        return team.roster.reduce((total, player) => {
+            return total + (player.contractData?.annualSalary ?? 0);
+        }, 0);
     }
 
     /**
@@ -2188,7 +2714,7 @@ export const economyEngine = new FootballEconomyEngine();
 // ============================================================================
 
 /**
- * Helper to migrate existing players to have hype data and core attributes
+ * Helper to migrate existing players to have hype data, core attributes, and contract data
  */
 export function migratePlayerToEconomy(existingPlayer: {
     id: string;
@@ -2203,6 +2729,7 @@ export function migratePlayerToEconomy(existingPlayer: {
     yearsInLeague?: number;
     salaryCost?: number;
     coreAttributes?: CoreAttributes;
+    contractData?: ContractData;
 }): EconomyPlayer {
     // Infer tier from overall for core attribute generation
     const tier: PlayerTier = existingPlayer.overall >= 88 ? 'elite' :
@@ -2210,13 +2737,22 @@ export function migratePlayerToEconomy(existingPlayer: {
         existingPlayer.overall >= 68 ? 'average' :
         existingPlayer.overall >= 58 ? 'below_average' : 'backup';
 
-    return {
+    const player: EconomyPlayer = {
         ...existingPlayer,
         yearsInLeague: existingPlayer.yearsInLeague ?? Math.max(0, existingPlayer.age - 21),
         salaryCost: existingPlayer.salaryCost ?? 500,
         hypeData: initializeHypeData(),
         coreAttributes: existingPlayer.coreAttributes ?? generateCoreAttributes(existingPlayer.position, tier),
     };
+
+    // Initialize contract data if not provided
+    if (!existingPlayer.contractData) {
+        player.contractData = initializeVeteranContract(player);
+    } else {
+        player.contractData = existingPlayer.contractData;
+    }
+
+    return player;
 }
 
 /**

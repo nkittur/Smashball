@@ -526,7 +526,7 @@
                 <div class="clock-row clock-main">
                     <span id="draftTeamName">Team Name</span>
                     <button id="btnAcquirePick" class="trade-for-btn" style="display:none;">TRADE <span class="trade-cost">0/0</span></button>
-                    <button id="btnTradeInPick" class="trade-in-btn" style="display:none;">TRADE IN <span class="trade-value">+0</span></button>
+                    <button id="btnTradeInPick" class="trade-in-btn" style="display:none;">TRADE PICK <span class="trade-value">+0 pts</span></button>
                 </div>
             </div>
 
@@ -3805,8 +3805,32 @@
             ROUND_DROP: 0.70,       // 30% drop at round boundaries
             // Pick trading defaults
             DEFAULT_TRADE_IN_PENALTY: 50,    // Penalty points when trading in your pick (like a round 5 pick cost)
-            DEFAULT_ACQUIRE_PREMIUM: 0.10    // 10% premium when acquiring another team's pick
+            DEFAULT_ACQUIRE_PREMIUM: 0.10,   // 10% premium when acquiring another team's pick
+            // Rookie contract salaries
+            ROOKIE_SALARY: {
+                PICK_1: 15,          // $15M/year for #1 pick
+                PICK_2: 12,          // $12M/year for #2 pick
+                MIN: 1               // $1M/year minimum for late round picks
+            }
         };
+
+        // Calculate rookie contract salary based on draft pick position
+        // Pick 1: $15M, Pick 2: $12M, decreasing to ~$1M by round 3+
+        function calculateRookieSalary(pickNumber) {
+            if (pickNumber === 1) return DRAFT.ROOKIE_SALARY.PICK_1;
+            if (pickNumber === 2) return DRAFT.ROOKIE_SALARY.PICK_2;
+
+            const totalPicks = DRAFT.NUM_TEAMS * DRAFT.ROUNDS; // 60 picks
+            const maxSalary = DRAFT.ROOKIE_SALARY.PICK_2;
+            const minSalary = DRAFT.ROOKIE_SALARY.MIN;
+
+            // Exponential decay from pick 2's value down to minimum
+            const normalizedPick = (pickNumber - 1) / (totalPicks - 1);
+            const decayFactor = Math.exp(-4 * normalizedPick);
+            const salary = minSalary + (maxSalary - minSalary) * decayFactor;
+
+            return Math.round(salary * 10) / 10; // Round to 1 decimal
+        }
 
         // Calculate cost of a draft pick based on position in pool
         // Picks 1-7: Exact values from EARLY_COSTS
@@ -3937,10 +3961,218 @@
             draftPool: [],
             draftedPlayers: [],  // IDs of all drafted players (by any team)
             playerPicks: [],     // IDs of players drafted by the user
+            computerTeamRosters: {},  // Track what each computer team has drafted: { teamIndex: [players] }
+            computerTeamStrategies: {},  // Each team's draft strategy: { teamIndex: 'contender'|'balanced'|'rebuilder' }
             isNewGame: false,
             viewingRoster: false,
             selectedDraftPlayer: null
         };
+
+        // Ideal roster composition per position
+        const IDEAL_ROSTER = {
+            QB: 1,
+            WR: 3,
+            CB: 4,
+            OL: 5,
+            DL: 4
+        };
+
+        // Calculate positional needs for a team based on what they've drafted
+        // Considers both roster gaps AND quality of existing players
+        function calculatePositionalNeeds(teamRoster) {
+            const roster = teamRoster || [];
+            const positionData = {};
+
+            // Initialize position data
+            Object.keys(IDEAL_ROSTER).forEach(pos => {
+                positionData[pos] = {
+                    players: [],
+                    count: 0,
+                    bestOverall: 0,
+                    avgOverall: 0
+                };
+            });
+
+            // Gather data for each position
+            roster.forEach(player => {
+                if (positionData[player.position]) {
+                    positionData[player.position].players.push(player);
+                    positionData[player.position].count++;
+                }
+            });
+
+            // Calculate best and average overall for each position
+            Object.keys(positionData).forEach(pos => {
+                const players = positionData[pos].players;
+                if (players.length > 0) {
+                    positionData[pos].bestOverall = Math.max(...players.map(p => p.overall));
+                    positionData[pos].avgOverall = players.reduce((sum, p) => sum + p.overall, 0) / players.length;
+                }
+            });
+
+            // Calculate need scores (higher = more needed)
+            const needs = [];
+            Object.keys(IDEAL_ROSTER).forEach(pos => {
+                const ideal = IDEAL_ROSTER[pos];
+                const data = positionData[pos];
+                const spotsNeeded = ideal - data.count;
+
+                let urgency = 0;
+
+                if (data.count === 0) {
+                    // Position completely empty - critical need
+                    urgency = 5;
+                } else if (spotsNeeded > 0) {
+                    // Have some players but not enough
+                    // Base urgency from spots needed (1-4)
+                    urgency = Math.min(4, spotsNeeded);
+
+                    // Bonus if current players are weak (best player < 75)
+                    if (data.bestOverall < 75) {
+                        urgency += 2;
+                    } else if (data.bestOverall < 80) {
+                        urgency += 1;
+                    }
+                } else {
+                    // At ideal count - might still want to upgrade if players are weak
+                    if (data.bestOverall < 70) {
+                        urgency = 2; // Weak starter, consider upgrading
+                    } else if (data.bestOverall < 75) {
+                        urgency = 1; // Below average, slight interest
+                    }
+                    // Otherwise urgency stays 0 - position is filled with good players
+                }
+
+                if (urgency > 0) {
+                    needs.push({
+                        position: pos,
+                        need: spotsNeeded,
+                        urgency: urgency,
+                        bestOverall: data.bestOverall
+                    });
+                }
+            });
+
+            // Sort by urgency (highest first)
+            needs.sort((a, b) => b.urgency - a.urgency);
+
+            return needs;
+        }
+
+        // Get top N positional needs as a display string
+        function getPositionalNeedsDisplay(teamRoster, count = 2) {
+            const needs = calculatePositionalNeeds(teamRoster);
+            if (needs.length === 0) return '';
+
+            const topNeeds = needs.slice(0, count).map(n => n.position);
+            return topNeeds.join(', ');
+        }
+
+        // Team draft strategies - affects how they value players
+        const DRAFT_STRATEGIES = {
+            contender: {
+                name: 'Contender',
+                icon: '🏆',
+                overallWeight: 1.3,      // Values high overall more
+                growthWeight: 0.5,       // Less interested in potential
+                description: 'Win-now mode, wants immediate contributors'
+            },
+            balanced: {
+                name: 'Balanced',
+                icon: '⚖️',
+                overallWeight: 1.0,
+                growthWeight: 1.0,
+                description: 'Balances current ability with future upside'
+            },
+            rebuilder: {
+                name: 'Rebuilder',
+                icon: '📈',
+                overallWeight: 0.7,      // Less focused on current overall
+                growthWeight: 1.6,       // Highly values youth and potential
+                description: 'Building for the future, wants young talent'
+            }
+        };
+
+        // Assign random strategies to computer teams at draft start
+        function assignTeamStrategies() {
+            const strategies = {};
+            const strategyTypes = ['contender', 'balanced', 'rebuilder'];
+
+            for (let i = 0; i < DRAFT.NUM_TEAMS - 1; i++) {
+                // Weighted distribution: 30% contender, 40% balanced, 30% rebuilder
+                const roll = Math.random();
+                if (roll < 0.3) {
+                    strategies[i] = 'contender';
+                } else if (roll < 0.7) {
+                    strategies[i] = 'balanced';
+                } else {
+                    strategies[i] = 'rebuilder';
+                }
+            }
+
+            return strategies;
+        }
+
+        // Calculate player value for draft selection
+        // Weighs overall rating, growth potential, and positional need
+        // Strategy affects the balance between overall and growth
+        function calculateDraftValue(player, teamRoster, strategy = 'balanced') {
+            const strat = DRAFT_STRATEGIES[strategy] || DRAFT_STRATEGIES.balanced;
+
+            // Base value from overall (0-100 scale), weighted by strategy
+            let value = player.overall * strat.overallWeight;
+
+            // Growth potential bonus (age + potential grade), weighted by strategy
+            // Young players with high potential are more valuable to rebuilders
+            const ageBonus = Math.max(0, (24 - player.age) * 2); // Up to +6 for age 21
+            const potentialBonus = player.potentialGrade * 4; // Up to +12 for 3-star potential
+            value += (ageBonus + potentialBonus) * strat.growthWeight;
+
+            // Positional need multiplier
+            const needs = calculatePositionalNeeds(teamRoster);
+            const posNeed = needs.find(n => n.position === player.position);
+
+            if (posNeed) {
+                // Multiply value based on need (1.0 to 1.5)
+                const needMultiplier = 1 + (posNeed.urgency * 0.1);
+                value *= Math.min(1.5, needMultiplier);
+            } else {
+                // Position already filled - reduce value significantly
+                value *= 0.5;
+            }
+
+            return value;
+        }
+
+        // Smart computer team selection
+        function selectBestPlayerForTeam(available, teamRoster, strategy = 'balanced') {
+            if (available.length === 0) return null;
+
+            // Score all available players
+            const scored = available.map(player => ({
+                player,
+                value: calculateDraftValue(player, teamRoster, strategy)
+            }));
+
+            // Sort by value (highest first)
+            scored.sort((a, b) => b.value - a.value);
+
+            // Add some randomness: pick from top 3 candidates with weighted probability
+            const topCandidates = scored.slice(0, Math.min(3, scored.length));
+
+            // Weight towards higher value picks but allow some variance
+            const totalValue = topCandidates.reduce((sum, c) => sum + c.value, 0);
+            let roll = Math.random() * totalValue;
+
+            for (const candidate of topCandidates) {
+                roll -= candidate.value;
+                if (roll <= 0) {
+                    return candidate.player;
+                }
+            }
+
+            return topCandidates[0].player; // Fallback to best
+        }
 
         // Generate draft class with realistic ratings
         // Guaranteed: 1-3 elite (90+), 6+ standouts (85-89), rest are developmental
@@ -3969,6 +4201,8 @@
                         });
                     }
                     player.overall = calculateOverall(player);
+                    // Sync seasonStartStats with modified stats
+                    player.seasonStartStats = { ...player.stats };
                 }
                 // Cap at 92
                 if (player.overall > 92) {
@@ -3977,6 +4211,8 @@
                         player.stats[stat] = Math.floor(player.stats[stat] * scale);
                     });
                     player.overall = calculateOverall(player);
+                    // Sync seasonStartStats with modified stats
+                    player.seasonStartStats = { ...player.stats };
                 }
                 player.salaryCost = calculateSalary(player.stats, player.position);
                 draftClass.push(player);
@@ -4003,6 +4239,8 @@
                         });
                     }
                     player.overall = calculateOverall(player);
+                    // Sync seasonStartStats with modified stats
+                    player.seasonStartStats = { ...player.stats };
                 }
                 player.salaryCost = calculateSalary(player.stats, player.position);
                 draftClass.push(player);
@@ -4032,6 +4270,8 @@
                         player.stats[stat] = Math.floor(player.stats[stat] * scale);
                     });
                     player.overall = calculateOverall(player);
+                    // Sync seasonStartStats with modified stats
+                    player.seasonStartStats = { ...player.stats };
                 }
 
                 player.salaryCost = calculateSalary(player.stats, player.position);
@@ -4069,6 +4309,8 @@
             draftState.draftPool = generateDraftClass();
             draftState.draftedPlayers = [];
             draftState.playerPicks = [];
+            draftState.computerTeamRosters = {};  // Reset computer team rosters for new draft
+            draftState.computerTeamStrategies = assignTeamStrategies();  // Assign draft strategies
             draftState.isNewGame = isNewGame;
             draftState.viewingRoster = false;
             draftState.selectedDraftPlayer = null;
@@ -4118,18 +4360,27 @@
                 return;
             }
 
-            // Computer team picks from top available players (with some randomness)
-            const pickRange = Math.min(3, available.length);
-            const pickIdx = Math.floor(Math.random() * pickRange);
-            const picked = available[pickIdx];
+            // Get the current team's roster and strategy for smart selection
+            const teamIndex = (draftState.currentPickNumber - 1) % (DRAFT.NUM_TEAMS - 1);
+            const teamRoster = draftState.computerTeamRosters[teamIndex] || [];
+            const teamStrategy = draftState.computerTeamStrategies[teamIndex] || 'balanced';
+
+            // Smart selection based on overall, growth potential, positional need, and team strategy
+            const picked = selectBestPlayerForTeam(available, teamRoster, teamStrategy);
 
             if (picked) {
                 draftState.draftedPlayers.push(picked.id);
 
+                // Track this pick in the team's roster
+                if (!draftState.computerTeamRosters[teamIndex]) {
+                    draftState.computerTeamRosters[teamIndex] = [];
+                }
+                draftState.computerTeamRosters[teamIndex].push(picked);
+
                 // Store the pick for display
-                const teamIndex = (draftState.currentPickNumber - 1) % (DRAFT.NUM_TEAMS - 1);
                 draftState.lastComputerPick = {
                     teamName: COMPUTER_TEAM_NAMES[teamIndex],
+                    teamIndex: teamIndex,
                     player: picked,
                     pickNumber: draftState.currentPickNumber
                 };
@@ -4143,17 +4394,30 @@
 
         // Skip all computer picks and go directly to player's turn
         function skipToPlayerTurn() {
-            const available = getAvailableDraftPlayers();
+            let available = getAvailableDraftPlayers();
 
             while (!isPlayersTurnNow() && available.length > 0) {
-                // Computer team picks from top available
-                const pickRange = Math.min(3, available.length);
-                const pickIdx = Math.floor(Math.random() * pickRange);
-                const picked = available.splice(pickIdx, 1)[0];
+                // Get the current team's roster and strategy for smart selection
+                const teamIndex = (draftState.currentPickNumber - 1) % (DRAFT.NUM_TEAMS - 1);
+                const teamRoster = draftState.computerTeamRosters[teamIndex] || [];
+                const teamStrategy = draftState.computerTeamStrategies[teamIndex] || 'balanced';
+
+                // Smart selection based on overall, growth potential, positional need, and team strategy
+                const picked = selectBestPlayerForTeam(available, teamRoster, teamStrategy);
 
                 if (picked) {
                     draftState.draftedPlayers.push(picked.id);
+
+                    // Track this pick in the team's roster
+                    if (!draftState.computerTeamRosters[teamIndex]) {
+                        draftState.computerTeamRosters[teamIndex] = [];
+                    }
+                    draftState.computerTeamRosters[teamIndex].push(picked);
+
                     draftState.currentPickNumber++;
+
+                    // Remove picked player from available list
+                    available = available.filter(p => p.id !== picked.id);
                 }
             }
 
@@ -4403,12 +4667,15 @@
             // Set player name
             document.getElementById('playerName').textContent = `${player.firstName} ${player.lastName}`;
 
-            // Player info - draft version (no cost - picks are free)
+            // Calculate rookie salary based on current pick number
+            const rookieSalary = calculateRookieSalary(draftState.currentPickNumber);
+
+            // Player info - draft version showing rookie contract salary
             const infoHtml = `
                 <div><span class="ovr-big">${player.overall}</span></div>
                 <div style="margin-top:10px;">
-                    ${POSITIONS[player.position].name} | Age ${player.age} | Peak ${player.peakAge}<br>
-                    Salary: ${formatSalary(player.salaryCost)} | Potential: ${'★'.repeat(player.potentialGrade)}
+                    ${POSITIONS[player.position].name} | Age ${player.age}<br>
+                    Rookie Contract: $${rookieSalary}M/yr | Potential: ${'★'.repeat(player.potentialGrade)}
                 </div>
             `;
             document.getElementById('playerInfo').innerHTML = infoHtml;
@@ -4556,7 +4823,14 @@
             // Update last pick notification bar
             if (draftState.lastComputerPick) {
                 const pick = draftState.lastComputerPick;
-                lastPickTextEl.innerHTML = `Pick #${pick.pickNumber}: <span class="team-name">${pick.teamName}</span> → <span class="player-name">${pick.player.firstName} ${pick.player.lastName}</span> <span class="overall">${pick.player.overall}</span>`;
+                const pickTeamRoster = draftState.computerTeamRosters[pick.teamIndex] || [];
+                const pickStrategy = draftState.computerTeamStrategies[pick.teamIndex] || 'balanced';
+                const pickStrategyIcon = DRAFT_STRATEGIES[pickStrategy]?.icon || '';
+                const pickNeedsDisplay = getPositionalNeedsDisplay(pickTeamRoster, 2);
+                const needsSpan = pickNeedsDisplay
+                    ? ` <span style="font-size:11px;font-style:italic;opacity:0.7;">(${pickNeedsDisplay})</span>`
+                    : '';
+                lastPickTextEl.innerHTML = `Pick #${pick.pickNumber}: <span class="team-name">${pickStrategyIcon} ${pick.teamName}</span>${needsSpan} → <span class="player-name">${pick.player.firstName} ${pick.player.lastName}</span> <span class="overall">${pick.player.overall}</span>`;
             } else {
                 lastPickTextEl.textContent = 'Draft in progress...';
             }
@@ -4568,18 +4842,24 @@
             // Update on-the-clock section
             if (draftState.usingExtraPick) {
                 onClockEl.className = 'draft-on-clock player';
-                teamNameEl.textContent = 'YOUR PICK';
+                teamNameEl.innerHTML = 'YOUR PICK';
                 navButtonsEl.style.display = 'none';
             } else if (draftState.isPlayersTurn || !isComputerTurn) {
                 if (!draftState.isPlayersTurn) draftState.isPlayersTurn = true;
                 onClockEl.className = 'draft-on-clock player';
-                teamNameEl.textContent = 'YOUR TURN';
+                teamNameEl.innerHTML = 'YOUR TURN';
                 navButtonsEl.style.display = 'none';
             } else {
                 onClockEl.className = 'draft-on-clock computer';
-                // Show actual team name on the clock
+                // Show actual team name on the clock with strategy icon and positional needs
                 const teamIndex = (draftState.currentPickNumber - 1) % (DRAFT.NUM_TEAMS - 1);
-                teamNameEl.textContent = COMPUTER_TEAM_NAMES[teamIndex] || 'Team';
+                const teamRoster = draftState.computerTeamRosters[teamIndex] || [];
+                const teamStrategy = draftState.computerTeamStrategies[teamIndex] || 'balanced';
+                const strategyIcon = DRAFT_STRATEGIES[teamStrategy]?.icon || '';
+                const needsDisplay = getPositionalNeedsDisplay(teamRoster, 2);
+                const teamName = COMPUTER_TEAM_NAMES[teamIndex] || 'Team';
+                teamNameEl.innerHTML = `${strategyIcon} ${teamName}` +
+                    (needsDisplay ? ` <span style="font-size:12px;font-style:italic;opacity:0.8;">(${needsDisplay})</span>` : '');
                 navButtonsEl.style.display = 'flex';
             }
 
@@ -4588,11 +4868,11 @@
                 tradeInBtn.style.display = 'none';
                 acquireBtn.style.display = 'none';
             } else if (draftState.isPlayersTurn) {
-                // Player's turn: Show TRADE IN only
+                // Player's turn: Show TRADE PICK option
                 acquireBtn.style.display = 'none';
                 if (draftState.picksRemaining > 0 && available.length > 0) {
                     tradeInBtn.style.display = 'inline-block';
-                    tradeInBtn.innerHTML = `TRADE IN PICK <span class="trade-value">+${tradeInValue}</span>`;
+                    tradeInBtn.innerHTML = `TRADE PICK <span class="trade-value">+${tradeInValue} pts</span>`;
                 } else {
                     tradeInBtn.style.display = 'none';
                 }
@@ -11783,7 +12063,7 @@
             const infoHtml = `
                 <div><span class="ovr-big">${player.overall}</span>${overallChangeText}</div>
                 <div style="margin-top:10px;">
-                    ${POSITIONS[player.position].name} | Age ${player.age} | Peak ${player.peakAge}<br>
+                    ${POSITIONS[player.position].name} | Age ${player.age}<br>
                     Salary: ${formatSalary(player.salaryCost)} | Potential: ${'★'.repeat(player.potentialGrade)}<br>
                     <span style="color:#ffd700;">Fame Bank: ${fameBank}</span> | <span style="color:#4af;">Hype: ${hypeDisplay}</span><br>
                     <span style="color:${tradeValue > 0 ? '#4f4' : '#888'}">${tradeText}</span>
