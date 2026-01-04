@@ -32,56 +32,49 @@ Each observable stat is generated from underlying attributes with:
 
 ## Combine Stats
 
-Physical measurables taken at the draft combine. These primarily reflect **core attributes**.
+Physical and mental measurables taken at the draft combine. Each test targets **specific attributes** with minimal overlap.
 
-### Combine Events Table
+### Athletic Testing
 
-| Event | Unit | Primary Attributes | Secondary Attributes | Formula |
-|-------|------|-------------------|---------------------|---------|
-| **40-Yard Dash** | seconds | Speed (60%) | Agility (20%), Strength (20%) | Lower = better |
-| **Bench Press** | reps | Strength (70%) | - | 225 lbs, more = better |
-| **Vertical Jump** | inches | Speed (40%), Strength (40%) | Agility (20%) | Higher = better |
-| **Broad Jump** | inches | Speed (40%), Strength (40%) | Agility (20%) | Higher = better |
-| **3-Cone Drill** | seconds | Agility (60%) | Speed (25%), Intelligence (15%) | Lower = better |
-| **20-Yard Shuttle** | seconds | Agility (50%), Speed (30%) | Intelligence (20%) | Lower = better |
+| Event | Unit | Primary Attribute | Secondary | Notes |
+|-------|------|-------------------|-----------|-------|
+| **40-Yard Dash** | seconds | Speed (82%) | Agility (18%) | Pure speed test |
+| **Vertical Jump** | inches | Speed (56%) | Agility (44%) | Explosiveness |
+| **3-Cone Drill** | seconds | Agility (83%) | Speed (17%) | Change of direction |
+| **20-Yard Shuttle** | seconds | Agility (70%) | Speed (30%) | Lateral quickness |
+| **Bench Press** | reps | Strength (100%) | - | Upper body strength |
+| **Broad Jump** | inches | Strength (55%) | Speed (45%) | Lower body power |
 
-### Combine Stat Formulas
+### Mental/Interview Testing
 
-```
-40-Yard Dash (seconds):
-  base = 5.2 - (speed * 0.012) - (agility * 0.004) - (strength * 0.004)
-  range: 4.2 - 5.0 seconds (elite to poor)
+| Event | Format | Primary Attribute | Secondary | Notes |
+|-------|--------|-------------------|-----------|-------|
+| **Wonderlic** | 0-50 score | Intelligence (100%) | - | Cognitive test |
+| **Film Study** | Letter grade | Intelligence (70%) | Agility/Speed (30%) | Football IQ |
+| **Position Drills** | Letter grade | Intelligence (40%) | Agility (30%), Speed (30%) | Learning ability |
 
-Bench Press (reps @ 225 lbs):
-  base = (strength - 30) * 0.5
-  range: 10-35 reps
+### Design Rationale
 
-Vertical Jump (inches):
-  base = 20 + (speed * 0.12) + (strength * 0.12) + (agility * 0.06)
-  range: 28-44 inches
+Each physical test is designed to isolate specific attributes:
+- **Speed tests** (40-yard, vertical): No strength component - pure speed/explosiveness
+- **Agility tests** (3-cone, shuttle): Minimal speed component - pure change of direction
+- **Strength tests** (bench): Pure upper body strength
+- **Power tests** (broad jump): Strength + speed combination for lower body
 
-Broad Jump (inches):
-  base = 90 + (speed * 0.15) + (strength * 0.15) + (agility * 0.08)
-  range: 108-132 inches
-
-3-Cone Drill (seconds):
-  base = 8.0 - (agility * 0.018) - (speed * 0.008) - (intelligence * 0.004)
-  range: 6.5-7.5 seconds
-
-20-Yard Shuttle (seconds):
-  base = 4.8 - (agility * 0.012) - (speed * 0.008) - (intelligence * 0.005)
-  range: 3.8-4.5 seconds
-```
+Mental tests reveal intelligence without physical skill:
+- **Wonderlic**: Raw cognitive ability, independent of football experience
+- **Film Study**: How well they understand football concepts
+- **Position Drills**: Ability to learn and execute new techniques
 
 ### Position-Specific Benchmarks
 
-| Position | 40-Yard | Bench | Vertical | Key Combine Stats |
-|----------|---------|-------|----------|-------------------|
-| QB | 4.6-5.0 | 15-20 | 30-35 | 40-yard, 3-cone |
-| WR | 4.3-4.6 | 12-18 | 35-42 | 40-yard, vertical |
-| CB | 4.3-4.5 | 12-16 | 36-44 | 40-yard, vertical, shuttle |
-| OL | 4.9-5.4 | 25-35 | 26-32 | Bench, 3-cone |
-| DL | 4.6-5.0 | 22-32 | 30-36 | Bench, 40-yard |
+| Position | 40-Yard | Wonderlic | Vertical | Key Tests |
+|----------|---------|-----------|----------|-----------|
+| QB | 4.6-5.0 | 28-40 | 30-35 | Wonderlic, Film Study |
+| WR | 4.3-4.6 | 18-28 | 35-42 | 40-yard, Vertical |
+| CB | 4.3-4.5 | 20-30 | 36-44 | 40-yard, 3-Cone |
+| OL | 4.9-5.4 | 24-32 | 26-32 | Bench, Wonderlic |
+| DL | 4.6-5.0 | 18-26 | 30-36 | Bench, 40-yard |
 
 ---
 

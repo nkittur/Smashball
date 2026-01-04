@@ -4001,29 +4001,46 @@
             };
 
             return {
+                // Pure speed test
                 fortyYard: Math.max(4.20, Math.min(5.40,
-                    (5.20 - (spd * 0.012) - (agi * 0.004) - (str * 0.004)) * (1 + variance(1))
+                    (5.30 - (spd * 0.014) - (agi * 0.003)) * (1 + variance(1))
                 )).toFixed(2),
 
+                // Pure strength test (225 lb reps)
                 benchPress: Math.max(8, Math.min(40, Math.round(
-                    ((str - 30) * 0.5 + 15) * (1 + variance(2))
+                    ((str - 30) * 0.55 + 12) * (1 + variance(2))
                 ))),
 
+                // Explosiveness - speed/agility focused
                 verticalJump: Math.max(24, Math.min(46,
-                    (20 + (spd * 0.12) + (str * 0.12) + (agi * 0.06)) * (1 + variance(3))
+                    (22 + (spd * 0.15) + (agi * 0.12)) * (1 + variance(3))
                 )).toFixed(1),
 
+                // Lower body power - strength + speed
                 broadJump: Math.max(100, Math.min(140, Math.round(
-                    (90 + (spd * 0.15) + (str * 0.15) + (agi * 0.08)) * (1 + variance(4))
+                    (85 + (str * 0.22) + (spd * 0.18)) * (1 + variance(4))
                 ))),
 
+                // Pure agility/change of direction
                 threeCone: Math.max(6.40, Math.min(7.80,
-                    (8.0 - (agi * 0.018) - (spd * 0.008) - (intel * 0.004)) * (1 + variance(5))
+                    (7.80 - (agi * 0.020) - (spd * 0.004)) * (1 + variance(5))
                 )).toFixed(2),
 
+                // Agility + speed combo
                 shuttle: Math.max(3.70, Math.min(4.70,
-                    (4.8 - (agi * 0.012) - (spd * 0.008) - (intel * 0.005)) * (1 + variance(6))
-                )).toFixed(2)
+                    (4.70 - (agi * 0.014) - (spd * 0.006)) * (1 + variance(6))
+                )).toFixed(2),
+
+                // Cognitive test (0-50 scale, like Wonderlic)
+                wonderlic: Math.max(10, Math.min(50, Math.round(
+                    (intel * 0.45 + 8) * (1 + variance(7) * 0.5)
+                ))),
+
+                // Film study/football IQ grade
+                filmGrade: getLetterGrade((intel * 0.7 + agi * 0.15 + spd * 0.15) * (1 + variance(8) * 0.3)),
+
+                // Position drills grade (technique + learning ability)
+                drillGrade: getLetterGrade((intel * 0.4 + agi * 0.3 + spd * 0.3) * (1 + variance(9) * 0.3))
             };
         }
 
@@ -5296,19 +5313,27 @@
                 `;
             }
 
-            // Combine Stats section
+            // Combine Stats section - Athletic Testing
             if (player.combineStats) {
                 const cs = player.combineStats;
                 statsHtml += `
                     <div class="stats-section">
-                        <div class="stats-section-title">Combine Results</div>
+                        <div class="stats-section-title">Athletic Testing</div>
                         <div class="stats-grid" style="font-size:12px;">
                             <div class="stat-row"><span class="stat-row-name">40-Yard</span><span class="stat-row-value">${formatCombineStat(cs.fortyYard, scoutLevel, 's', true)}</span></div>
-                            <div class="stat-row"><span class="stat-row-name">Bench</span><span class="stat-row-value">${formatCombineStat(cs.benchPress, scoutLevel, ' reps')}</span></div>
                             <div class="stat-row"><span class="stat-row-name">Vertical</span><span class="stat-row-value">${formatCombineStat(cs.verticalJump, scoutLevel, '"')}</span></div>
-                            <div class="stat-row"><span class="stat-row-name">Broad</span><span class="stat-row-value">${formatCombineStat(cs.broadJump, scoutLevel, '"')}</span></div>
                             <div class="stat-row"><span class="stat-row-name">3-Cone</span><span class="stat-row-value">${formatCombineStat(cs.threeCone, scoutLevel, 's', true)}</span></div>
                             <div class="stat-row"><span class="stat-row-name">Shuttle</span><span class="stat-row-value">${formatCombineStat(cs.shuttle, scoutLevel, 's', true)}</span></div>
+                            <div class="stat-row"><span class="stat-row-name">Bench</span><span class="stat-row-value">${formatCombineStat(cs.benchPress, scoutLevel, ' reps')}</span></div>
+                            <div class="stat-row"><span class="stat-row-name">Broad</span><span class="stat-row-value">${formatCombineStat(cs.broadJump, scoutLevel, '"')}</span></div>
+                        </div>
+                    </div>
+                    <div class="stats-section">
+                        <div class="stats-section-title">Mental/Interview</div>
+                        <div class="stats-grid" style="font-size:12px;">
+                            <div class="stat-row"><span class="stat-row-name">Wonderlic</span><span class="stat-row-value">${formatCombineStat(cs.wonderlic, scoutLevel, '/50')}</span></div>
+                            <div class="stat-row"><span class="stat-row-name">Film Study</span><span class="stat-row-value" style="color:#ffd700;">${cs.filmGrade}</span></div>
+                            <div class="stat-row"><span class="stat-row-name">Pos. Drills</span><span class="stat-row-value" style="color:#ffd700;">${cs.drillGrade}</span></div>
                         </div>
                     </div>
                 `;
