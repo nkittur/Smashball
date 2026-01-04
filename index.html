@@ -4106,13 +4106,21 @@
         // Scout a player (spend points to reduce uncertainty)
         // Exposed globally for onclick handlers
         window.scoutPlayer = function(playerId) {
+            console.log('scoutPlayer called with:', playerId);
+            console.log('draftState.scoutLevels:', draftState.scoutLevels);
+            console.log('managementState.team.draftPoints:', managementState.team?.draftPoints);
+
             const currentLevel = getPlayerScoutLevel(playerId);
+            console.log('currentLevel:', currentLevel);
+
             if (currentLevel >= SCOUTING.MAX_LEVEL) {
                 showNotification('Player fully scouted!', 'info');
                 return false;
             }
 
             const cost = calculateScoutingCost(draftState.currentPickNumber);
+            console.log('scout cost:', cost);
+
             if (managementState.team.draftPoints < cost) {
                 showNotification(`Need ${cost} draft points to scout!`, 'error');
                 return false;
@@ -4121,6 +4129,7 @@
             // Deduct points and increase scout level
             managementState.team.draftPoints -= cost;
             draftState.scoutLevels[playerId] = currentLevel + 1;
+            console.log('Scouted! New level:', draftState.scoutLevels[playerId]);
 
             showNotification(`Scouted player! (Level ${currentLevel + 1}/${SCOUTING.MAX_LEVEL})`, 'success');
 
@@ -4836,6 +4845,7 @@
             const growthInfo = getGrowthEstimate(player.potentialGrade, scoutLevel, playerId);
             const scoutCost = calculateScoutingCost(draftState.currentPickNumber);
             const canScout = scoutLevel < SCOUTING.MAX_LEVEL && managementState.team.draftPoints >= scoutCost;
+            console.log('Scout button debug:', { playerId, scoutLevel, scoutCost, draftPoints: managementState.team?.draftPoints, canScout });
 
             // Set player name
             document.getElementById('playerName').textContent = `${player.firstName} ${player.lastName}`;
@@ -4846,7 +4856,7 @@
             // Scout button HTML
             const scoutBtnHtml = scoutLevel >= SCOUTING.MAX_LEVEL
                 ? `<span style="color:#4CAF50;font-size:12px;">Fully Scouted ${'●'.repeat(SCOUTING.MAX_LEVEL)}</span>`
-                : `<button onclick="scoutPlayer('${playerId}')" style="background:${canScout ? '#2196F3' : '#666'};color:white;border:none;padding:6px 12px;border-radius:4px;cursor:${canScout ? 'pointer' : 'not-allowed'};font-size:12px;" ${canScout ? '' : 'disabled'}>
+                : `<button onclick="console.log('Scout button clicked for ${playerId}'); event.stopPropagation(); scoutPlayer('${playerId}');" style="background:${canScout ? '#2196F3' : '#666'};color:white;border:none;padding:6px 12px;border-radius:4px;cursor:${canScout ? 'pointer' : 'not-allowed'};font-size:12px;" ${canScout ? '' : 'disabled'}>
                     SCOUT (${scoutCost} pts) ${'●'.repeat(scoutLevel)}${'○'.repeat(SCOUTING.MAX_LEVEL - scoutLevel)}
                    </button>`;
 
