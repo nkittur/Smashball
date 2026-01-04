@@ -4844,13 +4844,36 @@
             draftState.selectedDraftPlayer = player;
             console.log('Set selectedDraftPlayer:', draftState.selectedDraftPlayer);
 
-            // Get scouting info
-            const scoutLevel = getPlayerScoutLevel(playerId);
-            const gradeInfo = getOverallGrade(player.overall, scoutLevel);
-            const growthInfo = getGrowthEstimate(player.potentialGrade, scoutLevel, playerId);
-            const scoutCost = calculateScoutingCost(draftState.currentPickNumber);
-            const canScout = scoutLevel < SCOUTING.MAX_LEVEL && managementState.team.draftPoints >= scoutCost;
-            console.log('Scout button debug:', { playerId, scoutLevel, scoutCost, draftPoints: managementState.team?.draftPoints, canScout });
+            // Get scouting info with error handling
+            let scoutLevel, gradeInfo, growthInfo, scoutCost, canScout;
+            try {
+                console.log('Getting scout level...');
+                scoutLevel = getPlayerScoutLevel(playerId);
+                console.log('scoutLevel:', scoutLevel);
+
+                console.log('Getting grade info, player.overall:', player.overall);
+                gradeInfo = getOverallGrade(player.overall, scoutLevel);
+                console.log('gradeInfo:', gradeInfo);
+
+                console.log('Getting growth info, player.potentialGrade:', player.potentialGrade);
+                growthInfo = getGrowthEstimate(player.potentialGrade, scoutLevel, playerId);
+                console.log('growthInfo:', growthInfo);
+
+                console.log('Getting scout cost, currentPickNumber:', draftState.currentPickNumber);
+                scoutCost = calculateScoutingCost(draftState.currentPickNumber);
+                console.log('scoutCost:', scoutCost);
+
+                canScout = scoutLevel < SCOUTING.MAX_LEVEL && managementState.team.draftPoints >= scoutCost;
+                console.log('Scout button debug:', { playerId, scoutLevel, scoutCost, draftPoints: managementState.team?.draftPoints, canScout });
+            } catch (err) {
+                console.error('Error getting scouting info:', err);
+                // Fallback values
+                scoutLevel = 0;
+                gradeInfo = { display: '??', isExact: false };
+                growthInfo = { display: '??', isExact: false };
+                scoutCost = 10;
+                canScout = false;
+            }
 
             // Set player name
             document.getElementById('playerName').textContent = `${player.firstName} ${player.lastName}`;
