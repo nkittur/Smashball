@@ -2015,42 +2015,48 @@
         };
 
         // Position definitions with stat priorities
-        // primaryStats: used for overall calculation
-        // techniqueStats: all technique stats used in gameplay calculations (excludes core attributes)
+        // coreStats: from player.coreAttributes (strength, speed, agility, intelligence)
+        // techniqueStats: from player.stats (position-specific skills)
+        // Overall = weighted average based on simulation importance
         const POSITIONS = {
             WR: {
                 name: 'Wide Receiver',
                 shortName: 'WR',
-                primaryStats: ['speed', 'catching', 'routeRunning', 'agility'],
-                techniqueStats: ['catching', 'routeRunning', 'acceleration', 'evasion'],
+                // WR simulation uses: speed for separation, agility for routes, catching for hands
+                coreStats: ['speed', 'agility'],           // 40% of overall
+                techniqueStats: ['catching', 'routeRunning', 'evasion'],  // 60% of overall
                 count: 3
             },
             CB: {
                 name: 'Cornerback',
                 shortName: 'CB',
-                primaryStats: ['speed', 'awareness', 'tackling', 'agility'],
-                techniqueStats: ['tackling', 'awareness', 'pursuit'],
+                // CB simulation uses: speed/agility for coverage, intelligence for reads
+                coreStats: ['speed', 'agility', 'intelligence'],  // 50% of overall
+                techniqueStats: ['awareness', 'tackling', 'pursuit'],      // 50% of overall
                 count: 4
             },
             OL: {
                 name: 'Offensive Lineman',
                 shortName: 'OL',
-                primaryStats: ['passBlock', 'strength', 'balance', 'awareness'],
-                techniqueStats: ['passBlock', 'balance', 'awareness'],
+                // OL simulation uses: strength for blocking, intelligence for assignments
+                coreStats: ['strength', 'intelligence'],   // 40% of overall
+                techniqueStats: ['passBlock', 'balance', 'awareness'],     // 60% of overall
                 count: 5
             },
             DL: {
                 name: 'Defensive Lineman',
                 shortName: 'DL',
-                primaryStats: ['passRush', 'strength', 'acceleration', 'tackling'],
-                techniqueStats: ['passRush', 'tackling', 'pursuit', 'acceleration'],
+                // DL simulation uses: strength/speed for rush, agility for moves
+                coreStats: ['strength', 'speed', 'agility'],  // 50% of overall
+                techniqueStats: ['passRush', 'tackling', 'pursuit'],       // 50% of overall
                 count: 4
             },
             QB: {
                 name: 'Quarterback',
                 shortName: 'QB',
-                primaryStats: ['shortPassAcc', 'longPassAcc', 'awareness', 'agility'],
-                techniqueStats: ['shortPassAcc', 'longPassAcc', 'awareness'],
+                // QB simulation uses: intelligence for reads, agility for mobility
+                coreStats: ['intelligence', 'agility'],    // 30% of overall
+                techniqueStats: ['shortPassAcc', 'longPassAcc', 'awareness'],  // 70% of overall
                 count: 1
             }
         };
@@ -2866,16 +2872,17 @@
             const stats = {};
             const positionData = POSITIONS[position];
 
-            // All possible stats
-            const allStats = [
-                'speed', 'acceleration', 'agility', 'strength', 'stamina', 'balance', 'evasion',
+            // Technique stats only - core attributes (speed, agility, strength, intelligence)
+            // are stored separately in player.coreAttributes
+            const techniqueStats = [
+                'acceleration', 'balance', 'evasion',
                 'catching', 'shortPassAcc', 'longPassAcc', 'routeRunning', 'jumping',
                 'manCoverage', 'zoneCoverage', 'press', 'tackling', 'pursuit', 'awareness',
                 'passBlock', 'passRush'
             ];
 
-            // Generate all stats
-            allStats.forEach(stat => {
+            // Generate technique stats
+            techniqueStats.forEach(stat => {
                 // Primary stats get bonus
                 const isPrimary = positionData.primaryStats.includes(stat);
                 const bonus = isPrimary ? 10 : 0;
@@ -2888,22 +2895,56 @@
             return stats;
         }
 
-        // Calculate salary from stats
-        // Calculate overall rating (average of primary stats for position)
+        // Calculate overall rating from coreAttributes + technique stats
+        // Weighted based on simulation importance per position
         function calculateOverall(player) {
             const positionData = POSITIONS[player.position];
-            const primaryStats = positionData.primaryStats;
-            const total = primaryStats.reduce((sum, stat) => sum + (player.stats[stat] || 0), 0);
-            return Math.round(total / primaryStats.length);
+            const core = player.coreAttributes || {};
+            const stats = player.stats || {};
+
+            // Get core attribute values
+            const coreStats = positionData.coreStats || [];
+            const coreTotal = coreStats.reduce((sum, stat) => sum + (core[stat] || 50), 0);
+            const coreAvg = coreStats.length > 0 ? coreTotal / coreStats.length : 50;
+
+            // Get technique stat values
+            const techniqueStats = positionData.techniqueStats || [];
+            const techTotal = techniqueStats.reduce((sum, stat) => sum + (stats[stat] || 50), 0);
+            const techAvg = techniqueStats.length > 0 ? techTotal / techniqueStats.length : 50;
+
+            // Weight: technique matters more for most positions
+            // QB: 30% core, 70% technique (accuracy is everything)
+            // WR: 40% core, 60% technique (need both speed and hands)
+            // CB: 50% core, 50% technique (athleticism + instincts)
+            // OL: 40% core, 60% technique (technique trumps raw strength)
+            // DL: 50% core, 50% technique (need both power and moves)
+            const coreWeight = player.position === 'QB' ? 0.3 :
+                               player.position === 'CB' ? 0.5 :
+                               player.position === 'DL' ? 0.5 : 0.4;
+
+            return Math.round(coreAvg * coreWeight + techAvg * (1 - coreWeight));
         }
 
         // Calculate salary based on overall rating (exponential scaling in $M)
         // 60 OVR = $1M, 80 OVR = $8M, 100 OVR = $30M
-        function calculateSalary(stats, position = 'WR') {
-            const positionData = POSITIONS[position];
-            const primaryStats = positionData.primaryStats;
-            const total = primaryStats.reduce((sum, stat) => sum + (stats[stat] || 0), 0);
-            const overall = Math.round(total / primaryStats.length);
+        // Can pass a player object or just stats+position for backwards compatibility
+        function calculateSalary(statsOrPlayer, position = 'WR') {
+            let overall;
+
+            // Check if we got a player object with overall already calculated
+            if (statsOrPlayer && statsOrPlayer.overall !== undefined) {
+                overall = statsOrPlayer.overall;
+            } else if (statsOrPlayer && statsOrPlayer.coreAttributes) {
+                // Player object without overall - calculate it
+                overall = calculateOverall(statsOrPlayer);
+            } else {
+                // Legacy: just stats passed, estimate from technique stats average
+                const stats = statsOrPlayer || {};
+                const positionData = POSITIONS[position];
+                const techniqueStats = positionData.techniqueStats || [];
+                const total = techniqueStats.reduce((sum, stat) => sum + (stats[stat] || 50), 0);
+                overall = techniqueStats.length > 0 ? Math.round(total / techniqueStats.length) : 50;
+            }
 
             // Exponential scaling: salary = MIN + (MAX - MIN) * ((OVR - 60) / 40)^2
             const minOvr = 60;
@@ -5962,7 +6003,8 @@
                 if (playerId) {
                     const player = roster.find(p => p.id === playerId);
                     if (player) {
-                        total += (player.stats.speed + player.stats.catching + player.stats.routeRunning) / 3;
+                        const spd = player.coreAttributes?.speed || 70;
+                        total += (spd + player.stats.catching + player.stats.routeRunning) / 3;
                         count++;
                     }
                 }
@@ -5973,7 +6015,8 @@
                 if (playerId) {
                     const player = roster.find(p => p.id === playerId);
                     if (player) {
-                        total += (player.stats.passBlock + player.stats.strength) / 2;
+                        const str = player.coreAttributes?.strength || 70;
+                        total += (player.stats.passBlock + str) / 2;
                         count++;
                     }
                 }
@@ -6325,8 +6368,8 @@
                 // The difference: WR pre-plans the cut, DB must REACT
 
                 // Agility determines how well a player changes direction
-                const wrAgility = receiver.stats.agility || 70;
-                const dbAgility = defender.stats.agility || 70;
+                const wrAgility = receiver.coreAttributes?.agility || 70;
+                const dbAgility = defender.coreAttributes?.agility || 70;
 
                 // DB reaction time based on awareness (0-100)
                 // Low awareness = slow to recognize the cut = still moving wrong way
@@ -6436,7 +6479,7 @@
         // Calculate catch probabilities using exponential distribution
         function simCalculateCatchProbabilities(state) {
             const pressure = state.totalPressure;
-            const qbAgility = state.qb.coreAttributes?.agility || state.qb.stats.agility || 70;
+            const qbAgility = state.qb.coreAttributes?.agility || 70;
 
             for (const receiver of state.receivers) {
                 // Use short or long pass accuracy based on depth (12 yards = break point)
@@ -6788,9 +6831,11 @@
 
             // Scrambler might run
             if (trait.scrambleBonus && Math.random() < 0.3) {
+                const qbSpeed = state.qb.coreAttributes?.speed || 70;
+                const qbAgility = state.qb.coreAttributes?.agility || 70;
                 const scrambleYards = Math.floor(
-                    (state.qb.stats.speed * 0.1) +
-                    (state.qb.stats.agility * 0.05) +
+                    (qbSpeed * 0.1) +
+                    (qbAgility * 0.05) +
                     Math.random() * 5
                 );
                 return {
@@ -8179,9 +8224,8 @@
                 receiver.stats = config.stats;
                 receiver.coreAttributes = config.coreAttributes || null;
 
-                // Derive base speed from stats (normalized to game units)
-                // Use core speed if available, otherwise fall back to stats.speed
-                const baseSpeed = receiver.coreAttributes?.speed || config.stats.speed;
+                // Derive base speed from core attributes (normalized to game units)
+                const baseSpeed = receiver.coreAttributes?.speed || 70;
                 receiver.baseSpeed = baseSpeed * SPEED_CONSTANTS.RECEIVER_FACTOR * gameState.gameSpeedMultiplier;
                 receiver.speed = receiver.baseSpeed;
 
@@ -8303,9 +8347,8 @@
                 defender.overall = config.overall || Math.round(cbStats.reduce((sum, stat) => sum + (config.stats[stat] || 0), 0) / cbStats.length);
                 defender.startPos = startPos.clone();
 
-                // Derive base speed from stats
-                // Use core speed if available, otherwise fall back to stats.speed
-                const baseSpeed = defender.coreAttributes?.speed || config.stats.speed;
+                // Derive base speed from core attributes
+                const baseSpeed = defender.coreAttributes?.speed || 70;
                 defender.baseSpeed = baseSpeed * SPEED_CONSTANTS.DEFENDER_FACTOR * gameState.gameSpeedMultiplier;
                 defender.speed = defender.baseSpeed;
 
@@ -8422,8 +8465,8 @@
                 oLineman.stats = config.stats;
                 oLineman.coreAttributes = config.coreAttributes || null;
                 oLineman.startPos = startPos.clone();
-                // Use core speed if available, otherwise fall back to stats.speed
-                const baseSpeed = oLineman.coreAttributes?.speed || config.stats.speed;
+                // Derive base speed from core attributes
+                const baseSpeed = oLineman.coreAttributes?.speed || 70;
                 oLineman.baseSpeed = baseSpeed * SPEED_CONSTANTS.O_LINE_FACTOR * gameState.gameSpeedMultiplier;
                 oLineman.speed = oLineman.baseSpeed;
 
@@ -8486,8 +8529,8 @@
                 dLineman.stats = config.stats;
                 dLineman.coreAttributes = config.coreAttributes || null;
                 dLineman.startPos = startPos.clone();
-                // Use core speed if available, otherwise fall back to stats.speed
-                const baseSpeed = dLineman.coreAttributes?.speed || config.stats.speed;
+                // Derive base speed from core attributes
+                const baseSpeed = dLineman.coreAttributes?.speed || 70;
                 dLineman.baseSpeed = baseSpeed * SPEED_CONSTANTS.D_LINE_FACTOR * gameState.gameSpeedMultiplier;
                 dLineman.speed = dLineman.baseSpeed;
 
@@ -11577,7 +11620,7 @@
         const calculateThrowAccuracy = (qb, throwDistance) => {
             if (!qb || !qb.stats) return 1.0;
 
-            const agility = qb.coreAttributes?.agility || qb.stats.agility || 70;
+            const agility = qb.coreAttributes?.agility || 70;
 
             // Use short pass accuracy for <12 yards, long pass for 12+ yards
             const isShortPass = throwDistance < 12;
@@ -13763,22 +13806,26 @@
         function updateAllPlayerSpeeds() {
             // Update receivers
             gameState.receivers.forEach(receiver => {
-                receiver.baseSpeed = receiver.stats.speed * SPEED_CONSTANTS.RECEIVER_FACTOR * gameState.gameSpeedMultiplier;
+                const spd = receiver.coreAttributes?.speed || 70;
+                receiver.baseSpeed = spd * SPEED_CONSTANTS.RECEIVER_FACTOR * gameState.gameSpeedMultiplier;
                 receiver.speed = receiver.baseSpeed;
             });
             // Update defenders
             gameState.defenders.forEach(defender => {
-                defender.baseSpeed = defender.stats.speed * SPEED_CONSTANTS.DEFENDER_FACTOR * gameState.gameSpeedMultiplier;
+                const spd = defender.coreAttributes?.speed || 70;
+                defender.baseSpeed = spd * SPEED_CONSTANTS.DEFENDER_FACTOR * gameState.gameSpeedMultiplier;
                 defender.speed = defender.baseSpeed;
             });
             // Update O-line
             gameState.offensiveLine.forEach(lineman => {
-                lineman.baseSpeed = lineman.stats.speed * SPEED_CONSTANTS.O_LINE_FACTOR * gameState.gameSpeedMultiplier;
+                const spd = lineman.coreAttributes?.speed || 70;
+                lineman.baseSpeed = spd * SPEED_CONSTANTS.O_LINE_FACTOR * gameState.gameSpeedMultiplier;
                 lineman.speed = lineman.baseSpeed;
             });
             // Update D-line
             gameState.defensiveLine.forEach(lineman => {
-                lineman.baseSpeed = lineman.stats.speed * SPEED_CONSTANTS.D_LINE_FACTOR * gameState.gameSpeedMultiplier;
+                const spd = lineman.coreAttributes?.speed || 70;
+                lineman.baseSpeed = spd * SPEED_CONSTANTS.D_LINE_FACTOR * gameState.gameSpeedMultiplier;
                 lineman.speed = lineman.baseSpeed;
             });
             // Update display
@@ -13798,14 +13845,17 @@
             const speeds = preset === 'mixed' ? [90, 80, 70] : [preset, preset, preset];
             gameState.receivers.forEach((receiver, i) => {
                 const speedStat = speeds[i % speeds.length];
-                receiver.stats.speed = speedStat;
+                // Update coreAttributes.speed
+                if (!receiver.coreAttributes) receiver.coreAttributes = {};
+                receiver.coreAttributes.speed = speedStat;
                 receiver.baseSpeed = speedStat * SPEED_CONSTANTS.RECEIVER_FACTOR * gameState.gameSpeedMultiplier;
                 receiver.speed = receiver.baseSpeed;
-                // Recalculate overall based on new speed using WR position stats
-                const stats = receiver.stats;
-                stats.speed = speedStat;  // Update speed stat
-                const wrPrimaryStats = POSITIONS.WR.primaryStats;
-                receiver.overall = Math.round(wrPrimaryStats.reduce((sum, stat) => sum + (stats[stat] || 0), 0) / wrPrimaryStats.length);
+                // Recalculate overall using new formula
+                receiver.overall = calculateOverall({
+                    position: 'WR',
+                    coreAttributes: receiver.coreAttributes,
+                    stats: receiver.stats
+                });
                 // Update visual label
                 if (receiver.ovrTextBlock) {
                     const stars = receiver.overall >= 90 ? ' ★★' : receiver.overall >= 85 ? ' ★' : '';
@@ -13820,14 +13870,17 @@
             const speeds = preset === 'mixed' ? [90, 80, 70] : [preset, preset, preset];
             gameState.defenders.forEach((defender, i) => {
                 const speedStat = speeds[i % speeds.length];
-                defender.stats.speed = speedStat;
+                // Update coreAttributes.speed
+                if (!defender.coreAttributes) defender.coreAttributes = {};
+                defender.coreAttributes.speed = speedStat;
                 defender.baseSpeed = speedStat * SPEED_CONSTANTS.DEFENDER_FACTOR * gameState.gameSpeedMultiplier;
                 defender.speed = defender.baseSpeed;
-                // Recalculate overall based on new speed using CB position stats
-                const stats = defender.stats;
-                stats.speed = speedStat;  // Update speed stat
-                const cbPrimaryStats = POSITIONS.CB.primaryStats;
-                defender.overall = Math.round(cbPrimaryStats.reduce((sum, stat) => sum + (stats[stat] || 0), 0) / cbPrimaryStats.length);
+                // Recalculate overall using new formula
+                defender.overall = calculateOverall({
+                    position: 'CB',
+                    coreAttributes: defender.coreAttributes,
+                    stats: defender.stats
+                });
                 // Update visual label
                 if (defender.ovrTextBlock) {
                     const stars = defender.overall >= 90 ? ' ★★' : defender.overall >= 85 ? ' ★' : '';
