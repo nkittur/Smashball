@@ -4001,33 +4001,57 @@
                 return ((Math.abs(hash) % 1000) - 500) / 500 * range; // ±range variance
             };
 
-            // Calculate raw values with significant variance
-            const fortyRaw = (5.30 - (spd * 0.012) - (agi * 0.003)) * (1 + variance(1, 0.06));
-            const benchRaw = ((str - 30) * 0.50 + 14) * (1 + variance(2, 0.25));
-            const vertRaw = (24 + (spd * 0.14) + (agi * 0.10)) * (1 + variance(3, 0.12));
-            const broadRaw = (90 + (str * 0.20) + (spd * 0.16)) * (1 + variance(4, 0.10));
-            const threeRaw = (7.70 - (agi * 0.018) - (spd * 0.004)) * (1 + variance(5, 0.06));
-            const shuttleRaw = (4.65 - (agi * 0.012) - (spd * 0.005)) * (1 + variance(6, 0.06));
-            const wonderRaw = (intel * 0.42 + 10) * (1 + variance(7, 0.18));
+            // Calculate raw values - calibrated so 100 attr = elite, 50 attr = average
+            // 40-yard: elite 4.30s, average 4.80s, poor 5.20s (range 0.9s)
+            const fortyRaw = (5.20 - (spd * 0.0075) - (agi * 0.0015)) * (1 + variance(1, 0.04));
+
+            // Bench: elite 35, average 20, poor 12 (range 23 reps)
+            const benchRaw = (12 + (str * 0.23)) * (1 + variance(2, 0.20));
+
+            // Vertical: elite 42", average 34", poor 28" (range 14")
+            const vertRaw = (28 + (spd * 0.09) + (agi * 0.05)) * (1 + variance(3, 0.08));
+
+            // Broad jump: elite 132" (11'), average 116" (9'8"), poor 104" (8'8")
+            const broadRaw = (104 + (str * 0.16) + (spd * 0.12)) * (1 + variance(4, 0.06));
+
+            // 3-cone: elite 6.60s, average 7.10s, poor 7.50s (range 0.9s)
+            const threeRaw = (7.50 - (agi * 0.0075) - (spd * 0.0015)) * (1 + variance(5, 0.04));
+
+            // Shuttle: elite 3.90s, average 4.25s, poor 4.55s (range 0.65s)
+            const shuttleRaw = (4.55 - (agi * 0.0046) - (spd * 0.0019)) * (1 + variance(6, 0.04));
+
+            // Wonderlic: elite 45, average 28, poor 14 (range 31)
+            const wonderRaw = (14 + (intel * 0.31)) * (1 + variance(7, 0.15));
 
             // Clamp to realistic ranges
-            const forty = Math.max(4.25, Math.min(5.35, fortyRaw));
+            const forty = Math.max(4.28, Math.min(5.25, fortyRaw));
             const bench = Math.max(10, Math.min(38, Math.round(benchRaw)));
             const vert = Math.max(26, Math.min(44, vertRaw));
-            const broad = Math.max(102, Math.min(138, Math.round(broadRaw)));
-            const three = Math.max(6.50, Math.min(7.70, threeRaw));
-            const shuttle = Math.max(3.80, Math.min(4.60, shuttleRaw));
+            const broad = Math.max(100, Math.min(136, Math.round(broadRaw)));
+            const three = Math.max(6.55, Math.min(7.55, threeRaw));
+            const shuttle = Math.max(3.85, Math.min(4.60, shuttleRaw));
             const wonder = Math.max(12, Math.min(48, Math.round(wonderRaw)));
 
             // Elite benchmarks (what a 100-rated player would get on average)
             const ELITE = {
-                forty: 4.28,      // Elite 40 time
+                forty: 4.30,      // Elite 40 time
                 bench: 35,        // Elite bench reps
                 vert: 42,         // Elite vertical
-                broad: 134,       // Elite broad jump (11'2")
-                three: 6.55,      // Elite 3-cone
-                shuttle: 3.85,    // Elite shuttle
-                wonder: 48        // Elite wonderlic
+                broad: 132,       // Elite broad jump (11')
+                three: 6.60,      // Elite 3-cone
+                shuttle: 3.90,    // Elite shuttle
+                wonder: 45        // Elite wonderlic
+            };
+
+            // Worst benchmarks for percentile calculation
+            const WORST = {
+                forty: 5.20,
+                bench: 12,
+                vert: 28,
+                broad: 104,
+                three: 7.45,
+                shuttle: 4.50,
+                wonder: 14
             };
 
             // Calculate percentiles (100 = elite level, 0 = worst)
@@ -4040,26 +4064,26 @@
 
             return {
                 fortyYard: forty.toFixed(2),
-                fortyPct: calcPercentile(forty, ELITE.forty, 5.35, true),
+                fortyPct: calcPercentile(forty, ELITE.forty, WORST.forty, true),
 
                 benchPress: bench,
-                benchPct: calcPercentile(bench, ELITE.bench, 10),
+                benchPct: calcPercentile(bench, ELITE.bench, WORST.bench),
 
                 verticalJump: vert.toFixed(1),
-                vertPct: calcPercentile(vert, ELITE.vert, 26),
+                vertPct: calcPercentile(vert, ELITE.vert, WORST.vert),
 
                 broadJump: broad,
                 broadFeetInches: `${Math.floor(broad / 12)}'${broad % 12}"`,
-                broadPct: calcPercentile(broad, ELITE.broad, 102),
+                broadPct: calcPercentile(broad, ELITE.broad, WORST.broad),
 
                 threeCone: three.toFixed(2),
-                threePct: calcPercentile(three, ELITE.three, 7.70, true),
+                threePct: calcPercentile(three, ELITE.three, WORST.three, true),
 
                 shuttle: shuttle.toFixed(2),
-                shuttlePct: calcPercentile(shuttle, ELITE.shuttle, 4.60, true),
+                shuttlePct: calcPercentile(shuttle, ELITE.shuttle, WORST.shuttle, true),
 
                 wonderlic: wonder,
-                wonderPct: calcPercentile(wonder, ELITE.wonder, 12),
+                wonderPct: calcPercentile(wonder, ELITE.wonder, WORST.wonder),
 
                 // Film study/football IQ grade
                 filmGrade: getLetterGrade((intel * 0.65 + agi * 0.18 + spd * 0.17) * (1 + variance(8, 0.15))),
