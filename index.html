@@ -2525,7 +2525,8 @@
                         draftPool: draftState.draftPool,
                         draftedPlayers: draftState.draftedPlayers,
                         playerPicks: draftState.playerPicks,
-                        isNewGame: draftState.isNewGame
+                        isNewGame: draftState.isNewGame,
+                        scoutLevels: draftState.scoutLevels
                     } : null
                 };
 
@@ -2589,6 +2590,7 @@
                     draftState.draftedPlayers = saveData.draftState.draftedPlayers;
                     draftState.playerPicks = saveData.draftState.playerPicks;
                     draftState.isNewGame = saveData.draftState.isNewGame;
+                    draftState.scoutLevels = saveData.draftState.scoutLevels || {};
                     draftState.usingExtraPick = false;
                     draftState.simulatingPicks = false;
                     draftState.lastComputerPick = null;
@@ -3965,8 +3967,309 @@
             computerTeamStrategies: {},  // Each team's draft strategy: { teamIndex: 'contender'|'balanced'|'rebuilder' }
             isNewGame: false,
             viewingRoster: false,
-            selectedDraftPlayer: null
+            selectedDraftPlayer: null,
+            scoutLevels: {}  // Track scouting level per player: { playerId: 0-3 }
         };
+
+        // Scouting constants
+        const SCOUTING = {
+            MAX_LEVEL: 3,           // Maximum times a player can be scouted
+            MIN_COST: 5,            // Minimum scouting cost
+            MAX_COST: 50,           // Maximum scouting cost
+            RANGE_UNSCOUTED: 50,    // Rating range for unscouted players (±50)
+            RANGE_PER_LEVEL: 14,    // Range reduction per scout level (50 -> 36 -> 22 -> 8)
+            MAX_OFFSET: 24          // Maximum offset from center at level 0
+        };
+
+        // Calculate scouting cost based on current pick value
+        // Scales from 5-50 based on pick value (early picks cost more to scout)
+        function calculateScoutingCost(pickNumber) {
+            const pickValue = calculatePickCost(pickNumber);
+            // Pick 1 (1000 value) should cost ~50, late picks (~10 value) should cost ~5
+            const maxPickValue = DRAFT.EARLY_COSTS[0]; // 1000
+            const normalizedValue = pickValue / maxPickValue;
+            const cost = SCOUTING.MIN_COST + (SCOUTING.MAX_COST - SCOUTING.MIN_COST) * normalizedValue;
+            return Math.round(cost);
+        }
+
+        // Get the scout level for a player (0-3)
+        function getPlayerScoutLevel(playerId) {
+            return draftState.scoutLevels[playerId] || 0;
+        }
+
+        // Calculate rating range based on scout level
+        // Level 0: ±50, Level 1: ±36, Level 2: ±22, Level 3: ±8
+        function getRatingRange(scoutLevel) {
+            return SCOUTING.RANGE_UNSCOUTED - (scoutLevel * SCOUTING.RANGE_PER_LEVEL);
+        }
+
+        // Calculate deterministic offset for a stat (so ranges aren't centered on actual value)
+        // Returns offset that decreases as scout level increases
+        function getStatOffset(playerId, statName, scoutLevel) {
+            // Create hash from player ID and stat name
+            let hash = 0;
+            const seed = playerId + (statName || '');
+            for (let i = 0; i < seed.length; i++) {
+                hash = ((hash << 5) - hash) + seed.charCodeAt(i);
+                hash = hash & hash;
+            }
+
+            // Convert to offset between -MAX_OFFSET and +MAX_OFFSET
+            const normalizedHash = (Math.abs(hash) % 1000) / 1000; // 0-1
+            const maxOffset = SCOUTING.MAX_OFFSET * (1 - scoutLevel / SCOUTING.MAX_LEVEL);
+            const offset = (normalizedHash * 2 - 1) * maxOffset; // -maxOffset to +maxOffset
+
+            return Math.round(offset);
+        }
+
+        // Get display value for a rating with uncertainty
+        // Returns { display: string, min: number, max: number }
+        function getScoutedRating(actualValue, scoutLevel) {
+            const range = getRatingRange(scoutLevel);
+            if (range <= 3) {
+                // Level 3: show exact value
+                return { display: String(actualValue), min: actualValue, max: actualValue, isExact: true };
+            }
+            const min = Math.max(1, actualValue - range);
+            const max = Math.min(99, actualValue + range);
+            return { display: `${min}-${max}`, min, max, isExact: false };
+        }
+
+        // Create visual range indicator HTML for a rating
+        // Shows a bar with the possible range highlighted - never shows exact numbers
+        // playerId and statName are used to create consistent but varied offsets
+        function createRangeIndicator(actualValue, scoutLevel, playerId, statName, width = 60) {
+            const range = getRatingRange(scoutLevel);
+            const offset = getStatOffset(playerId || '', statName || '', scoutLevel);
+
+            // Apply offset - the range isn't centered on actual value
+            const center = actualValue + offset;
+            const min = Math.max(0, center - range);
+            const max = Math.min(99, center + range);
+
+            // Calculate positions as percentages
+            const leftPct = min;
+            const widthPct = Math.max(5, max - min); // Minimum 5% width so it's visible
+
+            // Color based on the midpoint value
+            const mid = (min + max) / 2;
+            let color;
+            if (mid >= 85) color = '#ffd700';      // Elite - gold
+            else if (mid >= 75) color = '#4CAF50'; // Good - green
+            else if (mid >= 65) color = '#8BC34A'; // Above avg - light green
+            else if (mid >= 55) color = '#FFC107'; // Average - yellow
+            else if (mid >= 45) color = '#FF9800'; // Below avg - orange
+            else color = '#f44336';                // Poor - red
+
+            return `<div class="range-indicator" style="width:${width}px;height:12px;background:#333;border-radius:3px;position:relative;display:inline-block;vertical-align:middle;">
+                <div style="position:absolute;left:${leftPct}%;width:${widthPct}%;height:100%;background:${color};border-radius:3px;opacity:0.9;"></div>
+            </div>`;
+        }
+
+        // Create a compact range indicator for list views - never shows exact numbers
+        function createCompactRangeIndicator(actualValue, scoutLevel, playerId) {
+            const range = getRatingRange(scoutLevel);
+            const offset = getStatOffset(playerId || '', 'overall', scoutLevel);
+
+            // Apply offset - the range isn't centered on actual value
+            const center = actualValue + offset;
+            const min = Math.max(0, center - range);
+            const max = Math.min(99, center + range);
+            const mid = (min + max) / 2;
+
+            // Color based on midpoint
+            let color;
+            if (mid >= 85) color = '#ffd700';
+            else if (mid >= 75) color = '#4CAF50';
+            else if (mid >= 65) color = '#8BC34A';
+            else if (mid >= 55) color = '#FFC107';
+            else if (mid >= 45) color = '#FF9800';
+            else color = '#f44336';
+
+            // Show narrower bar for higher certainty, minimum width so always visible
+            const barWidth = Math.max(8, Math.min(50, (max - min) * 1.0));
+
+            return `<div style="display:inline-flex;align-items:center;">
+                <div style="width:${barWidth}px;height:8px;background:${color};border-radius:2px;"></div>
+            </div>`;
+        }
+
+        // Convert a numeric rating to a letter grade
+        function ratingToGrade(rating) {
+            if (rating >= 90) return 'A+';
+            if (rating >= 85) return 'A';
+            if (rating >= 80) return 'A-';
+            if (rating >= 75) return 'B+';
+            if (rating >= 70) return 'B';
+            if (rating >= 65) return 'B-';
+            if (rating >= 60) return 'C+';
+            if (rating >= 55) return 'C';
+            if (rating >= 50) return 'C-';
+            if (rating >= 45) return 'D+';
+            if (rating >= 40) return 'D';
+            return 'F';
+        }
+
+        // Get letter grade display for overall rating based on scout level
+        // Returns { display: string, isExact: boolean }
+        function getOverallGrade(actualValue, scoutLevel) {
+            if (scoutLevel >= 3) {
+                // Fully scouted - show exact grade
+                return { display: ratingToGrade(actualValue), isExact: true };
+            }
+
+            const range = getRatingRange(scoutLevel);
+            const min = Math.max(1, actualValue - range);
+            const max = Math.min(99, actualValue + range);
+            const minGrade = ratingToGrade(min);
+            const maxGrade = ratingToGrade(max);
+
+            if (minGrade === maxGrade) {
+                // Same grade even with uncertainty
+                return { display: minGrade, isExact: false };
+            }
+
+            // Show grade range (lower to higher, e.g., "C-B" or "B-A")
+            return { display: `${minGrade}–${maxGrade}`, isExact: false };
+        }
+
+        // Get growth estimate based on potential grade and scout level
+        // Shows a single description that may be inaccurate; scouting improves accuracy
+        // Uses player ID to deterministically generate consistent "scouting error"
+        function getGrowthEstimate(potentialGrade, scoutLevel, playerId) {
+            const labels = ['Low', 'Average', 'High', 'Elite'];
+
+            // Generate a consistent "error" based on player ID
+            // This ensures the same player always shows the same estimate until scouted more
+            let hash = 0;
+            if (playerId) {
+                for (let i = 0; i < playerId.length; i++) {
+                    hash = ((hash << 5) - hash) + playerId.charCodeAt(i);
+                    hash = hash & hash;
+                }
+            }
+
+            // Determine potential error based on scout level
+            // Even fully scouted players have small chance of being wrong
+            let maxError, errorChance;
+            if (scoutLevel === 0) {
+                maxError = 2;
+                errorChance = 0.7;  // 70% chance of being wrong
+            } else if (scoutLevel === 1) {
+                maxError = 1;
+                errorChance = 0.5;  // 50% chance of being wrong
+            } else if (scoutLevel === 2) {
+                maxError = 1;
+                errorChance = 0.25; // 25% chance of being wrong
+            } else {
+                maxError = 1;
+                errorChance = 0.15; // 15% chance of surprise even fully scouted
+            }
+
+            // Use hash to deterministically decide if there's an error and which direction
+            const hashNorm = Math.abs(hash % 100) / 100;
+            let displayGrade = potentialGrade;
+
+            if (hashNorm < errorChance) {
+                // Apply error - use another part of hash to determine direction and magnitude
+                const errorDir = (Math.abs(hash >> 8) % 2 === 0) ? 1 : -1;
+                const errorMag = (Math.abs(hash >> 4) % maxError) + 1;
+                displayGrade = potentialGrade + (errorDir * errorMag);
+                // Clamp to valid range
+                displayGrade = Math.max(0, Math.min(3, displayGrade));
+            }
+
+            return { display: labels[displayGrade], isExact: false };
+        }
+
+        // Simple toast notification for scouting feedback
+        function showNotification(message, type = 'info') {
+            // Create toast element
+            const toast = document.createElement('div');
+            toast.style.cssText = `
+                position: fixed;
+                top: 20px;
+                left: 50%;
+                transform: translateX(-50%);
+                padding: 12px 24px;
+                border-radius: 8px;
+                color: white;
+                font-weight: bold;
+                z-index: 10000;
+                animation: fadeInOut 2s ease-in-out forwards;
+                background: ${type === 'success' ? '#4CAF50' : type === 'error' ? '#f44336' : '#2196F3'};
+            `;
+            toast.textContent = message;
+
+            // Add animation style if not exists
+            if (!document.getElementById('toastAnimation')) {
+                const style = document.createElement('style');
+                style.id = 'toastAnimation';
+                style.textContent = `
+                    @keyframes fadeInOut {
+                        0% { opacity: 0; transform: translateX(-50%) translateY(-20px); }
+                        15% { opacity: 1; transform: translateX(-50%) translateY(0); }
+                        85% { opacity: 1; transform: translateX(-50%) translateY(0); }
+                        100% { opacity: 0; transform: translateX(-50%) translateY(-20px); }
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 2000);
+        }
+
+        // Scout a player (spend points to reduce uncertainty)
+        // Exposed globally for onclick handlers
+        window.scoutPlayer = function(playerId) {
+            try {
+                console.log('scoutPlayer called:', playerId);
+                const currentLevel = getPlayerScoutLevel(playerId);
+                console.log('Current scout level:', currentLevel);
+
+                if (currentLevel >= SCOUTING.MAX_LEVEL) {
+                    console.log('Already at max level');
+                    showNotification('Player fully scouted!', 'info');
+                    return false;
+                }
+
+                const cost = calculateScoutingCost(draftState.currentPickNumber);
+                console.log('Scout cost:', cost, 'Available points:', managementState.team.draftPoints);
+
+                if (managementState.team.draftPoints < cost) {
+                    console.log('Not enough draft points');
+                    showNotification(`Need ${cost} draft points to scout!`, 'error');
+                    return false;
+                }
+
+                // Deduct points and increase scout level
+                managementState.team.draftPoints -= cost;
+                draftState.scoutLevels[playerId] = currentLevel + 1;
+                console.log('Scouted! New level:', draftState.scoutLevels[playerId], 'Remaining points:', managementState.team.draftPoints);
+
+                showNotification(`Scouted player! (Level ${currentLevel + 1}/${SCOUTING.MAX_LEVEL})`, 'success');
+
+                // Refresh the views
+                console.log('About to refresh. selectedDraftPlayer:', draftState.selectedDraftPlayer ? draftState.selectedDraftPlayer.id : 'null');
+                window._rangeIndicatorLogCount = 0; // Reset so we see new range indicator values
+                refreshDraftScreen();
+                console.log('refreshDraftScreen completed');
+
+                if (draftState.selectedDraftPlayer && draftState.selectedDraftPlayer.id === playerId) {
+                    console.log('Refreshing player detail modal');
+                    showDraftPlayerDetail(playerId);
+                    console.log('showDraftPlayerDetail completed');
+                } else {
+                    console.log('Not refreshing modal - selectedDraftPlayer mismatch or null');
+                }
+
+                return true;
+            } catch (error) {
+                console.error('Error in scoutPlayer:', error);
+                return false;
+            }
+        }
 
         // Ideal roster composition per position
         const IDEAL_ROSTER = {
@@ -4314,6 +4617,7 @@
             draftState.isNewGame = isNewGame;
             draftState.viewingRoster = false;
             draftState.selectedDraftPlayer = null;
+            draftState.scoutLevels = {};  // Reset scouting data for new draft
 
             // Calculate and set draft budget based on season ranking
             if (isNewGame && managementState.team) {
@@ -4656,13 +4960,22 @@
 
         // Show player detail for draft player
         function showDraftPlayerDetail(playerId) {
-            console.log('showDraftPlayerDetail called with:', playerId);
+            console.log('showDraftPlayerDetail called:', playerId);
             const player = draftState.draftPool.find(p => p.id === playerId);
-            console.log('Found player in pool:', player);
-            if (!player) return;
+            if (!player) {
+                console.log('Player not found in pool');
+                return;
+            }
 
             draftState.selectedDraftPlayer = player;
-            console.log('Set selectedDraftPlayer:', draftState.selectedDraftPlayer);
+
+            // Get scouting info
+            const scoutLevel = getPlayerScoutLevel(playerId);
+            console.log('showDraftPlayerDetail using scoutLevel:', scoutLevel, 'for player:', playerId);
+            const gradeInfo = getOverallGrade(player.overall, scoutLevel);
+            const growthInfo = getGrowthEstimate(player.potentialGrade, scoutLevel, playerId);
+            const scoutCost = calculateScoutingCost(draftState.currentPickNumber);
+            const canScout = scoutLevel < SCOUTING.MAX_LEVEL && managementState.team.draftPoints >= scoutCost;
 
             // Set player name
             document.getElementById('playerName').textContent = `${player.firstName} ${player.lastName}`;
@@ -4670,15 +4983,45 @@
             // Calculate rookie salary based on current pick number
             const rookieSalary = calculateRookieSalary(draftState.currentPickNumber);
 
-            // Player info - draft version showing rookie contract salary
+            // Scout button HTML - use id and attach event listener after
+            const scoutBtnId = `scoutBtn_${playerId.replace(/-/g, '')}`;
+            const scoutBtnHtml = scoutLevel >= SCOUTING.MAX_LEVEL
+                ? `<span style="color:#4CAF50;font-size:12px;">Fully Scouted ${'●'.repeat(SCOUTING.MAX_LEVEL)}</span>`
+                : `<button id="${scoutBtnId}" style="background:${canScout ? '#2196F3' : '#666'};color:white;border:none;padding:6px 12px;border-radius:4px;cursor:${canScout ? 'pointer' : 'not-allowed'};font-size:12px;" ${canScout ? '' : 'disabled'}>
+                    SCOUT (${scoutCost} pts) ${'●'.repeat(scoutLevel)}${'○'.repeat(SCOUTING.MAX_LEVEL - scoutLevel)}
+                   </button>`;
+
+            // Create large overall range indicator
+            const ovrRangeIndicator = createRangeIndicator(player.overall, scoutLevel, playerId, 'overall', 120);
+
+            // Player info - draft version showing rookie contract salary with visual range
             const infoHtml = `
-                <div><span class="ovr-big">${player.overall}</span></div>
+                <div style="display:flex;align-items:center;justify-content:center;gap:12px;">
+                    <span class="ovr-big" style="font-size:${gradeInfo.isExact ? '48px' : '32px'};">${gradeInfo.display}</span>
+                    ${ovrRangeIndicator}
+                </div>
                 <div style="margin-top:10px;">
                     ${POSITIONS[player.position].name} | Age ${player.age}<br>
-                    Rookie Contract: $${rookieSalary}M/yr | Potential: ${'★'.repeat(player.potentialGrade)}
+                    Rookie Contract: $${rookieSalary}M/yr | Growth: <span style="color:#ffd700;">${growthInfo.display}</span>
+                </div>
+                <div style="margin-top:10px;">
+                    ${scoutBtnHtml}
                 </div>
             `;
             document.getElementById('playerInfo').innerHTML = infoHtml;
+
+            // Attach scout button event listener after innerHTML is set
+            if (scoutLevel < SCOUTING.MAX_LEVEL) {
+                const scoutBtn = document.getElementById(scoutBtnId);
+                console.log('Looking for scout button:', scoutBtnId, 'found:', !!scoutBtn);
+                if (scoutBtn) {
+                    scoutBtn.addEventListener('click', (e) => {
+                        console.log('Scout button clicked');
+                        e.stopPropagation();
+                        window.scoutPlayer(playerId);
+                    });
+                }
+            }
 
             // Hide cut button, show draft button
             const tradeBtn = document.getElementById('btnTradePlayer');
@@ -4701,7 +5044,9 @@
             }
             cutBtn.style.display = 'none';
 
+            // Helper to get color class based on the middle of the range
             const getColorClass = (val) => val >= 90 ? 'stat-elite' : val >= 80 ? 'stat-good' : val >= 70 ? 'stat-average' : val >= 60 ? 'stat-below' : 'stat-poor';
+            const getColorClassFromRange = (info) => getColorClass(Math.floor((info.min + info.max) / 2));
 
             // Build unified stats panel
             const core = player.coreAttributes;
@@ -4711,22 +5056,22 @@
 
             let statsHtml = '<div class="stats-panel">';
 
-            // Core Attributes section
+            // Core Attributes section with visual range indicators
             if (core) {
                 statsHtml += `
                     <div class="stats-section">
                         <div class="stats-section-title">Core</div>
                         <div class="stats-grid">
-                            <div class="stat-row str-row"><span class="stat-row-name">STR</span><span class="stat-row-value ${getColorClass(core.strength)}">${core.strength}</span></div>
-                            <div class="stat-row spd-row"><span class="stat-row-name">SPD</span><span class="stat-row-value ${getColorClass(core.speed)}">${core.speed}</span></div>
-                            <div class="stat-row agi-row"><span class="stat-row-name">AGI</span><span class="stat-row-value ${getColorClass(core.agility)}">${core.agility}</span></div>
-                            <div class="stat-row int-row"><span class="stat-row-name">INT</span><span class="stat-row-value ${getColorClass(core.intelligence)}">${core.intelligence}</span></div>
+                            <div class="stat-row str-row"><span class="stat-row-name">STR</span><span class="stat-row-value">${createRangeIndicator(core.strength, scoutLevel, playerId, 'strength')}</span></div>
+                            <div class="stat-row spd-row"><span class="stat-row-name">SPD</span><span class="stat-row-value">${createRangeIndicator(core.speed, scoutLevel, playerId, 'speed')}</span></div>
+                            <div class="stat-row agi-row"><span class="stat-row-name">AGI</span><span class="stat-row-value">${createRangeIndicator(core.agility, scoutLevel, playerId, 'agility')}</span></div>
+                            <div class="stat-row int-row"><span class="stat-row-name">INT</span><span class="stat-row-value">${createRangeIndicator(core.intelligence, scoutLevel, playerId, 'intelligence')}</span></div>
                         </div>
                     </div>
                 `;
             }
 
-            // Abilities section
+            // Abilities section with visual range indicators
             if (abilities) {
                 statsHtml += `
                     <div class="stats-section">
@@ -4736,14 +5081,14 @@
                                 const isBest = bestAbility && bestAbility.name === key;
                                 const dots = getAbilityDots(key);
                                 const name = getAbilityDisplayName(key);
-                                return `<div class="stat-row ${isBest ? 'best-ability' : ''}"><span class="stat-row-name">${dots}${name}</span><span class="stat-row-value ${getColorClass(value)}">${value}</span></div>`;
+                                return `<div class="stat-row ${isBest ? 'best-ability' : ''}"><span class="stat-row-name">${dots}${name}</span><span class="stat-row-value">${createRangeIndicator(value, scoutLevel, playerId, key)}</span></div>`;
                             }).join('')}
                         </div>
                     </div>
                 `;
             }
 
-            // Technique section
+            // Technique section with visual range indicators
             if (techniqueStats.length > 0) {
                 statsHtml += `
                     <div class="stats-section">
@@ -4751,8 +5096,8 @@
                         <div class="stats-grid">
                             ${techniqueStats.map(stat => {
                                 const current = Math.floor(player.stats[stat] || 0);
-                                const statName = stat.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase());
-                                return `<div class="stat-row"><span class="stat-row-name">${statName}</span><span class="stat-row-value ${getColorClass(current)}">${current}</span></div>`;
+                                const displayName = stat.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase());
+                                return `<div class="stat-row"><span class="stat-row-name">${displayName}</span><span class="stat-row-value">${createRangeIndicator(current, scoutLevel, playerId, stat)}</span></div>`;
                             }).join('')}
                         </div>
                     </div>
@@ -4919,27 +5264,27 @@
             }
 
             available.forEach(player => {
-                let potentialDisplay = '';
-                if (player.potentialGrade > 0) {
-                    potentialDisplay = '★'.repeat(player.potentialGrade);
-                }
+                const scoutLevel = getPlayerScoutLevel(player.id);
+                const gradeInfo = getOverallGrade(player.overall, scoutLevel);
+                const growthInfo = getGrowthEstimate(player.potentialGrade, scoutLevel, player.id);
+                const rangeIndicator = createCompactRangeIndicator(player.overall, scoutLevel, player.id);
+
+                // Show scout indicator if player has been scouted
+                const scoutIndicator = scoutLevel > 0 ? `<span style="color:#4CAF50;font-size:10px;margin-left:4px;">` + '●'.repeat(scoutLevel) + `</span>` : '';
 
                 const item = document.createElement('div');
                 item.className = 'roster-item';
                 item.innerHTML = `
                     <div style="flex:1;">
-                        <div class="name">${player.firstName} ${player.lastName}</div>
+                        <div class="name">${player.firstName} ${player.lastName}${scoutIndicator}</div>
                         <div class="stats">${POSITIONS[player.position].name}</div>
                     </div>
-                    <div style="display:flex;align-items:center;gap:10px;">
-                        <span class="ovr" style="min-width:28px;text-align:right;">${player.overall}</span>
-                        <span class="potential-ind" style="min-width:30px;color:#ffd700;font-size:14px;">${potentialDisplay}</span>
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        ${rangeIndicator}
+                        <span class="potential-ind" style="min-width:45px;color:#ffd700;font-size:11px;text-align:right;">${growthInfo.display}</span>
                     </div>
                 `;
-                item.addEventListener('click', () => {
-                    console.log('Draft player item clicked, ID:', player.id);
-                    showDraftPlayerDetail(player.id);
-                });
+                item.addEventListener('click', () => showDraftPlayerDetail(player.id));
                 listEl.appendChild(item);
             });
         }
