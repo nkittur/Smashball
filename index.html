@@ -15099,8 +15099,14 @@
         console.log('[DEBUG] All functions defined, starting Main initialization');
 
         // Main
-        const scene = createScene();
-        console.log('[DEBUG] createScene completed');
+        let scene;
+        try {
+            scene = createScene();
+            console.log('[DEBUG] createScene completed');
+        } catch (e) {
+            console.error('[DEBUG] ERROR in createScene:', e);
+            console.error('[DEBUG] Error stack:', e.stack);
+        }
         setupInput(scene);
         setupIdleAnimations(scene);
 
