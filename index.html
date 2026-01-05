@@ -524,7 +524,8 @@
 
             <!-- Last Pick Notification Bar -->
             <div id="draftLastPick" class="draft-last-pick">
-                <span id="draftLastPickText">Draft starting...</span>
+                <div id="draftLastPickLine1" class="draft-last-pick-line1">Draft starting...</div>
+                <div id="draftLastPickLine2" class="draft-last-pick-line2"></div>
             </div>
 
             <!-- On The Clock Section -->
@@ -730,19 +731,35 @@
         }
         .draft-last-pick {
             background: #1a1a2a;
-            padding: 6px 12px;
+            padding: 8px 12px;
             margin: 0 -15px 10px -15px;
             font-size: 11px;
             color: #888;
             border-bottom: 1px solid #333;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .draft-last-pick:hover {
+            background: #252540;
+        }
+        .draft-last-pick-line1 {
             text-align: center;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
         }
-        .draft-last-pick .player-name { color: #fff; }
+        .draft-last-pick-line2 {
+            text-align: center;
+            margin-top: 4px;
+            font-size: 10px;
+        }
+        .draft-last-pick .player-name { color: #fff; font-weight: bold; }
         .draft-last-pick .team-name { color: #ffd700; }
         .draft-last-pick .overall { color: #4f4; }
+        .draft-last-pick .predicted { color: #888; }
+        .draft-last-pick .predicted.better { color: #f44; }
+        .draft-last-pick .predicted.worse { color: #4f4; }
+        .draft-last-pick .position { color: #aaa; }
 
         .draft-on-clock {
             border-radius: 6px;
@@ -6117,7 +6134,8 @@
         // Refresh draft screen
         function refreshDraftScreen() {
             const lastPickEl = document.getElementById('draftLastPick');
-            const lastPickTextEl = document.getElementById('draftLastPickText');
+            const lastPickLine1El = document.getElementById('draftLastPickLine1');
+            const lastPickLine2El = document.getElementById('draftLastPickLine2');
             const onClockEl = document.getElementById('draftOnClock');
             const roundPickEl = document.getElementById('draftRoundPick');
             const pointsEl = document.getElementById('draftPoints');
@@ -6168,16 +6186,42 @@
             // Update last pick notification bar
             if (draftState.lastComputerPick) {
                 const pick = draftState.lastComputerPick;
+                const player = pick.player;
                 const pickTeamRoster = draftState.computerTeamRosters[pick.teamIndex] || [];
                 const pickStrategy = draftState.computerTeamStrategies[pick.teamIndex] || 'balanced';
                 const pickStrategyIcon = DRAFT_STRATEGIES[pickStrategy]?.icon || '';
                 const pickNeedsDisplay = getPositionalNeedsDisplay(pickTeamRoster, 2);
                 const needsSpan = pickNeedsDisplay
-                    ? ` <span style="font-size:11px;font-style:italic;opacity:0.7;">(${pickNeedsDisplay})</span>`
+                    ? ` <span style="font-size:10px;font-style:italic;opacity:0.7;">(${pickNeedsDisplay})</span>`
                     : '';
-                lastPickTextEl.innerHTML = `Pick #${pick.pickNumber}: <span class="team-name">${pickStrategyIcon} ${pick.teamName}</span>${needsSpan} → <span class="player-name">${pick.player.firstName} ${pick.player.lastName}</span> <span class="overall">${pick.player.overall}</span>`;
+
+                // Get the scouted grade that was shown before the pick
+                const scoutLevel = getPlayerScoutLevel(player.id);
+                const scoutedGradeInfo = getScoutedListGrade(player);
+                const actualGrade = ratingToGrade(player.overall);
+                const predictedGrade = scoutedGradeInfo.grade;
+
+                // Determine if prediction was accurate, better, or worse than actual
+                const actualIdx = GRADE_STEPS.indexOf(actualGrade);
+                const predictedIdx = GRADE_STEPS.indexOf(predictedGrade);
+                let predictedClass = 'predicted';
+                if (predictedIdx > actualIdx + 1) predictedClass = 'predicted better';  // Predicted better than actual (fool's gold)
+                else if (predictedIdx < actualIdx - 1) predictedClass = 'predicted worse';  // Predicted worse than actual (gem)
+
+                // Line 1: Pick info and player name
+                lastPickLine1El.innerHTML = `Pick #${pick.pickNumber}: <span class="team-name">${pickStrategyIcon} ${pick.teamName}</span>${needsSpan} → <span class="player-name">${player.firstName} ${player.lastName}</span>`;
+
+                // Line 2: Position, predicted grade, actual grade
+                lastPickLine2El.innerHTML = `<span class="position">${player.position}</span> · Predicted: <span class="${predictedClass}">${predictedGrade}</span> · Actual: <span class="overall">${actualGrade} (${player.overall})</span>`;
+
+                // Make clickable to show player detail
+                lastPickEl.onclick = () => showDraftPlayerDetail(player.id);
+                lastPickEl.style.cursor = 'pointer';
             } else {
-                lastPickTextEl.textContent = 'Draft in progress...';
+                lastPickLine1El.textContent = 'Draft in progress...';
+                lastPickLine2El.textContent = '';
+                lastPickEl.onclick = null;
+                lastPickEl.style.cursor = 'default';
             }
 
             // Update round/pick info
