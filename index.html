@@ -13690,6 +13690,7 @@
                 continueBtn.classList.add('visible');
             }, totalRevealTime));
         }
+        console.log('[DEBUG] showStatReveal defined');
 
         function createRevealCard(playerData) {
             const { player, stats, fameEarned } = playerData;
@@ -13778,6 +13779,7 @@
                 }
             }, 400);
         }
+        console.log('[DEBUG] closeStatReveal defined');
 
         // Show match end result
         function showMatchEnd(matchResult) {
@@ -13956,6 +13958,7 @@
             // Show the animated stat reveal first, then display match end screen
             showStatReveal(playersWithGains, displayMatchEndScreen);
         }
+        console.log('[DEBUG] showMatchEnd defined');
 
         // Show pre-game matchup screen
         function showPreGame(opponent) {
