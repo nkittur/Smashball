@@ -13776,10 +13776,6 @@
             }, 400);
         }
 
-        // Initialize stat reveal button handlers
-        document.getElementById('statRevealSkip').addEventListener('click', skipStatReveal);
-        document.getElementById('statRevealContinue').addEventListener('click', closeStatReveal);
-
         // Show match end result
         function showMatchEnd(matchResult) {
             const result = matchResult.result;
@@ -15252,6 +15248,8 @@
                 btn.textContent = 'VIEW LOG';
             }
         });
+        document.getElementById('statRevealSkip').addEventListener('click', skipStatReveal);
+        document.getElementById('statRevealContinue').addEventListener('click', closeStatReveal);
         document.getElementById('btnCopySimLog').addEventListener('click', () => {
             const logText = getSimulationLog();
             navigator.clipboard.writeText(logText).then(() => {
