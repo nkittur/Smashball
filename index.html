@@ -14130,6 +14130,7 @@
             matchupsContainer.innerHTML = html;
             showScreen('pre_game');
         }
+        console.log('[DEBUG] showPreGame defined');
 
         // Start the arcade game portion
         function startArcadeGame() {
@@ -14702,6 +14703,7 @@
                 });
             }
         }
+        console.log('[DEBUG] updateGamePlayersFromRoster defined');
 
         // Called when a drive/possession ends in the arcade game
         function onPossessionComplete(points) {
@@ -15094,9 +15096,11 @@
             // Start showing plays after a brief pause
             setTimeout(showNextPlay, 400);
         }
+        console.log('[DEBUG] All functions defined, starting Main initialization');
 
         // Main
         const scene = createScene();
+        console.log('[DEBUG] createScene completed');
         setupInput(scene);
         setupIdleAnimations(scene);
 
