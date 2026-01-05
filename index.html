@@ -727,7 +727,7 @@
         .draft-cost.expensive { color: #f84; }
         /* Draft Screen Layout */
         .draft-screen {
-            padding-top: 10px;
+            padding-top: 50px; /* Space for absolute positioned buttons */
             padding-bottom: 70px; /* Space for fixed bottom buttons */
         }
         .draft-last-pick {
@@ -6214,7 +6214,7 @@
 
                 // Line 2: Position, predicted grade, actual grade, growth stars
                 const growthStars = player.potentialGrade > 0 ? ` <span style="color:#ffd700;">` + '★'.repeat(player.potentialGrade) + `</span>` : '';
-                lastPickLine2El.innerHTML = `<span class="position">${player.position}</span>${growthStars} · Predicted: <span class="${predictedClass}">${predictedGrade}</span> · Actual: <span class="overall">${actualGrade} (${player.overall})</span>`;
+                lastPickLine2El.innerHTML = `<span class="position">${player.position}</span> · Predicted: <span class="${predictedClass}">${predictedGrade}</span> · Actual: <span class="overall">${actualGrade} (${player.overall})</span>${growthStars}`;
 
                 // Make clickable to show player detail
                 lastPickEl.onclick = () => showDraftPlayerDetail(player.id);
