@@ -4320,7 +4320,7 @@
 
             // Clamp to realistic ranges (slightly beyond the 55-100 range for variance)
             const forty = Math.max(4.30, Math.min(5.05, fortyRaw));
-            const bench = Math.max(15, Math.min(38, Math.round(benchRaw)));
+            const bench = Math.max(15, Math.min(45, Math.round(benchRaw)));
             const vert = Math.max(30, Math.min(44, vertRaw));
             const broad = Math.max(108, Math.min(136, Math.round(broadRaw)));
             const three = Math.max(6.65, Math.min(7.40, threeRaw));
@@ -4330,7 +4330,7 @@
             // Elite benchmarks - aligned with clamp limits for full range
             const ELITE = {
                 forty: 4.30,    // matches clamp min
-                bench: 38,      // matches clamp max
+                bench: 45,      // matches clamp max
                 vert: 44,       // matches clamp max
                 broad: 136,     // matches clamp max
                 three: 6.65,    // matches clamp min
