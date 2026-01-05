@@ -4775,21 +4775,24 @@
             const roll = (hash % 100) / 100;
 
             let offset = 0;
-            if (roll < 0.45) {
-                // 45% - exactly right
+            if (roll < 0.40) {
+                // 40% - exactly right
                 offset = 0;
-            } else if (roll < 0.70) {
-                // 25% - off by 1 step (could be higher or lower)
+            } else if (roll < 0.60) {
+                // 20% - off by 1 step (could be higher or lower)
                 offset = (hash % 2 === 0) ? 1 : -1;
-            } else if (roll < 0.85) {
-                // 15% - off by 2 steps
+            } else if (roll < 0.75) {
+                // 15% - off by 2 steps (could be higher or lower)
                 offset = (hash % 2 === 0) ? 2 : -2;
+            } else if (roll < 0.85) {
+                // 10% - underrated (rough gem territory - looks worse than they are)
+                offset = -1 - (hash % 2);  // -1 or -2
             } else if (roll < 0.95) {
-                // 10% - off by 1 step in misleading direction (good player looks worse)
-                offset = -1;
+                // 10% - overrated (fool's gold - looks better than they are)
+                offset = 1 + (hash % 2);  // +1 or +2
             } else {
-                // 5% - off by 2-3 steps (significant miss)
-                offset = (hash % 2 === 0) ? -2 : -3;
+                // 5% - significantly overrated (fool's gold trap)
+                offset = 2 + (hash % 2);  // +2 or +3
             }
 
             // Apply offset and clamp to valid range
