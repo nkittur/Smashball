@@ -734,13 +734,13 @@
         .draft-cost.expensive { color: #f84; }
         /* Draft Screen Layout */
         .draft-screen {
-            padding-top: 50px; /* Space for absolute positioned buttons */
+            padding-top: 45px; /* Space for absolute positioned buttons */
             padding-bottom: 70px; /* Space for fixed bottom buttons */
         }
         .draft-last-pick {
             background: #1a1a2a;
             padding: 8px 12px;
-            margin: 0 -15px 10px -15px;
+            margin: 5px -15px 5px -15px;
             font-size: 11px;
             color: #888;
             border-bottom: 1px solid #333;
@@ -771,13 +771,12 @@
 
         .draft-pick-reasoning {
             background: #151525;
-            padding: 8px 12px;
-            margin: 0 -15px 10px -15px;
-            font-size: 11px;
+            padding: 6px 12px;
+            margin: 0 -15px 5px -15px;
+            font-size: 10px;
             color: #aaa;
             border-bottom: 1px solid #333;
             text-align: left;
-            font-style: italic;
         }
         .draft-pick-reasoning .reason-label {
             color: #666;
@@ -5212,13 +5211,14 @@
 
             const strat = DRAFT_STRATEGIES[strategy] || DRAFT_STRATEGIES.balanced;
             const needs = calculatePositionalNeeds(teamRoster);
-            const topNeeds = needs.slice(0, 2).map(n => n.position);
 
             // Score all available players with detailed breakdown
             const scored = available.map(player => {
                 const posNeed = needs.find(n => n.position === player.position);
                 const ageBonus = Math.max(0, (24 - player.age) * 2);
                 const potentialBonus = player.potentialGrade * 4;
+                const growthValue = (ageBonus + potentialBonus) * strat.growthWeight;
+                const baseValue = player.overall * strat.overallWeight;
                 const needMultiplier = posNeed ? Math.min(1.5, 1 + (posNeed.urgency * 0.1)) : 0.5;
                 const fillsNeed = posNeed && posNeed.urgency >= 3;
 
@@ -5227,6 +5227,9 @@
                     value: calculateDraftValue(player, teamRoster, strategy),
                     fillsNeed,
                     needUrgency: posNeed ? posNeed.urgency : 0,
+                    baseValue: Math.round(baseValue),
+                    growthValue: Math.round(growthValue),
+                    needMultiplier,
                     ageBonus,
                     potentialBonus
                 };
@@ -5251,40 +5254,39 @@
                 }
             }
 
-            // Generate reasoning
+            // Generate reasoning with weights
             const player = selectedCandidate.player;
-            const reasons = [];
+            const sc = selectedCandidate;
+            const parts = [];
 
-            // Strategy reason
-            reasons.push(`${strat.icon} ${strat.name} strategy`);
+            // Strategy
+            parts.push(`${strat.icon} ${strat.name}`);
 
-            // Best available vs reached
+            // Board position
             const rank = scored.findIndex(s => s.player.id === player.id) + 1;
             if (rank === 1) {
-                reasons.push('best available');
-            } else if (rank <= 3) {
-                reasons.push(`#${rank} on board`);
+                parts.push('BPA');
             } else {
-                reasons.push(`reached for #${rank}`);
+                parts.push(`#${rank} on board`);
             }
 
-            // Positional need
-            if (selectedCandidate.fillsNeed) {
-                reasons.push(`fills ${player.position} need`);
-            } else if (selectedCandidate.needUrgency > 0) {
-                reasons.push(`adds ${player.position} depth`);
-            } else {
-                reasons.push(`${player.position} already filled`);
+            // Value breakdown
+            const valueBreakdown = [];
+            valueBreakdown.push(`OVR:${sc.baseValue}`);
+            if (sc.growthValue > 0) {
+                valueBreakdown.push(`Growth:+${sc.growthValue}`);
             }
-
-            // Growth potential (for rebuilders or high potential players)
-            if (player.potentialGrade >= 2) {
-                reasons.push(`high upside (${'★'.repeat(player.potentialGrade)})`);
-            } else if (strategy === 'rebuilder' && player.age <= 22) {
-                reasons.push(`young (${player.age})`);
+            if (sc.needMultiplier !== 1.0) {
+                const needPct = Math.round((sc.needMultiplier - 1) * 100);
+                const needSign = needPct >= 0 ? '+' : '';
+                valueBreakdown.push(`Need:${needSign}${needPct}%`);
             }
+            parts.push(valueBreakdown.join(' '));
 
-            const reasoning = reasons.join(' · ');
+            // Total value
+            parts.push(`= ${Math.round(sc.value)}`);
+
+            const reasoning = parts.join(' · ');
 
             return { player, reasoning };
         }
