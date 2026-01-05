@@ -2273,6 +2273,7 @@
                 // WR simulation uses: speed for separation, agility for routes, catching for hands
                 coreStats: ['speed', 'agility'],           // 40% of overall
                 techniqueStats: ['catching', 'routeRunning', 'evasion'],  // 60% of overall
+                primaryStats: ['speed', 'agility', 'catching', 'routeRunning', 'evasion'],
                 count: 3
             },
             CB: {
@@ -2281,6 +2282,7 @@
                 // CB simulation uses: speed/agility for coverage, intelligence for reads
                 coreStats: ['speed', 'agility', 'intelligence'],  // 50% of overall
                 techniqueStats: ['awareness', 'tackling', 'pursuit'],      // 50% of overall
+                primaryStats: ['speed', 'agility', 'intelligence', 'awareness', 'tackling', 'pursuit'],
                 count: 4
             },
             OL: {
@@ -2289,6 +2291,7 @@
                 // OL simulation uses: strength for blocking, intelligence for assignments
                 coreStats: ['strength', 'intelligence'],   // 40% of overall
                 techniqueStats: ['passBlock', 'balance', 'awareness'],     // 60% of overall
+                primaryStats: ['strength', 'intelligence', 'passBlock', 'balance', 'awareness'],
                 count: 5
             },
             DL: {
@@ -2297,6 +2300,7 @@
                 // DL simulation uses: strength/speed for rush, agility for moves
                 coreStats: ['strength', 'speed', 'agility'],  // 50% of overall
                 techniqueStats: ['passRush', 'tackling', 'pursuit'],       // 50% of overall
+                primaryStats: ['strength', 'speed', 'agility', 'passRush', 'tackling', 'pursuit'],
                 count: 4
             },
             QB: {
@@ -2305,6 +2309,7 @@
                 // QB simulation uses: intelligence for reads, agility for mobility
                 coreStats: ['intelligence', 'agility'],    // 30% of overall
                 techniqueStats: ['shortPassAcc', 'longPassAcc', 'awareness'],  // 70% of overall
+                primaryStats: ['intelligence', 'agility', 'shortPassAcc', 'longPassAcc', 'awareness'],
                 count: 1
             }
         };
