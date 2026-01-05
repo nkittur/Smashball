@@ -528,6 +528,9 @@
                 <div id="draftLastPickLine2" class="draft-last-pick-line2"></div>
             </div>
 
+            <!-- Computer Pick Reasoning -->
+            <div id="draftPickReasoning" class="draft-pick-reasoning" style="display:none;"></div>
+
             <!-- On The Clock Section -->
             <div id="draftOnClock" class="draft-on-clock computer">
                 <div class="clock-row">
@@ -574,6 +577,10 @@
                 <div class="options-row">
                     <label for="pickAcquirePremium">Acquire Premium (%):</label>
                     <input type="number" id="pickAcquirePremium" min="0" max="100" value="10" style="width:80px;">
+                </div>
+                <div class="options-row" style="margin-top:15px;">
+                    <label for="showPickReasoning" style="flex:1;">Show Computer Pick Reasoning:</label>
+                    <input type="checkbox" id="showPickReasoning" checked style="width:20px;height:20px;">
                 </div>
                 <div class="options-info" style="color:#888;font-size:12px;margin:15px 0;">
                     <p>• Trade In Penalty: Points deducted when trading your pick for draft points</p>
@@ -761,6 +768,30 @@
         .draft-last-pick .predicted.better { color: #f44; }
         .draft-last-pick .predicted.worse { color: #4f4; }
         .draft-last-pick .position { color: #aaa; }
+
+        .draft-pick-reasoning {
+            background: #151525;
+            padding: 8px 12px;
+            margin: 0 -15px 10px -15px;
+            font-size: 11px;
+            color: #aaa;
+            border-bottom: 1px solid #333;
+            text-align: left;
+            font-style: italic;
+        }
+        .draft-pick-reasoning .reason-label {
+            color: #666;
+            font-style: normal;
+            margin-right: 5px;
+        }
+        .draft-pick-reasoning .reason-factor {
+            display: inline-block;
+            margin-right: 8px;
+            color: #888;
+        }
+        .draft-pick-reasoning .reason-factor.positive { color: #4a4; }
+        .draft-pick-reasoning .reason-factor.negative { color: #a44; }
+        .draft-pick-reasoning .reason-factor.neutral { color: #888; }
 
         .draft-on-clock {
             border-radius: 6px;
@@ -5175,15 +5206,31 @@
             return value;
         }
 
-        // Smart computer team selection
+        // Smart computer team selection - returns { player, reasoning }
         function selectBestPlayerForTeam(available, teamRoster, strategy = 'balanced') {
-            if (available.length === 0) return null;
+            if (available.length === 0) return { player: null, reasoning: '' };
 
-            // Score all available players
-            const scored = available.map(player => ({
-                player,
-                value: calculateDraftValue(player, teamRoster, strategy)
-            }));
+            const strat = DRAFT_STRATEGIES[strategy] || DRAFT_STRATEGIES.balanced;
+            const needs = calculatePositionalNeeds(teamRoster);
+            const topNeeds = needs.slice(0, 2).map(n => n.position);
+
+            // Score all available players with detailed breakdown
+            const scored = available.map(player => {
+                const posNeed = needs.find(n => n.position === player.position);
+                const ageBonus = Math.max(0, (24 - player.age) * 2);
+                const potentialBonus = player.potentialGrade * 4;
+                const needMultiplier = posNeed ? Math.min(1.5, 1 + (posNeed.urgency * 0.1)) : 0.5;
+                const fillsNeed = posNeed && posNeed.urgency >= 3;
+
+                return {
+                    player,
+                    value: calculateDraftValue(player, teamRoster, strategy),
+                    fillsNeed,
+                    needUrgency: posNeed ? posNeed.urgency : 0,
+                    ageBonus,
+                    potentialBonus
+                };
+            });
 
             // Sort by value (highest first)
             scored.sort((a, b) => b.value - a.value);
@@ -5194,15 +5241,52 @@
             // Weight towards higher value picks but allow some variance
             const totalValue = topCandidates.reduce((sum, c) => sum + c.value, 0);
             let roll = Math.random() * totalValue;
+            let selectedCandidate = topCandidates[0];
 
             for (const candidate of topCandidates) {
                 roll -= candidate.value;
                 if (roll <= 0) {
-                    return candidate.player;
+                    selectedCandidate = candidate;
+                    break;
                 }
             }
 
-            return topCandidates[0].player; // Fallback to best
+            // Generate reasoning
+            const player = selectedCandidate.player;
+            const reasons = [];
+
+            // Strategy reason
+            reasons.push(`${strat.icon} ${strat.name} strategy`);
+
+            // Best available vs reached
+            const rank = scored.findIndex(s => s.player.id === player.id) + 1;
+            if (rank === 1) {
+                reasons.push('best available');
+            } else if (rank <= 3) {
+                reasons.push(`#${rank} on board`);
+            } else {
+                reasons.push(`reached for #${rank}`);
+            }
+
+            // Positional need
+            if (selectedCandidate.fillsNeed) {
+                reasons.push(`fills ${player.position} need`);
+            } else if (selectedCandidate.needUrgency > 0) {
+                reasons.push(`adds ${player.position} depth`);
+            } else {
+                reasons.push(`${player.position} already filled`);
+            }
+
+            // Growth potential (for rebuilders or high potential players)
+            if (player.potentialGrade >= 2) {
+                reasons.push(`high upside (${'★'.repeat(player.potentialGrade)})`);
+            } else if (strategy === 'rebuilder' && player.age <= 22) {
+                reasons.push(`young (${player.age})`);
+            }
+
+            const reasoning = reasons.join(' · ');
+
+            return { player, reasoning };
         }
 
         // Generate draft class with realistic ratings
@@ -5413,7 +5497,7 @@
             const teamStrategy = draftState.computerTeamStrategies[teamIndex] || 'balanced';
 
             // Smart selection based on overall, growth potential, positional need, and team strategy
-            const picked = selectBestPlayerForTeam(available, teamRoster, teamStrategy);
+            const { player: picked, reasoning } = selectBestPlayerForTeam(available, teamRoster, teamStrategy);
 
             if (picked) {
                 draftState.draftedPlayers.push(picked.id);
@@ -5429,7 +5513,8 @@
                     teamName: COMPUTER_TEAM_NAMES[teamIndex],
                     teamIndex: teamIndex,
                     player: picked,
-                    pickNumber: draftState.currentPickNumber
+                    pickNumber: draftState.currentPickNumber,
+                    reasoning: reasoning
                 };
 
                 draftState.currentPickNumber++;
@@ -5450,7 +5535,7 @@
                 const teamStrategy = draftState.computerTeamStrategies[teamIndex] || 'balanced';
 
                 // Smart selection based on overall, growth potential, positional need, and team strategy
-                const picked = selectBestPlayerForTeam(available, teamRoster, teamStrategy);
+                const { player: picked } = selectBestPlayerForTeam(available, teamRoster, teamStrategy);
 
                 if (picked) {
                     draftState.draftedPlayers.push(picked.id);
@@ -6219,11 +6304,22 @@
                 // Make clickable to show player detail
                 lastPickEl.onclick = () => showDraftPlayerDetail(player.id);
                 lastPickEl.style.cursor = 'pointer';
+
+                // Show reasoning if enabled
+                const reasoningEl = document.getElementById('draftPickReasoning');
+                const showReasoning = managementState.settings.showPickReasoning !== false;
+                if (showReasoning && pick.reasoning) {
+                    reasoningEl.innerHTML = `<span class="reason-label">Why:</span> ${pick.reasoning}`;
+                    reasoningEl.style.display = 'block';
+                } else {
+                    reasoningEl.style.display = 'none';
+                }
             } else {
                 lastPickLine1El.textContent = 'Draft in progress...';
                 lastPickLine2El.textContent = '';
                 lastPickEl.onclick = null;
                 lastPickEl.style.cursor = 'default';
+                document.getElementById('draftPickReasoning').style.display = 'none';
             }
 
             // Update round/pick info
@@ -15550,6 +15646,9 @@
             // Load current settings into inputs
             document.getElementById('pickTradeInPenalty').value = managementState.settings.pickTradeInPenalty || 50;
             document.getElementById('pickAcquirePremium').value = managementState.settings.pickAcquirePremium || 10;
+            // Default to true if not set
+            const showReasoning = managementState.settings.showPickReasoning !== false;
+            document.getElementById('showPickReasoning').checked = showReasoning;
             document.getElementById('draftOptionsModal').style.display = 'flex';
         });
 
@@ -15557,6 +15656,7 @@
             // Save settings
             managementState.settings.pickTradeInPenalty = parseInt(document.getElementById('pickTradeInPenalty').value) || 50;
             managementState.settings.pickAcquirePremium = parseInt(document.getElementById('pickAcquirePremium').value) || 10;
+            managementState.settings.showPickReasoning = document.getElementById('showPickReasoning').checked;
             document.getElementById('draftOptionsModal').style.display = 'none';
             // Refresh draft screen to show updated values
             if (draftState.active) {
