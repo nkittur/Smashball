@@ -5977,7 +5977,7 @@
                 debugStatsHtml += `<div style="margin-top:8px;border-top:1px solid #333;padding-top:6px;"><strong>Combine Debug:</strong></div>`;
                 debugStatsHtml += `<div style="display:grid;grid-template-columns:1fr 1fr;gap:2px;font-size:10px;">`;
                 debugStatsHtml += `<div>40yd: ${cs.fortyYard}s (exp: ${expectedForty.toFixed(2)}s) ${formatRollInv(parseFloat(cs.fortyYard), expectedForty)}</div>`;
-                debugStatsHtml += `<div>Bench: ${cs.bench} (exp: ${expectedBench.toFixed(0)}) ${formatRoll(cs.bench, expectedBench)}</div>`;
+                debugStatsHtml += `<div>Bench: ${cs.benchPress} (exp: ${expectedBench.toFixed(0)}) ${formatRoll(cs.benchPress, expectedBench)}</div>`;
                 debugStatsHtml += `<div>Vert: ${cs.verticalJump}" (exp: ${expectedVert.toFixed(1)}") ${formatRoll(parseFloat(cs.verticalJump), expectedVert)}</div>`;
                 debugStatsHtml += `<div>Broad: ${cs.broadJump}" (exp: ${expectedBroad.toFixed(0)}") ${formatRoll(cs.broadJump, expectedBroad)}</div>`;
                 debugStatsHtml += `<div>3cone: ${cs.threeCone}s (exp: ${expectedThree.toFixed(2)}s) ${formatRollInv(parseFloat(cs.threeCone), expectedThree)}</div>`;
@@ -6073,7 +6073,7 @@
                         const expHurries = 8 + dlRush * 0.12 + dlAgi * 0.05;
                         debugStatsHtml += `Sacks: ${cs.sacks} (exp: ${expSacks.toFixed(1)}) ${formatRoll(parseFloat(cs.sacks), expSacks)}<br>`;
                         debugStatsHtml += `TFL: ${cs.tacklesForLoss} (exp: ${expTfl.toFixed(1)}) ${formatRoll(parseFloat(cs.tacklesForLoss), expTfl)}<br>`;
-                        debugStatsHtml += `Hurries: ${cs.hurries} (exp: ${expHurries.toFixed(1)}) ${formatRoll(parseFloat(cs.hurries), expHurries)}`;
+                        debugStatsHtml += `Hurries: ${cs.qbHurries} (exp: ${expHurries.toFixed(1)}) ${formatRoll(parseFloat(cs.qbHurries), expHurries)}`;
                         break;
                 }
                 debugStatsHtml += `</div>`;
