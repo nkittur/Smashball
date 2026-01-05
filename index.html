@@ -4271,9 +4271,9 @@
             MAX_LEVEL: 3,           // Maximum times a player can be scouted
             MIN_COST: 5,            // Minimum scouting cost
             MAX_COST: 50,           // Maximum scouting cost
-            RANGE_UNSCOUTED: 50,    // Rating range for unscouted players (±50)
-            RANGE_PER_LEVEL: 14,    // Range reduction per scout level (50 -> 36 -> 22 -> 8)
-            MAX_OFFSET: 24          // Maximum offset from center at level 0
+            RANGE_UNSCOUTED: 22,    // Rating range for unscouted players (±22, was ±50)
+            RANGE_PER_LEVEL: 5,     // Range reduction per scout level (22 -> 17 -> 12 -> 7)
+            MAX_OFFSET: 10          // Maximum offset from center at level 0
         };
 
         // Generate combine stats for a draft player based on their core attributes
@@ -4586,8 +4586,8 @@
             const numVal = parseFloat(value);
             if (isNaN(numVal)) return value + suffix; // Return as-is if not a number (e.g., letter grade)
 
-            // Variance decreases with scout level: 20% -> 14% -> 8% -> 4%
-            const variancePct = [0.20, 0.14, 0.08, 0.04][scoutLevel] || 0.20;
+            // Variance decreases with scout level: 8% -> 6% -> 5% -> 4%
+            const variancePct = [0.08, 0.06, 0.05, 0.04][scoutLevel] || 0.08;
             const variance = numVal * variancePct;
 
             // For integer stats, round appropriately
@@ -4863,14 +4863,14 @@
             // Even fully scouted players have small chance of being wrong
             let maxError, errorChance;
             if (scoutLevel === 0) {
-                maxError = 2;
-                errorChance = 0.7;  // 70% chance of being wrong
+                maxError = 1;
+                errorChance = 0.25;  // 25% chance of being wrong (was 70%)
             } else if (scoutLevel === 1) {
                 maxError = 1;
-                errorChance = 0.5;  // 50% chance of being wrong
+                errorChance = 0.20;  // 20% chance of being wrong
             } else if (scoutLevel === 2) {
                 maxError = 1;
-                errorChance = 0.25; // 25% chance of being wrong
+                errorChance = 0.17; // 17% chance of being wrong
             } else {
                 maxError = 1;
                 errorChance = 0.15; // 15% chance of surprise even fully scouted
