@@ -13618,6 +13618,7 @@
         }
 
         // Stat Reveal Animation System
+        console.log('[DEBUG] Stat Reveal Animation System loading...');
         let statRevealState = {
             isRevealing: false,
             revealTimeouts: [],
@@ -13625,11 +13626,13 @@
         };
 
         function showStatReveal(playersWithGains, onComplete) {
+            console.log('[DEBUG] showStatReveal called with', playersWithGains.length, 'players');
             const overlay = document.getElementById('statRevealOverlay');
             const container = document.getElementById('statRevealContainer');
             const continueBtn = document.getElementById('statRevealContinue');
             const skipBtn = document.getElementById('statRevealSkip');
             const particlesContainer = document.getElementById('statRevealParticles');
+            console.log('[DEBUG] Stat reveal elements:', { overlay, container, continueBtn, skipBtn, particlesContainer });
 
             // Clear any previous state
             statRevealState.revealTimeouts.forEach(t => clearTimeout(t));
@@ -15248,8 +15251,19 @@
                 btn.textContent = 'VIEW LOG';
             }
         });
-        document.getElementById('statRevealSkip').addEventListener('click', skipStatReveal);
-        document.getElementById('statRevealContinue').addEventListener('click', closeStatReveal);
+
+        // Debug: Check stat reveal elements exist
+        console.log('[DEBUG] statRevealSkip element:', document.getElementById('statRevealSkip'));
+        console.log('[DEBUG] statRevealContinue element:', document.getElementById('statRevealContinue'));
+
+        try {
+            document.getElementById('statRevealSkip').addEventListener('click', skipStatReveal);
+            document.getElementById('statRevealContinue').addEventListener('click', closeStatReveal);
+            console.log('[DEBUG] Stat reveal event listeners attached successfully');
+        } catch (e) {
+            console.error('[DEBUG] Error attaching stat reveal listeners:', e);
+        }
+
         document.getElementById('btnCopySimLog').addEventListener('click', () => {
             const logText = getSimulationLog();
             navigator.clipboard.writeText(logText).then(() => {
