@@ -519,16 +519,19 @@
 
         <!-- Draft Screen -->
         <div id="draftScreen" class="mgmt-screen draft-screen" style="display:none;max-width:600px;">
-            <button id="btnDraftBack" class="mgmt-btn back-btn" style="position:absolute;top:10px;left:10px;z-index:10;">←</button>
-            <button id="btnDraftOptions" class="mgmt-btn back-btn" style="position:absolute;top:10px;right:10px;left:auto;z-index:10;">⚙</button>
-
-            <!-- Spacer for absolute positioned buttons -->
-            <div class="draft-top-spacer"></div>
-
-            <!-- Last Pick Notification Bar -->
-            <div id="draftLastPick" class="draft-last-pick">
-                <div id="draftLastPickLine1" class="draft-last-pick-line1">Draft starting...</div>
-                <div id="draftLastPickLine2" class="draft-last-pick-line2"></div>
+            <!-- Header row with menu -->
+            <div class="draft-header">
+                <div id="draftLastPick" class="draft-last-pick">
+                    <div id="draftLastPickLine1" class="draft-last-pick-line1">Draft starting...</div>
+                    <div id="draftLastPickLine2" class="draft-last-pick-line2"></div>
+                </div>
+                <div class="draft-menu-container">
+                    <button id="btnDraftMenu" class="draft-menu-btn">⋮</button>
+                    <div id="draftMenuDropdown" class="draft-menu-dropdown" style="display:none;">
+                        <button id="btnDraftOptions" class="draft-menu-item">⚙ Settings</button>
+                        <button id="btnDraftBack" class="draft-menu-item">← Exit Draft</button>
+                    </div>
+                </div>
             </div>
 
             <!-- Computer Pick Reasoning -->
@@ -740,32 +743,85 @@
             padding-bottom: 70px; /* Space for fixed bottom buttons */
             align-self: flex-start; /* Align to top instead of center to prevent top cutoff */
         }
-        .draft-top-spacer {
-            height: 40px; /* Space for absolute positioned buttons */
+        .draft-header {
+            display: flex;
+            align-items: flex-start;
+            background: #1a1a2a;
+            margin: 0 -15px 5px -15px;
+            padding: 8px 12px;
+            border-bottom: 1px solid #333;
         }
         .draft-last-pick {
-            background: #1a1a2a;
-            padding: 8px 12px;
-            margin: 0 -15px 5px -15px;
+            flex: 1;
             font-size: 11px;
             color: #888;
-            border-bottom: 1px solid #333;
             cursor: pointer;
-            transition: background 0.2s;
+            min-width: 0; /* Allow text truncation */
         }
         .draft-last-pick:hover {
-            background: #252540;
+            color: #aaa;
         }
         .draft-last-pick-line1 {
-            text-align: center;
+            text-align: left;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
         }
         .draft-last-pick-line2 {
-            text-align: center;
-            margin-top: 4px;
+            text-align: left;
+            margin-top: 2px;
             font-size: 10px;
+        }
+        .draft-menu-container {
+            position: relative;
+            margin-left: 8px;
+        }
+        .draft-menu-btn {
+            background: transparent;
+            border: 1px solid #444;
+            color: #888;
+            font-size: 18px;
+            padding: 2px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            line-height: 1;
+        }
+        .draft-menu-btn:hover {
+            background: #333;
+            color: #fff;
+        }
+        .draft-menu-dropdown {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            background: #1a1a2a;
+            border: 1px solid #444;
+            border-radius: 4px;
+            margin-top: 4px;
+            z-index: 100;
+            min-width: 120px;
+        }
+        .draft-menu-item {
+            display: block;
+            width: 100%;
+            background: transparent;
+            border: none;
+            color: #ccc;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            padding: 8px 12px;
+            text-align: left;
+            cursor: pointer;
+        }
+        .draft-menu-item:hover {
+            background: #333;
+            color: #fff;
+        }
+        .draft-menu-item:first-child {
+            border-radius: 4px 4px 0 0;
+        }
+        .draft-menu-item:last-child {
+            border-radius: 0 0 4px 4px;
         }
         .draft-last-pick .player-name { color: #fff; font-weight: bold; }
         .draft-last-pick .team-name { color: #ffd700; }
@@ -15644,13 +15700,27 @@
 
         // Draft back button - return to main menu
         document.getElementById('btnDraftBack').addEventListener('click', () => {
+            document.getElementById('draftMenuDropdown').style.display = 'none';
             // Save the game state (draft will be preserved)
             if (managementState.settings.autoSave) SaveSystem.save();
             showScreen('main_menu');
         });
 
+        // Draft menu dropdown handler
+        document.getElementById('btnDraftMenu').addEventListener('click', (e) => {
+            e.stopPropagation();
+            const dropdown = document.getElementById('draftMenuDropdown');
+            dropdown.style.display = dropdown.style.display === 'none' ? 'block' : 'none';
+        });
+
+        // Close dropdown when clicking elsewhere
+        document.addEventListener('click', () => {
+            document.getElementById('draftMenuDropdown').style.display = 'none';
+        });
+
         // Draft options modal handlers
         document.getElementById('btnDraftOptions').addEventListener('click', () => {
+            document.getElementById('draftMenuDropdown').style.display = 'none';
             // Load current settings into inputs
             document.getElementById('pickTradeInPenalty').value = managementState.settings.pickTradeInPenalty || 50;
             document.getElementById('pickAcquirePremium').value = managementState.settings.pickAcquirePremium || 10;
