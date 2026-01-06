@@ -14010,14 +14010,14 @@
             particlesContainer.innerHTML = '';
             continueBtn.classList.remove('visible');
 
-            // If no players with gains, show message and skip quickly
+            // If no players with gains, skip the reveal entirely and proceed to match end
             if (playersWithGains.length === 0) {
-                container.innerHTML = '<div class="stat-reveal-no-gains">No fame earned this game</div>';
-                overlay.style.display = 'flex';
-                requestAnimationFrame(() => overlay.classList.add('visible'));
-                statRevealState.revealTimeouts.push(setTimeout(() => {
-                    continueBtn.classList.add('visible');
-                }, 500));
+                console.log('[DEBUG] No players with gains, skipping stat reveal');
+                statRevealState.isRevealing = false;
+                if (onComplete) {
+                    console.log('[DEBUG] Calling onComplete callback directly');
+                    onComplete();
+                }
                 return;
             }
 
