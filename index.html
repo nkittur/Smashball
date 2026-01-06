@@ -962,20 +962,10 @@
 
         /* Post-game stats - roster-like layout */
         .post-game-stats {
-            max-height: 350px;
+            max-height: 400px;
             overflow-y: auto;
             margin: 10px 0;
             text-align: left;
-        }
-        .post-game-section {
-            margin-bottom: 12px;
-        }
-        .post-game-section-title {
-            font-size: 11px;
-            color: #888;
-            text-transform: uppercase;
-            margin-bottom: 6px;
-            padding-left: 4px;
         }
         .post-game-player {
             background: #1a1a2a;
@@ -994,20 +984,46 @@
             align-items: center;
             margin-bottom: 6px;
         }
+        .post-game-player-info {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
         .post-game-player-name {
             font-weight: bold;
             color: #fff;
+        }
+        .post-game-player-fame {
+            color: #ffd700;
+            font-size: 11px;
+        }
+        .post-game-player-right {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .post-game-player-change {
+            font-size: 12px;
+            min-width: 24px;
+            text-align: right;
+        }
+        .post-game-player-change.positive {
+            color: #4f4;
         }
         .post-game-player-ovr {
             font-weight: bold;
             color: #ffd700;
             font-size: 16px;
+            min-width: 28px;
+            text-align: right;
         }
         .post-game-player-stats {
             display: flex;
             flex-wrap: wrap;
-            gap: 8px;
+            gap: 10px;
             font-size: 11px;
+            padding-left: 4px;
+            color: #aaa;
         }
         .post-game-stat {
             display: flex;
@@ -1035,16 +1051,16 @@
             color: #ffd700;
         }
         .post-game-player-growth {
-            margin-left: 8px;
+            display: flex;
+            gap: 4px;
         }
         .post-game-growth {
             color: #4f4;
-            font-size: 11px;
+            font-size: 10px;
             font-weight: bold;
             background: rgba(68, 255, 68, 0.15);
-            padding: 2px 5px;
+            padding: 2px 4px;
             border-radius: 3px;
-            margin-right: 4px;
         }
 
         /* Pre-game matchups */
@@ -13845,7 +13861,7 @@
                     throwPower: 'PWR', throwAccuracy: 'ACC', readDefense: 'RDF'
                 };
 
-                // Helper to render a player row
+                // Helper to render a player row (roster-style layout)
                 const renderPlayerRow = (player) => {
                     const pStats = gameStats.players[player.id];
                     const statItems = getPlayerGameStats(player);
@@ -13853,14 +13869,14 @@
                     // Calculate fame earned this game
                     const fameEarned = calculateGameFame(player, pStats);
 
-                    // Add fame to stats display if earned (always show, even if already added)
+                    // Add fame to stats display if earned
                     if (fameEarned > 0) {
                         statItems.push({ label: 'FAME', value: `+${fameEarned}`, highlight: true });
                     }
 
                     const statsHtml = statItems.length > 0
                         ? statItems.map(s => `<div class="post-game-stat${s.highlight ? ' fame-stat' : ''}"><span class="post-game-stat-value">${s.value}</span><span class="post-game-stat-label">${s.label}</span></div>`).join('')
-                        : '<span class="post-game-no-stats">No stats</span>';
+                        : '<span class="post-game-no-stats">—</span>';
 
                     // Show accumulated fame bank
                     const fameBank = player.hypeData ? player.hypeData.accumulatedFameBank : 0;
@@ -13871,25 +13887,29 @@
                         ? playerGrowth.map(g => `<span class="post-game-growth">+${g.change} ${statDisplayNames[g.stat] || g.stat.toUpperCase()}</span>`).join(' ')
                         : '';
 
+                    // Calculate total growth for display next to OVR
+                    const totalGrowth = playerGrowth.reduce((sum, g) => sum + g.change, 0);
+                    const growthClass = totalGrowth > 0 ? 'positive' : '';
+                    const growthText = totalGrowth > 0 ? `+${totalGrowth}` : '';
+
                     const div = document.createElement('div');
                     div.className = 'post-game-player';
                     div.innerHTML = `
                         <div class="post-game-player-header">
-                            <span class="post-game-player-name">${player.firstName} ${player.lastName}</span>
-                            ${growthHtml ? `<span class="post-game-player-growth">${growthHtml}</span>` : ''}
-                            <span class="post-game-player-fame" style="color:#ffd700;font-size:11px;margin-left:auto;">${fameBank > 0 ? `[${fameBank}]` : ''}</span>
-                            <span class="post-game-player-ovr">${player.overall}</span>
+                            <div class="post-game-player-info">
+                                <span class="post-game-player-name">${player.firstName} ${player.lastName}</span>
+                                ${fameBank > 0 ? `<span class="post-game-player-fame">[${fameBank}]</span>` : ''}
+                            </div>
+                            <div class="post-game-player-right">
+                                ${growthHtml ? `<span class="post-game-player-growth">${growthHtml}</span>` : ''}
+                                <span class="post-game-player-change ${growthClass}">${growthText}</span>
+                                <span class="post-game-player-ovr">${player.overall}</span>
+                            </div>
                         </div>
                         <div class="post-game-player-stats">${statsHtml}</div>
                     `;
                     div.addEventListener('click', () => showPlayerDetail(player.id));
                     return div;
-                };
-
-                // Group players by position category (same order as roster)
-                const positionGroups = {
-                    'Offense': ['QB', 'WR', 'OL'],
-                    'Defense': ['CB', 'DL']
                 };
 
                 if (!managementState.team || !managementState.team.roster) {
@@ -13898,22 +13918,25 @@
                     return;
                 }
 
-                Object.entries(positionGroups).forEach(([groupName, positions]) => {
-                    const groupPlayers = managementState.team.roster
-                        .filter(p => positions.includes(p.position))
+                // Use same position order as roster screen
+                const positions = ['QB', 'WR', 'CB', 'OL', 'DL'];
+                positions.forEach(pos => {
+                    const players = managementState.team.roster
+                        .filter(p => p.position === pos)
                         .sort((a, b) => b.overall - a.overall);
 
-                    if (groupPlayers.length === 0) return;
+                    if (players.length === 0) return;
 
-                    const section = document.createElement('div');
-                    section.className = 'post-game-section';
-                    section.innerHTML = `<div class="post-game-section-title">${groupName}</div>`;
+                    // Position header (same style as roster)
+                    const header = document.createElement('div');
+                    header.className = 'position-header';
+                    header.textContent = POSITIONS[pos].name;
+                    statsContainer.appendChild(header);
 
-                    groupPlayers.forEach(player => {
-                        section.appendChild(renderPlayerRow(player));
+                    // Player rows
+                    players.forEach(player => {
+                        statsContainer.appendChild(renderPlayerRow(player));
                     });
-
-                    statsContainer.appendChild(section);
                 });
 
                 if (statsContainer.children.length === 0) {
