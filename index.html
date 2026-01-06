@@ -522,6 +522,9 @@
             <button id="btnDraftBack" class="mgmt-btn back-btn" style="position:absolute;top:10px;left:10px;z-index:10;">←</button>
             <button id="btnDraftOptions" class="mgmt-btn back-btn" style="position:absolute;top:10px;right:10px;left:auto;z-index:10;">⚙</button>
 
+            <!-- Spacer for absolute positioned buttons -->
+            <div class="draft-top-spacer"></div>
+
             <!-- Last Pick Notification Bar -->
             <div id="draftLastPick" class="draft-last-pick">
                 <div id="draftLastPickLine1" class="draft-last-pick-line1">Draft starting...</div>
@@ -734,8 +737,10 @@
         .draft-cost.expensive { color: #f84; }
         /* Draft Screen Layout */
         .draft-screen {
-            padding-top: 55px; /* Space for absolute positioned buttons */
             padding-bottom: 70px; /* Space for fixed bottom buttons */
+        }
+        .draft-top-spacer {
+            height: 40px; /* Space for absolute positioned buttons */
         }
         .draft-last-pick {
             background: #1a1a2a;
