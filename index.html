@@ -604,15 +604,6 @@
         </div>
     </div>
 
-    <!-- Stat Reveal Overlay (Loot Box Style) - OUTSIDE managementOverlay so it shows during game -->
-    <div id="statRevealOverlay" class="stat-reveal-overlay" style="display:none;">
-        <div class="stat-reveal-particles" id="statRevealParticles"></div>
-        <h1 class="stat-reveal-title">Fame Earned</h1>
-        <div class="stat-reveal-container" id="statRevealContainer"></div>
-        <button class="stat-reveal-continue" id="statRevealContinue">Continue</button>
-        <button class="stat-reveal-skip" id="statRevealSkip">Skip</button>
-    </div>
-
     <style>
         #managementOverlay {
             position: fixed;
@@ -1043,244 +1034,17 @@
         .post-game-stat.fame-stat .post-game-stat-label {
             color: #ffd700;
         }
-
-        /* Animated Stat Reveal Overlay */
-        .stat-reveal-overlay {
-            position: fixed;
-            inset: 0;
-            background: rgba(10, 10, 20, 0.97);
-            z-index: 2000;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            opacity: 0;
-            transition: opacity 0.4s ease-out;
+        .post-game-player-growth {
+            margin-left: 8px;
         }
-        .stat-reveal-overlay.visible {
-            opacity: 1;
-        }
-        .stat-reveal-title {
-            font-size: 28px;
-            color: #ffd700;
-            text-transform: uppercase;
-            letter-spacing: 4px;
-            margin-bottom: 30px;
-            text-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
-            opacity: 0;
-            transform: translateY(-20px);
-            animation: revealTitleIn 0.6s ease-out forwards;
-        }
-        @keyframes revealTitleIn {
-            to { opacity: 1; transform: translateY(0); }
-        }
-        .stat-reveal-container {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 12px;
-            max-height: 65vh;
-            overflow-y: auto;
-            padding: 20px;
-            width: 100%;
-            max-width: 400px;
-        }
-        .stat-reveal-card {
-            background: linear-gradient(135deg, #1a1a2e 0%, #2a2a45 100%);
-            border: 2px solid #333;
-            border-radius: 12px;
-            padding: 16px 20px;
-            width: 100%;
-            opacity: 0;
-            transform: scale(0.8) rotateX(-15deg);
-            transform-origin: center center;
-            transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
-            position: relative;
-            overflow: hidden;
-        }
-        .stat-reveal-card::before {
-            content: '';
-            position: absolute;
-            top: -50%;
-            left: -50%;
-            width: 200%;
-            height: 200%;
-            background: linear-gradient(
-                45deg,
-                transparent 40%,
-                rgba(255, 215, 0, 0.1) 50%,
-                transparent 60%
-            );
-            transform: translateX(-100%);
-            transition: transform 0.6s ease-out;
-        }
-        .stat-reveal-card.revealed {
-            opacity: 1;
-            transform: scale(1) rotateX(0deg);
-            border-color: #ffd700;
-            box-shadow: 0 0 30px rgba(255, 215, 0, 0.3), 0 4px 20px rgba(0, 0, 0, 0.5);
-        }
-        .stat-reveal-card.revealed::before {
-            transform: translateX(100%);
-        }
-        .stat-reveal-card-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 10px;
-        }
-        .stat-reveal-player-name {
-            font-size: 16px;
-            font-weight: bold;
-            color: #fff;
-        }
-        .stat-reveal-position {
-            font-size: 12px;
-            color: #888;
-            background: #333;
-            padding: 2px 8px;
-            border-radius: 4px;
-        }
-        .stat-reveal-stats {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 12px;
-            margin-bottom: 12px;
-        }
-        .stat-reveal-stat {
-            display: flex;
-            align-items: baseline;
-            gap: 4px;
-        }
-        .stat-reveal-stat-value {
-            font-size: 18px;
-            font-weight: bold;
-            color: #4af;
-        }
-        .stat-reveal-stat-label {
-            font-size: 10px;
-            color: #888;
-            text-transform: uppercase;
-        }
-        .stat-reveal-fame {
-            display: flex;
-            align-items: center;
-            justify-content: flex-end;
-            gap: 6px;
-            padding-top: 10px;
-            border-top: 1px solid #333;
-        }
-        .stat-reveal-fame-value {
-            font-size: 24px;
-            font-weight: bold;
-            color: #ffd700;
-            text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
-            opacity: 0;
-            transform: scale(0.5);
-            transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-            transition-delay: 0.3s;
-        }
-        .stat-reveal-card.revealed .stat-reveal-fame-value {
-            opacity: 1;
-            transform: scale(1);
-        }
-        .stat-reveal-fame-label {
+        .post-game-growth {
+            color: #4f4;
             font-size: 11px;
-            color: #ffd700;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-        .stat-reveal-fame-icon {
-            font-size: 20px;
-            opacity: 0;
-            transform: rotate(-20deg) scale(0);
-            transition: all 0.3s ease-out;
-            transition-delay: 0.5s;
-        }
-        .stat-reveal-card.revealed .stat-reveal-fame-icon {
-            opacity: 1;
-            transform: rotate(0deg) scale(1);
-        }
-        .stat-reveal-skip {
-            position: absolute;
-            bottom: 30px;
-            right: 30px;
-            background: transparent;
-            border: 1px solid #555;
-            color: #888;
-            padding: 8px 16px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 12px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            transition: all 0.2s;
-        }
-        .stat-reveal-skip:hover {
-            border-color: #ffd700;
-            color: #ffd700;
-        }
-        .stat-reveal-continue {
-            margin-top: 20px;
-            background: linear-gradient(135deg, #3a3a60 0%, #4a4a70 100%);
-            border: 2px solid #ffd700;
-            color: #ffd700;
-            padding: 14px 40px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 16px;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-            opacity: 0;
-            transform: translateY(20px);
-            transition: all 0.4s ease-out;
-            box-shadow: 0 0 20px rgba(255, 215, 0, 0.2);
-        }
-        .stat-reveal-continue.visible {
-            opacity: 1;
-            transform: translateY(0);
-        }
-        .stat-reveal-continue:hover {
-            background: linear-gradient(135deg, #4a4a70 0%, #5a5a80 100%);
-            box-shadow: 0 0 30px rgba(255, 215, 0, 0.4);
-        }
-        .stat-reveal-particles {
-            position: absolute;
-            inset: 0;
-            pointer-events: none;
-            overflow: hidden;
-        }
-        .stat-reveal-particle {
-            position: absolute;
-            width: 4px;
-            height: 4px;
-            background: #ffd700;
-            border-radius: 50%;
-            opacity: 0;
-            box-shadow: 0 0 6px #ffd700;
-        }
-        @keyframes particleFly {
-            0% { opacity: 1; transform: translate(0, 0) scale(1); }
-            100% { opacity: 0; transform: translate(var(--tx), var(--ty)) scale(0); }
-        }
-        .stat-reveal-no-gains {
-            color: #888;
-            font-size: 14px;
-            text-align: center;
-            padding: 40px;
-        }
-        @keyframes shimmer {
-            0% { background-position: -200% 0; }
-            100% { background-position: 200% 0; }
-        }
-        .stat-reveal-card.revealed .stat-reveal-player-name {
-            background: linear-gradient(90deg, #fff 0%, #ffd700 50%, #fff 100%);
-            background-size: 200% auto;
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            animation: shimmer 2s linear infinite;
+            font-weight: bold;
+            background: rgba(68, 255, 68, 0.15);
+            padding: 2px 5px;
+            border-radius: 3px;
+            margin-right: 4px;
         }
 
         /* Pre-game matchups */
@@ -13977,179 +13741,6 @@
             document.getElementById('btnUpgradeTraining').disabled = training.level >= training.maxLevel || managementState.team.fame < trainingCost;
         }
 
-        // Stat Reveal Animation System
-        console.log('[DEBUG] Stat Reveal Animation System loading...');
-        let statRevealState = {
-            isRevealing: false,
-            revealTimeouts: [],
-            currentCallback: null
-        };
-
-        function showStatReveal(playersWithGains, onComplete) {
-            console.log('[DEBUG] showStatReveal called with', playersWithGains.length, 'players');
-            const overlay = document.getElementById('statRevealOverlay');
-            const container = document.getElementById('statRevealContainer');
-            const continueBtn = document.getElementById('statRevealContinue');
-            const skipBtn = document.getElementById('statRevealSkip');
-            const particlesContainer = document.getElementById('statRevealParticles');
-            console.log('[DEBUG] Stat reveal elements:', { overlay, container, continueBtn, skipBtn, particlesContainer });
-
-            // Clear any previous state
-            statRevealState.revealTimeouts.forEach(t => clearTimeout(t));
-            statRevealState.revealTimeouts = [];
-            statRevealState.isRevealing = true;
-            statRevealState.currentCallback = onComplete;
-            container.innerHTML = '';
-            particlesContainer.innerHTML = '';
-            continueBtn.classList.remove('visible');
-
-            // If no players with gains, show brief message and auto-continue
-            if (playersWithGains.length === 0) {
-                console.log('[DEBUG] No players with gains, showing brief message');
-                container.innerHTML = '<div class="stat-reveal-no-gains" style="color:#888;font-size:18px;">No fame earned this game</div>';
-                overlay.style.display = 'flex';
-                requestAnimationFrame(() => overlay.classList.add('visible'));
-                // Auto-continue after 1 second
-                statRevealState.revealTimeouts.push(setTimeout(() => {
-                    closeStatReveal();
-                }, 1000));
-                return;
-            }
-
-            // Sort by fame earned (highest first for drama)
-            playersWithGains.sort((a, b) => b.fameEarned - a.fameEarned);
-
-            // Create cards for each player
-            playersWithGains.forEach((playerData, index) => {
-                const card = createRevealCard(playerData);
-                card.dataset.index = index;
-                container.appendChild(card);
-            });
-
-            // Show overlay
-            overlay.style.display = 'flex';
-            requestAnimationFrame(() => overlay.classList.add('visible'));
-
-            // Staggered reveal animation
-            const cards = container.querySelectorAll('.stat-reveal-card');
-            const revealDelay = 600; // ms between each card
-
-            cards.forEach((card, index) => {
-                const timeout = setTimeout(() => {
-                    if (!statRevealState.isRevealing) return;
-                    card.classList.add('revealed');
-                    spawnParticles(card, particlesContainer);
-
-                    // Auto-scroll to keep revealed card in view
-                    card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                }, 400 + index * revealDelay);
-                statRevealState.revealTimeouts.push(timeout);
-            });
-
-            // Show continue button after all reveals
-            const totalRevealTime = 400 + cards.length * revealDelay + 300;
-            statRevealState.revealTimeouts.push(setTimeout(() => {
-                continueBtn.classList.add('visible');
-            }, totalRevealTime));
-        }
-        console.log('[DEBUG] showStatReveal defined');
-
-        function createRevealCard(playerData) {
-            const { player, stats, fameEarned } = playerData;
-            const card = document.createElement('div');
-            card.className = 'stat-reveal-card';
-
-            // Build stats HTML
-            const statsHtml = stats.map(s => `
-                <div class="stat-reveal-stat">
-                    <span class="stat-reveal-stat-value">${s.value}</span>
-                    <span class="stat-reveal-stat-label">${s.label}</span>
-                </div>
-            `).join('');
-
-            card.innerHTML = `
-                <div class="stat-reveal-card-header">
-                    <span class="stat-reveal-player-name">${player.firstName} ${player.lastName}</span>
-                    <span class="stat-reveal-position">${player.position}</span>
-                </div>
-                <div class="stat-reveal-stats">${statsHtml}</div>
-                <div class="stat-reveal-fame">
-                    <span class="stat-reveal-fame-label">Fame</span>
-                    <span class="stat-reveal-fame-value">+${fameEarned}</span>
-                    <span class="stat-reveal-fame-icon">★</span>
-                </div>
-            `;
-
-            return card;
-        }
-
-        function spawnParticles(card, container) {
-            const rect = card.getBoundingClientRect();
-            const centerX = rect.left + rect.width / 2;
-            const centerY = rect.top + rect.height / 2;
-
-            // Create burst of particles
-            for (let i = 0; i < 12; i++) {
-                const particle = document.createElement('div');
-                particle.className = 'stat-reveal-particle';
-
-                // Random direction
-                const angle = (Math.PI * 2 / 12) * i + (Math.random() - 0.5) * 0.5;
-                const distance = 80 + Math.random() * 60;
-                const tx = Math.cos(angle) * distance;
-                const ty = Math.sin(angle) * distance;
-
-                particle.style.left = `${centerX}px`;
-                particle.style.top = `${centerY}px`;
-                particle.style.setProperty('--tx', `${tx}px`);
-                particle.style.setProperty('--ty', `${ty}px`);
-                particle.style.animation = `particleFly 0.8s ease-out forwards`;
-                particle.style.animationDelay = `${Math.random() * 0.1}s`;
-
-                container.appendChild(particle);
-
-                // Remove after animation
-                setTimeout(() => particle.remove(), 1000);
-            }
-        }
-
-        function skipStatReveal() {
-            // Immediately reveal all cards
-            const container = document.getElementById('statRevealContainer');
-            const continueBtn = document.getElementById('statRevealContinue');
-
-            statRevealState.revealTimeouts.forEach(t => clearTimeout(t));
-            statRevealState.revealTimeouts = [];
-
-            container.querySelectorAll('.stat-reveal-card').forEach(card => {
-                card.classList.add('revealed');
-            });
-
-            continueBtn.classList.add('visible');
-        }
-
-        function closeStatReveal() {
-            console.log('[DEBUG] closeStatReveal called');
-            const overlay = document.getElementById('statRevealOverlay');
-            overlay.classList.remove('visible');
-            statRevealState.isRevealing = false;
-
-            setTimeout(() => {
-                console.log('[DEBUG] closeStatReveal timeout fired, callback:', !!statRevealState.currentCallback);
-                overlay.style.display = 'none';
-                if (statRevealState.currentCallback) {
-                    try {
-                        statRevealState.currentCallback();
-                        console.log('[DEBUG] Callback executed successfully');
-                    } catch (e) {
-                        console.error('[DEBUG] Error in stat reveal callback:', e);
-                    }
-                    statRevealState.currentCallback = null;
-                }
-            }, 400);
-        }
-        console.log('[DEBUG] closeStatReveal defined');
-
         // Show match end result
         function showMatchEnd(matchResult) {
             console.log('[DEBUG] showMatchEnd called', matchResult);
@@ -14189,10 +13780,12 @@
                     if (pStats.yardsAfterCatch > 0) statItems.push({ label: 'YAC', value: pStats.yardsAfterCatch });
                 }
 
-                // Clash stats
+                // Clash stats - show win percentage
                 if (pStats.clashesWon > 0 || pStats.clashesLost > 0) {
-                    statItems.push({ label: 'W', value: pStats.clashesWon });
-                    statItems.push({ label: 'L', value: pStats.clashesLost });
+                    const totalClashes = pStats.clashesWon + pStats.clashesLost;
+                    const winPct = totalClashes > 0 ? Math.round(pStats.clashesWon / totalClashes * 100) : 0;
+                    statItems.push({ label: 'CLSH', value: `${pStats.clashesWon}-${pStats.clashesLost}` });
+                    statItems.push({ label: 'WIN%', value: `${winPct}%` });
                 }
 
                 // Defense stats
@@ -14206,31 +13799,20 @@
                 return statItems;
             };
 
-            // Collect players with fame gains for the reveal animation
-            const playersWithGains = [];
-            if (managementState.team && managementState.team.roster) {
-                managementState.team.roster.forEach(player => {
-                    const pStats = gameStats.players[player.id];
-                    if (pStats) {
-                        const fameEarned = calculateGameFame(player, pStats);
-                        if (fameEarned > 0) {
-                            const stats = getPlayerGameStats(player);
-                            playersWithGains.push({
-                                player: player,
-                                stats: stats,
-                                fameEarned: fameEarned
-                            });
-                        }
-                    }
-                });
-            }
-
             // Function to display the final match end screen
             const displayMatchEndScreen = () => {
                 document.getElementById('matchResult').textContent = result.win ? 'VICTORY!' : 'DEFEAT';
                 document.getElementById('matchResult').className = result.win ? 'win' : 'loss';
                 document.getElementById('matchScore').textContent = `${result.playerScore} - ${result.opponentScore}`;
                 document.getElementById('matchRevenue').textContent = `+${matchResult.revenue.toLocaleString()} Fame`;
+
+                // Build player growth map from progression results
+                const playerGrowthMap = {};
+                if (matchResult.progression && matchResult.progression.improvements) {
+                    matchResult.progression.improvements.forEach(({ player, improvements }) => {
+                        playerGrowthMap[player.id] = improvements;
+                    });
+                }
 
                 // Add fame to players ONCE per game (prevent double-counting on re-render)
                 if (!managementState.fameAddedThisGame && managementState.team && managementState.team.roster) {
@@ -14250,6 +13832,14 @@
                 // Build post-game stats display using roster layout
                 const statsContainer = document.getElementById('postGameStats');
                 statsContainer.innerHTML = '';
+
+                // Stat name mapping for display
+                const statDisplayNames = {
+                    speed: 'SPD', strength: 'STR', agility: 'AGI', intelligence: 'INT',
+                    catching: 'CTH', routeRunning: 'RTE', awareness: 'AWR', pursuit: 'PUR',
+                    passBlock: 'PBK', passRush: 'PSR', tackling: 'TKL', coverage: 'COV',
+                    throwPower: 'PWR', throwAccuracy: 'ACC', readDefense: 'RDF'
+                };
 
                 // Helper to render a player row
                 const renderPlayerRow = (player) => {
@@ -14271,12 +13861,19 @@
                     // Show accumulated fame bank
                     const fameBank = player.hypeData ? player.hypeData.accumulatedFameBank : 0;
 
+                    // Get player growth for this week
+                    const playerGrowth = playerGrowthMap[player.id] || [];
+                    const growthHtml = playerGrowth.length > 0
+                        ? playerGrowth.map(g => `<span class="post-game-growth">+${g.change} ${statDisplayNames[g.stat] || g.stat.toUpperCase()}</span>`).join(' ')
+                        : '';
+
                     const div = document.createElement('div');
                     div.className = 'post-game-player';
                     div.innerHTML = `
                         <div class="post-game-player-header">
                             <span class="post-game-player-name">${player.firstName} ${player.lastName}</span>
-                            <span class="post-game-player-fame" style="color:#ffd700;font-size:11px;margin-left:8px;">${fameBank > 0 ? `[${fameBank}]` : ''}</span>
+                            ${growthHtml ? `<span class="post-game-player-growth">${growthHtml}</span>` : ''}
+                            <span class="post-game-player-fame" style="color:#ffd700;font-size:11px;margin-left:auto;">${fameBank > 0 ? `[${fameBank}]` : ''}</span>
                             <span class="post-game-player-ovr">${player.overall}</span>
                         </div>
                         <div class="post-game-player-stats">${statsHtml}</div>
@@ -14333,16 +13930,8 @@
                 showScreen('match_end');
             };
 
-            // Show the animated stat reveal first, then display match end screen
-            console.log('[DEBUG] About to call showStatReveal with', playersWithGains.length, 'players');
-            try {
-                showStatReveal(playersWithGains, displayMatchEndScreen);
-                console.log('[DEBUG] showStatReveal called successfully');
-            } catch (e) {
-                console.error('[DEBUG] Error in showStatReveal:', e);
-                // Fallback: show match end screen directly
-                displayMatchEndScreen();
-            }
+            // Show match end screen directly
+            displayMatchEndScreen();
         }
         console.log('[DEBUG] showMatchEnd defined');
 
@@ -15651,18 +15240,6 @@
                 btn.textContent = 'VIEW LOG';
             }
         });
-
-        // Debug: Check stat reveal elements exist
-        console.log('[DEBUG] statRevealSkip element:', document.getElementById('statRevealSkip'));
-        console.log('[DEBUG] statRevealContinue element:', document.getElementById('statRevealContinue'));
-
-        try {
-            document.getElementById('statRevealSkip').addEventListener('click', skipStatReveal);
-            document.getElementById('statRevealContinue').addEventListener('click', closeStatReveal);
-            console.log('[DEBUG] Stat reveal event listeners attached successfully');
-        } catch (e) {
-            console.error('[DEBUG] Error attaching stat reveal listeners:', e);
-        }
 
         document.getElementById('btnCopySimLog').addEventListener('click', () => {
             const logText = getSimulationLog();
