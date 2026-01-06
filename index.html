@@ -494,15 +494,6 @@
             </div>
         </div>
 
-        <!-- Stat Reveal Overlay (Loot Box Style) -->
-        <div id="statRevealOverlay" class="stat-reveal-overlay" style="display:none;">
-            <div class="stat-reveal-particles" id="statRevealParticles"></div>
-            <h1 class="stat-reveal-title">Fame Earned</h1>
-            <div class="stat-reveal-container" id="statRevealContainer"></div>
-            <button class="stat-reveal-continue" id="statRevealContinue">Continue</button>
-            <button class="stat-reveal-skip" id="statRevealSkip">Skip</button>
-        </div>
-
         <!-- Pre-Game Matchup Screen -->
         <div id="preGameScreen" class="mgmt-screen" style="display:none;max-width:500px;">
             <button id="btnPreGameBack" class="mgmt-btn back-btn">←</button>
@@ -611,6 +602,15 @@
                 <button id="btnCloseDraftOptions" class="mgmt-btn secondary">CANCEL</button>
             </div>
         </div>
+    </div>
+
+    <!-- Stat Reveal Overlay (Loot Box Style) - OUTSIDE managementOverlay so it shows during game -->
+    <div id="statRevealOverlay" class="stat-reveal-overlay" style="display:none;">
+        <div class="stat-reveal-particles" id="statRevealParticles"></div>
+        <h1 class="stat-reveal-title">Fame Earned</h1>
+        <div class="stat-reveal-container" id="statRevealContainer"></div>
+        <button class="stat-reveal-continue" id="statRevealContinue">Continue</button>
+        <button class="stat-reveal-skip" id="statRevealSkip">Skip</button>
     </div>
 
     <style>
