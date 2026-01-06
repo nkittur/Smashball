@@ -200,7 +200,7 @@
     <div id="viewButtons">
         <button id="btnHeatMap">Heat Map: OFF</button>
     </div>
-    <button id="btnSkipGame" style="
+    <button id="btnSimRest" style="
         display: none;
         position: fixed;
         top: 10px;
@@ -208,13 +208,13 @@
         padding: 8px 12px;
         font-size: 12px;
         font-family: 'Courier New', monospace;
-        background: #a33;
+        background: #36a;
         color: #fff;
         border: none;
         border-radius: 4px;
         cursor: pointer;
         z-index: 100;
-    ">SKIP GAME</button>
+    ">SIM REST</button>
     <div id="debugInfo"></div>
 
     <!-- Training Mode UI -->
@@ -13459,7 +13459,7 @@
                 overlay.classList.remove('hidden');
                 topBar.style.display = 'none';
                 viewButtons.style.display = 'none';
-                document.getElementById('btnSkipGame').style.display = 'none';
+                document.getElementById('btnSimRest').style.display = 'none';
                 gameSceneActive = false;
 
                 hideAllScreens();
@@ -14530,7 +14530,7 @@
             document.getElementById('viewButtons').style.display = 'flex';
             document.getElementById('trainingModeUI').style.display = 'none';
             document.getElementById('catchDisplay').style.display = '';
-            document.getElementById('btnSkipGame').style.display = 'block'; // Show skip button
+            document.getElementById('btnSimRest').style.display = 'block'; // Show sim rest button
             gameSceneActive = true;
 
             // Reset game state
@@ -15874,76 +15874,97 @@
             engine.resize();
         });
 
-        // Debug: Skip to end of game function
-        function skipToEndOfGame() {
-            if (managementState.matchInProgress) {
-                console.log('[DEBUG] Skipping to end of game...');
-                // Hide skip button
-                document.getElementById('btnSkipGame').style.display = 'none';
-                // Force game to end
-                managementState.currentPossession = SEASON.POSSESSIONS_PER_GAME;
-                managementState.gamePhase = 'regulation';
-                // Add some score if none
-                if (managementState.matchScore.player === 0 && managementState.matchScore.opponent === 0) {
-                    managementState.matchScore.player = 14;
-                    managementState.matchScore.opponent = 7;
+        // Simulate rest of game from current state
+        function simulateRestOfGame() {
+            if (!managementState.matchInProgress) return;
+
+            console.log('[SIM] Simulating rest of game...');
+            console.log('[SIM] Current possession:', managementState.currentPossession, '/', SEASON.POSSESSIONS_PER_GAME);
+            console.log('[SIM] Current score:', managementState.matchScore.player, '-', managementState.matchScore.opponent);
+
+            // Hide button
+            document.getElementById('btnSimRest').style.display = 'none';
+
+            // Get game info
+            const game = managementState.season.schedule[managementState.season.week - 1];
+            const opponent = game.opponent;
+            const playerTeam = managementState.team;
+
+            // Simulate remaining possessions in regulation
+            while (managementState.currentPossession < SEASON.POSSESSIONS_PER_GAME) {
+                // Simulate player drive
+                const playerDrive = simulatePlayerDriveHighFidelity(playerTeam, opponent);
+                const playerPoints = playerDrive.type === 'touchdown' ? 7 :
+                                    playerDrive.type === 'field_goal' ? 3 : 0;
+                managementState.matchScore.player += playerPoints;
+
+                // Record stats from player drive
+                if (playerDrive.statUpdates) {
+                    playerDrive.statUpdates.forEach(update => {
+                        const pStats = gameStats.getPlayer(update.playerId, update.playerName);
+                        Object.keys(update).forEach(key => {
+                            if (key !== 'playerId' && key !== 'playerName') {
+                                pStats[key] = (pStats[key] || 0) + update[key];
+                            }
+                        });
+                    });
                 }
 
-                // Generate fake game stats for testing stat reveal
-                console.log('[DEBUG] Generating fake game stats for stat reveal testing...');
-                gameStats.reset();
-                if (managementState.team && managementState.team.roster) {
-                    // Add stats for QB
-                    const qb = managementState.team.roster.find(p => p.position === 'QB');
-                    if (qb) {
-                        const pStats = gameStats.getPlayer(qb.id, `${qb.firstName} ${qb.lastName}`);
-                        pStats.completions = 12;
-                        pStats.incompletions = 4;
-                    }
-                    // Add stats for WRs
-                    const wrs = managementState.team.roster.filter(p => p.position === 'WR').slice(0, 3);
-                    wrs.forEach((wr, i) => {
-                        const pStats = gameStats.getPlayer(wr.id, `${wr.firstName} ${wr.lastName}`);
-                        pStats.catches = 3 - i;
-                        pStats.drops = i > 0 ? 1 : 0;
-                        pStats.touchdowns = i === 0 ? 2 : (i === 1 ? 1 : 0);
-                        pStats.yardsAfterCatch = (3 - i) * 5;
-                        pStats.clashesWon = 2 - i;
-                        pStats.clashesLost = i;
-                    });
-                    // Add stats for CBs
-                    const cbs = managementState.team.roster.filter(p => p.position === 'CB').slice(0, 2);
-                    cbs.forEach((cb, i) => {
-                        const pStats = gameStats.getPlayer(cb.id, `${cb.firstName} ${cb.lastName}`);
-                        pStats.tackles = 3 - i;
-                        pStats.passesDefended = 2 - i;
-                    });
-                    console.log('[DEBUG] Fake stats generated for', Object.keys(gameStats.players).length, 'players');
-                }
+                // Simulate enemy drive
+                const enemyResult = simulateEnemyPossession(opponent);
+                managementState.matchScore.opponent += enemyResult.points;
 
-                // End the match
-                const matchResult = endMatch();
-                console.log('[DEBUG] Match result from skip:', matchResult);
-                if (matchResult) {
-                    showMatchEnd(matchResult);
-                } else {
-                    console.error('[DEBUG] endMatch returned null');
+                managementState.currentPossession++;
+                console.log('[SIM] After possession', managementState.currentPossession, ':',
+                    managementState.matchScore.player, '-', managementState.matchScore.opponent);
+            }
+
+            // Handle overtime if tied
+            const playerScore = managementState.matchScore.player;
+            const oppScore = managementState.matchScore.opponent;
+
+            if (playerScore === oppScore) {
+                console.log('[SIM] Tied game, simulating overtime...');
+                managementState.gamePhase = 'overtime';
+
+                while (managementState.matchScore.player === managementState.matchScore.opponent) {
+                    // Player OT possession
+                    const playerOT = simulatePlayerDriveHighFidelity(playerTeam, opponent);
+                    const playerOTPoints = playerOT.type === 'touchdown' ? 7 :
+                                           playerOT.type === 'field_goal' ? 3 : 0;
+                    managementState.matchScore.player += playerOTPoints;
+
+                    // Enemy OT possession
+                    const enemyOT = simulateEnemyPossession(opponent);
+                    managementState.matchScore.opponent += enemyOT.points;
+
+                    console.log('[SIM] OT score:', managementState.matchScore.player, '-', managementState.matchScore.opponent);
                 }
+            }
+
+            console.log('[SIM] Final score:', managementState.matchScore.player, '-', managementState.matchScore.opponent);
+
+            // End the match
+            const matchResult = endMatch();
+            if (matchResult) {
+                showMatchEnd(matchResult);
+            } else {
+                console.error('[SIM] endMatch returned null');
             }
         }
 
-        // Skip button click handler
-        document.getElementById('btnSkipGame').addEventListener('click', skipToEndOfGame);
+        // Sim rest button click handler
+        document.getElementById('btnSimRest').addEventListener('click', simulateRestOfGame);
 
-        // Debug: Skip to end of game (press 'E' during a game)
+        // Keyboard shortcut: Press 'S' during a game to simulate rest
         window.addEventListener('keydown', (e) => {
-            if (e.key === 'e' || e.key === 'E') {
+            if (e.key === 's' || e.key === 'S') {
                 if (managementState.matchInProgress && managementState.currentScreen === 'game') {
-                    skipToEndOfGame();
+                    simulateRestOfGame();
                 }
             }
         });
-        console.log('[DEBUG] Press E or tap SKIP GAME button to skip to end');
+        console.log('[DEBUG] Press S or tap SIM REST button to simulate rest of game');
     </script>
 </body>
 </html>
