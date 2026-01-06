@@ -3911,11 +3911,9 @@
         // Growth is based purely on current potential grade
         function processPlayerGrowth(player) {
             if (player.age >= player.peakAge) {
-                console.log(`[GROWTH] ${player.firstName} ${player.lastName}: No growth - age ${player.age} >= peakAge ${player.peakAge}`);
                 return [];
             }
             if (player.potentialGrade <= 0) {
-                console.log(`[GROWTH] ${player.firstName} ${player.lastName}: No growth - potentialGrade ${player.potentialGrade} <= 0`);
                 return []; // No growth potential left
             }
 
@@ -3943,7 +3941,6 @@
                     const growth = PROGRESSION.GROWTH_AMOUNT_MIN + bonusGrowth;
                     player.stats[stat] = Math.min(99, player.stats[stat] + growth);
                     if (player.stats[stat] > oldVal) {
-                        console.log(`[GROWTH] ${player.firstName} ${player.lastName}: ${stat} +${player.stats[stat] - oldVal} (${oldVal} -> ${player.stats[stat]})`);
                         improvements.push({ stat, change: player.stats[stat] - oldVal });
                     }
                 }
@@ -3952,10 +3949,6 @@
             // Recalculate derived values
             player.salaryCost = calculateSalary(player.stats, player.position);
             player.overall = calculateOverall(player);
-
-            if (improvements.length === 0) {
-                console.log(`[GROWTH] ${player.firstName} ${player.lastName}: Eligible but no growth this week (chance: ${(baseGrowthChance * 100).toFixed(1)}%)`);
-            }
 
             return improvements;
         }
@@ -14010,14 +14003,16 @@
             particlesContainer.innerHTML = '';
             continueBtn.classList.remove('visible');
 
-            // If no players with gains, skip the reveal entirely and proceed to match end
+            // If no players with gains, show brief message and auto-continue
             if (playersWithGains.length === 0) {
-                console.log('[DEBUG] No players with gains, skipping stat reveal');
-                statRevealState.isRevealing = false;
-                if (onComplete) {
-                    console.log('[DEBUG] Calling onComplete callback directly');
-                    onComplete();
-                }
+                console.log('[DEBUG] No players with gains, showing brief message');
+                container.innerHTML = '<div class="stat-reveal-no-gains" style="color:#888;font-size:18px;">No fame earned this game</div>';
+                overlay.style.display = 'flex';
+                requestAnimationFrame(() => overlay.classList.add('visible'));
+                // Auto-continue after 1 second
+                statRevealState.revealTimeouts.push(setTimeout(() => {
+                    closeStatReveal();
+                }, 1000));
                 return;
             }
 
@@ -15893,6 +15888,39 @@
                     managementState.matchScore.player = 14;
                     managementState.matchScore.opponent = 7;
                 }
+
+                // Generate fake game stats for testing stat reveal
+                console.log('[DEBUG] Generating fake game stats for stat reveal testing...');
+                gameStats.reset();
+                if (managementState.team && managementState.team.roster) {
+                    // Add stats for QB
+                    const qb = managementState.team.roster.find(p => p.position === 'QB');
+                    if (qb) {
+                        const pStats = gameStats.getPlayer(qb.id, `${qb.firstName} ${qb.lastName}`);
+                        pStats.completions = 12;
+                        pStats.incompletions = 4;
+                    }
+                    // Add stats for WRs
+                    const wrs = managementState.team.roster.filter(p => p.position === 'WR').slice(0, 3);
+                    wrs.forEach((wr, i) => {
+                        const pStats = gameStats.getPlayer(wr.id, `${wr.firstName} ${wr.lastName}`);
+                        pStats.catches = 3 - i;
+                        pStats.drops = i > 0 ? 1 : 0;
+                        pStats.touchdowns = i === 0 ? 2 : (i === 1 ? 1 : 0);
+                        pStats.yardsAfterCatch = (3 - i) * 5;
+                        pStats.clashesWon = 2 - i;
+                        pStats.clashesLost = i;
+                    });
+                    // Add stats for CBs
+                    const cbs = managementState.team.roster.filter(p => p.position === 'CB').slice(0, 2);
+                    cbs.forEach((cb, i) => {
+                        const pStats = gameStats.getPlayer(cb.id, `${cb.firstName} ${cb.lastName}`);
+                        pStats.tackles = 3 - i;
+                        pStats.passesDefended = 2 - i;
+                    });
+                    console.log('[DEBUG] Fake stats generated for', Object.keys(gameStats.players).length, 'players');
+                }
+
                 // End the match
                 const matchResult = endMatch();
                 console.log('[DEBUG] Match result from skip:', matchResult);
