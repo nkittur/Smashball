@@ -200,6 +200,21 @@
     <div id="viewButtons">
         <button id="btnHeatMap">Heat Map: OFF</button>
     </div>
+    <button id="btnSkipGame" style="
+        display: none;
+        position: fixed;
+        top: 10px;
+        right: 10px;
+        padding: 8px 12px;
+        font-size: 12px;
+        font-family: 'Courier New', monospace;
+        background: #a33;
+        color: #fff;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        z-index: 100;
+    ">SKIP GAME</button>
     <div id="debugInfo"></div>
 
     <!-- Training Mode UI -->
@@ -13451,6 +13466,7 @@
                 overlay.classList.remove('hidden');
                 topBar.style.display = 'none';
                 viewButtons.style.display = 'none';
+                document.getElementById('btnSkipGame').style.display = 'none';
                 gameSceneActive = false;
 
                 hideAllScreens();
@@ -14519,6 +14535,7 @@
             document.getElementById('viewButtons').style.display = 'flex';
             document.getElementById('trainingModeUI').style.display = 'none';
             document.getElementById('catchDisplay').style.display = '';
+            document.getElementById('btnSkipGame').style.display = 'block'; // Show skip button
             gameSceneActive = true;
 
             // Reset game state
@@ -15862,31 +15879,43 @@
             engine.resize();
         });
 
+        // Debug: Skip to end of game function
+        function skipToEndOfGame() {
+            if (managementState.matchInProgress) {
+                console.log('[DEBUG] Skipping to end of game...');
+                // Hide skip button
+                document.getElementById('btnSkipGame').style.display = 'none';
+                // Force game to end
+                managementState.currentPossession = SEASON.POSSESSIONS_PER_GAME;
+                managementState.gamePhase = 'regulation';
+                // Add some score if none
+                if (managementState.matchScore.player === 0 && managementState.matchScore.opponent === 0) {
+                    managementState.matchScore.player = 14;
+                    managementState.matchScore.opponent = 7;
+                }
+                // End the match
+                const matchResult = endMatch();
+                console.log('[DEBUG] Match result from skip:', matchResult);
+                if (matchResult) {
+                    showMatchEnd(matchResult);
+                } else {
+                    console.error('[DEBUG] endMatch returned null');
+                }
+            }
+        }
+
+        // Skip button click handler
+        document.getElementById('btnSkipGame').addEventListener('click', skipToEndOfGame);
+
         // Debug: Skip to end of game (press 'E' during a game)
         window.addEventListener('keydown', (e) => {
             if (e.key === 'e' || e.key === 'E') {
                 if (managementState.matchInProgress && managementState.currentScreen === 'game') {
-                    console.log('[DEBUG] Skipping to end of game...');
-                    // Force game to end
-                    managementState.currentPossession = SEASON.POSSESSIONS_PER_GAME;
-                    managementState.gamePhase = 'regulation';
-                    // Add some score if none
-                    if (managementState.matchScore.player === 0 && managementState.matchScore.opponent === 0) {
-                        managementState.matchScore.player = 14;
-                        managementState.matchScore.opponent = 7;
-                    }
-                    // End the match
-                    const matchResult = endMatch();
-                    console.log('[DEBUG] Match result from skip:', matchResult);
-                    if (matchResult) {
-                        showMatchEnd(matchResult);
-                    } else {
-                        console.error('[DEBUG] endMatch returned null');
-                    }
+                    skipToEndOfGame();
                 }
             }
         });
-        console.log('[DEBUG] Press E during a game to skip to end');
+        console.log('[DEBUG] Press E or tap SKIP GAME button to skip to end');
     </script>
 </body>
 </html>
