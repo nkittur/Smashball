@@ -14118,14 +14118,21 @@
         }
 
         function closeStatReveal() {
+            console.log('[DEBUG] closeStatReveal called');
             const overlay = document.getElementById('statRevealOverlay');
             overlay.classList.remove('visible');
             statRevealState.isRevealing = false;
 
             setTimeout(() => {
+                console.log('[DEBUG] closeStatReveal timeout fired, callback:', !!statRevealState.currentCallback);
                 overlay.style.display = 'none';
                 if (statRevealState.currentCallback) {
-                    statRevealState.currentCallback();
+                    try {
+                        statRevealState.currentCallback();
+                        console.log('[DEBUG] Callback executed successfully');
+                    } catch (e) {
+                        console.error('[DEBUG] Error in stat reveal callback:', e);
+                    }
                     statRevealState.currentCallback = null;
                 }
             }, 400);
@@ -14134,7 +14141,16 @@
 
         // Show match end result
         function showMatchEnd(matchResult) {
+            console.log('[DEBUG] showMatchEnd called', matchResult);
+            if (!matchResult) {
+                console.error('[DEBUG] showMatchEnd called with null/undefined matchResult');
+                return;
+            }
             const result = matchResult.result;
+            if (!result) {
+                console.error('[DEBUG] matchResult.result is null/undefined', matchResult);
+                return;
+            }
 
             // Helper to get game stats for a player (needed for both reveal and final display)
             const getPlayerGameStats = (player) => {
@@ -14307,7 +14323,15 @@
             };
 
             // Show the animated stat reveal first, then display match end screen
-            showStatReveal(playersWithGains, displayMatchEndScreen);
+            console.log('[DEBUG] About to call showStatReveal with', playersWithGains.length, 'players');
+            try {
+                showStatReveal(playersWithGains, displayMatchEndScreen);
+                console.log('[DEBUG] showStatReveal called successfully');
+            } catch (e) {
+                console.error('[DEBUG] Error in showStatReveal:', e);
+                // Fallback: show match end screen directly
+                displayMatchEndScreen();
+            }
         }
         console.log('[DEBUG] showMatchEnd defined');
 
@@ -15837,6 +15861,32 @@
         window.addEventListener('resize', () => {
             engine.resize();
         });
+
+        // Debug: Skip to end of game (press 'E' during a game)
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'e' || e.key === 'E') {
+                if (managementState.matchInProgress && managementState.currentScreen === 'game') {
+                    console.log('[DEBUG] Skipping to end of game...');
+                    // Force game to end
+                    managementState.currentPossession = SEASON.POSSESSIONS_PER_GAME;
+                    managementState.gamePhase = 'regulation';
+                    // Add some score if none
+                    if (managementState.matchScore.player === 0 && managementState.matchScore.opponent === 0) {
+                        managementState.matchScore.player = 14;
+                        managementState.matchScore.opponent = 7;
+                    }
+                    // End the match
+                    const matchResult = endMatch();
+                    console.log('[DEBUG] Match result from skip:', matchResult);
+                    if (matchResult) {
+                        showMatchEnd(matchResult);
+                    } else {
+                        console.error('[DEBUG] endMatch returned null');
+                    }
+                }
+            }
+        });
+        console.log('[DEBUG] Press E during a game to skip to end');
     </script>
 </body>
 </html>
