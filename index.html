@@ -1574,9 +1574,11 @@
                         drops: 0,
                         catchDifficulties: [],  // Array of difficulty values
                         yardsAfterCatch: 0,
+                        receivingYards: 0,      // Total receiving yards
                         // Throwing (QB)
                         completions: 0,
                         incompletions: 0,
+                        passingYards: 0,        // Total passing yards
                         throwDistances: [],     // Total distance
                         airDistances: [],       // In-air distance
                         // Clashes
@@ -7535,12 +7537,14 @@
             // Record offensive stats for player's team
             if (result.plays && roster) {
                 result.plays.forEach(play => {
-                    // QB stats - completions/incompletions
+                    // QB stats - completions/incompletions and passing yards
                     if (playerQB && playerQB.id) {
+                        const qbStats = gameStats.getPlayer(playerQB.id, `${playerQB.firstName} ${playerQB.lastName}`);
                         if (play.type === 'complete' || play.type === 'touchdown') {
-                            gameStats.getPlayer(playerQB.id, `${playerQB.firstName} ${playerQB.lastName}`).completions++;
+                            qbStats.completions++;
+                            qbStats.passingYards += (play.yardsGained || 0);
                         } else if (play.type === 'incomplete' || play.type === 'interception') {
-                            gameStats.getPlayer(playerQB.id, `${playerQB.firstName} ${playerQB.lastName}`).incompletions++;
+                            qbStats.incompletions++;
                         }
                     }
 
@@ -7552,6 +7556,7 @@
                             if (rosterPlayer) {
                                 const rStats = gameStats.getPlayer(rosterPlayer.id, `${rosterPlayer.firstName} ${rosterPlayer.lastName}`);
                                 rStats.catches++;
+                                rStats.receivingYards += (play.yardsGained || 0);
                                 rStats.yardsAfterCatch += (play.yac || 0);
                                 if (play.type === 'touchdown') {
                                     rStats.touchdowns++;
@@ -13767,17 +13772,16 @@
                     const pct = total > 0 ? Math.round(pStats.completions / total * 100) : 0;
                     statItems.push({ label: 'COMP', value: `${pStats.completions}/${total}` });
                     statItems.push({ label: '%', value: `${pct}%` });
-                    if (pStats.throwDistances && pStats.throwDistances.length > 0) {
-                        const avgDist = Math.round(pStats.throwDistances.reduce((a,b) => a+b, 0) / pStats.throwDistances.length);
-                        statItems.push({ label: 'YDS', value: avgDist });
+                    if (pStats.passingYards > 0) {
+                        statItems.push({ label: 'YDS', value: pStats.passingYards });
                     }
                 }
 
                 // Receiver stats
                 if (pStats.catches > 0 || pStats.drops > 0) {
                     statItems.push({ label: 'REC', value: pStats.catches });
+                    if (pStats.receivingYards > 0) statItems.push({ label: 'YDS', value: pStats.receivingYards });
                     if (pStats.drops > 0) statItems.push({ label: 'DROP', value: pStats.drops });
-                    if (pStats.yardsAfterCatch > 0) statItems.push({ label: 'YAC', value: pStats.yardsAfterCatch });
                 }
 
                 // Clash stats - show win percentage
