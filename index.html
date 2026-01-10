@@ -3153,6 +3153,7 @@
                 seasonStartStats: { ...stats },
                 // Core attributes - foundational traits that rarely change
                 coreAttributes: generateCoreAttributes(position, tier),
+                seasonStartCoreAttributes: null, // Set after coreAttributes is generated
                 // Season stats
                 gamesPlayed: 0,
                 seasonTDs: 0,
@@ -3179,6 +3180,9 @@
             };
 
             player.overall = calculateOverall(player);
+
+            // Set seasonStartCoreAttributes now that coreAttributes exists
+            player.seasonStartCoreAttributes = { ...player.coreAttributes };
 
             // Assign QB trait based on stats
             if (position === 'QB') {
@@ -3260,6 +3264,9 @@
             };
 
             player.overall = calculateOverall(player);
+
+            // Set seasonStartCoreAttributes now that coreAttributes exists
+            player.seasonStartCoreAttributes = { ...player.coreAttributes };
 
             // Assign QB trait
             if (position === 'QB') {
@@ -3706,24 +3713,31 @@
             const positionData = POSITIONS[player.position];
             const primaryStats = positionData.primaryStats;
 
+            // Core stats are stored in coreAttributes, technique stats in stats
+            const coreStatNames = ['strength', 'speed', 'agility', 'intelligence'];
+
             const improvements = [];
             primaryStats.forEach(stat => {
-                if (player.stats[stat] === undefined) return;
+                // Determine where this stat is stored
+                const isCoreAttribute = coreStatNames.includes(stat);
+                const statSource = isCoreAttribute ? player.coreAttributes : player.stats;
 
-                // Physical stats grow very rarely
+                if (!statSource || statSource[stat] === undefined) return;
+
+                // Physical/core stats grow very rarely
                 const isPhysical = PROGRESSION.PHYSICAL_STATS.includes(stat);
                 const growthChance = isPhysical
                     ? baseGrowthChance * PROGRESSION.PHYSICAL_GROWTH_CHANCE_MULT
                     : baseGrowthChance;
 
                 if (Math.random() < growthChance) {
-                    const oldVal = player.stats[stat];
+                    const oldVal = statSource[stat];
                     // Growth is always at least +1, with potential for more based on potential
                     const bonusGrowth = Math.floor(Math.random() * player.potentialGrade);
                     const growth = PROGRESSION.GROWTH_AMOUNT_MIN + bonusGrowth;
-                    player.stats[stat] = Math.min(99, player.stats[stat] + growth);
-                    if (player.stats[stat] > oldVal) {
-                        improvements.push({ stat, change: player.stats[stat] - oldVal });
+                    statSource[stat] = Math.min(99, statSource[stat] + growth);
+                    if (statSource[stat] > oldVal) {
+                        improvements.push({ stat, change: statSource[stat] - oldVal });
                     }
                 }
             });
@@ -3743,9 +3757,12 @@
             const baseDeclineRate = yearsOver * PROGRESSION.DECLINE_RATE;
 
             const declines = [];
+            const coreStatNames = ['strength', 'speed', 'agility', 'intelligence'];
 
-            // Process all stats the player has
-            Object.keys(player.stats).forEach(stat => {
+            // Helper to process decline for a stat
+            const processStatDecline = (stat, statSource) => {
+                if (!statSource || statSource[stat] === undefined) return;
+
                 const isPhysical = PROGRESSION.PHYSICAL_STATS.includes(stat);
                 const isSkill = PROGRESSION.SKILL_STATS.includes(stat);
 
@@ -3770,12 +3787,24 @@
 
                 // Apply decline with some randomness
                 if (Math.random() < 0.5 + (yearsOver * 0.1)) { // More likely to decline as years pass
-                    const oldVal = player.stats[stat];
+                    const oldVal = statSource[stat];
                     const actualDecline = declineRate * (0.5 + Math.random()); // 50-150% of rate
-                    player.stats[stat] = Math.max(minStat, player.stats[stat] - actualDecline);
-                    if (player.stats[stat] < oldVal) {
-                        declines.push({ stat, change: player.stats[stat] - oldVal });
+                    statSource[stat] = Math.max(minStat, statSource[stat] - actualDecline);
+                    if (statSource[stat] < oldVal) {
+                        declines.push({ stat, change: statSource[stat] - oldVal });
                     }
+                }
+            };
+
+            // Process core attributes (strength, speed, agility, intelligence)
+            if (player.coreAttributes) {
+                coreStatNames.forEach(stat => processStatDecline(stat, player.coreAttributes));
+            }
+
+            // Process technique stats
+            Object.keys(player.stats).forEach(stat => {
+                if (!coreStatNames.includes(stat)) {
+                    processStatDecline(stat, player.stats);
                 }
             });
 
@@ -3924,6 +3953,7 @@
 
                 // Reset season stats
                 player.seasonStartStats = { ...player.stats };
+                player.seasonStartCoreAttributes = player.coreAttributes ? { ...player.coreAttributes } : null;
                 player.gamesPlayed = 0;
                 player.seasonTDs = 0;
                 player.seasonCatches = 0;
@@ -13357,12 +13387,20 @@
             // Calculate based on primary stats for the position (same as overall)
             const positionData = POSITIONS[player.position];
             const primaryStats = positionData.primaryStats;
+            const coreStatNames = ['strength', 'speed', 'agility', 'intelligence'];
 
             let currentTotal = 0;
             let startTotal = 0;
             primaryStats.forEach(stat => {
-                currentTotal += player.stats[stat] || 0;
-                startTotal += player.seasonStartStats[stat] || 0;
+                // Check if this is a core stat (stored in coreAttributes) or technique stat
+                const isCoreAttribute = coreStatNames.includes(stat);
+                if (isCoreAttribute) {
+                    currentTotal += player.coreAttributes?.[stat] || 0;
+                    startTotal += player.seasonStartCoreAttributes?.[stat] || player.coreAttributes?.[stat] || 0;
+                } else {
+                    currentTotal += player.stats[stat] || 0;
+                    startTotal += player.seasonStartStats[stat] || 0;
+                }
             });
 
             // Return change in overall (average of primary stats)
@@ -13445,7 +13483,14 @@
             if (player.seasonStartStats) {
                 const positionData = POSITIONS[player.position];
                 const primaryStats = positionData.primaryStats;
-                const startTotal = primaryStats.reduce((sum, stat) => sum + (player.seasonStartStats[stat] || 0), 0);
+                const coreStatNames = ['strength', 'speed', 'agility', 'intelligence'];
+                const startTotal = primaryStats.reduce((sum, stat) => {
+                    const isCoreAttribute = coreStatNames.includes(stat);
+                    if (isCoreAttribute) {
+                        return sum + (player.seasonStartCoreAttributes?.[stat] || player.coreAttributes?.[stat] || 0);
+                    }
+                    return sum + (player.seasonStartStats[stat] || 0);
+                }, 0);
                 startOverall = Math.round(startTotal / primaryStats.length);
             }
             const overallChange = currentOverall - startOverall;
@@ -13497,16 +13542,23 @@
 
             let statsHtml = '<div class="stats-panel">';
 
-            // Core Attributes section
+            // Core Attributes section (with growth display)
             if (core) {
+                const startCore = player.seasonStartCoreAttributes || core;
+                const getCoreChange = (stat) => {
+                    const current = Math.floor(core[stat]);
+                    const start = Math.floor(startCore[stat] || current);
+                    const change = current - start;
+                    return change !== 0 ? ` <span class="stat-change ${change > 0 ? 'positive' : 'negative'}">${change > 0 ? '+' : ''}${change}</span>` : '';
+                };
                 statsHtml += `
                     <div class="stats-section">
                         <div class="stats-section-title">Core</div>
                         <div class="stats-grid">
-                            <div class="stat-row str-row"><span class="stat-row-name">STR</span><span class="stat-row-value ${getColorClass(core.strength)}">${core.strength}</span></div>
-                            <div class="stat-row spd-row"><span class="stat-row-name">SPD</span><span class="stat-row-value ${getColorClass(core.speed)}">${core.speed}</span></div>
-                            <div class="stat-row agi-row"><span class="stat-row-name">AGI</span><span class="stat-row-value ${getColorClass(core.agility)}">${core.agility}</span></div>
-                            <div class="stat-row int-row"><span class="stat-row-name">INT</span><span class="stat-row-value ${getColorClass(core.intelligence)}">${core.intelligence}</span></div>
+                            <div class="stat-row str-row"><span class="stat-row-name">STR</span><span class="stat-row-value ${getColorClass(core.strength)}">${Math.floor(core.strength)}${getCoreChange('strength')}</span></div>
+                            <div class="stat-row spd-row"><span class="stat-row-name">SPD</span><span class="stat-row-value ${getColorClass(core.speed)}">${Math.floor(core.speed)}${getCoreChange('speed')}</span></div>
+                            <div class="stat-row agi-row"><span class="stat-row-name">AGI</span><span class="stat-row-value ${getColorClass(core.agility)}">${Math.floor(core.agility)}${getCoreChange('agility')}</span></div>
+                            <div class="stat-row int-row"><span class="stat-row-name">INT</span><span class="stat-row-value ${getColorClass(core.intelligence)}">${Math.floor(core.intelligence)}${getCoreChange('intelligence')}</span></div>
                         </div>
                     </div>
                 `;
