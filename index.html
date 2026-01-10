@@ -7683,6 +7683,26 @@
                         }
                     }
 
+                    // DL clash stats from pressure info
+                    if (play.pressureInfo && play.pressureInfo.matchups) {
+                        play.pressureInfo.matchups.forEach(matchup => {
+                            if (matchup.dl && matchup.dl.id) {
+                                const dlPlayer = roster.find(p => p.id === matchup.dl.id);
+                                if (dlPlayer) {
+                                    const dlStats = gameStats.getPlayer(dlPlayer.id, `${dlPlayer.firstName} ${dlPlayer.lastName}`);
+                                    // DL wins if margin is positive (dl beat ol)
+                                    if (matchup.margin > 2) {
+                                        dlStats.clashesWon++;
+                                        dlStats.clashDifficulties.push(matchup.margin);
+                                    } else if (matchup.margin < -2) {
+                                        dlStats.clashesLost++;
+                                        dlStats.clashDifficulties.push(matchup.margin);
+                                    }
+                                }
+                            }
+                        });
+                    }
+
                     // Pass defended - credit CB
                     if (play.type === 'incomplete' && play.catchInfo && play.catchInfo.cb && play.catchInfo.cb.id) {
                         const cbPlayer = roster.find(p => p.id === play.catchInfo.cb.id);
