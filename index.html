@@ -11351,9 +11351,9 @@
 
             let frameIndex = 0;
             // Ball flight speed - short throws faster, long throws slower for arc visibility
-            // Short throws: quick (2.3), long throws: slower (0.7)
+            // Short throws: quick (1.5), long throws: slower (0.7)
             // Apply ball speed multiplier from training settings
-            const baseAnimationSpeed = 2.3 - (throwParams.power * 1.6);
+            const baseAnimationSpeed = 1.5 - (throwParams.power * 0.8);
             const animationSpeed = baseAnimationSpeed * gameState.ballSpeedMultiplier;
             let accumulator = 0;
             const time = { value: 0 };
