@@ -12572,12 +12572,13 @@
                 // Let right-click (button 2) and multi-touch pass through to camera
                 if (evt.button !== 0 && evt.pointerType === 'mouse') return;
 
-                // Unfreeze play when holding down (starts the play)
+                // ALWAYS unfreeze play when holding down (starts the play)
+                // This ensures the play starts even if there was stale state
                 if (gameState.playFrozen) {
-                    gameState.playFrozen = false;
-                    gameState.playStartTime = performance.now() * 0.001;
                     hidePlayerLabels();
                 }
+                gameState.playFrozen = false;
+                gameState.playStartTime = performance.now() * 0.001;
 
                 if (!gameState.canThrow || gameState.ballInFlight) return;
 
@@ -12628,10 +12629,26 @@
                 }
             };
 
+            // Handle pointer cancel (touch interrupted by system gesture, notification, etc.)
+            const onPointerCancel = (evt) => {
+                if (!gameState.isDragging || evt.pointerId !== gameState.activePointerId) return;
+
+                // Clean up drag state without throwing
+                gameState.isDragging = false;
+                gameState.activePointerId = null;
+                gameState.dragStart = null;
+                gameState.dragCurrent = null;
+                if (scene.trajectoryDots) {
+                    scene.trajectoryDots.forEach(dot => dot.dispose());
+                    scene.trajectoryDots = null;
+                }
+            };
+
             // Use pointer events for unified mouse/touch handling
             canvas.addEventListener('pointerdown', onPointerDown);
             canvas.addEventListener('pointermove', onPointerMove);
             canvas.addEventListener('pointerup', onPointerUp);
+            canvas.addEventListener('pointercancel', onPointerCancel);
             canvas.addEventListener('pointerleave', onPointerUp);
         };
 
@@ -15145,6 +15162,19 @@
                     scene.trajectoryDots.forEach(dot => dot.dispose());
                     scene.trajectoryDots = null;
                 }
+            } else {
+                // App is becoming visible again - ensure clean state
+                // Clear any stale pointer state that might have persisted
+                gameState.isDragging = false;
+                gameState.activePointerId = null;
+                gameState.dragStart = null;
+                gameState.dragCurrent = null;
+                if (scene.trajectoryDots) {
+                    scene.trajectoryDots.forEach(dot => dot.dispose());
+                    scene.trajectoryDots = null;
+                }
+                // Force engine resize in case canvas dimensions changed
+                engine.resize();
             }
         });
 
