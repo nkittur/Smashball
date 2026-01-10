@@ -2894,55 +2894,116 @@
             return { strength, speed, agility, intelligence };
         }
 
-        // Calculate position-specific abilities from core attributes
+        // Generate stored ability stats for a position (these can grow like technique stats)
+        function generateAbilities(position, tier) {
+            const range = CORE_ATTRIBUTE_RANGES[tier] || CORE_ATTRIBUTE_RANGES.average;
+
+            const generateAbility = () => {
+                const base = randomInt(range.min, range.max);
+                return Math.max(30, Math.min(99, base + randomInt(-5, 5)));
+            };
+
+            switch (position) {
+                case 'DL':
+                    return {
+                        bullRush: generateAbility(),
+                        blockShed: generateAbility(),
+                        spinMove: generateAbility(),
+                        swimMove: generateAbility()
+                    };
+                case 'OL':
+                    return {
+                        anchor: generateAbility(),
+                        handFighting: generateAbility(),
+                        footwork: generateAbility(),
+                        driveBlock: generateAbility()
+                    };
+                case 'CB':
+                    return {
+                        pressCoverage: generateAbility(),
+                        manCoverage: generateAbility(),
+                        zoneCoverage: generateAbility(),
+                        ballHawk: generateAbility()
+                    };
+                case 'WR':
+                    return {
+                        releaseMove: generateAbility(),
+                        routeSharpness: generateAbility(),
+                        contestedCatch: generateAbility(),
+                        yacAbility: generateAbility()
+                    };
+                case 'QB':
+                    return {
+                        armStrength: generateAbility(),
+                        quickRelease: generateAbility(),
+                        fieldVision: generateAbility(),
+                        pocketPresence: generateAbility()
+                    };
+                default:
+                    return {};
+            }
+        }
+
+        // Calculate effective abilities from stored ability stats and core attributes
+        // The stored ability acts as a scaling factor on how well the player uses their core stats
+        // Formula: effective = storedAbility * (coreStatsWeighted / 100)
+        // This means a 90 ability with 70 core stats = 90 * 0.70 = 63 effective
+        // And a 60 ability with 70 core stats = 60 * 0.70 = 42 effective
         function calculateAbilities(player) {
             const core = player.coreAttributes;
             if (!core) return null;
 
             const clamp = (val) => Math.max(0, Math.min(99, Math.round(val)));
 
+            // Get stored abilities, fall back to 70 if not present (for legacy/AI players)
+            const stored = player.abilities || {};
+
             // Use positionType for mesh objects (linemen), position for roster players
             const pos = player.positionType || player.position;
 
+            // Helper: effective = storedAbility * (weightedCoreAvg / 100)
+            const calcEffective = (storedVal, ...coreVals) => {
+                const ability = storedVal || 70;
+                const coreAvg = coreVals.reduce((a, b) => a + b, 0) / coreVals.length;
+                return clamp(ability * (coreAvg / 100));
+            };
+
             switch (pos) {
                 case 'DL':
+                    // Bull Rush: STR + SPD, Swim Move: STR + INT, Spin Move: AGI + STR
                     return {
-                        bullRush: clamp(core.strength * 0.60 + (player.stats.passRush || 70) * 0.25 + core.intelligence * 0.15),
-                        blockShed: clamp(core.strength * 0.40 + core.agility * 0.40 + (player.stats.passRush || 70) * 0.20),
-                        spinMove: clamp(core.agility * 0.55 + core.speed * 0.25 + (player.stats.passRush || 70) * 0.20),
-                        swimMove: clamp(core.agility * 0.45 + core.speed * 0.35 + (player.stats.passRush || 70) * 0.20)
+                        bullRush: calcEffective(stored.bullRush, core.strength, core.speed),
+                        blockShed: calcEffective(stored.blockShed, core.strength, core.agility),
+                        spinMove: calcEffective(stored.spinMove, core.agility, core.strength),
+                        swimMove: calcEffective(stored.swimMove, core.strength, core.intelligence)
                     };
                 case 'OL':
                     return {
-                        anchor: clamp(core.strength * 0.55 + (player.stats.balance || 70) * 0.25 + (player.stats.passBlock || 70) * 0.20),
-                        handFighting: clamp(core.strength * 0.40 + core.agility * 0.35 + (player.stats.passBlock || 70) * 0.25),
-                        footwork: clamp(core.agility * 0.45 + core.intelligence * 0.30 + (player.stats.passBlock || 70) * 0.25),
-                        driveBlock: clamp(core.strength * 0.40 + core.intelligence * 0.30 + (player.stats.passBlock || 70) * 0.30)
+                        anchor: calcEffective(stored.anchor, core.strength),
+                        handFighting: calcEffective(stored.handFighting, core.strength, core.agility),
+                        footwork: calcEffective(stored.footwork, core.agility, core.intelligence),
+                        driveBlock: calcEffective(stored.driveBlock, core.strength, core.intelligence)
                     };
                 case 'CB':
                     return {
-                        pressCoverage: clamp(core.strength * 0.45 + core.intelligence * 0.35 + (player.stats.awareness || 70) * 0.20),
-                        manCoverage: clamp(core.speed * 0.40 + core.agility * 0.40 + (player.stats.awareness || 70) * 0.20),
-                        zoneCoverage: clamp(core.intelligence * 0.45 + core.agility * 0.35 + (player.stats.awareness || 70) * 0.20),
-                        ballHawk: clamp(core.intelligence * 0.40 + core.speed * 0.35 + (player.stats.awareness || 70) * 0.25)
+                        pressCoverage: calcEffective(stored.pressCoverage, core.strength, core.intelligence),
+                        manCoverage: calcEffective(stored.manCoverage, core.speed, core.agility),
+                        zoneCoverage: calcEffective(stored.zoneCoverage, core.intelligence, core.agility),
+                        ballHawk: calcEffective(stored.ballHawk, core.intelligence, core.speed)
                     };
                 case 'WR':
                     return {
-                        releaseMove: clamp(core.agility * 0.45 + core.strength * 0.35 + (player.stats.routeRunning || 70) * 0.20),
-                        routeSharpness: clamp(core.agility * 0.40 + core.speed * 0.35 + (player.stats.routeRunning || 70) * 0.25),
-                        contestedCatch: clamp(core.strength * 0.30 + core.intelligence * 0.25 + (player.stats.catching || 70) * 0.45),
-                        yacAbility: clamp(core.speed * 0.40 + core.agility * 0.40 + (player.stats.evasion || 70) * 0.20)
+                        releaseMove: calcEffective(stored.releaseMove, core.agility, core.strength),
+                        routeSharpness: calcEffective(stored.routeSharpness, core.agility, core.speed),
+                        contestedCatch: calcEffective(stored.contestedCatch, core.strength, core.intelligence),
+                        yacAbility: calcEffective(stored.yacAbility, core.speed, core.agility)
                     };
                 case 'QB':
-                    // Abilities are multiplicative: (core/100) × (skill/100) × 100
-                    const shortAcc = player.stats.shortPassAcc || 70;
-                    const longAcc = player.stats.longPassAcc || 70;
-                    const qbAwareness = player.stats.awareness || 70;
                     return {
-                        armStrength: clamp((core.strength / 100) * (longAcc / 100) * 100),
-                        quickRelease: clamp((core.agility / 100) * (shortAcc / 100) * 100),
-                        fieldVision: clamp((core.intelligence / 100) * (qbAwareness / 100) * 100),
-                        pocketPresence: clamp((core.agility / 100) * (qbAwareness / 100) * 100)
+                        armStrength: calcEffective(stored.armStrength, core.strength),
+                        quickRelease: calcEffective(stored.quickRelease, core.agility),
+                        fieldVision: calcEffective(stored.fieldVision, core.intelligence),
+                        pocketPresence: calcEffective(stored.pocketPresence, core.agility, core.intelligence)
                     };
                 default:
                     return null;
@@ -2973,31 +3034,31 @@
 
         // Ability to core attribute mapping (core stats only, normalized to 100%)
         const ABILITY_CORE_MAPPING = {
-            // DL abilities
-            bullRush:       { strength: 0.80, intelligence: 0.20 },
+            // DL abilities - Bull Rush: STR+SPD, Swim Move: STR+INT, Spin Move: AGI+STR
+            bullRush:       { strength: 0.50, speed: 0.50 },
             blockShed:      { strength: 0.50, agility: 0.50 },
-            spinMove:       { agility: 0.69, speed: 0.31 },
-            swimMove:       { agility: 0.56, speed: 0.44 },
+            spinMove:       { agility: 0.50, strength: 0.50 },
+            swimMove:       { strength: 0.50, intelligence: 0.50 },
             // OL abilities
             anchor:         { strength: 1.00 },
-            handFighting:   { strength: 0.53, agility: 0.47 },
-            footwork:       { agility: 0.60, intelligence: 0.40 },
-            driveBlock:     { strength: 0.57, intelligence: 0.43 },
+            handFighting:   { strength: 0.50, agility: 0.50 },
+            footwork:       { agility: 0.50, intelligence: 0.50 },
+            driveBlock:     { strength: 0.50, intelligence: 0.50 },
             // CB abilities
-            pressCoverage:  { strength: 0.56, intelligence: 0.44 },
+            pressCoverage:  { strength: 0.50, intelligence: 0.50 },
             manCoverage:    { speed: 0.50, agility: 0.50 },
-            zoneCoverage:   { intelligence: 0.56, agility: 0.44 },
-            ballHawk:       { intelligence: 0.53, speed: 0.47 },
+            zoneCoverage:   { intelligence: 0.50, agility: 0.50 },
+            ballHawk:       { intelligence: 0.50, speed: 0.50 },
             // WR abilities
-            releaseMove:    { agility: 0.56, strength: 0.44 },
-            routeSharpness: { agility: 0.53, speed: 0.47 },
-            contestedCatch: { strength: 0.55, intelligence: 0.45 },
+            releaseMove:    { agility: 0.50, strength: 0.50 },
+            routeSharpness: { agility: 0.50, speed: 0.50 },
+            contestedCatch: { strength: 0.50, intelligence: 0.50 },
             yacAbility:     { speed: 0.50, agility: 0.50 },
-            // QB abilities (core × skill, multiplicative)
+            // QB abilities
             armStrength:    { strength: 1.00 },
             quickRelease:   { agility: 1.00 },
             fieldVision:    { intelligence: 1.00 },
-            pocketPresence: { agility: 1.00 }
+            pocketPresence: { agility: 0.50, intelligence: 0.50 }
         };
 
         // Generate attribute indicator dots for an ability
@@ -3154,6 +3215,9 @@
                 // Core attributes - foundational traits that rarely change
                 coreAttributes: generateCoreAttributes(position, tier),
                 seasonStartCoreAttributes: null, // Set after coreAttributes is generated
+                // Abilities - stored skill stats that scale core attribute contributions
+                abilities: generateAbilities(position, tier),
+                seasonStartAbilities: null, // Set after abilities is generated
                 // Season stats
                 gamesPlayed: 0,
                 seasonTDs: 0,
@@ -3183,6 +3247,8 @@
 
             // Set seasonStartCoreAttributes now that coreAttributes exists
             player.seasonStartCoreAttributes = { ...player.coreAttributes };
+            // Set seasonStartAbilities now that abilities exists
+            player.seasonStartAbilities = { ...player.abilities };
 
             // Assign QB trait based on stats
             if (position === 'QB') {
@@ -3241,6 +3307,7 @@
                 salaryCost: calculateSalary(stats, position),
                 seasonStartStats: { ...stats },
                 coreAttributes: generateCoreAttributes(position, estimatedTier),
+                abilities: generateAbilities(position, estimatedTier),
                 gamesPlayed: 0,
                 seasonTDs: 0,
                 seasonCatches: 0,
@@ -3265,8 +3332,9 @@
 
             player.overall = calculateOverall(player);
 
-            // Set seasonStartCoreAttributes now that coreAttributes exists
+            // Set seasonStartCoreAttributes and seasonStartAbilities now that they exist
             player.seasonStartCoreAttributes = { ...player.coreAttributes };
+            player.seasonStartAbilities = { ...player.abilities };
 
             // Assign QB trait
             if (position === 'QB') {
@@ -3742,6 +3810,22 @@
                 }
             });
 
+            // Process ability growth (abilities are stored in player.abilities)
+            if (player.abilities) {
+                Object.keys(player.abilities).forEach(abilityName => {
+                    // Abilities grow at the same rate as technique stats
+                    if (Math.random() < baseGrowthChance) {
+                        const oldVal = player.abilities[abilityName];
+                        const bonusGrowth = Math.floor(Math.random() * player.potentialGrade);
+                        const growth = PROGRESSION.GROWTH_AMOUNT_MIN + bonusGrowth;
+                        player.abilities[abilityName] = Math.min(99, player.abilities[abilityName] + growth);
+                        if (player.abilities[abilityName] > oldVal) {
+                            improvements.push({ stat: abilityName, change: player.abilities[abilityName] - oldVal });
+                        }
+                    }
+                });
+            }
+
             // Recalculate derived values
             player.salaryCost = calculateSalary(player.stats, player.position);
             player.overall = calculateOverall(player);
@@ -3807,6 +3891,23 @@
                     processStatDecline(stat, player.stats);
                 }
             });
+
+            // Process ability decline (abilities decline like skill stats - very slowly)
+            if (player.abilities) {
+                Object.keys(player.abilities).forEach(abilityName => {
+                    const declineRate = baseDeclineRate * PROGRESSION.SKILL_DECLINE_MULT;
+                    const minStat = PROGRESSION.MIN_STAT + 15;
+
+                    if (Math.random() < 0.5 + (yearsOver * 0.1)) {
+                        const oldVal = player.abilities[abilityName];
+                        const actualDecline = declineRate * (0.5 + Math.random());
+                        player.abilities[abilityName] = Math.max(minStat, player.abilities[abilityName] - actualDecline);
+                        if (player.abilities[abilityName] < oldVal) {
+                            declines.push({ stat: abilityName, change: player.abilities[abilityName] - oldVal });
+                        }
+                    }
+                });
+            }
 
             // Recalculate derived values
             player.salaryCost = calculateSalary(player.stats, player.position);
@@ -3954,6 +4055,7 @@
                 // Reset season stats
                 player.seasonStartStats = { ...player.stats };
                 player.seasonStartCoreAttributes = player.coreAttributes ? { ...player.coreAttributes } : null;
+                player.seasonStartAbilities = player.abilities ? { ...player.abilities } : null;
                 player.gamesPlayed = 0;
                 player.seasonTDs = 0;
                 player.seasonCatches = 0;
@@ -13564,17 +13666,22 @@
                 `;
             }
 
-            // Abilities section
-            if (abilities) {
+            // Abilities section - show stored ability values with growth indicators
+            if (player.abilities) {
+                const startAbilities = player.seasonStartAbilities || player.abilities;
                 statsHtml += `
                     <div class="stats-section">
                         <div class="stats-section-title">Abilities</div>
                         <div class="stats-grid">
-                            ${Object.entries(abilities).map(([key, value]) => {
+                            ${Object.entries(player.abilities).map(([key, storedValue]) => {
                                 const isBest = bestAbility && bestAbility.name === key;
                                 const dots = getAbilityDots(key);
                                 const name = getAbilityDisplayName(key);
-                                return `<div class="stat-row ${isBest ? 'best-ability' : ''}"><span class="stat-row-name">${dots}${name}</span><span class="stat-row-value ${getColorClass(value)}">${value}</span></div>`;
+                                const current = Math.floor(storedValue);
+                                const start = Math.floor(startAbilities[key] || storedValue);
+                                const change = current - start;
+                                const changeText = change !== 0 ? ` <span class="stat-change ${change > 0 ? 'positive' : 'negative'}">${change > 0 ? '+' : ''}${change}</span>` : '';
+                                return `<div class="stat-row ${isBest ? 'best-ability' : ''}"><span class="stat-row-name">${dots}${name}</span><span class="stat-row-value ${getColorClass(current)}">${current}${changeText}</span></div>`;
                             }).join('')}
                         </div>
                     </div>
