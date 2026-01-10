@@ -400,7 +400,8 @@
             <p class="subtitle">Medieval Football Management</p>
             <button id="btnNewGame" class="mgmt-btn">NEW GAME</button>
             <button id="btnContinue" class="mgmt-btn">CONTINUE</button>
-            <button id="btnTrainingMode" class="mgmt-btn" style="margin-top: 30px; background: #2a4a2a;">TRAINING MODE</button>
+            <button id="btnHowToPlay" class="mgmt-btn" style="margin-top: 30px; background: #2a3a4a; border-color: #4a9fff;">HOW TO PLAY</button>
+            <button id="btnTrainingMode" class="mgmt-btn" style="background: #2a4a2a;">TRAINING MODE</button>
         </div>
 
         <!-- Hub Screen -->
@@ -600,6 +601,30 @@
                 </div>
                 <button id="btnSaveDraftOptions" class="mgmt-btn primary">SAVE</button>
                 <button id="btnCloseDraftOptions" class="mgmt-btn secondary">CANCEL</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Game Manual Overlay -->
+    <div id="manualOverlay" class="manual-overlay" style="display:none;">
+        <div class="manual-container">
+            <div class="manual-header">
+                <button id="btnManualClose" class="manual-close">✕</button>
+                <h2 id="manualTitle">How to Play</h2>
+                <div class="manual-nav">
+                    <button id="btnManualPrev" class="manual-nav-btn">← Prev</button>
+                    <span id="manualPageNum">1 / 12</span>
+                    <button id="btnManualNext" class="manual-nav-btn">Next →</button>
+                </div>
+            </div>
+            <div class="manual-content" id="manualContent">
+                <!-- Content loaded dynamically -->
+            </div>
+            <div class="manual-index" id="manualIndex" style="display:none;">
+                <!-- Index loaded dynamically -->
+            </div>
+            <div class="manual-footer">
+                <button id="btnManualIndex" class="manual-index-btn">📖 Index</button>
             </div>
         </div>
     </div>
@@ -1516,6 +1541,195 @@
         }
         .strength-item .label { color: #888; font-size: 11px; }
         .strength-item .value { color: #4f4; font-size: 20px; font-weight: bold; }
+
+        /* Manual Overlay Styles */
+        .manual-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.95);
+            z-index: 2000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 10px;
+        }
+        .manual-container {
+            background: #12121f;
+            border: 2px solid #4a9fff;
+            border-radius: 12px;
+            width: 100%;
+            max-width: 600px;
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
+            font-family: 'Courier New', monospace;
+        }
+        .manual-header {
+            padding: 15px 20px;
+            border-bottom: 1px solid #333;
+            position: relative;
+        }
+        .manual-header h2 {
+            color: #4a9fff;
+            margin: 0;
+            font-size: 20px;
+            text-align: center;
+        }
+        .manual-close {
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            background: none;
+            border: none;
+            color: #888;
+            font-size: 24px;
+            cursor: pointer;
+        }
+        .manual-close:hover { color: #fff; }
+        .manual-nav {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 15px;
+            margin-top: 10px;
+        }
+        .manual-nav-btn {
+            background: #2a3a4a;
+            border: 1px solid #4a9fff;
+            color: #4a9fff;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 12px;
+        }
+        .manual-nav-btn:hover { background: #3a4a5a; }
+        .manual-nav-btn:disabled { opacity: 0.3; cursor: default; }
+        #manualPageNum { color: #888; font-size: 12px; }
+        .manual-content {
+            padding: 20px;
+            overflow-y: auto;
+            flex: 1;
+            color: #ccc;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        .manual-content h3 {
+            color: #ffd700;
+            font-size: 18px;
+            margin: 0 0 15px 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .manual-content h4 {
+            color: #4a9fff;
+            font-size: 14px;
+            margin: 15px 0 8px 0;
+        }
+        .manual-content p { margin: 10px 0; }
+        .manual-content ul {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+        .manual-content li { margin: 5px 0; }
+        .manual-content .highlight {
+            background: #2a3a2a;
+            border-left: 3px solid #4f4;
+            padding: 10px 15px;
+            margin: 15px 0;
+            border-radius: 0 6px 6px 0;
+        }
+        .manual-content .warning {
+            background: #3a3a2a;
+            border-left: 3px solid #fa4;
+            padding: 10px 15px;
+            margin: 15px 0;
+            border-radius: 0 6px 6px 0;
+        }
+        .manual-content .diagram {
+            background: #1a1a2a;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            font-family: monospace;
+            font-size: 12px;
+            line-height: 1.4;
+            overflow-x: auto;
+        }
+        .manual-content table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+            font-size: 12px;
+        }
+        .manual-content th, .manual-content td {
+            padding: 8px;
+            border: 1px solid #333;
+            text-align: left;
+        }
+        .manual-content th {
+            background: #2a2a40;
+            color: #ffd700;
+        }
+        .manual-content .emoji-icon { font-size: 24px; }
+        .manual-content .stat-bar {
+            display: inline-block;
+            height: 8px;
+            background: #4a9fff;
+            border-radius: 4px;
+            margin-left: 5px;
+        }
+        .manual-footer {
+            padding: 10px 20px;
+            border-top: 1px solid #333;
+            text-align: center;
+        }
+        .manual-index-btn {
+            background: #2a2a40;
+            border: 1px solid #ffd700;
+            color: #ffd700;
+            padding: 8px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 14px;
+        }
+        .manual-index-btn:hover { background: #3a3a50; }
+        .manual-index {
+            padding: 20px;
+            overflow-y: auto;
+            flex: 1;
+        }
+        .manual-index h3 {
+            color: #ffd700;
+            margin: 0 0 15px 0;
+        }
+        .manual-index-section {
+            margin-bottom: 15px;
+        }
+        .manual-index-section h4 {
+            color: #4a9fff;
+            font-size: 12px;
+            margin: 0 0 8px 0;
+            text-transform: uppercase;
+        }
+        .manual-index-item {
+            display: block;
+            background: #1a1a2a;
+            border: none;
+            color: #ccc;
+            padding: 10px 15px;
+            margin: 4px 0;
+            border-radius: 4px;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 13px;
+            text-align: left;
+            width: 100%;
+        }
+        .manual-index-item:hover { background: #2a2a3a; color: #fff; }
+        .manual-index-item span { color: #888; font-size: 11px; margin-left: 8px; }
     </style>
 
     <script src="https://cdn.babylonjs.com/babylon.js"></script>
@@ -15361,6 +15575,602 @@
         document.getElementById('btnExitTraining').addEventListener('click', () => {
             exitTrainingMode();
         });
+
+        // ========================================
+        // GAME MANUAL SYSTEM
+        // ========================================
+        const MANUAL_PAGES = [
+            // Page 0: Welcome / Overview
+            {
+                title: "Welcome to Smashball",
+                section: "basics",
+                content: `
+                    <h3><span class="emoji-icon">🏈</span> Welcome to Smashball</h3>
+                    <p>Smashball is a <strong>medieval football management game</strong> where you build a dynasty through smart drafting, player development, and hands-on gameplay.</p>
+
+                    <div class="highlight">
+                        <strong>Your Goal:</strong> Build fame, win games, and develop your roster into a championship team.
+                    </div>
+
+                    <h4>🎮 Two Ways to Play</h4>
+                    <ul>
+                        <li><strong>Offense:</strong> You control the QB — aim and throw passes to your receivers</li>
+                        <li><strong>Defense:</strong> Simulated — watch your defense try to stop the opponent</li>
+                    </ul>
+
+                    <h4>📖 What's in This Manual</h4>
+                    <table>
+                        <tr><th>Section</th><th>Topics</th></tr>
+                        <tr><td>🎯 Basics</td><td>Controls, gameplay, positions</td></tr>
+                        <tr><td>📊 Stats</td><td>Core attributes, abilities, technique</td></tr>
+                        <tr><td>🏟️ Management</td><td>Draft, roster, season flow</td></tr>
+                        <tr><td>⚔️ Advanced</td><td>Clash mechanics, formulas</td></tr>
+                    </table>
+                `
+            },
+            // Page 1: Basic Controls
+            {
+                title: "Basic Controls",
+                section: "basics",
+                content: `
+                    <h3><span class="emoji-icon">🎮</span> Basic Controls</h3>
+
+                    <h4>Throwing the Ball</h4>
+                    <div class="diagram">
+  ┌─────────────────────────────────┐
+  │  1. HOLD to start the play     │
+  │     (players begin moving)      │
+  │                                 │
+  │  2. DRAG to aim                 │
+  │     ← short drag = bullet pass  │
+  │     ← long drag = lob pass      │
+  │                                 │
+  │  3. RELEASE to throw            │
+  └─────────────────────────────────┘
+                    </div>
+
+                    <h4>Reading the Field</h4>
+                    <ul>
+                        <li>🟢 <strong>Green glow</strong> = Receiver is OPEN</li>
+                        <li>🟡 <strong>Yellow glow</strong> = Contested coverage</li>
+                        <li>🔴 <strong>Red glow</strong> = Tightly COVERED</li>
+                    </ul>
+
+                    <div class="warning">
+                        <strong>⏱️ Don't wait too long!</strong> Your offensive line will eventually lose their blocks, and the QB will get sacked.
+                    </div>
+
+                    <h4>Throw Types</h4>
+                    <table>
+                        <tr><th>Drag Distance</th><th>Result</th></tr>
+                        <tr><td>Short</td><td>Fast bullet pass (harder to catch)</td></tr>
+                        <tr><td>Medium</td><td>Balanced throw</td></tr>
+                        <tr><td>Long</td><td>High lob (more air time)</td></tr>
+                    </table>
+                `
+            },
+            // Page 2: Positions Overview
+            {
+                title: "Team Positions",
+                section: "basics",
+                content: `
+                    <h3><span class="emoji-icon">👥</span> Team Positions</h3>
+
+                    <h4>Offense (You Control)</h4>
+                    <table>
+                        <tr><th>Pos</th><th>Role</th><th>Key Stats</th></tr>
+                        <tr><td>🎯 QB</td><td>Throws the ball</td><td>Pass Accuracy, Intelligence</td></tr>
+                        <tr><td>🏃 WR</td><td>Catches passes</td><td>Speed, Catching, Route Running</td></tr>
+                        <tr><td>🛡️ OL</td><td>Blocks defenders</td><td>Strength, Pass Block</td></tr>
+                    </table>
+
+                    <h4>Defense (Simulated)</h4>
+                    <table>
+                        <tr><th>Pos</th><th>Role</th><th>Key Stats</th></tr>
+                        <tr><td>🔴 CB</td><td>Covers receivers</td><td>Speed, Agility, Awareness</td></tr>
+                        <tr><td>💪 DL</td><td>Rushes the QB</td><td>Strength, Speed, Pass Rush</td></tr>
+                    </table>
+
+                    <div class="diagram">
+         THE FIELD
+    ━━━━━━━━━━━━━━━━━━━━━
+       WR        WR   WR   ← Run routes
+          OL OL OL OL OL   ← Block
+              QB           ← You throw
+    ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─
+       CB        CB   CB   ← Cover WRs
+          DL DL DL DL      ← Rush QB
+    ━━━━━━━━━━━━━━━━━━━━━
+                    </div>
+                `
+            },
+            // Page 3: Player Stats Overview
+            {
+                title: "Understanding Stats",
+                section: "stats",
+                content: `
+                    <h3><span class="emoji-icon">📊</span> Understanding Player Stats</h3>
+
+                    <p>Every player has three types of stats:</p>
+
+                    <h4>1. Core Attributes (Rarely Change)</h4>
+                    <p>Natural physical and mental traits:</p>
+                    <table>
+                        <tr><td style="color:#ff6b6b">💪 STR</td><td>Strength — Power in blocks/tackles</td></tr>
+                        <tr><td style="color:#4dabf7">⚡ SPD</td><td>Speed — How fast they move</td></tr>
+                        <tr><td style="color:#69db7c">🔄 AGI</td><td>Agility — Quickness, direction changes</td></tr>
+                        <tr><td style="color:#ffd43b">🧠 INT</td><td>Intelligence — Reads, decisions</td></tr>
+                    </table>
+
+                    <h4>2. Abilities (Can Grow)</h4>
+                    <p>Learned skills that use core attributes:</p>
+                    <ul>
+                        <li>DL: Bull Rush, Swim Move, Spin Move, Block Shed</li>
+                        <li>OL: Anchor, Hand Fighting, Footwork, Drive Block</li>
+                        <li>WR: Release Move, Route Sharpness, Contested Catch</li>
+                        <li>CB: Press Coverage, Man Coverage, Zone Coverage</li>
+                    </ul>
+
+                    <h4>3. Technique Stats (Grow Most)</h4>
+                    <p>Position-specific skills like Catching, Pass Rush, Route Running.</p>
+
+                    <div class="highlight">
+                        <strong>💡 Key Insight:</strong> Abilities combine your stored skill with core attributes. A player with high Bull Rush ability maximizes their STR+SPD contribution.
+                    </div>
+                `
+            },
+            // Page 4: How Abilities Work
+            {
+                title: "How Abilities Work",
+                section: "stats",
+                content: `
+                    <h3><span class="emoji-icon">⚔️</span> How Abilities Work</h3>
+
+                    <p>Abilities are <strong>stored skills</strong> that determine how effectively a player uses their core attributes.</p>
+
+                    <h4>The Formula (Simplified)</h4>
+                    <div class="diagram">
+  Effective Ability = Stored Skill × (Core Stats ÷ 100)
+
+  Example: Bull Rush uses STR + SPD
+  ┌────────────────────────────────────────┐
+  │ Player A: 90 Bull Rush, 70 STR, 70 SPD │
+  │ → 90 × 0.70 = 63 effective             │
+  ├────────────────────────────────────────┤
+  │ Player B: 60 Bull Rush, 70 STR, 70 SPD │
+  │ → 60 × 0.70 = 42 effective             │
+  └────────────────────────────────────────┘
+                    </div>
+
+                    <h4>What This Means</h4>
+                    <ul>
+                        <li>High ability = maximize your core stat potential</li>
+                        <li>Low ability = waste your physical gifts</li>
+                        <li>Both matter — you need skill AND athleticism</li>
+                    </ul>
+
+                    <h4>DL Ability → Core Stat Mapping</h4>
+                    <table>
+                        <tr><th>Ability</th><th>Core Stats Used</th></tr>
+                        <tr><td>🐂 Bull Rush</td><td>STR + SPD</td></tr>
+                        <tr><td>🌊 Swim Move</td><td>STR + INT</td></tr>
+                        <tr><td>🔄 Spin Move</td><td>AGI + STR</td></tr>
+                        <tr><td>💥 Block Shed</td><td>STR + AGI</td></tr>
+                    </table>
+                `
+            },
+            // Page 5: The Line Battle
+            {
+                title: "The Line Battle",
+                section: "gameplay",
+                content: `
+                    <h3><span class="emoji-icon">💥</span> The Line Battle</h3>
+
+                    <p>Every play features a battle between your OL and enemy DL. This determines how much time your QB has to throw.</p>
+
+                    <div class="diagram">
+       DL ←──clash──→ OL
+       DL ←──clash──→ OL
+       DL ←──clash──→ OL
+       DL ←──clash──→ OL
+             ↓
+         Pressure on QB
+                    </div>
+
+                    <h4>How Clashes Work</h4>
+                    <ol>
+                        <li><strong>DL picks an ability</strong> (Bull Rush, Swim Move, etc.)</li>
+                        <li><strong>OL reacts</strong> with a counter ability</li>
+                        <li><strong>Both roll</strong> based on stats + some randomness</li>
+                        <li><strong>Winner</strong> gains advantage</li>
+                    </ol>
+
+                    <h4>Clash Outcomes</h4>
+                    <table>
+                        <tr><th>Result</th><th>Effect</th></tr>
+                        <tr><td style="color:#4f4">OL Wins Big</td><td>DL knocked down</td></tr>
+                        <tr><td style="color:#aa4">Neutral</td><td>DL slowed to crawl</td></tr>
+                        <tr><td style="color:#f44">DL Wins Big</td><td>OL knocked aside, DL bursts through</td></tr>
+                    </table>
+
+                    <div class="warning">
+                        <strong>Clashes repeat every 0.5 seconds</strong> while linemen are engaged. Even a great OL will eventually lose!
+                    </div>
+                `
+            },
+            // Page 6: Coverage & Catching
+            {
+                title: "Coverage & Catching",
+                section: "gameplay",
+                content: `
+                    <h3><span class="emoji-icon">🎯</span> Coverage & Catching</h3>
+
+                    <h4>Reading Coverage</h4>
+                    <p>Watch the colored glow around receivers:</p>
+                    <div class="diagram">
+  🟢 OPEN (70%+ catch)
+     CB is beaten, throw with confidence!
+
+  🟡 CONTESTED (40-70% catch)
+     Could go either way — risky throw
+
+  🔴 COVERED (<40% catch)
+     CB has position — high INT risk!
+                    </div>
+
+                    <h4>What Affects Catch Probability</h4>
+                    <ul>
+                        <li><strong>Separation</strong> — WR speed vs CB coverage</li>
+                        <li><strong>WR Catching stat</strong> — Hands and focus</li>
+                        <li><strong>Throw accuracy</strong> — Based on your aim</li>
+                        <li><strong>Pressure</strong> — Rushed throws are less accurate</li>
+                    </ul>
+
+                    <h4>WR vs CB Abilities</h4>
+                    <table>
+                        <tr><th>WR Uses</th><th>Good Against</th><th>Weak Against</th></tr>
+                        <tr><td>Release Move</td><td>Man Coverage</td><td>Press Coverage</td></tr>
+                        <tr><td>Route Sharpness</td><td>Zone Coverage</td><td>Man Coverage</td></tr>
+                    </table>
+
+                    <div class="highlight">
+                        <strong>💡 Tip:</strong> If a WR starts covered but has good Route Sharpness, they may get open on their break. Be patient!
+                    </div>
+                `
+            },
+            // Page 7: Season & Management
+            {
+                title: "Season Flow",
+                section: "management",
+                content: `
+                    <h3><span class="emoji-icon">📅</span> Season Flow</h3>
+
+                    <h4>Season Structure</h4>
+                    <div class="diagram">
+  WEEK 1-16: Regular Season
+  ┌──────────────────────────┐
+  │ Each week:               │
+  │ • Play your game         │
+  │ • Players develop        │
+  │ • Manage roster          │
+  └──────────────────────────┘
+          ↓
+  OFFSEASON
+  ┌──────────────────────────┐
+  │ • Players age (+1 year)  │
+  │ • Draft new players      │
+  │ • Sign free agents       │
+  └──────────────────────────┘
+                    </div>
+
+                    <h4>Weekly Player Development</h4>
+                    <p>After each game, players may improve:</p>
+                    <ul>
+                        <li><strong>Young players</strong> (pre-peak) — Can grow all stats</li>
+                        <li><strong>Peak players</strong> — Stats stabilize</li>
+                        <li><strong>Aging players</strong> — Stats decline, especially physical</li>
+                    </ul>
+
+                    <h4>The Potential System</h4>
+                    <table>
+                        <tr><th>Grade</th><th>Growth Rate</th></tr>
+                        <tr><td>⭐⭐⭐</td><td>High — Frequent, large improvements</td></tr>
+                        <tr><td>⭐⭐</td><td>Medium — Steady growth</td></tr>
+                        <tr><td>⭐</td><td>Low — Rare, small improvements</td></tr>
+                    </table>
+                `
+            },
+            // Page 8: The Draft
+            {
+                title: "The Draft",
+                section: "management",
+                content: `
+                    <h3><span class="emoji-icon">📋</span> The Draft</h3>
+
+                    <p>The draft is your main source of talent. You compete with AI teams for the best rookies.</p>
+
+                    <h4>Draft Order</h4>
+                    <div class="diagram">
+  Pick order based on previous season:
+
+  Worst record  → Pick 1st  (best players)
+  Best record   → Pick last (leftovers)
+
+  3 Rounds × 8 teams = 24 picks per round
+                    </div>
+
+                    <h4>Draft Point System</h4>
+                    <p>Each pick costs Fame (draft points). You can:</p>
+                    <ul>
+                        <li><strong>Use your pick</strong> — Select a player</li>
+                        <li><strong>Trade down</strong> — Skip pick, gain bonus points</li>
+                        <li><strong>Trade up</strong> — Spend points to pick earlier</li>
+                    </ul>
+
+                    <h4>Scouting Tips</h4>
+                    <div class="highlight">
+                        <strong>Look for:</strong>
+                        <ul>
+                            <li>High potential (⭐⭐⭐) on young players</li>
+                            <li>Core stats that match position needs</li>
+                            <li>Age 21-23 for maximum development time</li>
+                        </ul>
+                    </div>
+                `
+            },
+            // Page 9: Fame System
+            {
+                title: "Fame & Economy",
+                section: "management",
+                content: `
+                    <h3><span class="emoji-icon">⭐</span> Fame & Economy</h3>
+
+                    <p><strong>Fame</strong> is your currency for everything — drafting, signing free agents, and building facilities.</p>
+
+                    <h4>Earning Fame</h4>
+                    <table>
+                        <tr><th>Action</th><th>Fame Earned</th></tr>
+                        <tr><td>Win a game</td><td>Base + bonus for margin</td></tr>
+                        <tr><td>Score touchdowns</td><td>Per TD scored</td></tr>
+                        <tr><td>Big plays</td><td>Long catches, sacks, INTs</td></tr>
+                        <tr><td>Season wins</td><td>End of season bonus</td></tr>
+                    </table>
+
+                    <h4>Spending Fame</h4>
+                    <ul>
+                        <li><strong>Draft picks</strong> — Earlier picks cost more</li>
+                        <li><strong>Free agents</strong> — Better players cost more</li>
+                        <li><strong>Facilities</strong> — Training bonuses (coming soon)</li>
+                    </ul>
+
+                    <div class="warning">
+                        <strong>Budget carefully!</strong> If you spend all your fame on one star player, you won't have depth to field a full team.
+                    </div>
+                `
+            },
+            // Page 10: Advanced - Clash Calculations
+            {
+                title: "Clash Calculations",
+                section: "advanced",
+                content: `
+                    <h3><span class="emoji-icon">🔢</span> Clash Calculations</h3>
+
+                    <p>For those who want to understand the math behind clashes:</p>
+
+                    <h4>Roll Components</h4>
+                    <div class="diagram">
+  Total Roll = (Technique × 0.4) + (Core×Ability × 0.6)
+             × Variance (0.8 to 1.2)
+             × Matchup Multiplier
+                    </div>
+
+                    <h4>Technique Roll (40%)</h4>
+                    <p>Weighted average of position technique stats:</p>
+                    <ul>
+                        <li>OL: Pass Block, Balance, Awareness</li>
+                        <li>DL: Pass Rush, Tackling, Pursuit</li>
+                    </ul>
+
+                    <h4>Core×Ability Roll (60%)</h4>
+                    <div class="diagram">
+  (CoreStatAvg ÷ 100) × (EffectiveAbility ÷ 100) × 60
+
+  Example: 80 core avg, 70 effective ability
+  → (0.80) × (0.70) × 60 = 33.6 points
+                    </div>
+
+                    <h4>Matchup Multipliers</h4>
+                    <table>
+                        <tr><th>DL Move</th><th>vs Anchor</th><th>vs Footwork</th></tr>
+                        <tr><td>Bull Rush</td><td>0.85 ❌</td><td>1.15 ✓</td></tr>
+                        <tr><td>Spin Move</td><td>1.20 ✓</td><td>0.85 ❌</td></tr>
+                        <tr><td>Swim Move</td><td>1.15 ✓</td><td>0.95</td></tr>
+                    </table>
+                `
+            },
+            // Page 11: Advanced - Ability Selection
+            {
+                title: "Ability Selection AI",
+                section: "advanced",
+                content: `
+                    <h3><span class="emoji-icon">🧠</span> Ability Selection AI</h3>
+
+                    <h4>The 60/30/10 Rule</h4>
+                    <p>When a player picks an ability:</p>
+                    <div class="diagram">
+  Sort abilities by effective value:
+
+  60% chance → Use BEST ability
+  30% chance → Use 2nd best ability
+  10% chance → Use 3rd best ability
+                    </div>
+
+                    <h4>Counter Selection</h4>
+                    <p>The reacting player (OL defending vs DL) can counter:</p>
+                    <ul>
+                        <li><strong>Counter chance</strong> = (Intelligence - 20)%</li>
+                        <li>If counter triggers, picks optimal counter ability</li>
+                        <li>If not, uses 60/30/10 rule instead</li>
+                    </ul>
+
+                    <div class="highlight">
+                        <strong>Example:</strong> OL with 70 INT has 50% chance to read the DL's move and pick the perfect counter. Otherwise, they guess.
+                    </div>
+
+                    <h4>Why This Matters</h4>
+                    <p>High INT players:</p>
+                    <ul>
+                        <li>More consistently counter opponent moves</li>
+                        <li>Less likely to get caught by bad matchups</li>
+                        <li>Make better use of their ability toolkit</li>
+                    </ul>
+                `
+            },
+            // Page 12: Tips & Strategy
+            {
+                title: "Tips & Strategy",
+                section: "advanced",
+                content: `
+                    <h3><span class="emoji-icon">💡</span> Tips & Strategy</h3>
+
+                    <h4>Offensive Tips</h4>
+                    <ul>
+                        <li>🎯 <strong>Don't force throws</strong> — Take the open man</li>
+                        <li>⏱️ <strong>Quick reads</strong> — Your line won't hold forever</li>
+                        <li>🏃 <strong>Speed kills</strong> — Fast WRs create separation</li>
+                        <li>📐 <strong>Lead your receiver</strong> — Aim where they're going</li>
+                    </ul>
+
+                    <h4>Draft Strategy</h4>
+                    <ul>
+                        <li>⭐ <strong>Potential > Overall</strong> for young players</li>
+                        <li>💪 <strong>Core stats matter</strong> — They rarely improve</li>
+                        <li>🔄 <strong>Balance your roster</strong> — Stars need support</li>
+                        <li>📉 <strong>Trade down</strong> if top prospects are gone</li>
+                    </ul>
+
+                    <h4>Roster Building</h4>
+                    <div class="highlight">
+                        <strong>Priority order:</strong>
+                        <ol>
+                            <li>Elite WR or CB (game-changers)</li>
+                            <li>Solid OL (protects your QB)</li>
+                            <li>Fast DL (disrupts opponent)</li>
+                            <li>Depth at every position</li>
+                        </ol>
+                    </div>
+
+                    <h4>Long-term Thinking</h4>
+                    <p>Build for sustained success:</p>
+                    <ul>
+                        <li>Mix veterans (win now) with prospects (future)</li>
+                        <li>Watch player ages — 30+ year olds decline fast</li>
+                        <li>Don't overspend on aging stars</li>
+                    </ul>
+                `
+            }
+        ];
+
+        // Manual state
+        let manualCurrentPage = 0;
+        let manualShowingIndex = false;
+
+        function showManual() {
+            document.getElementById('manualOverlay').style.display = 'flex';
+            manualCurrentPage = 0;
+            manualShowingIndex = false;
+            renderManualPage();
+        }
+
+        function hideManual() {
+            document.getElementById('manualOverlay').style.display = 'none';
+        }
+
+        function renderManualPage() {
+            const page = MANUAL_PAGES[manualCurrentPage];
+            document.getElementById('manualTitle').textContent = page.title;
+            document.getElementById('manualContent').innerHTML = page.content;
+            document.getElementById('manualPageNum').textContent = `${manualCurrentPage + 1} / ${MANUAL_PAGES.length}`;
+
+            // Update nav buttons
+            document.getElementById('btnManualPrev').disabled = manualCurrentPage === 0;
+            document.getElementById('btnManualNext').disabled = manualCurrentPage === MANUAL_PAGES.length - 1;
+
+            // Show content, hide index
+            document.getElementById('manualContent').style.display = 'block';
+            document.getElementById('manualIndex').style.display = 'none';
+            manualShowingIndex = false;
+            document.getElementById('btnManualIndex').textContent = '📖 Index';
+        }
+
+        function renderManualIndex() {
+            const sections = {
+                basics: { title: '🎯 Basics', pages: [] },
+                stats: { title: '📊 Stats & Abilities', pages: [] },
+                gameplay: { title: '🏈 Gameplay', pages: [] },
+                management: { title: '🏟️ Management', pages: [] },
+                advanced: { title: '⚔️ Advanced', pages: [] }
+            };
+
+            MANUAL_PAGES.forEach((page, idx) => {
+                if (sections[page.section]) {
+                    sections[page.section].pages.push({ title: page.title, idx });
+                }
+            });
+
+            let html = '<h3>📖 Manual Index</h3>';
+            for (const [key, section] of Object.entries(sections)) {
+                if (section.pages.length > 0) {
+                    html += `<div class="manual-index-section">`;
+                    html += `<h4>${section.title}</h4>`;
+                    section.pages.forEach(p => {
+                        html += `<button class="manual-index-item" data-page="${p.idx}">${p.title} <span>Page ${p.idx + 1}</span></button>`;
+                    });
+                    html += `</div>`;
+                }
+            }
+
+            document.getElementById('manualIndex').innerHTML = html;
+
+            // Add click handlers
+            document.querySelectorAll('.manual-index-item').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    manualCurrentPage = parseInt(e.currentTarget.dataset.page);
+                    renderManualPage();
+                });
+            });
+        }
+
+        function toggleManualIndex() {
+            manualShowingIndex = !manualShowingIndex;
+            if (manualShowingIndex) {
+                renderManualIndex();
+                document.getElementById('manualContent').style.display = 'none';
+                document.getElementById('manualIndex').style.display = 'block';
+                document.getElementById('btnManualIndex').textContent = '← Back';
+            } else {
+                document.getElementById('manualContent').style.display = 'block';
+                document.getElementById('manualIndex').style.display = 'none';
+                document.getElementById('btnManualIndex').textContent = '📖 Index';
+            }
+        }
+
+        // Manual event listeners
+        document.getElementById('btnHowToPlay').addEventListener('click', showManual);
+        document.getElementById('btnManualClose').addEventListener('click', hideManual);
+        document.getElementById('btnManualPrev').addEventListener('click', () => {
+            if (manualCurrentPage > 0) {
+                manualCurrentPage--;
+                renderManualPage();
+            }
+        });
+        document.getElementById('btnManualNext').addEventListener('click', () => {
+            if (manualCurrentPage < MANUAL_PAGES.length - 1) {
+                manualCurrentPage++;
+                renderManualPage();
+            }
+        });
+        document.getElementById('btnManualIndex').addEventListener('click', toggleManualIndex);
         // Training settings panel toggle
         document.getElementById('btnTrainingSettings').addEventListener('click', () => {
             const panel = document.getElementById('trainingSettingsPanel');
