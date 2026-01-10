@@ -31,15 +31,18 @@
             top: 0;
             left: 0;
             right: 0;
-            height: 36px;
+            height: calc(36px + env(safe-area-inset-top, 0px));
+            padding-top: env(safe-area-inset-top, 0px);
             background: rgba(0, 0, 0, 0.8);
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 0 15px;
+            padding-left: 15px;
+            padding-right: 15px;
             font-family: 'Courier New', monospace;
             z-index: 100;
             border-bottom: 1px solid #333;
+            box-sizing: border-box;
         }
 
         #score {
@@ -97,7 +100,7 @@
 
         #debugInfo {
             position: absolute;
-            top: 80px;
+            top: calc(80px + env(safe-area-inset-top, 0px));
             right: 10px;
             color: #0f0;
             font-family: 'Courier New', monospace;
@@ -203,7 +206,7 @@
     <button id="btnSimRest" style="
         display: none;
         position: fixed;
-        top: 10px;
+        top: calc(46px + env(safe-area-inset-top, 0px));
         right: 10px;
         padding: 8px 12px;
         font-size: 12px;
@@ -221,7 +224,7 @@
     <div id="trainingModeUI" style="display: none;">
         <button id="btnExitTraining" style="
             position: fixed;
-            top: 46px;
+            top: calc(46px + env(safe-area-inset-top, 0px));
             left: 10px;
             width: 36px;
             height: 36px;
@@ -239,7 +242,7 @@
         ">←</button>
         <div id="trainingTitle" style="
             position: fixed;
-            top: 50px;
+            top: calc(50px + env(safe-area-inset-top, 0px));
             left: 50%;
             transform: translateX(-50%);
             color: #4a4;
@@ -405,7 +408,8 @@
         </div>
 
         <!-- Hub Screen -->
-        <div id="hubScreen" class="mgmt-screen" style="display:none;">
+        <div id="hubScreen" class="mgmt-screen hub-screen" style="display:none;">
+            <button id="btnHubManual" class="mgmt-btn back-btn" style="right: 10px; left: auto;">?</button>
             <div class="hub-status" id="hubStatus">Fame: 1,000 | Week 1</div>
             <h2>TEAM HUB</h2>
             <div class="hub-buttons">
@@ -773,6 +777,10 @@
         .draft-screen {
             padding-bottom: 70px; /* Space for fixed bottom buttons */
             align-self: flex-start; /* Align to top instead of center to prevent top cutoff */
+        }
+        .hub-screen {
+            align-self: flex-start; /* Align to top instead of center to prevent top cutoff */
+            padding-top: 40px; /* Space for the manual button */
         }
         .draft-header {
             display: flex;
@@ -16157,6 +16165,7 @@
 
         // Manual event listeners
         document.getElementById('btnHowToPlay').addEventListener('click', showManual);
+        document.getElementById('btnHubManual').addEventListener('click', showManual);
         document.getElementById('btnManualClose').addEventListener('click', hideManual);
         document.getElementById('btnManualPrev').addEventListener('click', () => {
             if (manualCurrentPage > 0) {
