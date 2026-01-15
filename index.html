@@ -10048,39 +10048,63 @@
             applyMomentumTilt(defender, dx, dz, dist, dist > 0.2);
         };
 
-        // Zone coverage AI - patrol assigned area, react to nearby receivers
+        // Zone coverage AI - Safety plays deep, picks a side, backpedals until ball thrown
         const moveDefenderZoneCoverage = (defender, speed) => {
             const timeSincePlayStart = gameState.gameTime - (gameState.playStartTime || 0);
+            const END_ZONE_BACK = 15;
 
-            // Safety backpedal phase: first 1 second after reaction delay, move slowly backward
-            const backpedalDuration = 1.0;
-            const backpedalPhase = timeSincePlayStart < (defender.reactionDelay || 0) + backpedalDuration;
-
-            if (backpedalPhase) {
-                // Move backward slowly if there's room (not too close to end zone)
-                const endZoneBack = 15;  // Back of end zone
-                const distToEndZone = endZoneBack - defender.position.z;
-                if (distToEndZone > 3) {
-                    // Backpedal at 30% speed
-                    const backpedalSpeed = speed * 0.3;
-                    defender.position.z += backpedalSpeed;
-                    // Face forward (toward line of scrimmage)
-                    defender.rotation.y = Math.PI;
-                }
-                return;  // Don't do normal zone movement during backpedal
+            // Initialize safety's chosen side if not set (pick at play start)
+            if (defender.chosenSide === undefined) {
+                // Pick left (-1) or right (+1) side to favor
+                defender.chosenSide = Math.random() > 0.5 ? 1 : -1;
+                defender.sideCommitment = 0.3 + Math.random() * 0.2; // How far to drift (0.3-0.5 of field width)
             }
 
-            // Find nearest receiver in zone
+            // PHASE 1: Pre-throw - backpedal and drift to chosen side
+            if (!gameState.ballInFlight) {
+                const distToEndZone = END_ZONE_BACK - defender.position.z;
+
+                // Keep backpedaling if there's room
+                if (distToEndZone > 2) {
+                    const backpedalSpeed = speed * 0.4;
+                    defender.position.z += backpedalSpeed;
+                }
+
+                // Drift toward chosen side while staying relatively centered
+                const targetSideX = defender.chosenSide * 4 * defender.sideCommitment; // Max ~2 yards to side
+                const driftSpeed = speed * 0.15;
+                const dxToSide = targetSideX - defender.position.x;
+
+                if (Math.abs(dxToSide) > 0.3) {
+                    defender.position.x += Math.sign(dxToSide) * driftSpeed;
+                }
+
+                // Face forward toward line of scrimmage (reading the play)
+                defender.rotation.y = Math.PI;
+
+                // Apply subtle tilt
+                applyMomentumTilt(defender, dxToSide * 0.5, 0.5, 1, true);
+                return;
+            }
+
+            // PHASE 2: Ball in flight - react to ball/receivers
+            // Find nearest receiver (expanded radius since safety covers deep)
+            const expandedRadius = defender.zoneRadius * 1.5;
             let nearestReceiver = null;
-            let nearestDist = defender.zoneRadius;
+            let nearestDist = expandedRadius;
 
             gameState.receivers.forEach(receiver => {
-                const dx = receiver.position.x - defender.zoneCenter.x;
-                const dz = receiver.position.z - defender.zoneCenter.z;
+                // Safety prioritizes receivers on their chosen side
+                const dx = receiver.position.x - defender.position.x;
+                const dz = receiver.position.z - defender.position.z;
                 const dist = Math.sqrt(dx * dx + dz * dz);
 
-                if (dist < nearestDist) {
-                    nearestDist = dist;
+                // Bonus for receivers on chosen side
+                const sideFactor = (Math.sign(receiver.position.x) === defender.chosenSide) ? 0.8 : 1.0;
+                const effectiveDist = dist * sideFactor;
+
+                if (effectiveDist < nearestDist) {
+                    nearestDist = effectiveDist;
                     nearestReceiver = receiver;
                 }
             });
@@ -10088,13 +10112,20 @@
             let targetX, targetZ;
 
             if (nearestReceiver) {
-                // Move toward receiver in zone
+                // Move toward receiver, staying slightly behind
                 targetX = nearestReceiver.position.x;
-                targetZ = nearestReceiver.position.z - 0.5;  // Stay slightly behind
+                targetZ = nearestReceiver.position.z - 0.5;
             } else {
-                // Patrol zone center
-                targetX = defender.zoneCenter.x;
-                targetZ = defender.zoneCenter.z;
+                // No receiver nearby - move toward ball
+                const football = gameState.scene?.football;
+                if (football) {
+                    targetX = football.position.x;
+                    targetZ = football.position.z;
+                } else {
+                    // Fallback to zone center
+                    targetX = defender.zoneCenter.x;
+                    targetZ = defender.zoneCenter.z;
+                }
             }
 
             const dx = targetX - defender.position.x;
@@ -10102,8 +10133,10 @@
             const dist = Math.sqrt(dx * dx + dz * dz);
 
             if (dist > 0.3) {
-                defender.position.x += (dx / dist) * speed;
-                defender.position.z += (dz / dist) * speed;
+                // Move faster when ball is in air (safety breaks on the ball)
+                const reactSpeed = speed * 1.1;
+                defender.position.x += (dx / dist) * reactSpeed;
+                defender.position.z += (dz / dist) * reactSpeed;
                 defender.rotation.y = Math.atan2(dx, dz);
             }
 
@@ -11242,15 +11275,18 @@
                     defender.reactionDelay = 0.25;  // Quarter second before reacting
                     manDefenderIndex++;
                 } else if (defender.aiType === 'zone') {
-                    // Zone defender (safety) - randomized horizontal position
-                    const zoneDepth = 6 + Math.random() * 4;  // 6-10 yards deep
-                    const clampedZoneZ = Math.min(END_ZONE_BACK - 1, lineZ + zoneDepth);
-                    // Safety can line up anywhere from -4 to +4 horizontally
-                    const safetyX = (Math.random() - 0.5) * 8;
-                    defender.zoneCenter = new BABYLON.Vector3(safetyX, 0, clampedZoneZ);
-                    defender.zoneRadius = 5 + Math.random() * 2;  // 5-7 yard radius
+                    // Safety - starts deep and centered, picks side during play
+                    const safetyDepth = 10 + Math.random() * 3;  // 10-13 yards deep (further back)
+                    const clampedZoneZ = Math.min(END_ZONE_BACK - 1, lineZ + safetyDepth);
+                    // Safety starts near center (will drift to chosen side during play)
+                    const safetyX = (Math.random() - 0.5) * 2;  // -1 to +1 yards (mostly centered)
+                    defender.zoneCenter = new BABYLON.Vector3(0, 0, clampedZoneZ);
+                    defender.zoneRadius = 6 + Math.random() * 2;  // 6-8 yard radius (wider coverage)
                     defender.startPos.x = safetyX;
-                    defender.startPos.z = Math.min(END_ZONE_BACK - 1, clampedZoneZ - 2);
+                    defender.startPos.z = Math.min(END_ZONE_BACK - 1, clampedZoneZ);
+                    // Reset safety's chosen side so it picks fresh each play
+                    defender.chosenSide = undefined;
+                    defender.sideCommitment = undefined;
                 }
 
                 // Clamp final positions to field boundaries
