@@ -309,6 +309,8 @@
             z-index: 1002;
             font-family: 'Courier New', monospace;
             min-width: 220px;
+            max-height: 70vh;
+            overflow-y: auto;
         ">
             <div style="color: #fff; font-size: 14px; font-weight: bold; margin-bottom: 12px; border-bottom: 1px solid #444; padding-bottom: 8px;">Training Settings</div>
 
@@ -334,12 +336,34 @@
 
             <!-- Receiver Speed Preset -->
             <div style="margin-bottom: 12px;">
-                <div style="color: #888; font-size: 11px; margin-bottom: 4px;">RECEIVER SPEED</div>
+                <div style="color: #888; font-size: 11px; margin-bottom: 4px;">WR SPEED</div>
                 <div style="display: flex; gap: 4px;">
                     <button class="rcvr-speed-btn" data-speed="90" style="flex: 1; padding: 6px; background: #333; color: #fff; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 12px;">90</button>
                     <button class="rcvr-speed-btn" data-speed="80" style="flex: 1; padding: 6px; background: #4a4; color: #fff; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 12px;">80</button>
                     <button class="rcvr-speed-btn" data-speed="70" style="flex: 1; padding: 6px; background: #333; color: #fff; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 12px;">70</button>
                     <button class="rcvr-speed-btn" data-speed="mixed" style="flex: 1; padding: 6px; background: #333; color: #fff; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 11px;">Mix</button>
+                </div>
+            </div>
+
+            <!-- WR Awareness Preset (reaction delay) -->
+            <div style="margin-bottom: 12px;">
+                <div style="color: #888; font-size: 11px; margin-bottom: 4px;">WR REACTION <span style="color: #666; font-size: 9px;">(delay)</span></div>
+                <div style="display: flex; gap: 4px;">
+                    <button class="wr-awr-btn" data-awareness="90" style="flex: 1; padding: 6px; background: #333; color: #fff; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 12px;">90</button>
+                    <button class="wr-awr-btn" data-awareness="70" style="flex: 1; padding: 6px; background: #4a4; color: #fff; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 12px;">70</button>
+                    <button class="wr-awr-btn" data-awareness="50" style="flex: 1; padding: 6px; background: #333; color: #fff; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 12px;">50</button>
+                    <button class="wr-awr-btn" data-awareness="mixed" style="flex: 1; padding: 6px; background: #333; color: #fff; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 11px;">Mix</button>
+                </div>
+            </div>
+
+            <!-- WR Agility Preset (turn rate) -->
+            <div style="margin-bottom: 12px;">
+                <div style="color: #888; font-size: 11px; margin-bottom: 4px;">WR AGILITY <span style="color: #666; font-size: 9px;">(turn rate)</span></div>
+                <div style="display: flex; gap: 4px;">
+                    <button class="wr-agi-btn" data-agility="90" style="flex: 1; padding: 6px; background: #333; color: #fff; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 12px;">90</button>
+                    <button class="wr-agi-btn" data-agility="70" style="flex: 1; padding: 6px; background: #4a4; color: #fff; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 12px;">70</button>
+                    <button class="wr-agi-btn" data-agility="50" style="flex: 1; padding: 6px; background: #333; color: #fff; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 12px;">50</button>
+                    <button class="wr-agi-btn" data-agility="mixed" style="flex: 1; padding: 6px; background: #333; color: #fff; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 11px;">Mix</button>
                 </div>
             </div>
 
@@ -361,20 +385,9 @@
             </div>
 
             <!-- Show Clash Flash Toggle -->
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
                 <span style="color: #888; font-size: 11px;">CLASH FLASH</span>
                 <button id="btnToggleClashFlash" style="padding: 4px 12px; background: #4a4; color: #fff; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 12px;">ON</button>
-            </div>
-
-            <!-- WR Awareness/Agility Preset (affects reaction time + turn rate) -->
-            <div>
-                <div style="color: #888; font-size: 11px; margin-bottom: 4px;">WR AWARENESS</div>
-                <div style="display: flex; gap: 4px;">
-                    <button class="wr-awr-btn" data-awareness="90" style="flex: 1; padding: 6px; background: #333; color: #fff; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 12px;">90</button>
-                    <button class="wr-awr-btn" data-awareness="70" style="flex: 1; padding: 6px; background: #4a4; color: #fff; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 12px;">70</button>
-                    <button class="wr-awr-btn" data-awareness="50" style="flex: 1; padding: 6px; background: #333; color: #fff; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 12px;">50</button>
-                    <button class="wr-awr-btn" data-awareness="mixed" style="flex: 1; padding: 6px; background: #333; color: #fff; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 11px;">Mix</button>
-                </div>
             </div>
         </div>
     </div>
@@ -1794,7 +1807,8 @@
             showClashFlash: true,     // Whether to show red/green clash result flashes
             receiverSpeedPreset: 80,  // Receiver speed preset (90, 80, 70, or 'mixed')
             dbSpeedPreset: 80,        // DB speed preset (90, 80, 70, or 'mixed')
-            receiverAwarenessPreset: 70, // Receiver awareness/intelligence preset (controls ball reaction time)
+            receiverAwarenessPreset: 70, // Receiver awareness preset (controls ball reaction delay)
+            receiverAgilityPreset: 70,   // Receiver agility preset (controls turn rate/route correction)
             // Down and distance tracking
             down: 1,                // Current down (1-4)
             yardsToGo: 10,          // Yards needed for first down
@@ -14849,7 +14863,7 @@
             });
         }
 
-        // Apply receiver awareness preset (affects ball reaction time and route correction ability)
+        // Apply receiver awareness preset (affects ball reaction delay)
         function applyReceiverAwarenessPreset() {
             const preset = gameState.receiverAwarenessPreset;
             const awarenesses = preset === 'mixed' ? [90, 70, 50] : [preset, preset, preset];
@@ -14858,8 +14872,29 @@
                 // Update coreAttributes.intelligence (which controls reaction time)
                 if (!receiver.coreAttributes) receiver.coreAttributes = {};
                 receiver.coreAttributes.intelligence = awarenessStat;
-                // Update coreAttributes.agility (which controls route correction/turn rate)
-                receiver.coreAttributes.agility = awarenessStat;
+                // Recalculate overall using new formula
+                receiver.overall = calculateOverall({
+                    position: 'WR',
+                    coreAttributes: receiver.coreAttributes,
+                    stats: receiver.stats
+                });
+                // Update visual label
+                if (receiver.ovrTextBlock) {
+                    const stars = receiver.overall >= 90 ? ' ★★' : receiver.overall >= 85 ? ' ★' : '';
+                    receiver.ovrTextBlock.text = `${receiver.overall}${stars}`;
+                }
+            });
+        }
+
+        // Apply receiver agility preset (affects turn rate/route correction)
+        function applyReceiverAgilityPreset() {
+            const preset = gameState.receiverAgilityPreset;
+            const agilities = preset === 'mixed' ? [90, 70, 50] : [preset, preset, preset];
+            gameState.receivers.forEach((receiver, i) => {
+                const agilityStat = agilities[i % agilities.length];
+                // Update coreAttributes.agility (which controls turn rate)
+                if (!receiver.coreAttributes) receiver.coreAttributes = {};
+                receiver.coreAttributes.agility = agilityStat;
                 // Recalculate overall using new formula
                 receiver.overall = calculateOverall({
                     position: 'WR',
@@ -16368,6 +16403,16 @@
                 document.querySelectorAll('.wr-awr-btn').forEach(b => b.style.background = '#333');
                 btn.style.background = '#4a4';
                 applyReceiverAwarenessPreset();
+            });
+        });
+        // WR agility preset buttons (controls turn rate/route correction)
+        document.querySelectorAll('.wr-agi-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const agility = btn.dataset.agility;
+                gameState.receiverAgilityPreset = agility === 'mixed' ? 'mixed' : parseInt(agility);
+                document.querySelectorAll('.wr-agi-btn').forEach(b => b.style.background = '#333');
+                btn.style.background = '#4a4';
+                applyReceiverAgilityPreset();
             });
         });
         document.getElementById('btnPlayGame').addEventListener('click', () => {
