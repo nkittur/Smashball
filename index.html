@@ -366,7 +366,7 @@
                 <button id="btnToggleClashFlash" style="padding: 4px 12px; background: #4a4; color: #fff; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 12px;">ON</button>
             </div>
 
-            <!-- WR Awareness/Reaction Preset -->
+            <!-- WR Awareness/Agility Preset (affects reaction time + turn rate) -->
             <div>
                 <div style="color: #888; font-size: 11px; margin-bottom: 4px;">WR AWARENESS</div>
                 <div style="display: flex; gap: 4px;">
@@ -11368,6 +11368,7 @@
                 receiver.position.z = receiverLineZ;
                 receiver.position.y = 0;
                 receiver.rotation.y = 0;
+                receiver.headingAngle = 0;  // Reset heading for turn-rate limiting
                 receiver.routeIndex = 0;
                 receiver.lastRouteIndex = 0;
                 receiver.hasHadInitialClash = false;
@@ -11954,15 +11955,38 @@
                         const receiverIntelligence = receiver.coreAttributes?.intelligence || 70;
                         const reactionFrames = Math.floor((100 - receiverIntelligence) / 10);
 
+                        // Agility stat controls max turn rate (radians per frame)
+                        // 100 agility = 0.25 rad/frame (~14 deg), 50 agility = 0.08 rad/frame (~4.5 deg)
+                        const agility = receiver.coreAttributes?.agility || 70;
+                        const maxTurnRate = 0.05 + (agility / 100) * 0.20;  // 0.05 to 0.25 rad/frame
+
+                        // Initialize heading direction if not set (use current rotation)
+                        if (receiver.headingAngle === undefined) {
+                            receiver.headingAngle = receiver.rotation.y || 0;
+                        }
+
                         // First priority: continue running route if not complete
                         if (!routeComplete) {
                             // Ball is close - adjust toward it instead of following route
                             if (distToLanding < adjustmentRange && frameIndex > reactionFrames) {
                                 if (distToLanding > 0.3) {
+                                    // Calculate desired angle to ball
+                                    const desiredAngle = Math.atan2(dx, dz);
+
+                                    // Calculate angle difference (normalized to -PI to PI)
+                                    let angleDiff = desiredAngle - receiver.headingAngle;
+                                    while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
+                                    while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
+
+                                    // Limit turn rate based on awareness
+                                    const actualTurn = Math.max(-maxTurnRate, Math.min(maxTurnRate, angleDiff));
+                                    receiver.headingAngle += actualTurn;
+
+                                    // Move in heading direction (not directly toward ball)
                                     const catchAdjustSpeed = effectiveSpeed * 0.8;
-                                    receiver.position.x += (dx / distToLanding) * catchAdjustSpeed;
-                                    receiver.position.z += (dz / distToLanding) * catchAdjustSpeed;
-                                    receiver.rotation.y = Math.atan2(dx, dz);
+                                    receiver.position.x += Math.sin(receiver.headingAngle) * catchAdjustSpeed;
+                                    receiver.position.z += Math.cos(receiver.headingAngle) * catchAdjustSpeed;
+                                    receiver.rotation.y = receiver.headingAngle;
                                     // Moving at full speed - maintain momentum (no change)
                                 } else {
                                     // Waiting at landing spot - decay momentum
@@ -11971,13 +11995,28 @@
                             } else {
                                 // Keep running the route (moveReceiverAlongRoute updates momentum)
                                 moveReceiverAlongRoute(receiver, effectiveSpeed);
+                                // Update heading angle from route movement
+                                receiver.headingAngle = receiver.rotation.y;
                             }
                         } else {
-                            // Route complete - move toward ball landing spot
+                            // Route complete - move toward ball landing spot with turn limits
                             if (distToLanding > 0.3) {
-                                receiver.position.x += (dx / distToLanding) * effectiveSpeed;
-                                receiver.position.z += (dz / distToLanding) * effectiveSpeed;
-                                receiver.rotation.y = Math.atan2(dx, dz);
+                                // Calculate desired angle to ball
+                                const desiredAngle = Math.atan2(dx, dz);
+
+                                // Calculate angle difference (normalized to -PI to PI)
+                                let angleDiff = desiredAngle - receiver.headingAngle;
+                                while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
+                                while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
+
+                                // Limit turn rate based on awareness
+                                const actualTurn = Math.max(-maxTurnRate, Math.min(maxTurnRate, angleDiff));
+                                receiver.headingAngle += actualTurn;
+
+                                // Move in heading direction
+                                receiver.position.x += Math.sin(receiver.headingAngle) * effectiveSpeed;
+                                receiver.position.z += Math.cos(receiver.headingAngle) * effectiveSpeed;
+                                receiver.rotation.y = receiver.headingAngle;
                                 // Moving at full speed - maintain momentum (no change)
                             } else {
                                 // Waiting at landing spot - decay momentum
@@ -14810,15 +14849,17 @@
             });
         }
 
-        // Apply receiver awareness preset (affects ball reaction time)
+        // Apply receiver awareness preset (affects ball reaction time and route correction ability)
         function applyReceiverAwarenessPreset() {
             const preset = gameState.receiverAwarenessPreset;
             const awarenesses = preset === 'mixed' ? [90, 70, 50] : [preset, preset, preset];
             gameState.receivers.forEach((receiver, i) => {
                 const awarenessStat = awarenesses[i % awarenesses.length];
-                // Update coreAttributes.intelligence (which controls awareness/field vision)
+                // Update coreAttributes.intelligence (which controls reaction time)
                 if (!receiver.coreAttributes) receiver.coreAttributes = {};
                 receiver.coreAttributes.intelligence = awarenessStat;
+                // Update coreAttributes.agility (which controls route correction/turn rate)
+                receiver.coreAttributes.agility = awarenessStat;
                 // Recalculate overall using new formula
                 receiver.overall = calculateOverall({
                     position: 'WR',
