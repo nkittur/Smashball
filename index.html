@@ -11965,14 +11965,16 @@
                         const adjustmentRange = Math.max(5, receiverCatchRadius * 3);
 
                         // Calculate reaction delay based on receiver's intelligence (awareness/field vision)
-                        // 100 INT = 0 frames delay, 70 INT = 3 frames, 50 INT = 5 frames
+                        // 90 INT = 2 frames, 70 INT = 6 frames, 50 INT = 10 frames
                         const receiverIntelligence = receiver.coreAttributes?.intelligence || 70;
-                        const reactionFrames = Math.floor((100 - receiverIntelligence) / 10);
+                        const reactionFrames = Math.floor((100 - receiverIntelligence) / 5);
 
                         // Agility stat controls max turn rate (radians per frame)
-                        // 100 agility = 0.25 rad/frame (~14 deg), 50 agility = 0.08 rad/frame (~4.5 deg)
+                        // Uses squared scaling so low agility is much worse at turning
+                        // 90 agility = 0.25 rad/frame (~14°), 70 = 0.15 (~9°), 50 = 0.08 (~5°)
                         const agility = receiver.coreAttributes?.agility || 70;
-                        const maxTurnRate = 0.05 + (agility / 100) * 0.20;  // 0.05 to 0.25 rad/frame
+                        const agilityNorm = agility / 100;
+                        const maxTurnRate = 0.02 + (agilityNorm * agilityNorm) * 0.28;  // squared scaling
 
                         // Initialize heading direction if not set (use current rotation)
                         if (receiver.headingAngle === undefined) {
