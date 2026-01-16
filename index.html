@@ -361,9 +361,20 @@
             </div>
 
             <!-- Show Clash Flash Toggle -->
-            <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                 <span style="color: #888; font-size: 11px;">CLASH FLASH</span>
                 <button id="btnToggleClashFlash" style="padding: 4px 12px; background: #4a4; color: #fff; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 12px;">ON</button>
+            </div>
+
+            <!-- WR Awareness/Reaction Preset -->
+            <div>
+                <div style="color: #888; font-size: 11px; margin-bottom: 4px;">WR AWARENESS</div>
+                <div style="display: flex; gap: 4px;">
+                    <button class="wr-awr-btn" data-awareness="90" style="flex: 1; padding: 6px; background: #333; color: #fff; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 12px;">90</button>
+                    <button class="wr-awr-btn" data-awareness="70" style="flex: 1; padding: 6px; background: #4a4; color: #fff; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 12px;">70</button>
+                    <button class="wr-awr-btn" data-awareness="50" style="flex: 1; padding: 6px; background: #333; color: #fff; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 12px;">50</button>
+                    <button class="wr-awr-btn" data-awareness="mixed" style="flex: 1; padding: 6px; background: #333; color: #fff; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 11px;">Mix</button>
+                </div>
             </div>
         </div>
     </div>
@@ -1783,6 +1794,7 @@
             showClashFlash: true,     // Whether to show red/green clash result flashes
             receiverSpeedPreset: 80,  // Receiver speed preset (90, 80, 70, or 'mixed')
             dbSpeedPreset: 80,        // DB speed preset (90, 80, 70, or 'mixed')
+            receiverAwarenessPreset: 70, // Receiver awareness/intelligence preset (controls ball reaction time)
             // Down and distance tracking
             down: 1,                // Current down (1-4)
             yardsToGo: 10,          // Yards needed for first down
@@ -11937,10 +11949,15 @@
                         // Larger adjustment range so receivers can adjust to the ball
                         const adjustmentRange = Math.max(5, receiverCatchRadius * 3);
 
+                        // Calculate reaction delay based on receiver's intelligence (awareness/field vision)
+                        // 100 INT = 0 frames delay, 70 INT = 3 frames, 50 INT = 5 frames
+                        const receiverIntelligence = receiver.coreAttributes?.intelligence || 70;
+                        const reactionFrames = Math.floor((100 - receiverIntelligence) / 10);
+
                         // First priority: continue running route if not complete
                         if (!routeComplete) {
                             // Ball is close - adjust toward it instead of following route
-                            if (distToLanding < adjustmentRange && frameIndex > 5) {
+                            if (distToLanding < adjustmentRange && frameIndex > reactionFrames) {
                                 if (distToLanding > 0.3) {
                                     const catchAdjustSpeed = effectiveSpeed * 0.8;
                                     receiver.position.x += (dx / distToLanding) * catchAdjustSpeed;
@@ -14793,6 +14810,29 @@
             });
         }
 
+        // Apply receiver awareness preset (affects ball reaction time)
+        function applyReceiverAwarenessPreset() {
+            const preset = gameState.receiverAwarenessPreset;
+            const awarenesses = preset === 'mixed' ? [90, 70, 50] : [preset, preset, preset];
+            gameState.receivers.forEach((receiver, i) => {
+                const awarenessStat = awarenesses[i % awarenesses.length];
+                // Update coreAttributes.intelligence (which controls awareness/field vision)
+                if (!receiver.coreAttributes) receiver.coreAttributes = {};
+                receiver.coreAttributes.intelligence = awarenessStat;
+                // Recalculate overall using new formula
+                receiver.overall = calculateOverall({
+                    position: 'WR',
+                    coreAttributes: receiver.coreAttributes,
+                    stats: receiver.stats
+                });
+                // Update visual label
+                if (receiver.ovrTextBlock) {
+                    const stars = receiver.overall >= 90 ? ' ★★' : receiver.overall >= 85 ? ' ★' : '';
+                    receiver.ovrTextBlock.text = `${receiver.overall}${stars}`;
+                }
+            });
+        }
+
         // Calculate throw rating based on lead accuracy, lateral offset, and receiver slowdown
         function calculateThrowRating(receiver, ballLandingPos, catchTime) {
             // Get receiver's position, velocity, and speed at THROW time (not catch time)
@@ -16277,6 +16317,16 @@
                 document.querySelectorAll('.db-speed-btn').forEach(b => b.style.background = '#333');
                 btn.style.background = '#4a4';
                 applyDbSpeedPreset();
+            });
+        });
+        // WR awareness preset buttons (controls ball reaction time)
+        document.querySelectorAll('.wr-awr-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const awareness = btn.dataset.awareness;
+                gameState.receiverAwarenessPreset = awareness === 'mixed' ? 'mixed' : parseInt(awareness);
+                document.querySelectorAll('.wr-awr-btn').forEach(b => b.style.background = '#333');
+                btn.style.background = '#4a4';
+                applyReceiverAwarenessPreset();
             });
         });
         document.getElementById('btnPlayGame').addEventListener('click', () => {
