@@ -355,9 +355,15 @@
             </div>
 
             <!-- Show Grade Popup Toggle -->
-            <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                 <span style="color: #888; font-size: 11px;">SHOW GRADE POPUP</span>
                 <button id="btnToggleGradePopup" style="padding: 4px 12px; background: #4a4; color: #fff; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 12px;">ON</button>
+            </div>
+
+            <!-- Show Clash Flash Toggle -->
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="color: #888; font-size: 11px;">CLASH FLASH</span>
+                <button id="btnToggleClashFlash" style="padding: 4px 12px; background: #4a4; color: #fff; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 12px;">ON</button>
             </div>
         </div>
     </div>
@@ -1774,6 +1780,7 @@
             gameSpeedMultiplier: 1.5, // Adjustable game speed (0.5 = slow, 1.0 = normal, 1.5 = fast)
             ballSpeedMultiplier: 1.2, // Adjustable ball speed
             showGradePopup: true,     // Whether to show the grade popup after throws
+            showClashFlash: true,     // Whether to show red/green clash result flashes
             receiverSpeedPreset: 80,  // Receiver speed preset (90, 80, 70, or 'mixed')
             dbSpeedPreset: 80,        // DB speed preset (90, 80, 70, or 'mixed')
             // Down and distance tracking
@@ -13125,13 +13132,13 @@
                             receiver.rotation.x += Math.sin(tiltProgress * Math.PI) * 0.3;
                         }
 
-                        // Show green while speed boosted, red while speed penalized
-                        if (receiver.clashSpeedBoostUntil > gameState.gameTime) {
+                        // Show green while speed boosted, red while speed penalized (if enabled)
+                        if (gameState.showClashFlash && receiver.clashSpeedBoostUntil > gameState.gameTime) {
                             const flashRate = Math.sin(time * 10) * 0.3 + 0.7;  // Gentle pulse 0.4-1.0
                             const green = new BABYLON.Color3(0.2, 1.0, 0.3);
                             receiver.bodyMaterial.diffuseColor = BABYLON.Color3.Lerp(receiver.originalColor, green, flashRate * 0.7);
                             receiver.bodyMaterial.emissiveColor = green.scale(flashRate * 0.3);
-                        } else if (receiver.clashSpeedPenaltyUntil > gameState.gameTime) {
+                        } else if (gameState.showClashFlash && receiver.clashSpeedPenaltyUntil > gameState.gameTime) {
                             const flashRate = Math.sin(time * 10) * 0.3 + 0.7;  // Gentle pulse 0.4-1.0
                             const red = new BABYLON.Color3(1.0, 0.2, 0.2);
                             receiver.bodyMaterial.diffuseColor = BABYLON.Color3.Lerp(receiver.originalColor, red, flashRate * 0.7);
@@ -16245,6 +16252,12 @@
             const btn = document.getElementById('btnToggleGradePopup');
             btn.textContent = gameState.showGradePopup ? 'ON' : 'OFF';
             btn.style.background = gameState.showGradePopup ? '#4a4' : '#444';
+        });
+        document.getElementById('btnToggleClashFlash').addEventListener('click', () => {
+            gameState.showClashFlash = !gameState.showClashFlash;
+            const btn = document.getElementById('btnToggleClashFlash');
+            btn.textContent = gameState.showClashFlash ? 'ON' : 'OFF';
+            btn.style.background = gameState.showClashFlash ? '#4a4' : '#444';
         });
         // Receiver speed preset buttons
         document.querySelectorAll('.rcvr-speed-btn').forEach(btn => {
