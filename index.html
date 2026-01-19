@@ -314,6 +314,16 @@
         ">
             <div style="color: #fff; font-size: 14px; font-weight: bold; margin-bottom: 12px; border-bottom: 1px solid #444; padding-bottom: 8px;">Training Settings</div>
 
+            <!-- Difficulty -->
+            <div style="margin-bottom: 12px;">
+                <div style="color: #888; font-size: 11px; margin-bottom: 4px;">DIFFICULTY</div>
+                <div style="display: flex; gap: 4px;">
+                    <button class="difficulty-btn" data-difficulty="easy" style="flex: 1; padding: 6px; background: #333; color: #fff; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 11px;">Easy</button>
+                    <button class="difficulty-btn" data-difficulty="medium" style="flex: 1; padding: 6px; background: #4a4; color: #fff; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 11px;">Medium</button>
+                    <button class="difficulty-btn" data-difficulty="hard" style="flex: 1; padding: 6px; background: #333; color: #fff; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 11px;">Hard</button>
+                </div>
+            </div>
+
             <!-- Game Speed -->
             <div style="margin-bottom: 12px;">
                 <div style="color: #888; font-size: 11px; margin-bottom: 4px;">GAME SPEED</div>
@@ -1809,6 +1819,7 @@
             dbSpeedPreset: 80,        // DB speed preset (90, 80, 70, or 'mixed')
             receiverAwarenessPreset: 70, // Receiver awareness preset (controls ball reaction delay)
             receiverAgilityPreset: 70,   // Receiver agility preset (controls turn rate/route correction)
+            gameDifficulty: 'medium',    // Difficulty: 'easy', 'medium', 'hard' - affects WR reaction/turning
             // Down and distance tracking
             down: 1,                // Current down (1-4)
             yardsToGo: 10,          // Yards needed for first down
@@ -11964,16 +11975,22 @@
                         // Larger adjustment range so receivers can adjust to the ball
                         const adjustmentRange = Math.max(5, receiverCatchRadius * 3);
 
+                        // Apply difficulty scaling to awareness and agility
+                        // Easy: no change, Medium: -30 effective, Hard: -50 effective
+                        const difficultyPenalty = gameState.gameDifficulty === 'easy' ? 0 :
+                                                  gameState.gameDifficulty === 'hard' ? 50 : 30;
+
                         // Calculate reaction delay based on receiver's intelligence (awareness/field vision)
-                        // 90 INT = 3 frames, 70 INT = 10 frames, 50 INT = 17 frames
-                        const receiverIntelligence = receiver.coreAttributes?.intelligence || 70;
-                        const reactionFrames = Math.floor((100 - receiverIntelligence) / 3);
+                        // Easy 90 INT = 3 frames, Medium 90 INT = 10 frames (like Easy 60)
+                        const rawIntelligence = receiver.coreAttributes?.intelligence || 70;
+                        const effectiveIntelligence = Math.max(20, rawIntelligence - difficultyPenalty);
+                        const reactionFrames = Math.floor((100 - effectiveIntelligence) / 3);
 
                         // Agility stat controls max turn rate (radians per frame)
                         // Uses cubic scaling so low agility can barely turn at all
-                        // 90 agility = 0.20 rad/frame (~11°), 70 = 0.10 (~6°), 50 = 0.04 (~2°)
-                        const agility = receiver.coreAttributes?.agility || 70;
-                        const agilityNorm = agility / 100;
+                        const rawAgility = receiver.coreAttributes?.agility || 70;
+                        const effectiveAgility = Math.max(20, rawAgility - difficultyPenalty);
+                        const agilityNorm = effectiveAgility / 100;
                         const maxTurnRate = 0.01 + (agilityNorm * agilityNorm * agilityNorm) * 0.26;  // cubic scaling
 
                         // Initialize heading direction if not set (use current rotation)
@@ -16376,6 +16393,14 @@
             const btn = document.getElementById('btnToggleClashFlash');
             btn.textContent = gameState.showClashFlash ? 'ON' : 'OFF';
             btn.style.background = gameState.showClashFlash ? '#4a4' : '#444';
+        });
+        // Difficulty buttons
+        document.querySelectorAll('.difficulty-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                gameState.gameDifficulty = btn.dataset.difficulty;
+                document.querySelectorAll('.difficulty-btn').forEach(b => b.style.background = '#333');
+                btn.style.background = '#4a4';
+            });
         });
         // Receiver speed preset buttons
         document.querySelectorAll('.rcvr-speed-btn').forEach(btn => {
