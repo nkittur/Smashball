@@ -466,56 +466,36 @@
             font-family: 'Courier New', monospace;
             z-index: 1001;
         ">&#8592;</button>
-        <div id="targetPracticeTitle" style="
-            position: fixed;
-            top: calc(50px + env(safe-area-inset-top, 0px));
-            left: 50%;
-            transform: translateX(-50%);
-            color: #a4a;
-            font-size: 18px;
-            font-family: 'Courier New', monospace;
-            font-weight: bold;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
-            z-index: 1001;
-        ">TARGET PRACTICE</div>
-        <!-- Score and Stats Display -->
+        <!-- Compact Score Bar at Top -->
         <div id="targetPracticeStats" style="
             position: fixed;
-            top: calc(80px + env(safe-area-inset-top, 0px));
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(0,0,0,0.85);
-            padding: 12px 24px;
-            border-radius: 10px;
-            border: 2px solid #a4a;
+            top: calc(46px + env(safe-area-inset-top, 0px));
+            left: 50px;
+            right: 50px;
+            background: rgba(0,0,0,0.75);
+            padding: 6px 12px;
+            border-radius: 6px;
             font-family: 'Courier New', monospace;
-            text-align: center;
             z-index: 1000;
-            min-width: 280px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
         ">
-            <div style="display: flex; justify-content: space-between; gap: 20px;">
-                <div style="text-align: center;">
-                    <div style="color: #888; font-size: 10px; text-transform: uppercase;">Score</div>
-                    <div id="targetScore" style="color: #ffd700; font-size: 28px; font-weight: bold;">0</div>
+            <div style="color: #a4a; font-size: 12px; font-weight: bold;">TARGET PRACTICE</div>
+            <div style="display: flex; align-items: center; gap: 16px;">
+                <div style="display: flex; align-items: center; gap: 4px;">
+                    <span style="color: #888; font-size: 10px;">SCORE</span>
+                    <span id="targetScore" style="color: #ffd700; font-size: 16px; font-weight: bold;">0</span>
                 </div>
-                <div style="text-align: center;">
-                    <div style="color: #888; font-size: 10px; text-transform: uppercase;">Streak</div>
-                    <div id="targetStreak" style="color: #ff6b6b; font-size: 28px; font-weight: bold;">0</div>
+                <div style="display: flex; align-items: center; gap: 4px;">
+                    <span style="color: #888; font-size: 10px;">STREAK</span>
+                    <span id="targetStreak" style="color: #ff6b6b; font-size: 16px; font-weight: bold;">0</span>
                 </div>
-                <div style="text-align: center;">
-                    <div style="color: #888; font-size: 10px; text-transform: uppercase;">Multiplier</div>
-                    <div id="targetMultiplier" style="color: #4fc3f7; font-size: 28px; font-weight: bold;">1x</div>
+                <div style="display: flex; align-items: center; gap: 4px;">
+                    <span id="targetMultiplier" style="color: #4fc3f7; font-size: 16px; font-weight: bold;">1x</span>
                 </div>
+                <div id="targetBonusDisplay" style="color: #4f4; font-size: 11px; font-weight: bold; min-width: 80px;"></div>
             </div>
-            <div id="targetBonusDisplay" style="
-                margin-top: 8px;
-                padding-top: 8px;
-                border-top: 1px solid #444;
-                color: #4f4;
-                font-size: 14px;
-                font-weight: bold;
-                min-height: 20px;
-            "></div>
         </div>
         <!-- Hit Popup (shows when you hit a target) -->
         <div id="targetHitPopup" style="
@@ -2097,6 +2077,7 @@
             targetPracticeTargetCount: 5, // Number of targets on field
             targetPracticeSpeedSetting: 'normal', // 'slow', 'normal', 'fast'
             targetPracticeLastHitTime: 0, // For rapid fire bonus
+            targetPracticeSpeedBonus: 1.0, // Increases with each hit for progressive difficulty
             // Debug visualization
             showThrowHeatMap: false,
             heatMapMeshes: []
@@ -10156,9 +10137,11 @@
 
             // Get QB's arm strength (affects max throw distance)
             // Scales from 12 yards at 50 armStrength to 26 yards at 100 armStrength
+            // Target practice mode gets extended range (40 yards max)
             const qb = gameState.scene?.qb;
             const armStrength = qb?.stats?.armStrength || 70;
-            const qbMaxThrowDistance = 12 + ((armStrength - 50) / 50) * 14;  // 12-26 range
+            const baseMaxThrow = 12 + ((armStrength - 50) / 50) * 14;  // 12-26 range
+            const qbMaxThrowDistance = gameState.targetPracticeMode ? 40 : baseMaxThrow;
 
             // Distance dragged determines throw power
             // Apply sensitivity boost based on camera offset (more offset = less space to drag = higher sensitivity)
@@ -10179,10 +10162,11 @@
                 angle = lastValidAngle;  // Use last valid angle for very small drags
             }
 
-            // Get QB max throw distance for power calculation
+            // Get QB max throw distance for power calculation (same logic as above)
             const qbForPower = gameState.scene?.qb;
             const armStrengthForPower = qbForPower?.stats?.armStrength || 70;
-            const maxDistForPower = 12 + ((armStrengthForPower - 50) / 50) * 14;
+            const baseMaxForPower = 12 + ((armStrengthForPower - 50) / 50) * 14;
+            const maxDistForPower = gameState.targetPracticeMode ? 40 : baseMaxForPower;
 
             return {
                 distance: throwDistance,
@@ -15283,6 +15267,24 @@
             // Get route points
             const route = routePattern.points(startX, startZ);
 
+            // Create route line visualization
+            const routePathPoints = route.map(p => new BABYLON.Vector3(p.x, 0.03, p.z));
+            // Close the loop by adding first point at the end
+            routePathPoints.push(routePathPoints[0].clone());
+
+            const routeLine = BABYLON.MeshBuilder.CreateTube('routeLine', {
+                path: routePathPoints,
+                radius: 0.06,
+                tessellation: 8,
+                cap: BABYLON.Mesh.NO_CAP
+            }, scene);
+
+            const routeLineMat = new BABYLON.StandardMaterial('routeLineMat', scene);
+            routeLineMat.diffuseColor = targetConfig.color.scale(0.4);
+            routeLineMat.emissiveColor = targetConfig.color.scale(0.2);
+            routeLineMat.alpha = 0.5;
+            routeLine.material = routeLineMat;
+
             // Calculate speed based on type and game settings
             const speedSettings = { slow: 0.6, normal: 1.0, fast: 1.5 };
             const baseSpeed = 0.04 * targetConfig.speedMult * (speedSettings[gameState.targetPracticeSpeedSetting] || 1.0);
@@ -15293,12 +15295,14 @@
                 ring: ring,
                 disc: disc,
                 bullseye: bullseye,
+                routeLine: routeLine,
                 type: type,
                 config: targetConfig,
                 route: route,
                 routeIndex: 0,
                 routeProgress: 0,  // 0-1 progress between waypoints
                 speed: baseSpeed,
+                baseSpeed: baseSpeed,  // Store original speed for progressive difficulty
                 hitRadius: targetConfig.size * 1.2,  // Slightly larger than visual for forgiving hits
                 active: true,
                 respawnTimer: 0
@@ -15309,11 +15313,13 @@
 
         // Create all targets for target practice mode
         function createAllTargets(scene) {
-            // Clear existing targets
+            // Clear existing targets (including route lines)
             gameState.targetPracticeTargets.forEach(t => {
+                if (t.routeLine) t.routeLine.dispose();
                 if (t.mesh) t.mesh.dispose();
             });
             gameState.targetPracticeTargets = [];
+            gameState.targetPracticeSpeedBonus = 1.0;  // Reset speed bonus
 
             const targetCount = gameState.targetPracticeTargetCount;
             const types = ['small', 'medium', 'large'];
@@ -15350,6 +15356,7 @@
                     if (target.respawnTimer <= 0) {
                         target.active = true;
                         target.mesh.setEnabled(true);
+                        if (target.routeLine) target.routeLine.visibility = 1;  // Restore route visibility
                         target.routeIndex = 0;
                         target.routeProgress = 0;
                         // Randomize new start position slightly
@@ -15521,10 +15528,23 @@
                 } catch (e) {}
             }
 
+            // Increase speed bonus (targets get faster with each hit)
+            gameState.targetPracticeSpeedBonus += 0.03;  // 3% faster per hit
+            const maxSpeedBonus = 3.0;  // Cap at 3x speed
+            if (gameState.targetPracticeSpeedBonus > maxSpeedBonus) {
+                gameState.targetPracticeSpeedBonus = maxSpeedBonus;
+            }
+
+            // Apply new speed to all targets
+            gameState.targetPracticeTargets.forEach(t => {
+                t.speed = t.baseSpeed * gameState.targetPracticeSpeedBonus;
+            });
+
             // Deactivate hit targets (will respawn)
             hitTargets.forEach(target => {
                 target.active = false;
                 target.mesh.setEnabled(false);
+                target.routeLine.visibility = 0.3;  // Dim route line when target is respawning
                 target.respawnTimer = 2.0;  // Respawn after 2 seconds
             });
 
@@ -15621,6 +15641,7 @@
             gameState.targetPracticeStreak = 0;
             gameState.targetPracticeMultiplier = 1;
             gameState.targetPracticeLastHitTime = 0;
+            gameState.targetPracticeSpeedBonus = 1.0;  // Speed increases with hits
 
             // Load best score from localStorage
             try {
@@ -15644,6 +15665,17 @@
             gameState.defenders.forEach(d => d.setEnabled(false));
             gameState.offensiveLine.forEach(l => l.setEnabled(false));
             gameState.defensiveLine.forEach(l => l.setEnabled(false));
+
+            // Hide ALL name labels (QB, receivers, defenders)
+            if (gameState.scene && gameState.scene.qb && gameState.scene.qb.nameLabel) {
+                gameState.scene.qb.nameLabel.alpha = 0;
+            }
+            gameState.receivers.forEach(r => {
+                if (r.nameLabel) r.nameLabel.alpha = 0;
+            });
+            gameState.defenders.forEach(d => {
+                if (d.nameLabel) d.nameLabel.alpha = 0;
+            });
 
             // Position QB
             if (gameState.scene && gameState.scene.qb) {
@@ -15684,8 +15716,9 @@
             gameState.targetPracticeMode = false;
             gameSceneActive = false;
 
-            // Clean up targets
+            // Clean up targets (including route lines)
             gameState.targetPracticeTargets.forEach(t => {
+                if (t.routeLine) t.routeLine.dispose();
                 if (t.mesh) t.mesh.dispose();
             });
             gameState.targetPracticeTargets = [];
