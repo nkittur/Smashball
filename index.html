@@ -481,20 +481,26 @@
             align-items: center;
             justify-content: space-between;
         ">
-            <div style="color: #a4a; font-size: 12px; font-weight: bold;">TARGET PRACTICE</div>
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <div style="color: #a4a; font-size: 14px; font-weight: bold;">ROUND <span id="targetRound" style="color: #fff;">1</span></div>
+                <div style="color: #666;">|</div>
+                <div style="display: flex; align-items: center; gap: 4px;">
+                    <span style="color: #888; font-size: 10px;">LEFT</span>
+                    <span id="targetRemaining" style="color: #ff6b6b; font-size: 16px; font-weight: bold;">5</span>
+                </div>
+            </div>
             <div style="display: flex; align-items: center; gap: 16px;">
                 <div style="display: flex; align-items: center; gap: 4px;">
-                    <span style="color: #888; font-size: 10px;">SCORE</span>
-                    <span id="targetScore" style="color: #ffd700; font-size: 16px; font-weight: bold;">0</span>
+                    <span style="color: #888; font-size: 10px;">THROWS</span>
+                    <span id="targetThrows" style="color: #4fc3f7; font-size: 16px; font-weight: bold;">0</span>
                 </div>
                 <div style="display: flex; align-items: center; gap: 4px;">
-                    <span style="color: #888; font-size: 10px;">STREAK</span>
-                    <span id="targetStreak" style="color: #ff6b6b; font-size: 16px; font-weight: bold;">0</span>
+                    <span style="color: #888; font-size: 10px;">TIME</span>
+                    <span id="targetTime" style="color: #ffd700; font-size: 16px; font-weight: bold;">0.0s</span>
                 </div>
                 <div style="display: flex; align-items: center; gap: 4px;">
                     <span id="targetMultiplier" style="color: #4fc3f7; font-size: 16px; font-weight: bold;">1x</span>
                 </div>
-                <div id="targetBonusDisplay" style="color: #4f4; font-size: 11px; font-weight: bold; min-width: 80px;"></div>
             </div>
         </div>
         <!-- Hit Popup (shows when you hit a target) -->
@@ -517,8 +523,8 @@
             <div id="hitPopupPoints" style="font-size: 18px; color: #ffd700; margin-top: 4px;">+100</div>
             <div id="hitPopupBonuses" style="font-size: 12px; color: #aaa; margin-top: 6px;"></div>
         </div>
-        <!-- Best Score Display -->
-        <div id="targetBestScore" style="
+        <!-- Round History Display -->
+        <div id="targetRoundHistory" style="
             position: fixed;
             bottom: 20px;
             left: 20px;
@@ -526,10 +532,45 @@
             padding: 8px 14px;
             border-radius: 6px;
             font-family: 'Courier New', monospace;
-            font-size: 12px;
+            font-size: 11px;
             color: #888;
             z-index: 1001;
-        ">Best: <span id="bestScoreValue" style="color: #ffd700;">0</span></div>
+            max-width: 200px;
+        ">
+            <div style="color: #aaa; margin-bottom: 4px;">ROUND HISTORY</div>
+            <div id="roundHistoryList" style="color: #666;"></div>
+        </div>
+        <!-- Round Complete Popup -->
+        <div id="roundCompletePopup" style="
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.95);
+            padding: 24px 36px;
+            border-radius: 12px;
+            border: 2px solid #4f4;
+            color: white;
+            font-family: 'Courier New', monospace;
+            text-align: center;
+            z-index: 1002;
+            display: none;
+            min-width: 250px;
+        ">
+            <div id="roundCompleteTitle" style="font-size: 24px; font-weight: bold; color: #4f4;">ROUND COMPLETE!</div>
+            <div style="margin-top: 16px; display: flex; justify-content: space-around;">
+                <div>
+                    <div style="color: #888; font-size: 10px;">THROWS</div>
+                    <div id="roundCompleteThrows" style="color: #4fc3f7; font-size: 28px; font-weight: bold;">0</div>
+                </div>
+                <div>
+                    <div style="color: #888; font-size: 10px;">TIME</div>
+                    <div id="roundCompleteTime" style="color: #ffd700; font-size: 28px; font-weight: bold;">0.0s</div>
+                </div>
+            </div>
+            <div id="roundCompleteNext" style="margin-top: 16px; color: #aaa; font-size: 12px;">Next: Round <span id="nextRoundNum">2</span> - <span id="nextRoundTargets">6</span> targets</div>
+            <div style="margin-top: 12px; color: #666; font-size: 11px;">Tap to continue</div>
+        </div>
         <!-- Settings Button -->
         <button id="btnTargetPracticeSettings" style="
             position: fixed;
@@ -2078,6 +2119,12 @@
             targetPracticeSpeedSetting: 'normal', // 'slow', 'normal', 'fast'
             targetPracticeLastHitTime: 0, // For rapid fire bonus
             targetPracticeSpeedBonus: 1.0, // Increases with each hit for progressive difficulty
+            // Round tracking
+            targetPracticeRound: 1,           // Current round number
+            targetPracticeRoundThrows: 0,     // Throws used this round
+            targetPracticeRoundStartTime: 0,  // When round started (ms)
+            targetPracticeRoundHistory: [],   // Array of {round, throws, time} for completed rounds
+            targetPracticeTotalThrows: 0,     // Total throws across all rounds
             // Debug visualization
             showThrowHeatMap: false,
             heatMapMeshes: []
@@ -12009,6 +12056,13 @@
 
             if (throwParams.distance < MIN_THROW_DISTANCE) return;
 
+            // Track throws in target practice mode
+            if (gameState.targetPracticeMode) {
+                gameState.targetPracticeRoundThrows++;
+                gameState.targetPracticeTotalThrows++;
+                updateTargetPracticeUI();
+            }
+
             gameState.ballInFlight = true;
             gameState.canThrow = false;
             updateMessage('');
@@ -13017,6 +13071,14 @@
         // Ball bounce and roll animation for incomplete passes
         const bounceBall = (scene, startPos) => {
             const football = scene.football;
+
+            // In target practice mode, immediately reset (no bounce animation)
+            if (gameState.targetPracticeMode) {
+                football.setEnabled(false);
+                resetTargetPracticePlay();
+                return;
+            }
+
             let velocity = {
                 x: (Math.random() - 0.5) * 0.1,
                 y: 0.15,  // Initial bounce up
@@ -13061,11 +13123,7 @@
                         if (Math.abs(velocity.x) < 0.001 && Math.abs(velocity.z) < 0.001) {
                             scene.onBeforeRenderObservable.remove(bounceAnimation);
                             setTimeout(() => {
-                                if (gameState.targetPracticeMode) {
-                                    resetTargetPracticePlay();
-                                } else {
-                                    resetPlay(scene);
-                                }
+                                resetPlay(scene);
                             }, 800);
                         }
                     }
@@ -15381,7 +15439,7 @@
                 if (t.mesh) t.mesh.dispose();
             });
             gameState.targetPracticeTargets = [];
-            gameState.targetPracticeSpeedBonus = 1.0;  // Reset speed bonus
+            // Note: Don't reset speed bonus here - it increases with rounds
 
             const targetCount = gameState.targetPracticeTargetCount;
 
@@ -15421,56 +15479,15 @@
             const time = performance.now() * 0.001;
 
             gameState.targetPracticeTargets.forEach((target, i) => {
-                if (!target.active) {
-                    // Handle respawn timer
-                    target.respawnTimer -= 1/60;
-                    if (target.respawnTimer <= 0) {
-                        target.active = true;
-                        target.mesh.setEnabled(true);
-                        if (target.routeLine) target.routeLine.visibility = 1;
-                        target.routeIndex = 0;
-                        // Reset to start position
-                        target.position.x = target.startPos.x + (Math.random() - 0.5) * 2;
-                        target.position.z = target.startPos.z;
-                        target.runMomentum = 0;
-
-                        // Generate new route on respawn for variety
-                        const slotPosition = Math.abs(target.startPos.x) > 4 ? 'outside' : 'slot';
-                        target.route = generateTargetRoute(target.position.x, target.position.z, slotPosition);
-
-                        // Update route line
-                        if (target.routeLine) {
-                            target.routeLine.dispose();
-                        }
-                        const routePathPoints = [new BABYLON.Vector3(target.position.x, 0.03, target.position.z)];
-                        target.route.forEach(p => routePathPoints.push(new BABYLON.Vector3(p.x, 0.03, p.z)));
-
-                        if (routePathPoints.length >= 2) {
-                            target.routeLine = BABYLON.MeshBuilder.CreateTube('routeLine', {
-                                path: routePathPoints,
-                                radius: 0.05,
-                                tessellation: 8,
-                                cap: BABYLON.Mesh.NO_CAP
-                            }, gameState.scene);
-
-                            const routeLineMat = new BABYLON.StandardMaterial('routeLineMat', gameState.scene);
-                            routeLineMat.diffuseColor = target.config.color.scale(0.5);
-                            routeLineMat.emissiveColor = target.config.color.scale(0.2);
-                            routeLineMat.alpha = 0.6;
-                            target.routeLine.material = routeLineMat;
-                        }
-                    }
-                    return;
-                }
+                // Skip inactive (hit) targets - they don't respawn
+                if (!target.active) return;
 
                 // Move along route (similar to moveReceiverAlongRoute)
                 const runSpeed = target.speed * gameState.targetPracticeSpeedBonus;
 
                 if (!target.route || target.routeIndex >= target.route.length) {
-                    // Route complete - loop back to start
+                    // Route complete - loop back to start of route
                     target.routeIndex = 0;
-                    target.position.x = target.startPos.x + (Math.random() - 0.5) * 2;
-                    target.position.z = target.startPos.z;
                     return;
                 }
 
@@ -15483,10 +15500,8 @@
                 if (dist < 0.3) {
                     target.routeIndex++;
                     if (target.routeIndex >= target.route.length) {
-                        // Route complete - loop back
+                        // Route complete - loop back to start
                         target.routeIndex = 0;
-                        target.position.x = target.startPos.x + (Math.random() - 0.5) * 2;
-                        target.position.z = target.startPos.z;
                         return;
                     }
                     const newWaypoint = target.route[target.routeIndex];
@@ -15606,11 +15621,10 @@
         // Handle target hit
         function handleTargetHit(hitTargets, throwDistance) {
             if (hitTargets.length === 0) {
-                // Miss - reset streak
+                // Miss - reset streak but continue
                 gameState.targetPracticeStreak = 0;
                 gameState.targetPracticeMultiplier = 1;
                 updateTargetPracticeUI();
-                showTargetMissPopup();
                 return;
             }
 
@@ -15637,95 +15651,173 @@
             // Add score
             gameState.targetPracticeScore += scoreResult.total;
 
-            // Check for new best score
-            if (gameState.targetPracticeScore > gameState.targetPracticeBestScore) {
-                gameState.targetPracticeBestScore = gameState.targetPracticeScore;
-                // Save to localStorage
-                try {
-                    localStorage.setItem('smashball_target_practice_best', gameState.targetPracticeBestScore.toString());
-                } catch (e) {}
-            }
-
-            // Increase speed bonus (targets get faster with each hit)
-            gameState.targetPracticeSpeedBonus += 0.03;  // 3% faster per hit
-            const maxSpeedBonus = 3.0;  // Cap at 3x speed
-            if (gameState.targetPracticeSpeedBonus > maxSpeedBonus) {
-                gameState.targetPracticeSpeedBonus = maxSpeedBonus;
-            }
-
-            // Apply new speed to all targets
-            gameState.targetPracticeTargets.forEach(t => {
-                t.speed = t.baseSpeed * gameState.targetPracticeSpeedBonus;
-            });
-
-            // Deactivate hit targets (will respawn)
+            // Deactivate hit targets (NO respawn - round based)
             hitTargets.forEach(target => {
                 target.active = false;
                 target.mesh.setEnabled(false);
-                if (target.routeLine) target.routeLine.visibility = 0.3;  // Dim route line when target is respawning
-                target.respawnTimer = 2.0;  // Respawn after 2 seconds
+                if (target.routeLine) {
+                    target.routeLine.dispose();
+                    target.routeLine = null;
+                }
             });
 
             // Update UI
             updateTargetPracticeUI();
-            showTargetHitPopup(hitTargets, scoreResult);
+            showTargetHitPopup(hitTargets.length);
+
+            // Check if round complete (all targets hit)
+            const remainingTargets = gameState.targetPracticeTargets.filter(t => t.active).length;
+            if (remainingTargets === 0) {
+                // Round complete!
+                completeRound();
+            }
+        }
+
+        // Complete the current round
+        function completeRound() {
+            const roundTime = (performance.now() - gameState.targetPracticeRoundStartTime) / 1000;
+            const roundThrows = gameState.targetPracticeRoundThrows;
+
+            // Save round history
+            gameState.targetPracticeRoundHistory.push({
+                round: gameState.targetPracticeRound,
+                throws: roundThrows,
+                time: roundTime,
+                targets: gameState.targetPracticeTargetCount
+            });
+
+            // Show round complete popup
+            showRoundCompletePopup(roundThrows, roundTime);
+        }
+
+        // Start the next round
+        function startNextRound() {
+            gameState.targetPracticeRound++;
+
+            // Increase difficulty: more targets and faster
+            gameState.targetPracticeTargetCount = Math.min(3 + gameState.targetPracticeRound, 7);  // Start at 4, max 7
+            gameState.targetPracticeSpeedBonus += 0.15;  // 15% faster each round
+
+            // Reset round stats
+            gameState.targetPracticeRoundThrows = 0;
+            gameState.targetPracticeRoundStartTime = performance.now();
+            gameState.targetPracticeStreak = 0;
+            gameState.targetPracticeMultiplier = 1;
+
+            // Create new targets
+            if (gameState.scene) {
+                createAllTargets(gameState.scene);
+            }
+
+            // Update UI
+            updateTargetPracticeUI();
+            updateRoundHistoryUI();
+        }
+
+        // Show round complete popup
+        function showRoundCompletePopup(throws, time) {
+            const popup = document.getElementById('roundCompletePopup');
+            document.getElementById('roundCompleteThrows').textContent = throws;
+            document.getElementById('roundCompleteTime').textContent = time.toFixed(1) + 's';
+            document.getElementById('nextRoundNum').textContent = gameState.targetPracticeRound + 1;
+            document.getElementById('nextRoundTargets').textContent = Math.min(3 + gameState.targetPracticeRound + 1, 7);
+
+            popup.style.display = 'block';
+
+            // Wait for tap to continue
+            const continueHandler = () => {
+                popup.style.display = 'none';
+                document.removeEventListener('pointerdown', continueHandler);
+                startNextRound();
+            };
+
+            // Delay before allowing continue (prevent accidental tap)
+            setTimeout(() => {
+                document.addEventListener('pointerdown', continueHandler);
+            }, 500);
         }
 
         // Update target practice UI
         function updateTargetPracticeUI() {
-            document.getElementById('targetScore').textContent = gameState.targetPracticeScore.toLocaleString();
-            document.getElementById('targetStreak').textContent = gameState.targetPracticeStreak;
-            document.getElementById('targetMultiplier').textContent = gameState.targetPracticeMultiplier + 'x';
-            document.getElementById('bestScoreValue').textContent = gameState.targetPracticeBestScore.toLocaleString();
+            const remainingTargets = gameState.targetPracticeTargets.filter(t => t.active).length;
 
-            // Update bonus display based on streak
-            const bonusDisplay = document.getElementById('targetBonusDisplay');
-            if (gameState.targetPracticeStreak >= 10) {
-                bonusDisplay.textContent = 'MAX MULTIPLIER!';
-                bonusDisplay.style.color = '#ffd700';
-            } else if (gameState.targetPracticeStreak >= 7) {
-                bonusDisplay.textContent = 'UNSTOPPABLE!';
-                bonusDisplay.style.color = '#ff6b6b';
-            } else if (gameState.targetPracticeStreak >= 5) {
-                bonusDisplay.textContent = 'ON FIRE!';
-                bonusDisplay.style.color = '#ff9800';
-            } else if (gameState.targetPracticeStreak >= 3) {
-                bonusDisplay.textContent = 'HOT STREAK!';
-                bonusDisplay.style.color = '#4fc3f7';
-            } else {
-                bonusDisplay.textContent = '';
+            document.getElementById('targetRound').textContent = gameState.targetPracticeRound;
+            document.getElementById('targetRemaining').textContent = remainingTargets;
+            document.getElementById('targetThrows').textContent = gameState.targetPracticeRoundThrows;
+            document.getElementById('targetMultiplier').textContent = gameState.targetPracticeMultiplier + 'x';
+
+            // Update time display
+            const elapsed = (performance.now() - gameState.targetPracticeRoundStartTime) / 1000;
+            document.getElementById('targetTime').textContent = elapsed.toFixed(1) + 's';
+        }
+
+        // Update round history UI
+        function updateRoundHistoryUI() {
+            const historyList = document.getElementById('roundHistoryList');
+            if (gameState.targetPracticeRoundHistory.length === 0) {
+                historyList.innerHTML = '<div style="color: #555;">No rounds completed</div>';
+                return;
+            }
+
+            const historyHtml = gameState.targetPracticeRoundHistory.map(r =>
+                `<div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
+                    <span>R${r.round}</span>
+                    <span style="color: #4fc3f7;">${r.throws} throws</span>
+                    <span style="color: #ffd700;">${r.time.toFixed(1)}s</span>
+                </div>`
+            ).join('');
+            historyList.innerHTML = historyHtml;
+        }
+
+        // Timer update for target practice
+        let targetPracticeTimerInterval = null;
+
+        function startTargetPracticeTimer() {
+            if (targetPracticeTimerInterval) {
+                clearInterval(targetPracticeTimerInterval);
+            }
+            targetPracticeTimerInterval = setInterval(() => {
+                if (gameState.targetPracticeMode && gameState.targetPracticeRoundStartTime > 0) {
+                    const elapsed = (performance.now() - gameState.targetPracticeRoundStartTime) / 1000;
+                    document.getElementById('targetTime').textContent = elapsed.toFixed(1) + 's';
+                }
+            }, 100);
+        }
+
+        function stopTargetPracticeTimer() {
+            if (targetPracticeTimerInterval) {
+                clearInterval(targetPracticeTimerInterval);
+                targetPracticeTimerInterval = null;
             }
         }
 
-        // Show hit popup
-        function showTargetHitPopup(hitTargets, scoreResult) {
+        // Show hit popup (simplified)
+        function showTargetHitPopup(hitCount) {
             const popup = document.getElementById('targetHitPopup');
             const mainEl = document.getElementById('hitPopupMain');
             const pointsEl = document.getElementById('hitPopupPoints');
             const bonusesEl = document.getElementById('hitPopupBonuses');
 
-            if (hitTargets.length > 1) {
-                mainEl.textContent = `MULTI-HIT x${hitTargets.length}!`;
+            const remaining = gameState.targetPracticeTargets.filter(t => t.active).length;
+
+            if (hitCount > 1) {
+                mainEl.textContent = `MULTI-HIT x${hitCount}!`;
                 mainEl.style.color = '#ffd700';
             } else {
                 mainEl.textContent = 'HIT!';
                 mainEl.style.color = '#4f4';
             }
 
-            pointsEl.textContent = `+${scoreResult.total.toLocaleString()}`;
-
-            // Show breakdown
-            const bonusLines = scoreResult.breakdown.map(b =>
-                `${b.label}: +${b.points}`
-            ).join(' | ');
-            bonusesEl.textContent = bonusLines;
+            pointsEl.textContent = `${remaining} remaining`;
+            pointsEl.style.color = remaining === 0 ? '#4f4' : '#888';
+            bonusesEl.textContent = gameState.targetPracticeStreak > 1 ? `Streak: ${gameState.targetPracticeStreak}` : '';
 
             popup.style.display = 'block';
 
             // Hide after delay
             setTimeout(() => {
                 popup.style.display = 'none';
-            }, 1500);
+            }, 800);
         }
 
         // Show miss popup
@@ -15754,20 +15846,20 @@
             gameState.targetPracticeMode = true;
             gameState.trainingMode = false;
 
-            // Reset scores
+            // Reset all state
             gameState.targetPracticeScore = 0;
             gameState.targetPracticeStreak = 0;
             gameState.targetPracticeMultiplier = 1;
             gameState.targetPracticeLastHitTime = 0;
-            gameState.targetPracticeSpeedBonus = 1.0;  // Speed increases with hits
+            gameState.targetPracticeSpeedBonus = 1.0;
 
-            // Load best score from localStorage
-            try {
-                const saved = localStorage.getItem('smashball_target_practice_best');
-                if (saved) {
-                    gameState.targetPracticeBestScore = parseInt(saved, 10) || 0;
-                }
-            } catch (e) {}
+            // Reset round state
+            gameState.targetPracticeRound = 1;
+            gameState.targetPracticeRoundThrows = 0;
+            gameState.targetPracticeRoundStartTime = performance.now();
+            gameState.targetPracticeRoundHistory = [];
+            gameState.targetPracticeTotalThrows = 0;
+            gameState.targetPracticeTargetCount = 3;  // Start with 3 targets
 
             // Hide management overlay and show game elements
             document.getElementById('managementOverlay').classList.add('hidden');
@@ -15814,6 +15906,10 @@
 
             // Update UI
             updateTargetPracticeUI();
+            updateRoundHistoryUI();
+
+            // Start timer
+            startTargetPracticeTimer();
 
             // Update settings UI
             document.getElementById('tpBallSpeedDisplay').textContent = gameState.ballSpeedMultiplier.toFixed(1) + 'x';
@@ -15833,6 +15929,12 @@
         function exitTargetPracticeMode() {
             gameState.targetPracticeMode = false;
             gameSceneActive = false;
+
+            // Stop timer
+            stopTargetPracticeTimer();
+
+            // Hide round complete popup if showing
+            document.getElementById('roundCompletePopup').style.display = 'none';
 
             // Clean up targets (including route lines)
             gameState.targetPracticeTargets.forEach(t => {
