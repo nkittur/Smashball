@@ -13000,7 +13000,11 @@
                 if (gameState.trainingMode && gameState.cameraAngle !== undefined) {
                     camera.alpha = -Math.PI / 2;
                     camera.beta = 0.1 + gameState.cameraAngle * (Math.PI / 2 - 0.1);
-                    camera.radius = 32;
+                    // Adjust radius based on camera offset to maintain consistent framing
+                    // More forward offset = slightly larger radius to compensate
+                    const baseRadius = 32;
+                    const radiusAdjust = (gameState.cameraOffset || 0) * 8;
+                    camera.radius = baseRadius + radiusAdjust;
                 } else {
                     // Reset camera to current view mode settings (alpha, beta, radius)
                     switch(gameState.currentView) {
@@ -16528,13 +16532,17 @@
             const value = parseInt(e.target.value);
             gameState.cameraOffset = value / 100;
             document.getElementById('cameraOffsetValue').textContent = value + '%';
-            // Update camera target immediately
+            // Update camera target and radius immediately
             if (scene && scene.activeCamera) {
                 const baseTargetZ = gameState.lineOfScrimmage + 2;
                 const maxForwardOffset = 12;
                 const forwardOffset = (value / 100) * maxForwardOffset;
                 const cameraTargetZ = Math.max(-60, Math.min(14, baseTargetZ + forwardOffset));
                 scene.activeCamera.target = new BABYLON.Vector3(0, 0, cameraTargetZ);
+                // Adjust radius to maintain consistent framing
+                const baseRadius = 32;
+                const radiusAdjust = (value / 100) * 8;
+                scene.activeCamera.radius = baseRadius + radiusAdjust;
             }
         });
         // Player size slider
