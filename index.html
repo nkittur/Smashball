@@ -9097,8 +9097,9 @@
                 receiver.coreAttributes = config.coreAttributes || null;
 
                 // Derive base speed from core attributes (normalized to game units)
+                // Scale speed by playerScale so larger players move proportionally faster
                 const baseSpeed = receiver.coreAttributes?.speed || 70;
-                receiver.baseSpeed = baseSpeed * SPEED_CONSTANTS.RECEIVER_FACTOR * gameState.gameSpeedMultiplier;
+                receiver.baseSpeed = baseSpeed * SPEED_CONSTANTS.RECEIVER_FACTOR * gameState.gameSpeedMultiplier * gameState.playerScale;
                 receiver.speed = receiver.baseSpeed;
 
                 // Clash system runtime state
@@ -9221,8 +9222,9 @@
                 defender.startPos = startPos.clone();
 
                 // Derive base speed from core attributes
+                // Scale speed by playerScale so larger players move proportionally faster
                 const baseSpeed = defender.coreAttributes?.speed || 70;
-                defender.baseSpeed = baseSpeed * SPEED_CONSTANTS.DEFENDER_FACTOR * gameState.gameSpeedMultiplier;
+                defender.baseSpeed = baseSpeed * SPEED_CONSTANTS.DEFENDER_FACTOR * gameState.gameSpeedMultiplier * gameState.playerScale;
                 defender.speed = defender.baseSpeed;
 
                 // Clash system runtime state
@@ -9340,8 +9342,9 @@
                 oLineman.coreAttributes = config.coreAttributes || null;
                 oLineman.startPos = startPos.clone();
                 // Derive base speed from core attributes
+                // Scale speed by playerScale so larger players move proportionally faster
                 const baseSpeed = oLineman.coreAttributes?.speed || 70;
-                oLineman.baseSpeed = baseSpeed * SPEED_CONSTANTS.O_LINE_FACTOR * gameState.gameSpeedMultiplier;
+                oLineman.baseSpeed = baseSpeed * SPEED_CONSTANTS.O_LINE_FACTOR * gameState.gameSpeedMultiplier * gameState.playerScale;
                 oLineman.speed = oLineman.baseSpeed;
 
                 // Blocking state
@@ -9405,8 +9408,9 @@
                 dLineman.coreAttributes = config.coreAttributes || null;
                 dLineman.startPos = startPos.clone();
                 // Derive base speed from core attributes
+                // Scale speed by playerScale so larger players move proportionally faster
                 const baseSpeed = dLineman.coreAttributes?.speed || 70;
-                dLineman.baseSpeed = baseSpeed * SPEED_CONSTANTS.D_LINE_FACTOR * gameState.gameSpeedMultiplier;
+                dLineman.baseSpeed = baseSpeed * SPEED_CONSTANTS.D_LINE_FACTOR * gameState.gameSpeedMultiplier * gameState.playerScale;
                 dLineman.speed = dLineman.baseSpeed;
 
                 // Pass rush state
@@ -11854,8 +11858,9 @@
             // Ball flight speed - short throws faster, long throws slower for arc visibility
             // Short throws: quick (1.5), long throws: slower (0.7)
             // Apply ball speed multiplier from training settings
+            // Scale by playerScale to match scaled player movement speeds
             const baseAnimationSpeed = 1.5 - (throwParams.power * 0.8);
-            const animationSpeed = baseAnimationSpeed * gameState.ballSpeedMultiplier;
+            const animationSpeed = baseAnimationSpeed * gameState.ballSpeedMultiplier * gameState.playerScale;
             let accumulator = 0;
             const time = { value: 0 };
 
@@ -12036,7 +12041,8 @@
 
                         // Calculate this receiver's catch radius based on catching stat
                         // Scales from 0.8 at 50 catching to 1.8 at 100 catching
-                        const receiverCatchRadius = 0.8 + ((receiver.stats.catching - 50) / 50) * 1.0;
+                        // Scale by playerScale so larger players have proportionally larger catch radius
+                        const receiverCatchRadius = (0.8 + ((receiver.stats.catching - 50) / 50) * 1.0) * gameState.playerScale;
 
                         // Larger adjustment range so receivers can adjust to the ball
                         const adjustmentRange = Math.max(5, receiverCatchRadius * 3);
@@ -12219,7 +12225,8 @@
 
                 // Each receiver's catch radius depends on their catching stat
                 // Scales from 0.8 at 50 catching to 1.8 at 100 catching
-                const receiverCatchRadius = 0.8 + ((receiver.stats.catching - 50) / 50) * 1.0;
+                // Scale by playerScale so larger players have proportionally larger catch radius
+                const receiverCatchRadius = (0.8 + ((receiver.stats.catching - 50) / 50) * 1.0) * gameState.playerScale;
 
                 const distance = BABYLON.Vector3.Distance(
                     new BABYLON.Vector3(receiver.position.x, 0, receiver.position.z),
