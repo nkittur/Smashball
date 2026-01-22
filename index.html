@@ -417,18 +417,18 @@
             <div style="margin-bottom: 12px;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
                     <span style="color: #888; font-size: 11px;">PLAYER SIZE</span>
-                    <span id="playerSizeValue" style="color: #4f4; font-size: 11px;">1.0x</span>
+                    <span id="playerSizeValue" style="color: #4f4; font-size: 11px;">1.3x</span>
                 </div>
-                <input type="range" id="playerSizeSlider" min="50" max="200" value="100" style="width: 100%; cursor: pointer;">
+                <input type="range" id="playerSizeSlider" min="50" max="250" value="130" style="width: 100%; cursor: pointer;">
             </div>
 
             <!-- Ball Size Slider -->
             <div>
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
                     <span style="color: #888; font-size: 11px;">BALL SIZE</span>
-                    <span id="ballSizeValue" style="color: #4f4; font-size: 11px;">1.0x</span>
+                    <span id="ballSizeValue" style="color: #4f4; font-size: 11px;">1.3x</span>
                 </div>
-                <input type="range" id="ballSizeSlider" min="50" max="200" value="100" style="width: 100%; cursor: pointer;">
+                <input type="range" id="ballSizeSlider" min="50" max="250" value="130" style="width: 100%; cursor: pointer;">
             </div>
         </div>
     </div>
@@ -1878,8 +1878,8 @@
             gameDifficulty: 'medium',    // Main game difficulty: 'easy', 'medium', 'hard'
             trainingDifficulty: 'easy',  // Training mode difficulty (separate from main game)
             cameraAngle: 0.5,            // Camera angle: 0 = top-down, 1 = horizontal (default 0.5)
-            playerScale: 1.0,            // Player size multiplier (0.5 to 2.0)
-            ballScale: 1.0,              // Ball size multiplier (0.5 to 2.0)
+            playerScale: 1.3,            // Player size multiplier (0.5 to 2.0)
+            ballScale: 1.3,              // Ball size multiplier (0.5 to 2.0)
             // Down and distance tracking
             down: 1,                // Current down (1-4)
             yardsToGo: 10,          // Yards needed for first down
@@ -8937,6 +8937,7 @@
             // Create Quarterback - link to roster QB
             const qb = createKnight(scene, materials.qbMaterial, new BABYLON.Vector3(0, 0, QB_START_Z));
             qb.name = 'quarterback';
+            qb.scaling = new BABYLON.Vector3(gameState.playerScale, gameState.playerScale, gameState.playerScale);
 
             // Link QB to roster player
             const rosterQB = getDepthChartPlayer('QB1');
@@ -9078,6 +9079,7 @@
                 const receiverMat = materials.receiverMaterial.clone(`receiverMat_${i}`);
                 const receiver = createKnight(scene, receiverMat, config.start.clone());
                 receiver.name = `receiver_${i}`;
+                receiver.scaling = new BABYLON.Vector3(gameState.playerScale, gameState.playerScale, gameState.playerScale);
                 receiver.bodyMaterial = receiverMat;
                 receiver.originalColor = receiverMat.diffuseColor.clone();
 
@@ -9199,6 +9201,7 @@
                 const defenderMat = materials.defenderMaterial.clone(`defenderMat_${i}`);
                 const defender = createKnight(scene, defenderMat, startPos);
                 defender.name = `defender_${i}`;
+                defender.scaling = new BABYLON.Vector3(gameState.playerScale, gameState.playerScale, gameState.playerScale);
                 defender.bodyMaterial = defenderMat;
                 defender.originalColor = defenderMat.diffuseColor.clone();
 
@@ -9328,6 +9331,7 @@
                 const startPos = new BABYLON.Vector3(config.startX, 0, LINE_OF_SCRIMMAGE_Z - 0.5);
                 const oLineman = createLineman(scene, oLineMat, startPos, true);
                 oLineman.name = `oline_${i}`;
+                oLineman.scaling = new BABYLON.Vector3(gameState.playerScale, gameState.playerScale, gameState.playerScale);
                 oLineman.displayName = config.name;
                 oLineman.playerId = config.playerId || null;  // Link to roster player
                 oLineman.position_label = config.position;
@@ -9391,6 +9395,7 @@
                 const dLineMat = materials.dLineMaterial.clone(`dLineMat_${i}`);
                 const startPos = new BABYLON.Vector3(config.startX, 0, LINE_OF_SCRIMMAGE_Z + 0.5);
                 const dLineman = createLineman(scene, dLineMat, startPos, false);
+                dLineman.scaling = new BABYLON.Vector3(gameState.playerScale, gameState.playerScale, gameState.playerScale);
                 dLineman.name = `dline_${i}`;
                 dLineman.displayName = config.name;
                 dLineman.playerId = config.playerId || null;  // Link to roster player
@@ -9598,6 +9603,7 @@
 
             // Create Football (initially hidden)
             const football = createFootball(scene, materials);
+            football.scaling = new BABYLON.Vector3(gameState.ballScale, gameState.ballScale, gameState.ballScale);
             football.setEnabled(false);
 
             // Store references (use gameMaterials to avoid conflict with Babylon's scene.materials)
