@@ -31,15 +31,18 @@
             top: 0;
             left: 0;
             right: 0;
-            height: 36px;
+            height: calc(36px + env(safe-area-inset-top, 0px));
+            padding-top: env(safe-area-inset-top, 0px);
             background: rgba(0, 0, 0, 0.8);
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 0 15px;
+            padding-left: 15px;
+            padding-right: 15px;
             font-family: 'Courier New', monospace;
             z-index: 100;
             border-bottom: 1px solid #333;
+            box-sizing: border-box;
         }
 
         #score {
@@ -97,7 +100,7 @@
 
         #debugInfo {
             position: absolute;
-            top: 80px;
+            top: calc(80px + env(safe-area-inset-top, 0px));
             right: 10px;
             color: #0f0;
             font-family: 'Courier New', monospace;
@@ -200,13 +203,28 @@
     <div id="viewButtons">
         <button id="btnHeatMap">Heat Map: OFF</button>
     </div>
+    <button id="btnSimRest" style="
+        display: none;
+        position: fixed;
+        top: calc(46px + env(safe-area-inset-top, 0px));
+        right: 10px;
+        padding: 8px 12px;
+        font-size: 12px;
+        font-family: 'Courier New', monospace;
+        background: #36a;
+        color: #fff;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        z-index: 100;
+    ">SIM REST</button>
     <div id="debugInfo"></div>
 
     <!-- Training Mode UI -->
     <div id="trainingModeUI" style="display: none;">
         <button id="btnExitTraining" style="
             position: fixed;
-            top: 46px;
+            top: calc(46px + env(safe-area-inset-top, 0px));
             left: 10px;
             width: 36px;
             height: 36px;
@@ -224,7 +242,7 @@
         ">←</button>
         <div id="trainingTitle" style="
             position: fixed;
-            top: 50px;
+            top: calc(50px + env(safe-area-inset-top, 0px));
             left: 50%;
             transform: translateX(-50%);
             color: #4a4;
@@ -291,8 +309,20 @@
             z-index: 1002;
             font-family: 'Courier New', monospace;
             min-width: 220px;
+            max-height: 70vh;
+            overflow-y: auto;
         ">
             <div style="color: #fff; font-size: 14px; font-weight: bold; margin-bottom: 12px; border-bottom: 1px solid #444; padding-bottom: 8px;">Training Settings</div>
+
+            <!-- Difficulty -->
+            <div style="margin-bottom: 12px;">
+                <div style="color: #888; font-size: 11px; margin-bottom: 4px;">TRAINING DIFFICULTY</div>
+                <div style="display: flex; gap: 4px;">
+                    <button class="difficulty-btn" data-difficulty="easy" style="flex: 1; padding: 6px; background: #4a4; color: #fff; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 11px;">Easy</button>
+                    <button class="difficulty-btn" data-difficulty="medium" style="flex: 1; padding: 6px; background: #333; color: #fff; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 11px;">Medium</button>
+                    <button class="difficulty-btn" data-difficulty="hard" style="flex: 1; padding: 6px; background: #333; color: #fff; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 11px;">Hard</button>
+                </div>
+            </div>
 
             <!-- Game Speed -->
             <div style="margin-bottom: 12px;">
@@ -316,12 +346,34 @@
 
             <!-- Receiver Speed Preset -->
             <div style="margin-bottom: 12px;">
-                <div style="color: #888; font-size: 11px; margin-bottom: 4px;">RECEIVER SPEED</div>
+                <div style="color: #888; font-size: 11px; margin-bottom: 4px;">WR SPEED</div>
                 <div style="display: flex; gap: 4px;">
                     <button class="rcvr-speed-btn" data-speed="90" style="flex: 1; padding: 6px; background: #333; color: #fff; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 12px;">90</button>
                     <button class="rcvr-speed-btn" data-speed="80" style="flex: 1; padding: 6px; background: #4a4; color: #fff; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 12px;">80</button>
                     <button class="rcvr-speed-btn" data-speed="70" style="flex: 1; padding: 6px; background: #333; color: #fff; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 12px;">70</button>
                     <button class="rcvr-speed-btn" data-speed="mixed" style="flex: 1; padding: 6px; background: #333; color: #fff; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 11px;">Mix</button>
+                </div>
+            </div>
+
+            <!-- WR Awareness Preset (reaction delay) -->
+            <div style="margin-bottom: 12px;">
+                <div style="color: #888; font-size: 11px; margin-bottom: 4px;">WR REACTION <span style="color: #666; font-size: 9px;">(delay)</span></div>
+                <div style="display: flex; gap: 4px;">
+                    <button class="wr-awr-btn" data-awareness="90" style="flex: 1; padding: 6px; background: #333; color: #fff; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 12px;">90</button>
+                    <button class="wr-awr-btn" data-awareness="70" style="flex: 1; padding: 6px; background: #4a4; color: #fff; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 12px;">70</button>
+                    <button class="wr-awr-btn" data-awareness="50" style="flex: 1; padding: 6px; background: #333; color: #fff; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 12px;">50</button>
+                    <button class="wr-awr-btn" data-awareness="mixed" style="flex: 1; padding: 6px; background: #333; color: #fff; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 11px;">Mix</button>
+                </div>
+            </div>
+
+            <!-- WR Agility Preset (turn rate) -->
+            <div style="margin-bottom: 12px;">
+                <div style="color: #888; font-size: 11px; margin-bottom: 4px;">WR AGILITY <span style="color: #666; font-size: 9px;">(turn rate)</span></div>
+                <div style="display: flex; gap: 4px;">
+                    <button class="wr-agi-btn" data-agility="90" style="flex: 1; padding: 6px; background: #333; color: #fff; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 12px;">90</button>
+                    <button class="wr-agi-btn" data-agility="70" style="flex: 1; padding: 6px; background: #4a4; color: #fff; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 12px;">70</button>
+                    <button class="wr-agi-btn" data-agility="50" style="flex: 1; padding: 6px; background: #333; color: #fff; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 12px;">50</button>
+                    <button class="wr-agi-btn" data-agility="mixed" style="flex: 1; padding: 6px; background: #333; color: #fff; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 11px;">Mix</button>
                 </div>
             </div>
 
@@ -337,9 +389,59 @@
             </div>
 
             <!-- Show Grade Popup Toggle -->
-            <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                 <span style="color: #888; font-size: 11px;">SHOW GRADE POPUP</span>
                 <button id="btnToggleGradePopup" style="padding: 4px 12px; background: #4a4; color: #fff; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 12px;">ON</button>
+            </div>
+
+            <!-- Show Clash Flash Toggle -->
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <span style="color: #888; font-size: 11px;">CLASH FLASH</span>
+                <button id="btnToggleClashFlash" style="padding: 4px 12px; background: #4a4; color: #fff; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 12px;">ON</button>
+            </div>
+
+            <!-- Camera Angle Slider -->
+            <div style="margin-bottom: 12px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                    <span style="color: #888; font-size: 11px;">CAMERA ANGLE</span>
+                    <span id="cameraAngleValue" style="color: #4f4; font-size: 11px;">50%</span>
+                </div>
+                <input type="range" id="cameraAngleSlider" min="0" max="100" value="50" style="width: 100%; cursor: pointer;">
+                <div style="display: flex; justify-content: space-between; color: #555; font-size: 9px;">
+                    <span>Top-Down</span>
+                    <span>Horizontal</span>
+                </div>
+            </div>
+
+            <!-- Camera Offset Slider -->
+            <div style="margin-bottom: 12px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                    <span style="color: #888; font-size: 11px;">CAMERA OFFSET</span>
+                    <span id="cameraOffsetValue" style="color: #4f4; font-size: 11px;">35%</span>
+                </div>
+                <input type="range" id="cameraOffsetSlider" min="0" max="100" value="35" style="width: 100%; cursor: pointer;">
+                <div style="display: flex; justify-content: space-between; color: #555; font-size: 9px;">
+                    <span>Centered</span>
+                    <span>Forward</span>
+                </div>
+            </div>
+
+            <!-- Player Size Slider -->
+            <div style="margin-bottom: 12px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                    <span style="color: #888; font-size: 11px;">PLAYER SIZE</span>
+                    <span id="playerSizeValue" style="color: #4f4; font-size: 11px;">1.3x</span>
+                </div>
+                <input type="range" id="playerSizeSlider" min="50" max="250" value="130" style="width: 100%; cursor: pointer;">
+            </div>
+
+            <!-- Ball Size Slider -->
+            <div>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                    <span style="color: #888; font-size: 11px;">BALL SIZE</span>
+                    <span id="ballSizeValue" style="color: #4f4; font-size: 11px;">1.3x</span>
+                </div>
+                <input type="range" id="ballSizeSlider" min="50" max="250" value="130" style="width: 100%; cursor: pointer;">
             </div>
         </div>
     </div>
@@ -385,11 +487,14 @@
             <p class="subtitle">Medieval Football Management</p>
             <button id="btnNewGame" class="mgmt-btn">NEW GAME</button>
             <button id="btnContinue" class="mgmt-btn">CONTINUE</button>
-            <button id="btnTrainingMode" class="mgmt-btn" style="margin-top: 30px; background: #2a4a2a;">TRAINING MODE</button>
+            <button id="btnHowToPlay" class="mgmt-btn" style="margin-top: 30px; background: #2a3a4a; border-color: #4a9fff;">HOW TO PLAY</button>
+            <button id="btnTrainingMode" class="mgmt-btn" style="background: #2a4a2a;">TRAINING MODE</button>
         </div>
 
         <!-- Hub Screen -->
-        <div id="hubScreen" class="mgmt-screen" style="display:none;">
+        <div id="hubScreen" class="mgmt-screen hub-screen" style="display:none;">
+            <button id="btnHubManual" class="mgmt-btn back-btn" style="right: 10px; left: auto;">?</button>
+            <button id="btnHubSettings" class="mgmt-btn back-btn" style="right: 50px; left: auto;">⚙</button>
             <div class="hub-status" id="hubStatus">Fame: 1,000 | Week 1</div>
             <h2>TEAM HUB</h2>
             <div class="hub-buttons">
@@ -403,6 +508,30 @@
             <p id="hubRecord" class="hub-record">Record: 0-0</p>
             <p id="hubNextGame" class="hub-next"></p>
             <button id="btnHubNewGame" class="mgmt-btn danger" style="margin-top: 30px;">NEW GAME</button>
+        </div>
+
+        <!-- Game Settings Screen -->
+        <div id="gameSettingsScreen" class="mgmt-screen" style="display:none;">
+            <button id="btnSettingsBack" class="mgmt-btn back-btn">←</button>
+            <h2>SETTINGS</h2>
+
+            <div style="max-width: 300px; margin: 20px auto; text-align: left;">
+                <!-- Difficulty -->
+                <div style="margin-bottom: 20px;">
+                    <div style="color: #888; font-size: 12px; margin-bottom: 8px;">GAME DIFFICULTY</div>
+                    <div style="color: #666; font-size: 11px; margin-bottom: 10px;">Affects how well receivers track and adjust to the ball</div>
+                    <div style="display: flex; gap: 6px;">
+                        <button class="game-difficulty-btn mgmt-btn" data-difficulty="easy" style="flex: 1; padding: 10px; font-size: 12px;">EASY</button>
+                        <button class="game-difficulty-btn mgmt-btn" data-difficulty="medium" style="flex: 1; padding: 10px; font-size: 12px; background: #4a4;">MEDIUM</button>
+                        <button class="game-difficulty-btn mgmt-btn" data-difficulty="hard" style="flex: 1; padding: 10px; font-size: 12px;">HARD</button>
+                    </div>
+                    <div style="color: #555; font-size: 10px; margin-top: 8px;">
+                        <div>Easy: Receivers react quickly and turn sharply</div>
+                        <div>Medium: Receivers need accurate throws</div>
+                        <div>Hard: Receivers struggle to adjust to the ball</div>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- Roster Screen -->
@@ -510,13 +639,23 @@
 
         <!-- Draft Screen -->
         <div id="draftScreen" class="mgmt-screen draft-screen" style="display:none;max-width:600px;">
-            <button id="btnDraftBack" class="mgmt-btn back-btn" style="position:absolute;top:10px;left:10px;z-index:10;">←</button>
-            <button id="btnDraftOptions" class="mgmt-btn back-btn" style="position:absolute;top:10px;right:10px;left:auto;z-index:10;">⚙</button>
-
-            <!-- Last Pick Notification Bar -->
-            <div id="draftLastPick" class="draft-last-pick">
-                <span id="draftLastPickText">Draft starting...</span>
+            <!-- Header row with menu -->
+            <div class="draft-header">
+                <div id="draftLastPick" class="draft-last-pick">
+                    <div id="draftLastPickLine1" class="draft-last-pick-line1">Draft starting...</div>
+                    <div id="draftLastPickLine2" class="draft-last-pick-line2"></div>
+                </div>
+                <div class="draft-menu-container">
+                    <button id="btnDraftMenu" class="draft-menu-btn">⋮</button>
+                    <div id="draftMenuDropdown" class="draft-menu-dropdown" style="display:none;">
+                        <button id="btnDraftOptions" class="draft-menu-item">⚙ Settings</button>
+                        <button id="btnDraftBack" class="draft-menu-item">← Exit Draft</button>
+                    </div>
+                </div>
             </div>
+
+            <!-- Computer Pick Reasoning -->
+            <div id="draftPickReasoning" class="draft-pick-reasoning" style="display:none;"></div>
 
             <!-- On The Clock Section -->
             <div id="draftOnClock" class="draft-on-clock computer">
@@ -565,12 +704,40 @@
                     <label for="pickAcquirePremium">Acquire Premium (%):</label>
                     <input type="number" id="pickAcquirePremium" min="0" max="100" value="10" style="width:80px;">
                 </div>
+                <div class="options-row" style="margin-top:15px;">
+                    <label for="showPickReasoning" style="flex:1;">Show Computer Pick Reasoning:</label>
+                    <input type="checkbox" id="showPickReasoning" checked style="width:20px;height:20px;">
+                </div>
                 <div class="options-info" style="color:#888;font-size:12px;margin:15px 0;">
                     <p>• Trade In Penalty: Points deducted when trading your pick for draft points</p>
                     <p>• Acquire Premium: Extra % cost when buying another team's pick</p>
                 </div>
                 <button id="btnSaveDraftOptions" class="mgmt-btn primary">SAVE</button>
                 <button id="btnCloseDraftOptions" class="mgmt-btn secondary">CANCEL</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Game Manual Overlay -->
+    <div id="manualOverlay" class="manual-overlay" style="display:none;">
+        <div class="manual-container">
+            <div class="manual-header">
+                <button id="btnManualClose" class="manual-close">✕</button>
+                <h2 id="manualTitle">How to Play</h2>
+                <div class="manual-nav">
+                    <button id="btnManualPrev" class="manual-nav-btn">← Prev</button>
+                    <span id="manualPageNum">1 / 12</span>
+                    <button id="btnManualNext" class="manual-nav-btn">Next →</button>
+                </div>
+            </div>
+            <div class="manual-content" id="manualContent">
+                <!-- Content loaded dynamically -->
+            </div>
+            <div class="manual-index" id="manualIndex" style="display:none;">
+                <!-- Index loaded dynamically -->
+            </div>
+            <div class="manual-footer">
+                <button id="btnManualIndex" class="manual-index-btn">📖 Index</button>
             </div>
         </div>
     </div>
@@ -718,22 +885,122 @@
         /* Draft Screen Layout */
         .draft-screen {
             padding-bottom: 70px; /* Space for fixed bottom buttons */
+            align-self: flex-start; /* Align to top instead of center to prevent top cutoff */
+        }
+        .hub-screen {
+            align-self: flex-start; /* Align to top instead of center to prevent top cutoff */
+            padding-top: 40px; /* Space for the manual button */
+        }
+        .draft-header {
+            display: flex;
+            align-items: flex-start;
+            background: #1a1a2a;
+            margin: 0 -15px 5px -15px;
+            padding: 8px 12px;
+            border-bottom: 1px solid #333;
         }
         .draft-last-pick {
-            background: #1a1a2a;
-            padding: 6px 12px;
-            margin: 0 -15px 10px -15px;
+            flex: 1;
             font-size: 11px;
             color: #888;
-            border-bottom: 1px solid #333;
-            text-align: center;
+            cursor: pointer;
+            min-width: 0; /* Allow text truncation */
+        }
+        .draft-last-pick:hover {
+            color: #aaa;
+        }
+        .draft-last-pick-line1 {
+            text-align: left;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
         }
-        .draft-last-pick .player-name { color: #fff; }
+        .draft-last-pick-line2 {
+            text-align: left;
+            margin-top: 2px;
+            font-size: 10px;
+        }
+        .draft-menu-container {
+            position: relative;
+            margin-left: 8px;
+        }
+        .draft-menu-btn {
+            background: transparent;
+            border: 1px solid #444;
+            color: #888;
+            font-size: 18px;
+            padding: 2px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            line-height: 1;
+        }
+        .draft-menu-btn:hover {
+            background: #333;
+            color: #fff;
+        }
+        .draft-menu-dropdown {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            background: #1a1a2a;
+            border: 1px solid #444;
+            border-radius: 4px;
+            margin-top: 4px;
+            z-index: 100;
+            min-width: 120px;
+        }
+        .draft-menu-item {
+            display: block;
+            width: 100%;
+            background: transparent;
+            border: none;
+            color: #ccc;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            padding: 8px 12px;
+            text-align: left;
+            cursor: pointer;
+        }
+        .draft-menu-item:hover {
+            background: #333;
+            color: #fff;
+        }
+        .draft-menu-item:first-child {
+            border-radius: 4px 4px 0 0;
+        }
+        .draft-menu-item:last-child {
+            border-radius: 0 0 4px 4px;
+        }
+        .draft-last-pick .player-name { color: #fff; font-weight: bold; }
         .draft-last-pick .team-name { color: #ffd700; }
         .draft-last-pick .overall { color: #4f4; }
+        .draft-last-pick .predicted { color: #888; }
+        .draft-last-pick .predicted.better { color: #f44; }
+        .draft-last-pick .predicted.worse { color: #4f4; }
+        .draft-last-pick .position { color: #aaa; }
+
+        .draft-pick-reasoning {
+            background: #151525;
+            padding: 6px 12px;
+            margin: 0 -15px 5px -15px;
+            font-size: 10px;
+            color: #aaa;
+            border-bottom: 1px solid #333;
+            text-align: left;
+        }
+        .draft-pick-reasoning .reason-label {
+            color: #666;
+            font-style: normal;
+            margin-right: 5px;
+        }
+        .draft-pick-reasoning .reason-factor {
+            display: inline-block;
+            margin-right: 8px;
+            color: #888;
+        }
+        .draft-pick-reasoning .reason-factor.positive { color: #4a4; }
+        .draft-pick-reasoning .reason-factor.negative { color: #a44; }
+        .draft-pick-reasoning .reason-factor.neutral { color: #888; }
 
         .draft-on-clock {
             border-radius: 6px;
@@ -837,20 +1104,10 @@
 
         /* Post-game stats - roster-like layout */
         .post-game-stats {
-            max-height: 350px;
+            max-height: 400px;
             overflow-y: auto;
             margin: 10px 0;
             text-align: left;
-        }
-        .post-game-section {
-            margin-bottom: 12px;
-        }
-        .post-game-section-title {
-            font-size: 11px;
-            color: #888;
-            text-transform: uppercase;
-            margin-bottom: 6px;
-            padding-left: 4px;
         }
         .post-game-player {
             background: #1a1a2a;
@@ -869,20 +1126,46 @@
             align-items: center;
             margin-bottom: 6px;
         }
+        .post-game-player-info {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
         .post-game-player-name {
             font-weight: bold;
             color: #fff;
+        }
+        .post-game-player-fame {
+            color: #ffd700;
+            font-size: 11px;
+        }
+        .post-game-player-right {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .post-game-player-change {
+            font-size: 12px;
+            min-width: 24px;
+            text-align: right;
+        }
+        .post-game-player-change.positive {
+            color: #4f4;
         }
         .post-game-player-ovr {
             font-weight: bold;
             color: #ffd700;
             font-size: 16px;
+            min-width: 28px;
+            text-align: right;
         }
         .post-game-player-stats {
             display: flex;
             flex-wrap: wrap;
-            gap: 8px;
+            gap: 10px;
             font-size: 11px;
+            padding-left: 4px;
+            color: #aaa;
         }
         .post-game-stat {
             display: flex;
@@ -908,6 +1191,18 @@
         }
         .post-game-stat.fame-stat .post-game-stat-label {
             color: #ffd700;
+        }
+        .post-game-player-growth {
+            display: flex;
+            gap: 4px;
+        }
+        .post-game-growth {
+            color: #4f4;
+            font-size: 10px;
+            font-weight: bold;
+            background: rgba(68, 255, 68, 0.15);
+            padding: 2px 4px;
+            border-radius: 3px;
         }
 
         /* Pre-game matchups */
@@ -1363,6 +1658,195 @@
         }
         .strength-item .label { color: #888; font-size: 11px; }
         .strength-item .value { color: #4f4; font-size: 20px; font-weight: bold; }
+
+        /* Manual Overlay Styles */
+        .manual-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.95);
+            z-index: 2000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 10px;
+        }
+        .manual-container {
+            background: #12121f;
+            border: 2px solid #4a9fff;
+            border-radius: 12px;
+            width: 100%;
+            max-width: 600px;
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
+            font-family: 'Courier New', monospace;
+        }
+        .manual-header {
+            padding: 15px 20px;
+            border-bottom: 1px solid #333;
+            position: relative;
+        }
+        .manual-header h2 {
+            color: #4a9fff;
+            margin: 0;
+            font-size: 20px;
+            text-align: center;
+        }
+        .manual-close {
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            background: none;
+            border: none;
+            color: #888;
+            font-size: 24px;
+            cursor: pointer;
+        }
+        .manual-close:hover { color: #fff; }
+        .manual-nav {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 15px;
+            margin-top: 10px;
+        }
+        .manual-nav-btn {
+            background: #2a3a4a;
+            border: 1px solid #4a9fff;
+            color: #4a9fff;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 12px;
+        }
+        .manual-nav-btn:hover { background: #3a4a5a; }
+        .manual-nav-btn:disabled { opacity: 0.3; cursor: default; }
+        #manualPageNum { color: #888; font-size: 12px; }
+        .manual-content {
+            padding: 20px;
+            overflow-y: auto;
+            flex: 1;
+            color: #ccc;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        .manual-content h3 {
+            color: #ffd700;
+            font-size: 18px;
+            margin: 0 0 15px 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .manual-content h4 {
+            color: #4a9fff;
+            font-size: 14px;
+            margin: 15px 0 8px 0;
+        }
+        .manual-content p { margin: 10px 0; }
+        .manual-content ul {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+        .manual-content li { margin: 5px 0; }
+        .manual-content .highlight {
+            background: #2a3a2a;
+            border-left: 3px solid #4f4;
+            padding: 10px 15px;
+            margin: 15px 0;
+            border-radius: 0 6px 6px 0;
+        }
+        .manual-content .warning {
+            background: #3a3a2a;
+            border-left: 3px solid #fa4;
+            padding: 10px 15px;
+            margin: 15px 0;
+            border-radius: 0 6px 6px 0;
+        }
+        .manual-content .diagram {
+            background: #1a1a2a;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            font-family: monospace;
+            font-size: 12px;
+            line-height: 1.4;
+            overflow-x: auto;
+        }
+        .manual-content table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+            font-size: 12px;
+        }
+        .manual-content th, .manual-content td {
+            padding: 8px;
+            border: 1px solid #333;
+            text-align: left;
+        }
+        .manual-content th {
+            background: #2a2a40;
+            color: #ffd700;
+        }
+        .manual-content .emoji-icon { font-size: 24px; }
+        .manual-content .stat-bar {
+            display: inline-block;
+            height: 8px;
+            background: #4a9fff;
+            border-radius: 4px;
+            margin-left: 5px;
+        }
+        .manual-footer {
+            padding: 10px 20px;
+            border-top: 1px solid #333;
+            text-align: center;
+        }
+        .manual-index-btn {
+            background: #2a2a40;
+            border: 1px solid #ffd700;
+            color: #ffd700;
+            padding: 8px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 14px;
+        }
+        .manual-index-btn:hover { background: #3a3a50; }
+        .manual-index {
+            padding: 20px;
+            overflow-y: auto;
+            flex: 1;
+        }
+        .manual-index h3 {
+            color: #ffd700;
+            margin: 0 0 15px 0;
+        }
+        .manual-index-section {
+            margin-bottom: 15px;
+        }
+        .manual-index-section h4 {
+            color: #4a9fff;
+            font-size: 12px;
+            margin: 0 0 8px 0;
+            text-transform: uppercase;
+        }
+        .manual-index-item {
+            display: block;
+            background: #1a1a2a;
+            border: none;
+            color: #ccc;
+            padding: 10px 15px;
+            margin: 4px 0;
+            border-radius: 4px;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 13px;
+            text-align: left;
+            width: 100%;
+        }
+        .manual-index-item:hover { background: #2a2a3a; color: #fff; }
+        .manual-index-item span { color: #888; font-size: 11px; margin-left: 8px; }
     </style>
 
     <script src="https://cdn.babylonjs.com/babylon.js"></script>
@@ -1399,8 +1883,17 @@
             gameSpeedMultiplier: 1.5, // Adjustable game speed (0.5 = slow, 1.0 = normal, 1.5 = fast)
             ballSpeedMultiplier: 1.2, // Adjustable ball speed
             showGradePopup: true,     // Whether to show the grade popup after throws
+            showClashFlash: true,     // Whether to show red/green clash result flashes
             receiverSpeedPreset: 80,  // Receiver speed preset (90, 80, 70, or 'mixed')
             dbSpeedPreset: 80,        // DB speed preset (90, 80, 70, or 'mixed')
+            receiverAwarenessPreset: 70, // Receiver awareness preset (controls ball reaction delay)
+            receiverAgilityPreset: 70,   // Receiver agility preset (controls turn rate/route correction)
+            gameDifficulty: 'medium',    // Main game difficulty: 'easy', 'medium', 'hard'
+            trainingDifficulty: 'easy',  // Training mode difficulty (separate from main game)
+            cameraAngle: 0.5,            // Camera angle: 0 = top-down, 1 = horizontal (default 0.5)
+            cameraOffset: 0.35,          // Camera forward offset: 0 = centered on LOS, 1 = max forward (default 0.35)
+            playerScale: 1.3,            // Player size multiplier (0.5 to 2.0)
+            ballScale: 1.3,              // Ball size multiplier (0.5 to 2.0)
             // Down and distance tracking
             down: 1,                // Current down (1-4)
             yardsToGo: 10,          // Yards needed for first down
@@ -1437,9 +1930,11 @@
                         drops: 0,
                         catchDifficulties: [],  // Array of difficulty values
                         yardsAfterCatch: 0,
+                        receivingYards: 0,      // Total receiving yards
                         // Throwing (QB)
                         completions: 0,
                         incompletions: 0,
+                        passingYards: 0,        // Total passing yards
                         throwDistances: [],     // Total distance
                         airDistances: [],       // In-air distance
                         // Clashes
@@ -2025,6 +2520,7 @@
                 // WR simulation uses: speed for separation, agility for routes, catching for hands
                 coreStats: ['speed', 'agility'],           // 40% of overall
                 techniqueStats: ['catching', 'routeRunning', 'evasion'],  // 60% of overall
+                primaryStats: ['speed', 'agility', 'catching', 'routeRunning', 'evasion'],
                 count: 3
             },
             CB: {
@@ -2033,6 +2529,7 @@
                 // CB simulation uses: speed/agility for coverage, intelligence for reads
                 coreStats: ['speed', 'agility', 'intelligence'],  // 50% of overall
                 techniqueStats: ['awareness', 'tackling', 'pursuit'],      // 50% of overall
+                primaryStats: ['speed', 'agility', 'intelligence', 'awareness', 'tackling', 'pursuit'],
                 count: 4
             },
             OL: {
@@ -2041,6 +2538,7 @@
                 // OL simulation uses: strength for blocking, intelligence for assignments
                 coreStats: ['strength', 'intelligence'],   // 40% of overall
                 techniqueStats: ['passBlock', 'balance', 'awareness'],     // 60% of overall
+                primaryStats: ['strength', 'intelligence', 'passBlock', 'balance', 'awareness'],
                 count: 5
             },
             DL: {
@@ -2049,6 +2547,7 @@
                 // DL simulation uses: strength/speed for rush, agility for moves
                 coreStats: ['strength', 'speed', 'agility'],  // 50% of overall
                 techniqueStats: ['passRush', 'tackling', 'pursuit'],       // 50% of overall
+                primaryStats: ['strength', 'speed', 'agility', 'passRush', 'tackling', 'pursuit'],
                 count: 4
             },
             QB: {
@@ -2057,6 +2556,7 @@
                 // QB simulation uses: intelligence for reads, agility for mobility
                 coreStats: ['intelligence', 'agility'],    // 30% of overall
                 techniqueStats: ['shortPassAcc', 'longPassAcc', 'awareness'],  // 70% of overall
+                primaryStats: ['intelligence', 'agility', 'shortPassAcc', 'longPassAcc', 'awareness'],
                 count: 1
             }
         };
@@ -2734,55 +3234,116 @@
             return { strength, speed, agility, intelligence };
         }
 
-        // Calculate position-specific abilities from core attributes
+        // Generate stored ability stats for a position (these can grow like technique stats)
+        function generateAbilities(position, tier) {
+            const range = CORE_ATTRIBUTE_RANGES[tier] || CORE_ATTRIBUTE_RANGES.average;
+
+            const generateAbility = () => {
+                const base = randomInt(range.min, range.max);
+                return Math.max(30, Math.min(99, base + randomInt(-5, 5)));
+            };
+
+            switch (position) {
+                case 'DL':
+                    return {
+                        bullRush: generateAbility(),
+                        blockShed: generateAbility(),
+                        spinMove: generateAbility(),
+                        swimMove: generateAbility()
+                    };
+                case 'OL':
+                    return {
+                        anchor: generateAbility(),
+                        handFighting: generateAbility(),
+                        footwork: generateAbility(),
+                        driveBlock: generateAbility()
+                    };
+                case 'CB':
+                    return {
+                        pressCoverage: generateAbility(),
+                        manCoverage: generateAbility(),
+                        zoneCoverage: generateAbility(),
+                        ballHawk: generateAbility()
+                    };
+                case 'WR':
+                    return {
+                        releaseMove: generateAbility(),
+                        routeSharpness: generateAbility(),
+                        contestedCatch: generateAbility(),
+                        yacAbility: generateAbility()
+                    };
+                case 'QB':
+                    return {
+                        armStrength: generateAbility(),
+                        quickRelease: generateAbility(),
+                        fieldVision: generateAbility(),
+                        pocketPresence: generateAbility()
+                    };
+                default:
+                    return {};
+            }
+        }
+
+        // Calculate effective abilities from stored ability stats and core attributes
+        // The stored ability acts as a scaling factor on how well the player uses their core stats
+        // Formula: effective = storedAbility * (coreStatsWeighted / 100)
+        // This means a 90 ability with 70 core stats = 90 * 0.70 = 63 effective
+        // And a 60 ability with 70 core stats = 60 * 0.70 = 42 effective
         function calculateAbilities(player) {
             const core = player.coreAttributes;
             if (!core) return null;
 
             const clamp = (val) => Math.max(0, Math.min(99, Math.round(val)));
 
+            // Get stored abilities, fall back to 70 if not present (for legacy/AI players)
+            const stored = player.abilities || {};
+
             // Use positionType for mesh objects (linemen), position for roster players
             const pos = player.positionType || player.position;
 
+            // Helper: effective = storedAbility * (weightedCoreAvg / 100)
+            const calcEffective = (storedVal, ...coreVals) => {
+                const ability = storedVal || 70;
+                const coreAvg = coreVals.reduce((a, b) => a + b, 0) / coreVals.length;
+                return clamp(ability * (coreAvg / 100));
+            };
+
             switch (pos) {
                 case 'DL':
+                    // Bull Rush: STR + SPD, Swim Move: STR + INT, Spin Move: AGI + STR
                     return {
-                        bullRush: clamp(core.strength * 0.60 + (player.stats.passRush || 70) * 0.25 + core.intelligence * 0.15),
-                        blockShed: clamp(core.strength * 0.40 + core.agility * 0.40 + (player.stats.passRush || 70) * 0.20),
-                        spinMove: clamp(core.agility * 0.55 + core.speed * 0.25 + (player.stats.passRush || 70) * 0.20),
-                        swimMove: clamp(core.agility * 0.45 + core.speed * 0.35 + (player.stats.passRush || 70) * 0.20)
+                        bullRush: calcEffective(stored.bullRush, core.strength, core.speed),
+                        blockShed: calcEffective(stored.blockShed, core.strength, core.agility),
+                        spinMove: calcEffective(stored.spinMove, core.agility, core.strength),
+                        swimMove: calcEffective(stored.swimMove, core.strength, core.intelligence)
                     };
                 case 'OL':
                     return {
-                        anchor: clamp(core.strength * 0.55 + (player.stats.balance || 70) * 0.25 + (player.stats.passBlock || 70) * 0.20),
-                        handFighting: clamp(core.strength * 0.40 + core.agility * 0.35 + (player.stats.passBlock || 70) * 0.25),
-                        footwork: clamp(core.agility * 0.45 + core.intelligence * 0.30 + (player.stats.passBlock || 70) * 0.25),
-                        driveBlock: clamp(core.strength * 0.40 + core.intelligence * 0.30 + (player.stats.passBlock || 70) * 0.30)
+                        anchor: calcEffective(stored.anchor, core.strength),
+                        handFighting: calcEffective(stored.handFighting, core.strength, core.agility),
+                        footwork: calcEffective(stored.footwork, core.agility, core.intelligence),
+                        driveBlock: calcEffective(stored.driveBlock, core.strength, core.intelligence)
                     };
                 case 'CB':
                     return {
-                        pressCoverage: clamp(core.strength * 0.45 + core.intelligence * 0.35 + (player.stats.awareness || 70) * 0.20),
-                        manCoverage: clamp(core.speed * 0.40 + core.agility * 0.40 + (player.stats.awareness || 70) * 0.20),
-                        zoneCoverage: clamp(core.intelligence * 0.45 + core.agility * 0.35 + (player.stats.awareness || 70) * 0.20),
-                        ballHawk: clamp(core.intelligence * 0.40 + core.speed * 0.35 + (player.stats.awareness || 70) * 0.25)
+                        pressCoverage: calcEffective(stored.pressCoverage, core.strength, core.intelligence),
+                        manCoverage: calcEffective(stored.manCoverage, core.speed, core.agility),
+                        zoneCoverage: calcEffective(stored.zoneCoverage, core.intelligence, core.agility),
+                        ballHawk: calcEffective(stored.ballHawk, core.intelligence, core.speed)
                     };
                 case 'WR':
                     return {
-                        releaseMove: clamp(core.agility * 0.45 + core.strength * 0.35 + (player.stats.routeRunning || 70) * 0.20),
-                        routeSharpness: clamp(core.agility * 0.40 + core.speed * 0.35 + (player.stats.routeRunning || 70) * 0.25),
-                        contestedCatch: clamp(core.strength * 0.30 + core.intelligence * 0.25 + (player.stats.catching || 70) * 0.45),
-                        yacAbility: clamp(core.speed * 0.40 + core.agility * 0.40 + (player.stats.evasion || 70) * 0.20)
+                        releaseMove: calcEffective(stored.releaseMove, core.agility, core.strength),
+                        routeSharpness: calcEffective(stored.routeSharpness, core.agility, core.speed),
+                        contestedCatch: calcEffective(stored.contestedCatch, core.strength, core.intelligence),
+                        yacAbility: calcEffective(stored.yacAbility, core.speed, core.agility)
                     };
                 case 'QB':
-                    // Abilities are multiplicative: (core/100) × (skill/100) × 100
-                    const shortAcc = player.stats.shortPassAcc || 70;
-                    const longAcc = player.stats.longPassAcc || 70;
-                    const qbAwareness = player.stats.awareness || 70;
                     return {
-                        armStrength: clamp((core.strength / 100) * (longAcc / 100) * 100),
-                        quickRelease: clamp((core.agility / 100) * (shortAcc / 100) * 100),
-                        fieldVision: clamp((core.intelligence / 100) * (qbAwareness / 100) * 100),
-                        pocketPresence: clamp((core.agility / 100) * (qbAwareness / 100) * 100)
+                        armStrength: calcEffective(stored.armStrength, core.strength),
+                        quickRelease: calcEffective(stored.quickRelease, core.agility),
+                        fieldVision: calcEffective(stored.fieldVision, core.intelligence),
+                        pocketPresence: calcEffective(stored.pocketPresence, core.agility, core.intelligence)
                     };
                 default:
                     return null;
@@ -2813,31 +3374,31 @@
 
         // Ability to core attribute mapping (core stats only, normalized to 100%)
         const ABILITY_CORE_MAPPING = {
-            // DL abilities
-            bullRush:       { strength: 0.80, intelligence: 0.20 },
+            // DL abilities - Bull Rush: STR+SPD, Swim Move: STR+INT, Spin Move: AGI+STR
+            bullRush:       { strength: 0.50, speed: 0.50 },
             blockShed:      { strength: 0.50, agility: 0.50 },
-            spinMove:       { agility: 0.69, speed: 0.31 },
-            swimMove:       { agility: 0.56, speed: 0.44 },
+            spinMove:       { agility: 0.50, strength: 0.50 },
+            swimMove:       { strength: 0.50, intelligence: 0.50 },
             // OL abilities
             anchor:         { strength: 1.00 },
-            handFighting:   { strength: 0.53, agility: 0.47 },
-            footwork:       { agility: 0.60, intelligence: 0.40 },
-            driveBlock:     { strength: 0.57, intelligence: 0.43 },
+            handFighting:   { strength: 0.50, agility: 0.50 },
+            footwork:       { agility: 0.50, intelligence: 0.50 },
+            driveBlock:     { strength: 0.50, intelligence: 0.50 },
             // CB abilities
-            pressCoverage:  { strength: 0.56, intelligence: 0.44 },
+            pressCoverage:  { strength: 0.50, intelligence: 0.50 },
             manCoverage:    { speed: 0.50, agility: 0.50 },
-            zoneCoverage:   { intelligence: 0.56, agility: 0.44 },
-            ballHawk:       { intelligence: 0.53, speed: 0.47 },
+            zoneCoverage:   { intelligence: 0.50, agility: 0.50 },
+            ballHawk:       { intelligence: 0.50, speed: 0.50 },
             // WR abilities
-            releaseMove:    { agility: 0.56, strength: 0.44 },
-            routeSharpness: { agility: 0.53, speed: 0.47 },
-            contestedCatch: { strength: 0.55, intelligence: 0.45 },
+            releaseMove:    { agility: 0.50, strength: 0.50 },
+            routeSharpness: { agility: 0.50, speed: 0.50 },
+            contestedCatch: { strength: 0.50, intelligence: 0.50 },
             yacAbility:     { speed: 0.50, agility: 0.50 },
-            // QB abilities (core × skill, multiplicative)
+            // QB abilities
             armStrength:    { strength: 1.00 },
             quickRelease:   { agility: 1.00 },
             fieldVision:    { intelligence: 1.00 },
-            pocketPresence: { agility: 1.00 }
+            pocketPresence: { agility: 0.50, intelligence: 0.50 }
         };
 
         // Generate attribute indicator dots for an ability
@@ -2993,6 +3554,10 @@
                 seasonStartStats: { ...stats },
                 // Core attributes - foundational traits that rarely change
                 coreAttributes: generateCoreAttributes(position, tier),
+                seasonStartCoreAttributes: null, // Set after coreAttributes is generated
+                // Abilities - stored skill stats that scale core attribute contributions
+                abilities: generateAbilities(position, tier),
+                seasonStartAbilities: null, // Set after abilities is generated
                 // Season stats
                 gamesPlayed: 0,
                 seasonTDs: 0,
@@ -3019,6 +3584,11 @@
             };
 
             player.overall = calculateOverall(player);
+
+            // Set seasonStartCoreAttributes now that coreAttributes exists
+            player.seasonStartCoreAttributes = { ...player.coreAttributes };
+            // Set seasonStartAbilities now that abilities exists
+            player.seasonStartAbilities = { ...player.abilities };
 
             // Assign QB trait based on stats
             if (position === 'QB') {
@@ -3077,6 +3647,7 @@
                 salaryCost: calculateSalary(stats, position),
                 seasonStartStats: { ...stats },
                 coreAttributes: generateCoreAttributes(position, estimatedTier),
+                abilities: generateAbilities(position, estimatedTier),
                 gamesPlayed: 0,
                 seasonTDs: 0,
                 seasonCatches: 0,
@@ -3100,6 +3671,10 @@
             };
 
             player.overall = calculateOverall(player);
+
+            // Set seasonStartCoreAttributes and seasonStartAbilities now that they exist
+            player.seasonStartCoreAttributes = { ...player.coreAttributes };
+            player.seasonStartAbilities = { ...player.abilities };
 
             // Assign QB trait
             if (position === 'QB') {
@@ -3533,11 +4108,9 @@
         // Growth is based purely on current potential grade
         function processPlayerGrowth(player) {
             if (player.age >= player.peakAge) {
-                console.log(`[GROWTH] ${player.firstName} ${player.lastName}: No growth - age ${player.age} >= peakAge ${player.peakAge}`);
                 return [];
             }
             if (player.potentialGrade <= 0) {
-                console.log(`[GROWTH] ${player.firstName} ${player.lastName}: No growth - potentialGrade ${player.potentialGrade} <= 0`);
                 return []; // No growth potential left
             }
 
@@ -3548,36 +4121,54 @@
             const positionData = POSITIONS[player.position];
             const primaryStats = positionData.primaryStats;
 
+            // Core stats are stored in coreAttributes, technique stats in stats
+            const coreStatNames = ['strength', 'speed', 'agility', 'intelligence'];
+
             const improvements = [];
             primaryStats.forEach(stat => {
-                if (player.stats[stat] === undefined) return;
+                // Determine where this stat is stored
+                const isCoreAttribute = coreStatNames.includes(stat);
+                const statSource = isCoreAttribute ? player.coreAttributes : player.stats;
 
-                // Physical stats grow very rarely
+                if (!statSource || statSource[stat] === undefined) return;
+
+                // Physical/core stats grow very rarely
                 const isPhysical = PROGRESSION.PHYSICAL_STATS.includes(stat);
                 const growthChance = isPhysical
                     ? baseGrowthChance * PROGRESSION.PHYSICAL_GROWTH_CHANCE_MULT
                     : baseGrowthChance;
 
                 if (Math.random() < growthChance) {
-                    const oldVal = player.stats[stat];
+                    const oldVal = statSource[stat];
                     // Growth is always at least +1, with potential for more based on potential
                     const bonusGrowth = Math.floor(Math.random() * player.potentialGrade);
                     const growth = PROGRESSION.GROWTH_AMOUNT_MIN + bonusGrowth;
-                    player.stats[stat] = Math.min(99, player.stats[stat] + growth);
-                    if (player.stats[stat] > oldVal) {
-                        console.log(`[GROWTH] ${player.firstName} ${player.lastName}: ${stat} +${player.stats[stat] - oldVal} (${oldVal} -> ${player.stats[stat]})`);
-                        improvements.push({ stat, change: player.stats[stat] - oldVal });
+                    statSource[stat] = Math.min(99, statSource[stat] + growth);
+                    if (statSource[stat] > oldVal) {
+                        improvements.push({ stat, change: statSource[stat] - oldVal });
                     }
                 }
             });
 
+            // Process ability growth (abilities are stored in player.abilities)
+            if (player.abilities) {
+                Object.keys(player.abilities).forEach(abilityName => {
+                    // Abilities grow at the same rate as technique stats
+                    if (Math.random() < baseGrowthChance) {
+                        const oldVal = player.abilities[abilityName];
+                        const bonusGrowth = Math.floor(Math.random() * player.potentialGrade);
+                        const growth = PROGRESSION.GROWTH_AMOUNT_MIN + bonusGrowth;
+                        player.abilities[abilityName] = Math.min(99, player.abilities[abilityName] + growth);
+                        if (player.abilities[abilityName] > oldVal) {
+                            improvements.push({ stat: abilityName, change: player.abilities[abilityName] - oldVal });
+                        }
+                    }
+                });
+            }
+
             // Recalculate derived values
             player.salaryCost = calculateSalary(player.stats, player.position);
             player.overall = calculateOverall(player);
-
-            if (improvements.length === 0) {
-                console.log(`[GROWTH] ${player.firstName} ${player.lastName}: Eligible but no growth this week (chance: ${(baseGrowthChance * 100).toFixed(1)}%)`);
-            }
 
             return improvements;
         }
@@ -3590,9 +4181,12 @@
             const baseDeclineRate = yearsOver * PROGRESSION.DECLINE_RATE;
 
             const declines = [];
+            const coreStatNames = ['strength', 'speed', 'agility', 'intelligence'];
 
-            // Process all stats the player has
-            Object.keys(player.stats).forEach(stat => {
+            // Helper to process decline for a stat
+            const processStatDecline = (stat, statSource) => {
+                if (!statSource || statSource[stat] === undefined) return;
+
                 const isPhysical = PROGRESSION.PHYSICAL_STATS.includes(stat);
                 const isSkill = PROGRESSION.SKILL_STATS.includes(stat);
 
@@ -3617,14 +4211,43 @@
 
                 // Apply decline with some randomness
                 if (Math.random() < 0.5 + (yearsOver * 0.1)) { // More likely to decline as years pass
-                    const oldVal = player.stats[stat];
+                    const oldVal = statSource[stat];
                     const actualDecline = declineRate * (0.5 + Math.random()); // 50-150% of rate
-                    player.stats[stat] = Math.max(minStat, player.stats[stat] - actualDecline);
-                    if (player.stats[stat] < oldVal) {
-                        declines.push({ stat, change: player.stats[stat] - oldVal });
+                    statSource[stat] = Math.max(minStat, statSource[stat] - actualDecline);
+                    if (statSource[stat] < oldVal) {
+                        declines.push({ stat, change: statSource[stat] - oldVal });
                     }
                 }
+            };
+
+            // Process core attributes (strength, speed, agility, intelligence)
+            if (player.coreAttributes) {
+                coreStatNames.forEach(stat => processStatDecline(stat, player.coreAttributes));
+            }
+
+            // Process technique stats
+            Object.keys(player.stats).forEach(stat => {
+                if (!coreStatNames.includes(stat)) {
+                    processStatDecline(stat, player.stats);
+                }
             });
+
+            // Process ability decline (abilities decline like skill stats - very slowly)
+            if (player.abilities) {
+                Object.keys(player.abilities).forEach(abilityName => {
+                    const declineRate = baseDeclineRate * PROGRESSION.SKILL_DECLINE_MULT;
+                    const minStat = PROGRESSION.MIN_STAT + 15;
+
+                    if (Math.random() < 0.5 + (yearsOver * 0.1)) {
+                        const oldVal = player.abilities[abilityName];
+                        const actualDecline = declineRate * (0.5 + Math.random());
+                        player.abilities[abilityName] = Math.max(minStat, player.abilities[abilityName] - actualDecline);
+                        if (player.abilities[abilityName] < oldVal) {
+                            declines.push({ stat: abilityName, change: player.abilities[abilityName] - oldVal });
+                        }
+                    }
+                });
+            }
 
             // Recalculate derived values
             player.salaryCost = calculateSalary(player.stats, player.position);
@@ -3771,6 +4394,8 @@
 
                 // Reset season stats
                 player.seasonStartStats = { ...player.stats };
+                player.seasonStartCoreAttributes = player.coreAttributes ? { ...player.coreAttributes } : null;
+                player.seasonStartAbilities = player.abilities ? { ...player.abilities } : null;
                 player.gamesPlayed = 0;
                 player.seasonTDs = 0;
                 player.seasonCatches = 0;
@@ -4018,9 +4643,9 @@
             MAX_LEVEL: 3,           // Maximum times a player can be scouted
             MIN_COST: 5,            // Minimum scouting cost
             MAX_COST: 50,           // Maximum scouting cost
-            RANGE_UNSCOUTED: 50,    // Rating range for unscouted players (±50)
-            RANGE_PER_LEVEL: 14,    // Range reduction per scout level (50 -> 36 -> 22 -> 8)
-            MAX_OFFSET: 24          // Maximum offset from center at level 0
+            RANGE_UNSCOUTED: 22,    // Rating range for unscouted players (±22, was ±50)
+            RANGE_PER_LEVEL: 5,     // Range reduction per scout level (22 -> 17 -> 12 -> 7)
+            MAX_OFFSET: 10          // Maximum offset from center at level 0
         };
 
         // Generate combine stats for a draft player based on their core attributes
@@ -4067,7 +4692,7 @@
 
             // Clamp to realistic ranges (slightly beyond the 55-100 range for variance)
             const forty = Math.max(4.30, Math.min(5.05, fortyRaw));
-            const bench = Math.max(15, Math.min(38, Math.round(benchRaw)));
+            const bench = Math.max(15, Math.min(45, Math.round(benchRaw)));
             const vert = Math.max(30, Math.min(44, vertRaw));
             const broad = Math.max(108, Math.min(136, Math.round(broadRaw)));
             const three = Math.max(6.65, Math.min(7.40, threeRaw));
@@ -4077,7 +4702,7 @@
             // Elite benchmarks - aligned with clamp limits for full range
             const ELITE = {
                 forty: 4.30,    // matches clamp min
-                bench: 38,      // matches clamp max
+                bench: 45,      // matches clamp max
                 vert: 44,       // matches clamp max
                 broad: 136,     // matches clamp max
                 three: 6.65,    // matches clamp min
@@ -4333,8 +4958,8 @@
             const numVal = parseFloat(value);
             if (isNaN(numVal)) return value + suffix; // Return as-is if not a number (e.g., letter grade)
 
-            // Variance decreases with scout level: 20% -> 14% -> 8% -> 4%
-            const variancePct = [0.20, 0.14, 0.08, 0.04][scoutLevel] || 0.20;
+            // Variance decreases with scout level: 8% -> 6% -> 5% -> 4%
+            const variancePct = [0.08, 0.06, 0.05, 0.04][scoutLevel] || 0.08;
             const variance = numVal * variancePct;
 
             // For integer stats, round appropriately
@@ -4522,21 +5147,24 @@
             const roll = (hash % 100) / 100;
 
             let offset = 0;
-            if (roll < 0.45) {
-                // 45% - exactly right
+            if (roll < 0.40) {
+                // 40% - exactly right
                 offset = 0;
-            } else if (roll < 0.70) {
-                // 25% - off by 1 step (could be higher or lower)
+            } else if (roll < 0.60) {
+                // 20% - off by 1 step (could be higher or lower)
                 offset = (hash % 2 === 0) ? 1 : -1;
-            } else if (roll < 0.85) {
-                // 15% - off by 2 steps
+            } else if (roll < 0.75) {
+                // 15% - off by 2 steps (could be higher or lower)
                 offset = (hash % 2 === 0) ? 2 : -2;
+            } else if (roll < 0.85) {
+                // 10% - underrated (rough gem territory - looks worse than they are)
+                offset = -1 - (hash % 2);  // -1 or -2
             } else if (roll < 0.95) {
-                // 10% - off by 1 step in misleading direction (good player looks worse)
-                offset = -1;
+                // 10% - overrated (fool's gold - looks better than they are)
+                offset = 1 + (hash % 2);  // +1 or +2
             } else {
-                // 5% - off by 2-3 steps (significant miss)
-                offset = (hash % 2 === 0) ? -2 : -3;
+                // 5% - significantly overrated (fool's gold trap)
+                offset = 2 + (hash % 2);  // +2 or +3
             }
 
             // Apply offset and clamp to valid range
@@ -4607,14 +5235,14 @@
             // Even fully scouted players have small chance of being wrong
             let maxError, errorChance;
             if (scoutLevel === 0) {
-                maxError = 2;
-                errorChance = 0.7;  // 70% chance of being wrong
+                maxError = 1;
+                errorChance = 0.25;  // 25% chance of being wrong (was 70%)
             } else if (scoutLevel === 1) {
                 maxError = 1;
-                errorChance = 0.5;  // 50% chance of being wrong
+                errorChance = 0.20;  // 20% chance of being wrong
             } else if (scoutLevel === 2) {
                 maxError = 1;
-                errorChance = 0.25; // 25% chance of being wrong
+                errorChance = 0.17; // 17% chance of being wrong
             } else {
                 maxError = 1;
                 errorChance = 0.15; // 15% chance of surprise even fully scouted
@@ -4901,15 +5529,35 @@
             return value;
         }
 
-        // Smart computer team selection
+        // Smart computer team selection - returns { player, reasoning }
         function selectBestPlayerForTeam(available, teamRoster, strategy = 'balanced') {
-            if (available.length === 0) return null;
+            if (available.length === 0) return { player: null, reasoning: '' };
 
-            // Score all available players
-            const scored = available.map(player => ({
-                player,
-                value: calculateDraftValue(player, teamRoster, strategy)
-            }));
+            const strat = DRAFT_STRATEGIES[strategy] || DRAFT_STRATEGIES.balanced;
+            const needs = calculatePositionalNeeds(teamRoster);
+
+            // Score all available players with detailed breakdown
+            const scored = available.map(player => {
+                const posNeed = needs.find(n => n.position === player.position);
+                const ageBonus = Math.max(0, (24 - player.age) * 2);
+                const potentialBonus = player.potentialGrade * 4;
+                const growthValue = (ageBonus + potentialBonus) * strat.growthWeight;
+                const baseValue = player.overall * strat.overallWeight;
+                const needMultiplier = posNeed ? Math.min(1.5, 1 + (posNeed.urgency * 0.1)) : 0.5;
+                const fillsNeed = posNeed && posNeed.urgency >= 3;
+
+                return {
+                    player,
+                    value: calculateDraftValue(player, teamRoster, strategy),
+                    fillsNeed,
+                    needUrgency: posNeed ? posNeed.urgency : 0,
+                    baseValue: Math.round(baseValue),
+                    growthValue: Math.round(growthValue),
+                    needMultiplier,
+                    ageBonus,
+                    potentialBonus
+                };
+            });
 
             // Sort by value (highest first)
             scored.sort((a, b) => b.value - a.value);
@@ -4920,15 +5568,51 @@
             // Weight towards higher value picks but allow some variance
             const totalValue = topCandidates.reduce((sum, c) => sum + c.value, 0);
             let roll = Math.random() * totalValue;
+            let selectedCandidate = topCandidates[0];
 
             for (const candidate of topCandidates) {
                 roll -= candidate.value;
                 if (roll <= 0) {
-                    return candidate.player;
+                    selectedCandidate = candidate;
+                    break;
                 }
             }
 
-            return topCandidates[0].player; // Fallback to best
+            // Generate reasoning with weights
+            const player = selectedCandidate.player;
+            const sc = selectedCandidate;
+            const parts = [];
+
+            // Strategy
+            parts.push(`${strat.icon} ${strat.name}`);
+
+            // Board position
+            const rank = scored.findIndex(s => s.player.id === player.id) + 1;
+            if (rank === 1) {
+                parts.push('BPA');
+            } else {
+                parts.push(`#${rank} on board`);
+            }
+
+            // Value breakdown
+            const valueBreakdown = [];
+            valueBreakdown.push(`OVR:${sc.baseValue}`);
+            if (sc.growthValue > 0) {
+                valueBreakdown.push(`Growth:+${sc.growthValue}`);
+            }
+            if (sc.needMultiplier !== 1.0) {
+                const needPct = Math.round((sc.needMultiplier - 1) * 100);
+                const needSign = needPct >= 0 ? '+' : '';
+                valueBreakdown.push(`Need:${needSign}${needPct}%`);
+            }
+            parts.push(valueBreakdown.join(' '));
+
+            // Total value
+            parts.push(`= ${Math.round(sc.value)}`);
+
+            const reasoning = parts.join(' · ');
+
+            return { player, reasoning };
         }
 
         // Generate draft class with realistic ratings
@@ -5139,7 +5823,7 @@
             const teamStrategy = draftState.computerTeamStrategies[teamIndex] || 'balanced';
 
             // Smart selection based on overall, growth potential, positional need, and team strategy
-            const picked = selectBestPlayerForTeam(available, teamRoster, teamStrategy);
+            const { player: picked, reasoning } = selectBestPlayerForTeam(available, teamRoster, teamStrategy);
 
             if (picked) {
                 draftState.draftedPlayers.push(picked.id);
@@ -5155,7 +5839,8 @@
                     teamName: COMPUTER_TEAM_NAMES[teamIndex],
                     teamIndex: teamIndex,
                     player: picked,
-                    pickNumber: draftState.currentPickNumber
+                    pickNumber: draftState.currentPickNumber,
+                    reasoning: reasoning
                 };
 
                 draftState.currentPickNumber++;
@@ -5176,7 +5861,7 @@
                 const teamStrategy = draftState.computerTeamStrategies[teamIndex] || 'balanced';
 
                 // Smart selection based on overall, growth potential, positional need, and team strategy
-                const picked = selectBestPlayerForTeam(available, teamRoster, teamStrategy);
+                const { player: picked } = selectBestPlayerForTeam(available, teamRoster, teamStrategy);
 
                 if (picked) {
                     draftState.draftedPlayers.push(picked.id);
@@ -5689,6 +6374,143 @@
             debugStatsHtml += `<div><strong>Scouted Grade:</strong> ${scoutedGradeInfo.grade}${scoutedGradeInfo.isRoughGem ? ' (ROUGH GEM!)' : ''}</div>`;
             debugStatsHtml += `<div><strong>Potential:</strong> ${player.potentialGrade} stars</div>`;
 
+            // Debug combine stats with expected values and rolls
+            if (player.combineStats && core) {
+                const cs = player.combineStats;
+                const str = core.strength || 50;
+                const spd = core.speed || 50;
+                const agi = core.agility || 50;
+                const intel = core.intelligence || 50;
+
+                // Calculate expected values (without variance)
+                const expectedForty = 5.55 - (spd * 0.0098) - (agi * 0.0022);
+                const expectedBench = -2 + (str * 0.36);
+                const expectedVert = 21 + (spd * 0.13) + (agi * 0.07);
+                const expectedBroad = 90 + (str * 0.23) + (spd * 0.17);
+                const expectedThree = 8.03 - (agi * 0.011) - (spd * 0.0023);
+                const expectedShuttle = 4.90 - (agi * 0.0067) - (spd * 0.0033);
+                const expectedWonder = -2.5 + (intel * 0.445);
+
+                // Format roll as percentage difference
+                const formatRoll = (actual, expected) => {
+                    const roll = ((actual / expected) - 1) * 100;
+                    const sign = roll >= 0 ? '+' : '';
+                    const color = Math.abs(roll) < 1 ? '#888' : roll > 0 ? '#4f4' : '#f44';
+                    return `<span style="color:${color}">${sign}${roll.toFixed(1)}%</span>`;
+                };
+                // For inverted stats (lower is better), positive roll means worse
+                const formatRollInv = (actual, expected) => {
+                    const roll = ((actual / expected) - 1) * 100;
+                    const sign = roll >= 0 ? '+' : '';
+                    const color = Math.abs(roll) < 1 ? '#888' : roll < 0 ? '#4f4' : '#f44';
+                    return `<span style="color:${color}">${sign}${roll.toFixed(1)}%</span>`;
+                };
+
+                debugStatsHtml += `<div style="margin-top:8px;border-top:1px solid #333;padding-top:6px;"><strong>Combine Debug:</strong></div>`;
+                debugStatsHtml += `<div style="display:grid;grid-template-columns:1fr 1fr;gap:2px;font-size:10px;">`;
+                debugStatsHtml += `<div>40yd: ${cs.fortyYard}s (exp: ${expectedForty.toFixed(2)}s) ${formatRollInv(parseFloat(cs.fortyYard), expectedForty)}</div>`;
+                debugStatsHtml += `<div>Bench: ${cs.benchPress} (exp: ${expectedBench.toFixed(0)}) ${formatRoll(cs.benchPress, expectedBench)}</div>`;
+                debugStatsHtml += `<div>Vert: ${cs.verticalJump}" (exp: ${expectedVert.toFixed(1)}") ${formatRoll(parseFloat(cs.verticalJump), expectedVert)}</div>`;
+                debugStatsHtml += `<div>Broad: ${cs.broadJump}" (exp: ${expectedBroad.toFixed(0)}") ${formatRoll(cs.broadJump, expectedBroad)}</div>`;
+                debugStatsHtml += `<div>3cone: ${cs.threeCone}s (exp: ${expectedThree.toFixed(2)}s) ${formatRollInv(parseFloat(cs.threeCone), expectedThree)}</div>`;
+                debugStatsHtml += `<div>Shuttle: ${cs.shuttle}s (exp: ${expectedShuttle.toFixed(2)}s) ${formatRollInv(parseFloat(cs.shuttle), expectedShuttle)}</div>`;
+                debugStatsHtml += `<div>Wonderlic: ${cs.wonderlic} (exp: ${expectedWonder.toFixed(0)}) ${formatRoll(cs.wonderlic, expectedWonder)}</div>`;
+                debugStatsHtml += `</div>`;
+            }
+
+            // Debug college stats with expected values and rolls
+            if (player.collegeStats && player.stats) {
+                const cs = player.collegeStats;
+                const stats = player.stats;
+                const pos = player.position;
+
+                debugStatsHtml += `<div style="margin-top:8px;border-top:1px solid #333;padding-top:6px;"><strong>College Debug:</strong></div>`;
+                debugStatsHtml += `<div style="font-size:10px;">`;
+
+                const formatRoll = (actual, expected) => {
+                    const roll = ((actual / expected) - 1) * 100;
+                    const sign = roll >= 0 ? '+' : '';
+                    const color = Math.abs(roll) < 1 ? '#888' : roll > 0 ? '#4f4' : '#f44';
+                    return `<span style="color:${color}">${sign}${roll.toFixed(1)}%</span>`;
+                };
+                const formatRollInv = (actual, expected) => {
+                    const roll = ((actual / expected) - 1) * 100;
+                    const sign = roll >= 0 ? '+' : '';
+                    const color = Math.abs(roll) < 1 ? '#888' : roll < 0 ? '#4f4' : '#f44';
+                    return `<span style="color:${color}">${sign}${roll.toFixed(1)}%</span>`;
+                };
+
+                switch (pos) {
+                    case 'QB':
+                        const qbAcc = stats.accuracy || 55;
+                        const qbDec = stats.decisionMaking || core.intelligence || 55;
+                        const qbArm = stats.armStrength || 55;
+                        const qbPocket = stats.pocketPresence || 55;
+                        const expCompPct = 50 + qbAcc * 0.25 + qbDec * 0.08;
+                        const expTdInt = 0.8 + qbDec * 0.025 + qbAcc * 0.012;
+                        const expYpa = 5.5 + qbArm * 0.03 + qbAcc * 0.02 + qbDec * 0.015;
+                        const expSackPct = 12 - qbPocket * 0.08 - qbDec * 0.03;
+                        debugStatsHtml += `Comp%: ${cs.completionPct} (exp: ${expCompPct.toFixed(1)}) ${formatRoll(parseFloat(cs.completionPct), expCompPct)}<br>`;
+                        debugStatsHtml += `TD:INT: ${cs.tdIntRatio} (exp: ${expTdInt.toFixed(1)}) ${formatRoll(parseFloat(cs.tdIntRatio), expTdInt)}<br>`;
+                        debugStatsHtml += `YPA: ${cs.yardsPerAttempt} (exp: ${expYpa.toFixed(1)}) ${formatRoll(parseFloat(cs.yardsPerAttempt), expYpa)}<br>`;
+                        debugStatsHtml += `Sack%: ${cs.sackPct} (exp: ${expSackPct.toFixed(1)}) ${formatRollInv(parseFloat(cs.sackPct), expSackPct)}`;
+                        break;
+                    case 'WR':
+                        const wrHands = stats.catching || stats.hands || 55;
+                        const wrRoutes = stats.routeRunning || 55;
+                        const wrSpd = core.speed || 55;
+                        const expYpc = 10 + wrSpd * 0.06 + wrRoutes * 0.04;
+                        const expCatchRate = 45 + wrHands * 0.25 + wrRoutes * 0.12;
+                        const expContested = 30 + wrHands * 0.2 + (stats.jumping || 55) * 0.15 + (core.strength || 55) * 0.1;
+                        const expYac = 2.5 + wrSpd * 0.04 + (core.agility || 55) * 0.03;
+                        const expDropRate = 15 - wrHands * 0.12 - (core.intelligence || 55) * 0.03;
+                        debugStatsHtml += `YPC: ${cs.yardsPerCatch} (exp: ${expYpc.toFixed(1)}) ${formatRoll(parseFloat(cs.yardsPerCatch), expYpc)}<br>`;
+                        debugStatsHtml += `Catch%: ${cs.catchRate} (exp: ${expCatchRate.toFixed(1)}) ${formatRoll(parseFloat(cs.catchRate), expCatchRate)}<br>`;
+                        debugStatsHtml += `Contested: ${cs.contestedCatchPct} (exp: ${expContested.toFixed(1)}) ${formatRoll(parseFloat(cs.contestedCatchPct), expContested)}<br>`;
+                        debugStatsHtml += `YAC: ${cs.yardsAfterCatch} (exp: ${expYac.toFixed(1)}) ${formatRoll(parseFloat(cs.yardsAfterCatch), expYac)}<br>`;
+                        debugStatsHtml += `Drop%: ${cs.dropRate} (exp: ${expDropRate.toFixed(1)}) ${formatRollInv(parseFloat(cs.dropRate), expDropRate)}`;
+                        break;
+                    case 'CB':
+                        const cbCov = stats.coverage || stats.manCoverage || 55;
+                        const cbSpd = core.speed || 55;
+                        const cbAgi = core.agility || 55;
+                        const cbAware = stats.awareness || 55;
+                        const expCompAllowed = 72 - cbCov * 0.2 - cbSpd * 0.05;
+                        const expIntRate = 0.5 + cbAware * 0.02 + (core.intelligence || 55) * 0.015;
+                        const expPbu = 4 + cbCov * 0.06 + cbAgi * 0.04;
+                        const expYardsAllowed = 18 - cbCov * 0.08 - cbSpd * 0.04;
+                        debugStatsHtml += `Comp%: ${cs.completionAllowed} (exp: ${expCompAllowed.toFixed(1)}) ${formatRollInv(parseFloat(cs.completionAllowed), expCompAllowed)}<br>`;
+                        debugStatsHtml += `INT: ${cs.intRate} (exp: ${expIntRate.toFixed(1)}) ${formatRoll(parseFloat(cs.intRate), expIntRate)}<br>`;
+                        debugStatsHtml += `PBU: ${cs.passBreakups} (exp: ${expPbu.toFixed(1)}) ${formatRoll(parseFloat(cs.passBreakups), expPbu)}<br>`;
+                        debugStatsHtml += `Yds/T: ${cs.yardsPerTarget} (exp: ${expYardsAllowed.toFixed(1)}) ${formatRollInv(parseFloat(cs.yardsPerTarget), expYardsAllowed)}`;
+                        break;
+                    case 'OL':
+                        const olPass = stats.passBlock || 55;
+                        const olStr = core.strength || 55;
+                        const olAware = stats.awareness || 55;
+                        const expSacksAllowed = 8 - olPass * 0.05 - olStr * 0.025;
+                        const expPressRate = 20 - olPass * 0.12 - olAware * 0.05;
+                        const expPenalties = 8 - olAware * 0.05 - (core.intelligence || 55) * 0.02;
+                        debugStatsHtml += `Sacks: ${cs.sacksAllowed} (exp: ${expSacksAllowed.toFixed(1)}) ${formatRollInv(parseFloat(cs.sacksAllowed), expSacksAllowed)}<br>`;
+                        debugStatsHtml += `Press%: ${cs.pressureRate} (exp: ${expPressRate.toFixed(1)}) ${formatRollInv(parseFloat(cs.pressureRate), expPressRate)}<br>`;
+                        debugStatsHtml += `Penalties: ${cs.penalties} (exp: ${expPenalties.toFixed(1)}) ${formatRollInv(parseFloat(cs.penalties), expPenalties)}`;
+                        break;
+                    case 'DL':
+                        const dlRush = stats.passRush || 55;
+                        const dlStr = core.strength || 55;
+                        const dlSpd = core.speed || 55;
+                        const dlAgi = core.agility || 55;
+                        const expSacks = 2 + dlRush * 0.08 + dlSpd * 0.03;
+                        const expTfl = 5 + dlStr * 0.06 + dlRush * 0.04;
+                        const expHurries = 8 + dlRush * 0.12 + dlAgi * 0.05;
+                        debugStatsHtml += `Sacks: ${cs.sacks} (exp: ${expSacks.toFixed(1)}) ${formatRoll(parseFloat(cs.sacks), expSacks)}<br>`;
+                        debugStatsHtml += `TFL: ${cs.tacklesForLoss} (exp: ${expTfl.toFixed(1)}) ${formatRoll(parseFloat(cs.tacklesForLoss), expTfl)}<br>`;
+                        debugStatsHtml += `Hurries: ${cs.qbHurries} (exp: ${expHurries.toFixed(1)}) ${formatRoll(parseFloat(cs.qbHurries), expHurries)}`;
+                        break;
+                }
+                debugStatsHtml += `</div>`;
+            }
+
             statsHtml += `
                 <div class="stats-section" style="border-top:1px solid #444;margin-top:10px;padding-top:10px;">
                     <button id="${debugId}_btn" style="background:#333;color:#888;border:1px solid #555;padding:4px 8px;border-radius:4px;font-size:10px;cursor:pointer;">
@@ -5724,7 +6546,8 @@
         // Refresh draft screen
         function refreshDraftScreen() {
             const lastPickEl = document.getElementById('draftLastPick');
-            const lastPickTextEl = document.getElementById('draftLastPickText');
+            const lastPickLine1El = document.getElementById('draftLastPickLine1');
+            const lastPickLine2El = document.getElementById('draftLastPickLine2');
             const onClockEl = document.getElementById('draftOnClock');
             const roundPickEl = document.getElementById('draftRoundPick');
             const pointsEl = document.getElementById('draftPoints');
@@ -5775,16 +6598,54 @@
             // Update last pick notification bar
             if (draftState.lastComputerPick) {
                 const pick = draftState.lastComputerPick;
+                const player = pick.player;
                 const pickTeamRoster = draftState.computerTeamRosters[pick.teamIndex] || [];
                 const pickStrategy = draftState.computerTeamStrategies[pick.teamIndex] || 'balanced';
                 const pickStrategyIcon = DRAFT_STRATEGIES[pickStrategy]?.icon || '';
                 const pickNeedsDisplay = getPositionalNeedsDisplay(pickTeamRoster, 2);
                 const needsSpan = pickNeedsDisplay
-                    ? ` <span style="font-size:11px;font-style:italic;opacity:0.7;">(${pickNeedsDisplay})</span>`
+                    ? ` <span style="font-size:10px;font-style:italic;opacity:0.7;">(${pickNeedsDisplay})</span>`
                     : '';
-                lastPickTextEl.innerHTML = `Pick #${pick.pickNumber}: <span class="team-name">${pickStrategyIcon} ${pick.teamName}</span>${needsSpan} → <span class="player-name">${pick.player.firstName} ${pick.player.lastName}</span> <span class="overall">${pick.player.overall}</span>`;
+
+                // Get the scouted grade that was shown before the pick
+                const scoutLevel = getPlayerScoutLevel(player.id);
+                const scoutedGradeInfo = getScoutedListGrade(player);
+                const actualGrade = ratingToGrade(player.overall);
+                const predictedGrade = scoutedGradeInfo.grade;
+
+                // Determine if prediction was accurate, better, or worse than actual
+                const actualIdx = GRADE_STEPS.indexOf(actualGrade);
+                const predictedIdx = GRADE_STEPS.indexOf(predictedGrade);
+                let predictedClass = 'predicted';
+                if (predictedIdx > actualIdx + 1) predictedClass = 'predicted better';  // Predicted better than actual (fool's gold)
+                else if (predictedIdx < actualIdx - 1) predictedClass = 'predicted worse';  // Predicted worse than actual (gem)
+
+                // Line 1: Pick info and player name
+                lastPickLine1El.innerHTML = `Pick #${pick.pickNumber}: <span class="team-name">${pickStrategyIcon} ${pick.teamName}</span>${needsSpan} → <span class="player-name">${player.firstName} ${player.lastName}</span>`;
+
+                // Line 2: Position, predicted grade, actual grade, growth stars
+                const growthStars = player.potentialGrade > 0 ? ` <span style="color:#ffd700;">` + '★'.repeat(player.potentialGrade) + `</span>` : '';
+                lastPickLine2El.innerHTML = `<span class="position">${player.position}</span> · Predicted: <span class="${predictedClass}">${predictedGrade}</span> · Actual: <span class="overall">${actualGrade} (${player.overall})</span>${growthStars}`;
+
+                // Make clickable to show player detail
+                lastPickEl.onclick = () => showDraftPlayerDetail(player.id);
+                lastPickEl.style.cursor = 'pointer';
+
+                // Show reasoning if enabled
+                const reasoningEl = document.getElementById('draftPickReasoning');
+                const showReasoning = managementState.settings.showPickReasoning !== false;
+                if (showReasoning && pick.reasoning) {
+                    reasoningEl.innerHTML = `<span class="reason-label">Why:</span> ${pick.reasoning}`;
+                    reasoningEl.style.display = 'block';
+                } else {
+                    reasoningEl.style.display = 'none';
+                }
             } else {
-                lastPickTextEl.textContent = 'Draft in progress...';
+                lastPickLine1El.textContent = 'Draft in progress...';
+                lastPickLine2El.textContent = '';
+                lastPickEl.onclick = null;
+                lastPickEl.style.cursor = 'default';
+                document.getElementById('draftPickReasoning').style.display = 'none';
             }
 
             // Update round/pick info
@@ -7164,12 +8025,14 @@
             // Record offensive stats for player's team
             if (result.plays && roster) {
                 result.plays.forEach(play => {
-                    // QB stats - completions/incompletions
+                    // QB stats - completions/incompletions and passing yards
                     if (playerQB && playerQB.id) {
+                        const qbStats = gameStats.getPlayer(playerQB.id, `${playerQB.firstName} ${playerQB.lastName}`);
                         if (play.type === 'complete' || play.type === 'touchdown') {
-                            gameStats.getPlayer(playerQB.id, `${playerQB.firstName} ${playerQB.lastName}`).completions++;
+                            qbStats.completions++;
+                            qbStats.passingYards += (play.yardsGained || 0);
                         } else if (play.type === 'incomplete' || play.type === 'interception') {
-                            gameStats.getPlayer(playerQB.id, `${playerQB.firstName} ${playerQB.lastName}`).incompletions++;
+                            qbStats.incompletions++;
                         }
                     }
 
@@ -7181,6 +8044,7 @@
                             if (rosterPlayer) {
                                 const rStats = gameStats.getPlayer(rosterPlayer.id, `${rosterPlayer.firstName} ${rosterPlayer.lastName}`);
                                 rStats.catches++;
+                                rStats.receivingYards += (play.yardsGained || 0);
                                 rStats.yardsAfterCatch += (play.yac || 0);
                                 if (play.type === 'touchdown') {
                                     rStats.touchdowns++;
@@ -7289,6 +8153,26 @@
                             dlPlayer.seasonSacks++;
                             gameStats.getPlayer(dlPlayer.id, `${dlPlayer.firstName} ${dlPlayer.lastName}`).sacks++;
                         }
+                    }
+
+                    // DL clash stats from pressure info
+                    if (play.pressureInfo && play.pressureInfo.matchups) {
+                        play.pressureInfo.matchups.forEach(matchup => {
+                            if (matchup.dl && matchup.dl.id) {
+                                const dlPlayer = roster.find(p => p.id === matchup.dl.id);
+                                if (dlPlayer) {
+                                    const dlStats = gameStats.getPlayer(dlPlayer.id, `${dlPlayer.firstName} ${dlPlayer.lastName}`);
+                                    // DL wins if margin is positive (dl beat ol)
+                                    if (matchup.margin > 2) {
+                                        dlStats.clashesWon++;
+                                        dlStats.clashDifficulties.push(matchup.margin);
+                                    } else if (matchup.margin < -2) {
+                                        dlStats.clashesLost++;
+                                        dlStats.clashDifficulties.push(matchup.margin);
+                                    }
+                                }
+                            }
+                        });
                     }
 
                     // Pass defended - credit CB
@@ -8067,6 +8951,7 @@
             // Create Quarterback - link to roster QB
             const qb = createKnight(scene, materials.qbMaterial, new BABYLON.Vector3(0, 0, QB_START_Z));
             qb.name = 'quarterback';
+            qb.scaling = new BABYLON.Vector3(gameState.playerScale, gameState.playerScale, gameState.playerScale);
 
             // Link QB to roster player
             const rosterQB = getDepthChartPlayer('QB1');
@@ -8208,6 +9093,7 @@
                 const receiverMat = materials.receiverMaterial.clone(`receiverMat_${i}`);
                 const receiver = createKnight(scene, receiverMat, config.start.clone());
                 receiver.name = `receiver_${i}`;
+                receiver.scaling = new BABYLON.Vector3(gameState.playerScale, gameState.playerScale, gameState.playerScale);
                 receiver.bodyMaterial = receiverMat;
                 receiver.originalColor = receiverMat.diffuseColor.clone();
 
@@ -8225,8 +9111,9 @@
                 receiver.coreAttributes = config.coreAttributes || null;
 
                 // Derive base speed from core attributes (normalized to game units)
+                // Scale speed by playerScale so larger players move proportionally faster
                 const baseSpeed = receiver.coreAttributes?.speed || 70;
-                receiver.baseSpeed = baseSpeed * SPEED_CONSTANTS.RECEIVER_FACTOR * gameState.gameSpeedMultiplier;
+                receiver.baseSpeed = baseSpeed * SPEED_CONSTANTS.RECEIVER_FACTOR * gameState.gameSpeedMultiplier * gameState.playerScale;
                 receiver.speed = receiver.baseSpeed;
 
                 // Clash system runtime state
@@ -8329,6 +9216,7 @@
                 const defenderMat = materials.defenderMaterial.clone(`defenderMat_${i}`);
                 const defender = createKnight(scene, defenderMat, startPos);
                 defender.name = `defender_${i}`;
+                defender.scaling = new BABYLON.Vector3(gameState.playerScale, gameState.playerScale, gameState.playerScale);
                 defender.bodyMaterial = defenderMat;
                 defender.originalColor = defenderMat.diffuseColor.clone();
 
@@ -8348,8 +9236,9 @@
                 defender.startPos = startPos.clone();
 
                 // Derive base speed from core attributes
+                // Scale speed by playerScale so larger players move proportionally faster
                 const baseSpeed = defender.coreAttributes?.speed || 70;
-                defender.baseSpeed = baseSpeed * SPEED_CONSTANTS.DEFENDER_FACTOR * gameState.gameSpeedMultiplier;
+                defender.baseSpeed = baseSpeed * SPEED_CONSTANTS.DEFENDER_FACTOR * gameState.gameSpeedMultiplier * gameState.playerScale;
                 defender.speed = defender.baseSpeed;
 
                 // Clash system runtime state
@@ -8458,6 +9347,7 @@
                 const startPos = new BABYLON.Vector3(config.startX, 0, LINE_OF_SCRIMMAGE_Z - 0.5);
                 const oLineman = createLineman(scene, oLineMat, startPos, true);
                 oLineman.name = `oline_${i}`;
+                oLineman.scaling = new BABYLON.Vector3(gameState.playerScale, gameState.playerScale, gameState.playerScale);
                 oLineman.displayName = config.name;
                 oLineman.playerId = config.playerId || null;  // Link to roster player
                 oLineman.position_label = config.position;
@@ -8466,8 +9356,9 @@
                 oLineman.coreAttributes = config.coreAttributes || null;
                 oLineman.startPos = startPos.clone();
                 // Derive base speed from core attributes
+                // Scale speed by playerScale so larger players move proportionally faster
                 const baseSpeed = oLineman.coreAttributes?.speed || 70;
-                oLineman.baseSpeed = baseSpeed * SPEED_CONSTANTS.O_LINE_FACTOR * gameState.gameSpeedMultiplier;
+                oLineman.baseSpeed = baseSpeed * SPEED_CONSTANTS.O_LINE_FACTOR * gameState.gameSpeedMultiplier * gameState.playerScale;
                 oLineman.speed = oLineman.baseSpeed;
 
                 // Blocking state
@@ -8521,6 +9412,7 @@
                 const dLineMat = materials.dLineMaterial.clone(`dLineMat_${i}`);
                 const startPos = new BABYLON.Vector3(config.startX, 0, LINE_OF_SCRIMMAGE_Z + 0.5);
                 const dLineman = createLineman(scene, dLineMat, startPos, false);
+                dLineman.scaling = new BABYLON.Vector3(gameState.playerScale, gameState.playerScale, gameState.playerScale);
                 dLineman.name = `dline_${i}`;
                 dLineman.displayName = config.name;
                 dLineman.playerId = config.playerId || null;  // Link to roster player
@@ -8530,8 +9422,9 @@
                 dLineman.coreAttributes = config.coreAttributes || null;
                 dLineman.startPos = startPos.clone();
                 // Derive base speed from core attributes
+                // Scale speed by playerScale so larger players move proportionally faster
                 const baseSpeed = dLineman.coreAttributes?.speed || 70;
-                dLineman.baseSpeed = baseSpeed * SPEED_CONSTANTS.D_LINE_FACTOR * gameState.gameSpeedMultiplier;
+                dLineman.baseSpeed = baseSpeed * SPEED_CONSTANTS.D_LINE_FACTOR * gameState.gameSpeedMultiplier * gameState.playerScale;
                 dLineman.speed = dLineman.baseSpeed;
 
                 // Pass rush state
@@ -8728,6 +9621,7 @@
 
             // Create Football (initially hidden)
             const football = createFootball(scene, materials);
+            football.scaling = new BABYLON.Vector3(gameState.ballScale, gameState.ballScale, gameState.ballScale);
             football.setEnabled(false);
 
             // Store references (use gameMaterials to avoid conflict with Babylon's scene.materials)
@@ -9073,8 +9967,11 @@
             const qbMaxThrowDistance = 12 + ((armStrength - 50) / 50) * 14;  // 12-26 range
 
             // Distance dragged determines throw power
+            // Apply sensitivity boost based on camera offset (more offset = less space to drag = higher sensitivity)
+            // At 0% offset: 1x sensitivity, at 100% offset: 3x sensitivity
+            const offsetSensitivityBoost = 1 + (gameState.cameraOffset || 0) * 2;
             const rawDragDistance = Math.sqrt(dx * dx + dy * dy);
-            const dragDistance = rawDragDistance * DRAG_SENSITIVITY;
+            const dragDistance = rawDragDistance * DRAG_SENSITIVITY * offsetSensitivityBoost;
             const throwDistance = Math.min(Math.max(dragDistance, MIN_THROW_DISTANCE), qbMaxThrowDistance);
 
             // Direction is opposite of drag
@@ -9282,39 +10179,63 @@
             applyMomentumTilt(defender, dx, dz, dist, dist > 0.2);
         };
 
-        // Zone coverage AI - patrol assigned area, react to nearby receivers
+        // Zone coverage AI - Safety plays deep, picks a side, backpedals until ball thrown
         const moveDefenderZoneCoverage = (defender, speed) => {
             const timeSincePlayStart = gameState.gameTime - (gameState.playStartTime || 0);
+            const END_ZONE_BACK = 15;
 
-            // Safety backpedal phase: first 1 second after reaction delay, move slowly backward
-            const backpedalDuration = 1.0;
-            const backpedalPhase = timeSincePlayStart < (defender.reactionDelay || 0) + backpedalDuration;
-
-            if (backpedalPhase) {
-                // Move backward slowly if there's room (not too close to end zone)
-                const endZoneBack = 15;  // Back of end zone
-                const distToEndZone = endZoneBack - defender.position.z;
-                if (distToEndZone > 3) {
-                    // Backpedal at 30% speed
-                    const backpedalSpeed = speed * 0.3;
-                    defender.position.z += backpedalSpeed;
-                    // Face forward (toward line of scrimmage)
-                    defender.rotation.y = Math.PI;
-                }
-                return;  // Don't do normal zone movement during backpedal
+            // Initialize safety's chosen side if not set (pick at play start)
+            if (defender.chosenSide === undefined) {
+                // Pick left (-1) or right (+1) side to favor
+                defender.chosenSide = Math.random() > 0.5 ? 1 : -1;
+                defender.sideCommitment = 0.3 + Math.random() * 0.2; // How far to drift (0.3-0.5 of field width)
             }
 
-            // Find nearest receiver in zone
+            // PHASE 1: Pre-throw - backpedal and drift to chosen side
+            if (!gameState.ballInFlight) {
+                const distToEndZone = END_ZONE_BACK - defender.position.z;
+
+                // Keep backpedaling if there's room
+                if (distToEndZone > 2) {
+                    const backpedalSpeed = speed * 0.4;
+                    defender.position.z += backpedalSpeed;
+                }
+
+                // Drift toward chosen side while staying relatively centered
+                const targetSideX = defender.chosenSide * 4 * defender.sideCommitment; // Max ~2 yards to side
+                const driftSpeed = speed * 0.15;
+                const dxToSide = targetSideX - defender.position.x;
+
+                if (Math.abs(dxToSide) > 0.3) {
+                    defender.position.x += Math.sign(dxToSide) * driftSpeed;
+                }
+
+                // Face forward toward line of scrimmage (reading the play)
+                defender.rotation.y = Math.PI;
+
+                // Apply subtle tilt
+                applyMomentumTilt(defender, dxToSide * 0.5, 0.5, 1, true);
+                return;
+            }
+
+            // PHASE 2: Ball in flight - react to ball/receivers
+            // Find nearest receiver (expanded radius since safety covers deep)
+            const expandedRadius = defender.zoneRadius * 1.5;
             let nearestReceiver = null;
-            let nearestDist = defender.zoneRadius;
+            let nearestDist = expandedRadius;
 
             gameState.receivers.forEach(receiver => {
-                const dx = receiver.position.x - defender.zoneCenter.x;
-                const dz = receiver.position.z - defender.zoneCenter.z;
+                // Safety prioritizes receivers on their chosen side
+                const dx = receiver.position.x - defender.position.x;
+                const dz = receiver.position.z - defender.position.z;
                 const dist = Math.sqrt(dx * dx + dz * dz);
 
-                if (dist < nearestDist) {
-                    nearestDist = dist;
+                // Bonus for receivers on chosen side
+                const sideFactor = (Math.sign(receiver.position.x) === defender.chosenSide) ? 0.8 : 1.0;
+                const effectiveDist = dist * sideFactor;
+
+                if (effectiveDist < nearestDist) {
+                    nearestDist = effectiveDist;
                     nearestReceiver = receiver;
                 }
             });
@@ -9322,13 +10243,20 @@
             let targetX, targetZ;
 
             if (nearestReceiver) {
-                // Move toward receiver in zone
+                // Move toward receiver, staying slightly behind
                 targetX = nearestReceiver.position.x;
-                targetZ = nearestReceiver.position.z - 0.5;  // Stay slightly behind
+                targetZ = nearestReceiver.position.z - 0.5;
             } else {
-                // Patrol zone center
-                targetX = defender.zoneCenter.x;
-                targetZ = defender.zoneCenter.z;
+                // No receiver nearby - move toward ball
+                const football = gameState.scene?.football;
+                if (football) {
+                    targetX = football.position.x;
+                    targetZ = football.position.z;
+                } else {
+                    // Fallback to zone center
+                    targetX = defender.zoneCenter.x;
+                    targetZ = defender.zoneCenter.z;
+                }
             }
 
             const dx = targetX - defender.position.x;
@@ -9336,8 +10264,10 @@
             const dist = Math.sqrt(dx * dx + dz * dz);
 
             if (dist > 0.3) {
-                defender.position.x += (dx / dist) * speed;
-                defender.position.z += (dz / dist) * speed;
+                // Move faster when ball is in air (safety breaks on the ball)
+                const reactSpeed = speed * 1.1;
+                defender.position.x += (dx / dist) * reactSpeed;
+                defender.position.z += (dz / dist) * reactSpeed;
                 defender.rotation.y = Math.atan2(dx, dz);
             }
 
@@ -10476,15 +11406,18 @@
                     defender.reactionDelay = 0.25;  // Quarter second before reacting
                     manDefenderIndex++;
                 } else if (defender.aiType === 'zone') {
-                    // Zone defender (safety) - randomized horizontal position
-                    const zoneDepth = 6 + Math.random() * 4;  // 6-10 yards deep
-                    const clampedZoneZ = Math.min(END_ZONE_BACK - 1, lineZ + zoneDepth);
-                    // Safety can line up anywhere from -4 to +4 horizontally
-                    const safetyX = (Math.random() - 0.5) * 8;
-                    defender.zoneCenter = new BABYLON.Vector3(safetyX, 0, clampedZoneZ);
-                    defender.zoneRadius = 5 + Math.random() * 2;  // 5-7 yard radius
+                    // Safety - starts deep and centered, picks side during play
+                    const safetyDepth = 10 + Math.random() * 3;  // 10-13 yards deep (further back)
+                    const clampedZoneZ = Math.min(END_ZONE_BACK - 1, lineZ + safetyDepth);
+                    // Safety starts near center (will drift to chosen side during play)
+                    const safetyX = (Math.random() - 0.5) * 2;  // -1 to +1 yards (mostly centered)
+                    defender.zoneCenter = new BABYLON.Vector3(0, 0, clampedZoneZ);
+                    defender.zoneRadius = 6 + Math.random() * 2;  // 6-8 yard radius (wider coverage)
                     defender.startPos.x = safetyX;
-                    defender.startPos.z = Math.min(END_ZONE_BACK - 1, clampedZoneZ - 2);
+                    defender.startPos.z = Math.min(END_ZONE_BACK - 1, clampedZoneZ);
+                    // Reset safety's chosen side so it picks fresh each play
+                    defender.chosenSide = undefined;
+                    defender.sideCommitment = undefined;
                 }
 
                 // Clamp final positions to field boundaries
@@ -10547,6 +11480,7 @@
                 receiver.position.z = receiverLineZ;
                 receiver.position.y = 0;
                 receiver.rotation.y = 0;
+                receiver.headingAngle = 0;  // Reset heading for turn-rate limiting
                 receiver.routeIndex = 0;
                 receiver.lastRouteIndex = 0;
                 receiver.hasHadInitialClash = false;
@@ -10939,10 +11873,11 @@
 
             let frameIndex = 0;
             // Ball flight speed - short throws faster, long throws slower for arc visibility
-            // Short throws: quick (2.3), long throws: slower (0.7)
+            // Short throws: quick (1.5), long throws: slower (0.7)
             // Apply ball speed multiplier from training settings
-            const baseAnimationSpeed = 2.3 - (throwParams.power * 1.6);
-            const animationSpeed = baseAnimationSpeed * gameState.ballSpeedMultiplier;
+            // Scale by playerScale to match scaled player movement speeds
+            const baseAnimationSpeed = 1.5 - (throwParams.power * 0.8);
+            const animationSpeed = baseAnimationSpeed * gameState.ballSpeedMultiplier * gameState.playerScale;
             let accumulator = 0;
             const time = { value: 0 };
 
@@ -11123,20 +12058,59 @@
 
                         // Calculate this receiver's catch radius based on catching stat
                         // Scales from 0.8 at 50 catching to 1.8 at 100 catching
-                        const receiverCatchRadius = 0.8 + ((receiver.stats.catching - 50) / 50) * 1.0;
+                        // Scale by playerScale so larger players have proportionally larger catch radius
+                        const receiverCatchRadius = (0.8 + ((receiver.stats.catching - 50) / 50) * 1.0) * gameState.playerScale;
 
                         // Larger adjustment range so receivers can adjust to the ball
                         const adjustmentRange = Math.max(5, receiverCatchRadius * 3);
 
+                        // Apply difficulty scaling to awareness and agility
+                        // Use training difficulty in training mode, game difficulty otherwise
+                        // Easy: no change, Medium: -30 effective, Hard: -50 effective
+                        const currentDifficulty = gameState.trainingMode ? gameState.trainingDifficulty : gameState.gameDifficulty;
+                        const difficultyPenalty = currentDifficulty === 'easy' ? 0 :
+                                                  currentDifficulty === 'hard' ? 50 : 30;
+
+                        // Calculate reaction delay based on receiver's intelligence (awareness/field vision)
+                        // Easy 90 INT = 3 frames, Medium 90 INT = 10 frames (like Easy 60)
+                        const rawIntelligence = receiver.coreAttributes?.intelligence || 70;
+                        const effectiveIntelligence = Math.max(20, rawIntelligence - difficultyPenalty);
+                        const reactionFrames = Math.floor((100 - effectiveIntelligence) / 3);
+
+                        // Agility stat controls max turn rate (radians per frame)
+                        // Uses cubic scaling so low agility can barely turn at all
+                        const rawAgility = receiver.coreAttributes?.agility || 70;
+                        const effectiveAgility = Math.max(20, rawAgility - difficultyPenalty);
+                        const agilityNorm = effectiveAgility / 100;
+                        const maxTurnRate = 0.01 + (agilityNorm * agilityNorm * agilityNorm) * 0.26;  // cubic scaling
+
+                        // Initialize heading direction if not set (use current rotation)
+                        if (receiver.headingAngle === undefined) {
+                            receiver.headingAngle = receiver.rotation.y || 0;
+                        }
+
                         // First priority: continue running route if not complete
                         if (!routeComplete) {
                             // Ball is close - adjust toward it instead of following route
-                            if (distToLanding < adjustmentRange && frameIndex > 5) {
+                            if (distToLanding < adjustmentRange && frameIndex > reactionFrames) {
                                 if (distToLanding > 0.3) {
+                                    // Calculate desired angle to ball
+                                    const desiredAngle = Math.atan2(dx, dz);
+
+                                    // Calculate angle difference (normalized to -PI to PI)
+                                    let angleDiff = desiredAngle - receiver.headingAngle;
+                                    while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
+                                    while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
+
+                                    // Limit turn rate based on awareness
+                                    const actualTurn = Math.max(-maxTurnRate, Math.min(maxTurnRate, angleDiff));
+                                    receiver.headingAngle += actualTurn;
+
+                                    // Move in heading direction (not directly toward ball)
                                     const catchAdjustSpeed = effectiveSpeed * 0.8;
-                                    receiver.position.x += (dx / distToLanding) * catchAdjustSpeed;
-                                    receiver.position.z += (dz / distToLanding) * catchAdjustSpeed;
-                                    receiver.rotation.y = Math.atan2(dx, dz);
+                                    receiver.position.x += Math.sin(receiver.headingAngle) * catchAdjustSpeed;
+                                    receiver.position.z += Math.cos(receiver.headingAngle) * catchAdjustSpeed;
+                                    receiver.rotation.y = receiver.headingAngle;
                                     // Moving at full speed - maintain momentum (no change)
                                 } else {
                                     // Waiting at landing spot - decay momentum
@@ -11145,13 +12119,28 @@
                             } else {
                                 // Keep running the route (moveReceiverAlongRoute updates momentum)
                                 moveReceiverAlongRoute(receiver, effectiveSpeed);
+                                // Update heading angle from route movement
+                                receiver.headingAngle = receiver.rotation.y;
                             }
                         } else {
-                            // Route complete - move toward ball landing spot
+                            // Route complete - move toward ball landing spot with turn limits
                             if (distToLanding > 0.3) {
-                                receiver.position.x += (dx / distToLanding) * effectiveSpeed;
-                                receiver.position.z += (dz / distToLanding) * effectiveSpeed;
-                                receiver.rotation.y = Math.atan2(dx, dz);
+                                // Calculate desired angle to ball
+                                const desiredAngle = Math.atan2(dx, dz);
+
+                                // Calculate angle difference (normalized to -PI to PI)
+                                let angleDiff = desiredAngle - receiver.headingAngle;
+                                while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
+                                while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
+
+                                // Limit turn rate based on awareness
+                                const actualTurn = Math.max(-maxTurnRate, Math.min(maxTurnRate, angleDiff));
+                                receiver.headingAngle += actualTurn;
+
+                                // Move in heading direction
+                                receiver.position.x += Math.sin(receiver.headingAngle) * effectiveSpeed;
+                                receiver.position.z += Math.cos(receiver.headingAngle) * effectiveSpeed;
+                                receiver.rotation.y = receiver.headingAngle;
                                 // Moving at full speed - maintain momentum (no change)
                             } else {
                                 // Waiting at landing spot - decay momentum
@@ -11253,7 +12242,8 @@
 
                 // Each receiver's catch radius depends on their catching stat
                 // Scales from 0.8 at 50 catching to 1.8 at 100 catching
-                const receiverCatchRadius = 0.8 + ((receiver.stats.catching - 50) / 50) * 1.0;
+                // Scale by playerScale so larger players have proportionally larger catch radius
+                const receiverCatchRadius = (0.8 + ((receiver.stats.catching - 50) / 50) * 1.0) * gameState.playerScale;
 
                 const distance = BABYLON.Vector3.Distance(
                     new BABYLON.Vector3(receiver.position.x, 0, receiver.position.z),
@@ -11999,30 +12989,45 @@
 
                 // Target centered on the line of scrimmage
                 // Allow camera to follow full field from own 35 (-60) to end zone (Z = 14)
-                const cameraTargetZ = Math.max(-60, Math.min(14, gameState.lineOfScrimmage + 2));
+                // Apply camera offset to move view forward (reduces space behind QB)
+                const baseTargetZ = gameState.lineOfScrimmage + 2;
+                const maxForwardOffset = 12;  // Maximum forward offset in world units
+                const forwardOffset = (gameState.cameraOffset || 0) * maxForwardOffset;
+                const cameraTargetZ = Math.max(-60, Math.min(14, baseTargetZ + forwardOffset));
                 camera.target = new BABYLON.Vector3(0, 0, cameraTargetZ);
 
-                // Reset camera to current view mode settings (alpha, beta, radius)
-                switch(gameState.currentView) {
-                    case 'iso':
-                        camera.alpha = -Math.PI / 2;
-                        camera.beta = Math.PI / 3.5;
-                        camera.radius = 32;
-                        break;
-                    case 'overhead':
-                        camera.alpha = -Math.PI / 2;
-                        camera.beta = 0.1;
-                        camera.radius = 28;
-                        break;
-                    case 'shoulder':
-                        camera.alpha = -Math.PI / 2;
-                        camera.beta = Math.PI / 2.5;
-                        camera.radius = 18;
-                        break;
-                    default:
-                        camera.alpha = -Math.PI / 2;
-                        camera.beta = Math.PI / 3.5;
-                        camera.radius = 32;
+                // In training mode, use the slider-controlled camera angle
+                if (gameState.trainingMode && gameState.cameraAngle !== undefined) {
+                    camera.alpha = -Math.PI / 2;
+                    camera.beta = 0.1 + gameState.cameraAngle * (Math.PI / 2 - 0.1);
+                    // Adjust radius based on camera offset to maintain consistent framing
+                    // More forward offset = slightly larger radius to compensate
+                    const baseRadius = 32;
+                    const radiusAdjust = (gameState.cameraOffset || 0) * 8;
+                    camera.radius = baseRadius + radiusAdjust;
+                } else {
+                    // Reset camera to current view mode settings (alpha, beta, radius)
+                    switch(gameState.currentView) {
+                        case 'iso':
+                            camera.alpha = -Math.PI / 2;
+                            camera.beta = Math.PI / 3.5;
+                            camera.radius = 32;
+                            break;
+                        case 'overhead':
+                            camera.alpha = -Math.PI / 2;
+                            camera.beta = 0.1;
+                            camera.radius = 28;
+                            break;
+                        case 'shoulder':
+                            camera.alpha = -Math.PI / 2;
+                            camera.beta = Math.PI / 2.5;
+                            camera.radius = 18;
+                            break;
+                        default:
+                            camera.alpha = -Math.PI / 2;
+                            camera.beta = Math.PI / 3.5;
+                            camera.radius = 32;
+                    }
                 }
             }
 
@@ -12160,12 +13165,13 @@
                 // Let right-click (button 2) and multi-touch pass through to camera
                 if (evt.button !== 0 && evt.pointerType === 'mouse') return;
 
-                // Unfreeze play when holding down (starts the play)
+                // ALWAYS unfreeze play when holding down (starts the play)
+                // This ensures the play starts even if there was stale state
                 if (gameState.playFrozen) {
-                    gameState.playFrozen = false;
-                    gameState.playStartTime = performance.now() * 0.001;
                     hidePlayerLabels();
                 }
+                gameState.playFrozen = false;
+                gameState.playStartTime = performance.now() * 0.001;
 
                 if (!gameState.canThrow || gameState.ballInFlight) return;
 
@@ -12216,10 +13222,26 @@
                 }
             };
 
+            // Handle pointer cancel (touch interrupted by system gesture, notification, etc.)
+            const onPointerCancel = (evt) => {
+                if (!gameState.isDragging || evt.pointerId !== gameState.activePointerId) return;
+
+                // Clean up drag state without throwing
+                gameState.isDragging = false;
+                gameState.activePointerId = null;
+                gameState.dragStart = null;
+                gameState.dragCurrent = null;
+                if (scene.trajectoryDots) {
+                    scene.trajectoryDots.forEach(dot => dot.dispose());
+                    scene.trajectoryDots = null;
+                }
+            };
+
             // Use pointer events for unified mouse/touch handling
             canvas.addEventListener('pointerdown', onPointerDown);
             canvas.addEventListener('pointermove', onPointerMove);
             canvas.addEventListener('pointerup', onPointerUp);
+            canvas.addEventListener('pointercancel', onPointerCancel);
             canvas.addEventListener('pointerleave', onPointerUp);
         };
 
@@ -12306,13 +13328,13 @@
                             receiver.rotation.x += Math.sin(tiltProgress * Math.PI) * 0.3;
                         }
 
-                        // Show green while speed boosted, red while speed penalized
-                        if (receiver.clashSpeedBoostUntil > gameState.gameTime) {
+                        // Show green while speed boosted, red while speed penalized (if enabled)
+                        if (gameState.showClashFlash && receiver.clashSpeedBoostUntil > gameState.gameTime) {
                             const flashRate = Math.sin(time * 10) * 0.3 + 0.7;  // Gentle pulse 0.4-1.0
                             const green = new BABYLON.Color3(0.2, 1.0, 0.3);
                             receiver.bodyMaterial.diffuseColor = BABYLON.Color3.Lerp(receiver.originalColor, green, flashRate * 0.7);
                             receiver.bodyMaterial.emissiveColor = green.scale(flashRate * 0.3);
-                        } else if (receiver.clashSpeedPenaltyUntil > gameState.gameTime) {
+                        } else if (gameState.showClashFlash && receiver.clashSpeedPenaltyUntil > gameState.gameTime) {
                             const flashRate = Math.sin(time * 10) * 0.3 + 0.7;  // Gentle pulse 0.4-1.0
                             const red = new BABYLON.Color3(1.0, 0.2, 0.2);
                             receiver.bodyMaterial.diffuseColor = BABYLON.Color3.Lerp(receiver.originalColor, red, flashRate * 0.7);
@@ -12852,6 +13874,7 @@
                 overlay.classList.remove('hidden');
                 topBar.style.display = 'none';
                 viewButtons.style.display = 'none';
+                document.getElementById('btnSimRest').style.display = 'none';
                 gameSceneActive = false;
 
                 hideAllScreens();
@@ -12898,6 +13921,10 @@
                         document.getElementById('draftScreen').style.display = 'block';
                         refreshDraftScreen();
                         break;
+                    case 'settings':
+                        document.getElementById('gameSettingsScreen').style.display = 'block';
+                        refreshSettingsScreen();
+                        break;
                 }
             }
 
@@ -12920,6 +13947,18 @@
             }
         }
 
+        // Refresh settings screen data
+        function refreshSettingsScreen() {
+            // Update difficulty button states
+            document.querySelectorAll('.game-difficulty-btn').forEach(btn => {
+                if (btn.dataset.difficulty === gameState.gameDifficulty) {
+                    btn.style.background = '#4a4';
+                } else {
+                    btn.style.background = '#333';
+                }
+            });
+        }
+
         // Calculate season stat change for a player (based on primary stats/overall)
         function calculateSeasonStatChange(player) {
             if (!player.seasonStartStats) return 0;
@@ -12927,12 +13966,20 @@
             // Calculate based on primary stats for the position (same as overall)
             const positionData = POSITIONS[player.position];
             const primaryStats = positionData.primaryStats;
+            const coreStatNames = ['strength', 'speed', 'agility', 'intelligence'];
 
             let currentTotal = 0;
             let startTotal = 0;
             primaryStats.forEach(stat => {
-                currentTotal += player.stats[stat] || 0;
-                startTotal += player.seasonStartStats[stat] || 0;
+                // Check if this is a core stat (stored in coreAttributes) or technique stat
+                const isCoreAttribute = coreStatNames.includes(stat);
+                if (isCoreAttribute) {
+                    currentTotal += player.coreAttributes?.[stat] || 0;
+                    startTotal += player.seasonStartCoreAttributes?.[stat] || player.coreAttributes?.[stat] || 0;
+                } else {
+                    currentTotal += player.stats[stat] || 0;
+                    startTotal += player.seasonStartStats[stat] || 0;
+                }
             });
 
             // Return change in overall (average of primary stats)
@@ -13015,7 +14062,14 @@
             if (player.seasonStartStats) {
                 const positionData = POSITIONS[player.position];
                 const primaryStats = positionData.primaryStats;
-                const startTotal = primaryStats.reduce((sum, stat) => sum + (player.seasonStartStats[stat] || 0), 0);
+                const coreStatNames = ['strength', 'speed', 'agility', 'intelligence'];
+                const startTotal = primaryStats.reduce((sum, stat) => {
+                    const isCoreAttribute = coreStatNames.includes(stat);
+                    if (isCoreAttribute) {
+                        return sum + (player.seasonStartCoreAttributes?.[stat] || player.coreAttributes?.[stat] || 0);
+                    }
+                    return sum + (player.seasonStartStats[stat] || 0);
+                }, 0);
                 startOverall = Math.round(startTotal / primaryStats.length);
             }
             const overallChange = currentOverall - startOverall;
@@ -13067,32 +14121,44 @@
 
             let statsHtml = '<div class="stats-panel">';
 
-            // Core Attributes section
+            // Core Attributes section (with growth display)
             if (core) {
+                const startCore = player.seasonStartCoreAttributes || core;
+                const getCoreChange = (stat) => {
+                    const current = Math.floor(core[stat]);
+                    const start = Math.floor(startCore[stat] || current);
+                    const change = current - start;
+                    return change !== 0 ? ` <span class="stat-change ${change > 0 ? 'positive' : 'negative'}">${change > 0 ? '+' : ''}${change}</span>` : '';
+                };
                 statsHtml += `
                     <div class="stats-section">
                         <div class="stats-section-title">Core</div>
                         <div class="stats-grid">
-                            <div class="stat-row str-row"><span class="stat-row-name">STR</span><span class="stat-row-value ${getColorClass(core.strength)}">${core.strength}</span></div>
-                            <div class="stat-row spd-row"><span class="stat-row-name">SPD</span><span class="stat-row-value ${getColorClass(core.speed)}">${core.speed}</span></div>
-                            <div class="stat-row agi-row"><span class="stat-row-name">AGI</span><span class="stat-row-value ${getColorClass(core.agility)}">${core.agility}</span></div>
-                            <div class="stat-row int-row"><span class="stat-row-name">INT</span><span class="stat-row-value ${getColorClass(core.intelligence)}">${core.intelligence}</span></div>
+                            <div class="stat-row str-row"><span class="stat-row-name">STR</span><span class="stat-row-value ${getColorClass(core.strength)}">${Math.floor(core.strength)}${getCoreChange('strength')}</span></div>
+                            <div class="stat-row spd-row"><span class="stat-row-name">SPD</span><span class="stat-row-value ${getColorClass(core.speed)}">${Math.floor(core.speed)}${getCoreChange('speed')}</span></div>
+                            <div class="stat-row agi-row"><span class="stat-row-name">AGI</span><span class="stat-row-value ${getColorClass(core.agility)}">${Math.floor(core.agility)}${getCoreChange('agility')}</span></div>
+                            <div class="stat-row int-row"><span class="stat-row-name">INT</span><span class="stat-row-value ${getColorClass(core.intelligence)}">${Math.floor(core.intelligence)}${getCoreChange('intelligence')}</span></div>
                         </div>
                     </div>
                 `;
             }
 
-            // Abilities section
-            if (abilities) {
+            // Abilities section - show stored ability values with growth indicators
+            if (player.abilities) {
+                const startAbilities = player.seasonStartAbilities || player.abilities;
                 statsHtml += `
                     <div class="stats-section">
                         <div class="stats-section-title">Abilities</div>
                         <div class="stats-grid">
-                            ${Object.entries(abilities).map(([key, value]) => {
+                            ${Object.entries(player.abilities).map(([key, storedValue]) => {
                                 const isBest = bestAbility && bestAbility.name === key;
                                 const dots = getAbilityDots(key);
                                 const name = getAbilityDisplayName(key);
-                                return `<div class="stat-row ${isBest ? 'best-ability' : ''}"><span class="stat-row-name">${dots}${name}</span><span class="stat-row-value ${getColorClass(value)}">${value}</span></div>`;
+                                const current = Math.floor(storedValue);
+                                const start = Math.floor(startAbilities[key] || storedValue);
+                                const change = current - start;
+                                const changeText = change !== 0 ? ` <span class="stat-change ${change > 0 ? 'positive' : 'negative'}">${change > 0 ? '+' : ''}${change}</span>` : '';
+                                return `<div class="stat-row ${isBest ? 'best-ability' : ''}"><span class="stat-row-name">${dots}${name}</span><span class="stat-row-value ${getColorClass(current)}">${current}${changeText}</span></div>`;
                             }).join('')}
                         </div>
                     </div>
@@ -13371,32 +14437,18 @@
 
         // Show match end result
         function showMatchEnd(matchResult) {
+            console.log('[DEBUG] showMatchEnd called', matchResult);
+            if (!matchResult) {
+                console.error('[DEBUG] showMatchEnd called with null/undefined matchResult');
+                return;
+            }
             const result = matchResult.result;
-            document.getElementById('matchResult').textContent = result.win ? 'VICTORY!' : 'DEFEAT';
-            document.getElementById('matchResult').className = result.win ? 'win' : 'loss';
-            document.getElementById('matchScore').textContent = `${result.playerScore} - ${result.opponentScore}`;
-            document.getElementById('matchRevenue').textContent = `+${matchResult.revenue.toLocaleString()} Fame`;
-
-            // Add fame to players ONCE per game (prevent double-counting on re-render)
-            if (!managementState.fameAddedThisGame && managementState.team && managementState.team.roster) {
-                managementState.fameAddedThisGame = true;
-                managementState.team.roster.forEach(player => {
-                    const pStats = gameStats.players[player.id];
-                    if (pStats && player.hypeData) {
-                        const fameEarned = calculateGameFame(player, pStats);
-                        if (fameEarned > 0) {
-                            player.hypeData.accumulatedFameBank += fameEarned;
-                            player.hypeData.seasonFameEarnings += fameEarned;
-                        }
-                    }
-                });
+            if (!result) {
+                console.error('[DEBUG] matchResult.result is null/undefined', matchResult);
+                return;
             }
 
-            // Build post-game stats display using roster layout
-            const statsContainer = document.getElementById('postGameStats');
-            statsContainer.innerHTML = '';
-
-            // Helper to get game stats for a player
+            // Helper to get game stats for a player (needed for both reveal and final display)
             const getPlayerGameStats = (player) => {
                 const pStats = gameStats.players[player.id];
                 if (!pStats) return [];
@@ -13409,23 +14461,24 @@
                     const pct = total > 0 ? Math.round(pStats.completions / total * 100) : 0;
                     statItems.push({ label: 'COMP', value: `${pStats.completions}/${total}` });
                     statItems.push({ label: '%', value: `${pct}%` });
-                    if (pStats.throwDistances.length > 0) {
-                        const avgDist = Math.round(pStats.throwDistances.reduce((a,b) => a+b, 0) / pStats.throwDistances.length);
-                        statItems.push({ label: 'YDS', value: avgDist });
+                    if (pStats.passingYards > 0) {
+                        statItems.push({ label: 'YDS', value: pStats.passingYards });
                     }
                 }
 
                 // Receiver stats
                 if (pStats.catches > 0 || pStats.drops > 0) {
                     statItems.push({ label: 'REC', value: pStats.catches });
+                    if (pStats.receivingYards > 0) statItems.push({ label: 'YDS', value: pStats.receivingYards });
                     if (pStats.drops > 0) statItems.push({ label: 'DROP', value: pStats.drops });
-                    if (pStats.yardsAfterCatch > 0) statItems.push({ label: 'YAC', value: pStats.yardsAfterCatch });
                 }
 
-                // Clash stats
+                // Clash stats - show win percentage
                 if (pStats.clashesWon > 0 || pStats.clashesLost > 0) {
-                    statItems.push({ label: 'W', value: pStats.clashesWon });
-                    statItems.push({ label: 'L', value: pStats.clashesLost });
+                    const totalClashes = pStats.clashesWon + pStats.clashesLost;
+                    const winPct = totalClashes > 0 ? Math.round(pStats.clashesWon / totalClashes * 100) : 0;
+                    statItems.push({ label: 'CLSH', value: `${pStats.clashesWon}-${pStats.clashesLost}` });
+                    statItems.push({ label: 'WIN%', value: `${winPct}%` });
                 }
 
                 // Defense stats
@@ -13439,87 +14492,148 @@
                 return statItems;
             };
 
-            // Helper to render a player row
-            const renderPlayerRow = (player) => {
-                const pStats = gameStats.players[player.id];
-                const statItems = getPlayerGameStats(player);
+            // Function to display the final match end screen
+            const displayMatchEndScreen = () => {
+                document.getElementById('matchResult').textContent = result.win ? 'VICTORY!' : 'DEFEAT';
+                document.getElementById('matchResult').className = result.win ? 'win' : 'loss';
+                document.getElementById('matchScore').textContent = `${result.playerScore} - ${result.opponentScore}`;
+                document.getElementById('matchRevenue').textContent = `+${matchResult.revenue.toLocaleString()} Fame`;
 
-                // Calculate fame earned this game
-                const fameEarned = calculateGameFame(player, pStats);
-
-                // Add fame to stats display if earned (always show, even if already added)
-                if (fameEarned > 0) {
-                    statItems.push({ label: 'FAME', value: `+${fameEarned}`, highlight: true });
+                // Build player growth map from progression results
+                const playerGrowthMap = {};
+                if (matchResult.progression && matchResult.progression.improvements) {
+                    matchResult.progression.improvements.forEach(({ player, improvements }) => {
+                        playerGrowthMap[player.id] = improvements;
+                    });
                 }
 
-                const statsHtml = statItems.length > 0
-                    ? statItems.map(s => `<div class="post-game-stat${s.highlight ? ' fame-stat' : ''}"><span class="post-game-stat-value">${s.value}</span><span class="post-game-stat-label">${s.label}</span></div>`).join('')
-                    : '<span class="post-game-no-stats">No stats</span>';
+                // Add fame to players ONCE per game (prevent double-counting on re-render)
+                if (!managementState.fameAddedThisGame && managementState.team && managementState.team.roster) {
+                    managementState.fameAddedThisGame = true;
+                    managementState.team.roster.forEach(player => {
+                        const pStats = gameStats.players[player.id];
+                        if (pStats && player.hypeData) {
+                            const fameEarned = calculateGameFame(player, pStats);
+                            if (fameEarned > 0) {
+                                player.hypeData.accumulatedFameBank += fameEarned;
+                                player.hypeData.seasonFameEarnings += fameEarned;
+                            }
+                        }
+                    });
+                }
 
-                // Show accumulated fame bank
-                const fameBank = player.hypeData ? player.hypeData.accumulatedFameBank : 0;
+                // Build post-game stats display using roster layout
+                const statsContainer = document.getElementById('postGameStats');
+                statsContainer.innerHTML = '';
 
-                const div = document.createElement('div');
-                div.className = 'post-game-player';
-                div.innerHTML = `
-                    <div class="post-game-player-header">
-                        <span class="post-game-player-name">${player.firstName} ${player.lastName}</span>
-                        <span class="post-game-player-fame" style="color:#ffd700;font-size:11px;margin-left:8px;">${fameBank > 0 ? `[${fameBank}]` : ''}</span>
-                        <span class="post-game-player-ovr">${player.overall}</span>
-                    </div>
-                    <div class="post-game-player-stats">${statsHtml}</div>
-                `;
-                div.addEventListener('click', () => showPlayerDetail(player.id));
-                return div;
-            };
+                // Stat name mapping for display
+                const statDisplayNames = {
+                    speed: 'SPD', strength: 'STR', agility: 'AGI', intelligence: 'INT',
+                    catching: 'CTH', routeRunning: 'RTE', awareness: 'AWR', pursuit: 'PUR',
+                    passBlock: 'PBK', passRush: 'PSR', tackling: 'TKL', coverage: 'COV',
+                    throwPower: 'PWR', throwAccuracy: 'ACC', readDefense: 'RDF'
+                };
 
-            // Group players by position category (same order as roster)
-            const positionGroups = {
-                'Offense': ['QB', 'WR', 'OL'],
-                'Defense': ['CB', 'DL']
-            };
+                // Helper to render a player row (roster-style layout)
+                const renderPlayerRow = (player) => {
+                    const pStats = gameStats.players[player.id];
+                    const statItems = getPlayerGameStats(player);
 
-            if (!managementState.team || !managementState.team.roster) {
-                statsContainer.innerHTML = '<p style="color:#888;text-align:center;">No roster data</p>';
-                showScreen('match_end');
-                return;
-            }
+                    // Calculate fame earned this game
+                    const fameEarned = calculateGameFame(player, pStats);
 
-            Object.entries(positionGroups).forEach(([groupName, positions]) => {
-                const groupPlayers = managementState.team.roster
-                    .filter(p => positions.includes(p.position))
-                    .sort((a, b) => b.overall - a.overall);
+                    // Add fame to stats display if earned
+                    if (fameEarned > 0) {
+                        statItems.push({ label: 'FAME', value: `+${fameEarned}`, highlight: true });
+                    }
 
-                if (groupPlayers.length === 0) return;
+                    const statsHtml = statItems.length > 0
+                        ? statItems.map(s => `<div class="post-game-stat${s.highlight ? ' fame-stat' : ''}"><span class="post-game-stat-value">${s.value}</span><span class="post-game-stat-label">${s.label}</span></div>`).join('')
+                        : '<span class="post-game-no-stats">—</span>';
 
-                const section = document.createElement('div');
-                section.className = 'post-game-section';
-                section.innerHTML = `<div class="post-game-section-title">${groupName}</div>`;
+                    // Show accumulated fame bank
+                    const fameBank = player.hypeData ? player.hypeData.accumulatedFameBank : 0;
 
-                groupPlayers.forEach(player => {
-                    section.appendChild(renderPlayerRow(player));
+                    // Get player growth for this week
+                    const playerGrowth = playerGrowthMap[player.id] || [];
+                    const growthHtml = playerGrowth.length > 0
+                        ? playerGrowth.map(g => `<span class="post-game-growth">+${g.change} ${statDisplayNames[g.stat] || g.stat.toUpperCase()}</span>`).join(' ')
+                        : '';
+
+                    // Calculate total growth for display next to OVR
+                    const totalGrowth = playerGrowth.reduce((sum, g) => sum + g.change, 0);
+                    const growthClass = totalGrowth > 0 ? 'positive' : '';
+                    const growthText = totalGrowth > 0 ? `+${totalGrowth}` : '';
+
+                    const div = document.createElement('div');
+                    div.className = 'post-game-player';
+                    div.innerHTML = `
+                        <div class="post-game-player-header">
+                            <div class="post-game-player-info">
+                                <span class="post-game-player-name">${player.firstName} ${player.lastName}</span>
+                                ${fameBank > 0 ? `<span class="post-game-player-fame">[${fameBank}]</span>` : ''}
+                            </div>
+                            <div class="post-game-player-right">
+                                ${growthHtml ? `<span class="post-game-player-growth">${growthHtml}</span>` : ''}
+                                <span class="post-game-player-change ${growthClass}">${growthText}</span>
+                                <span class="post-game-player-ovr">${player.overall}</span>
+                            </div>
+                        </div>
+                        <div class="post-game-player-stats">${statsHtml}</div>
+                    `;
+                    div.addEventListener('click', () => showPlayerDetail(player.id));
+                    return div;
+                };
+
+                if (!managementState.team || !managementState.team.roster) {
+                    statsContainer.innerHTML = '<p style="color:#888;text-align:center;">No roster data</p>';
+                    showScreen('match_end');
+                    return;
+                }
+
+                // Use same position order as roster screen
+                const positions = ['QB', 'WR', 'CB', 'OL', 'DL'];
+                positions.forEach(pos => {
+                    const players = managementState.team.roster
+                        .filter(p => p.position === pos)
+                        .sort((a, b) => b.overall - a.overall);
+
+                    if (players.length === 0) return;
+
+                    // Position header (same style as roster)
+                    const header = document.createElement('div');
+                    header.className = 'position-header';
+                    header.textContent = POSITIONS[pos].name;
+                    statsContainer.appendChild(header);
+
+                    // Player rows
+                    players.forEach(player => {
+                        statsContainer.appendChild(renderPlayerRow(player));
+                    });
                 });
 
-                statsContainer.appendChild(section);
-            });
+                if (statsContainer.children.length === 0) {
+                    statsContainer.innerHTML = '<p style="color:#888;text-align:center;">No player stats recorded</p>';
+                }
 
-            if (statsContainer.children.length === 0) {
-                statsContainer.innerHTML = '<p style="color:#888;text-align:center;">No player stats recorded</p>';
-            }
+                // Show simulation log button if there's a log
+                const logBtn = document.getElementById('btnShowSimLog');
+                const logContainer = document.getElementById('simLogContainer');
+                if (managementState.simulationLog && managementState.simulationLog.length > 0) {
+                    logBtn.style.display = 'block';
+                    document.getElementById('simLogContent').textContent = getSimulationLog();
+                } else {
+                    logBtn.style.display = 'none';
+                }
+                logContainer.style.display = 'none';
 
-            // Show simulation log button if there's a log
-            const logBtn = document.getElementById('btnShowSimLog');
-            const logContainer = document.getElementById('simLogContainer');
-            if (managementState.simulationLog && managementState.simulationLog.length > 0) {
-                logBtn.style.display = 'block';
-                document.getElementById('simLogContent').textContent = getSimulationLog();
-            } else {
-                logBtn.style.display = 'none';
-            }
-            logContainer.style.display = 'none';
+                showScreen('match_end');
+            };
 
-            showScreen('match_end');
+            // Show match end screen directly
+            displayMatchEndScreen();
         }
+        console.log('[DEBUG] showMatchEnd defined');
 
         // Show pre-game matchup screen
         function showPreGame(opponent) {
@@ -13691,6 +14805,7 @@
             matchupsContainer.innerHTML = html;
             showScreen('pre_game');
         }
+        console.log('[DEBUG] showPreGame defined');
 
         // Start the arcade game portion
         function startArcadeGame() {
@@ -13704,6 +14819,7 @@
             document.getElementById('viewButtons').style.display = 'flex';
             document.getElementById('trainingModeUI').style.display = 'none';
             document.getElementById('catchDisplay').style.display = '';
+            document.getElementById('btnSimRest').style.display = 'block'; // Show sim rest button
             gameSceneActive = true;
 
             // Reset game state
@@ -13885,6 +15001,52 @@
                 if (defender.ovrTextBlock) {
                     const stars = defender.overall >= 90 ? ' ★★' : defender.overall >= 85 ? ' ★' : '';
                     defender.ovrTextBlock.text = `${defender.overall}${stars}`;
+                }
+            });
+        }
+
+        // Apply receiver awareness preset (affects ball reaction delay)
+        function applyReceiverAwarenessPreset() {
+            const preset = gameState.receiverAwarenessPreset;
+            const awarenesses = preset === 'mixed' ? [90, 70, 50] : [preset, preset, preset];
+            gameState.receivers.forEach((receiver, i) => {
+                const awarenessStat = awarenesses[i % awarenesses.length];
+                // Update coreAttributes.intelligence (which controls reaction time)
+                if (!receiver.coreAttributes) receiver.coreAttributes = {};
+                receiver.coreAttributes.intelligence = awarenessStat;
+                // Recalculate overall using new formula
+                receiver.overall = calculateOverall({
+                    position: 'WR',
+                    coreAttributes: receiver.coreAttributes,
+                    stats: receiver.stats
+                });
+                // Update visual label
+                if (receiver.ovrTextBlock) {
+                    const stars = receiver.overall >= 90 ? ' ★★' : receiver.overall >= 85 ? ' ★' : '';
+                    receiver.ovrTextBlock.text = `${receiver.overall}${stars}`;
+                }
+            });
+        }
+
+        // Apply receiver agility preset (affects turn rate/route correction)
+        function applyReceiverAgilityPreset() {
+            const preset = gameState.receiverAgilityPreset;
+            const agilities = preset === 'mixed' ? [90, 70, 50] : [preset, preset, preset];
+            gameState.receivers.forEach((receiver, i) => {
+                const agilityStat = agilities[i % agilities.length];
+                // Update coreAttributes.agility (which controls turn rate)
+                if (!receiver.coreAttributes) receiver.coreAttributes = {};
+                receiver.coreAttributes.agility = agilityStat;
+                // Recalculate overall using new formula
+                receiver.overall = calculateOverall({
+                    position: 'WR',
+                    coreAttributes: receiver.coreAttributes,
+                    stats: receiver.stats
+                });
+                // Update visual label
+                if (receiver.ovrTextBlock) {
+                    const stars = receiver.overall >= 90 ? ' ★★' : receiver.overall >= 85 ? ' ★' : '';
+                    receiver.ovrTextBlock.text = `${receiver.overall}${stars}`;
                 }
             });
         }
@@ -14263,6 +15425,7 @@
                 });
             }
         }
+        console.log('[DEBUG] updateGamePlayersFromRoster defined');
 
         // Called when a drive/possession ends in the arcade game
         function onPossessionComplete(points) {
@@ -14655,9 +15818,17 @@
             // Start showing plays after a brief pause
             setTimeout(showNextPlay, 400);
         }
+        console.log('[DEBUG] All functions defined, starting Main initialization');
 
         // Main
-        const scene = createScene();
+        let scene;
+        try {
+            scene = createScene();
+            console.log('[DEBUG] createScene completed');
+        } catch (e) {
+            console.error('[DEBUG] ERROR in createScene:', e);
+            console.error('[DEBUG] Error stack:', e.stack);
+        }
         setupInput(scene);
         setupIdleAnimations(scene);
 
@@ -14673,6 +15844,19 @@
                     scene.trajectoryDots.forEach(dot => dot.dispose());
                     scene.trajectoryDots = null;
                 }
+            } else {
+                // App is becoming visible again - ensure clean state
+                // Clear any stale pointer state that might have persisted
+                gameState.isDragging = false;
+                gameState.activePointerId = null;
+                gameState.dragStart = null;
+                gameState.dragCurrent = null;
+                if (scene.trajectoryDots) {
+                    scene.trajectoryDots.forEach(dot => dot.dispose());
+                    scene.trajectoryDots = null;
+                }
+                // Force engine resize in case canvas dimensions changed
+                engine.resize();
             }
         });
 
@@ -14700,6 +15884,603 @@
         document.getElementById('btnExitTraining').addEventListener('click', () => {
             exitTrainingMode();
         });
+
+        // ========================================
+        // GAME MANUAL SYSTEM
+        // ========================================
+        const MANUAL_PAGES = [
+            // Page 0: Welcome / Overview
+            {
+                title: "Welcome to Smashball",
+                section: "basics",
+                content: `
+                    <h3><span class="emoji-icon">🏈</span> Welcome to Smashball</h3>
+                    <p>Smashball is a <strong>medieval football management game</strong> where you build a dynasty through smart drafting, player development, and hands-on gameplay.</p>
+
+                    <div class="highlight">
+                        <strong>Your Goal:</strong> Build fame, win games, and develop your roster into a championship team.
+                    </div>
+
+                    <h4>🎮 Two Ways to Play</h4>
+                    <ul>
+                        <li><strong>Offense:</strong> You control the QB — aim and throw passes to your receivers</li>
+                        <li><strong>Defense:</strong> Simulated — watch your defense try to stop the opponent</li>
+                    </ul>
+
+                    <h4>📖 What's in This Manual</h4>
+                    <table>
+                        <tr><th>Section</th><th>Topics</th></tr>
+                        <tr><td>🎯 Basics</td><td>Controls, gameplay, positions</td></tr>
+                        <tr><td>📊 Stats</td><td>Core attributes, abilities, technique</td></tr>
+                        <tr><td>🏟️ Management</td><td>Draft, roster, season flow</td></tr>
+                        <tr><td>⚔️ Advanced</td><td>Clash mechanics, formulas</td></tr>
+                    </table>
+                `
+            },
+            // Page 1: Basic Controls
+            {
+                title: "Basic Controls",
+                section: "basics",
+                content: `
+                    <h3><span class="emoji-icon">🎮</span> Basic Controls</h3>
+
+                    <h4>Throwing the Ball</h4>
+                    <div class="diagram">
+  ┌─────────────────────────────────┐
+  │  1. HOLD to start the play     │
+  │     (players begin moving)      │
+  │                                 │
+  │  2. DRAG to aim                 │
+  │     ← short drag = bullet pass  │
+  │     ← long drag = lob pass      │
+  │                                 │
+  │  3. RELEASE to throw            │
+  └─────────────────────────────────┘
+                    </div>
+
+                    <h4>Reading the Field</h4>
+                    <ul>
+                        <li>🟢 <strong>Green glow</strong> = Receiver is OPEN</li>
+                        <li>🟡 <strong>Yellow glow</strong> = Contested coverage</li>
+                        <li>🔴 <strong>Red glow</strong> = Tightly COVERED</li>
+                    </ul>
+
+                    <div class="warning">
+                        <strong>⏱️ Don't wait too long!</strong> Your offensive line will eventually lose their blocks, and the QB will get sacked.
+                    </div>
+
+                    <h4>Throw Types</h4>
+                    <table>
+                        <tr><th>Drag Distance</th><th>Result</th></tr>
+                        <tr><td>Short</td><td>Fast bullet pass (harder to catch)</td></tr>
+                        <tr><td>Medium</td><td>Balanced throw</td></tr>
+                        <tr><td>Long</td><td>High lob (more air time)</td></tr>
+                    </table>
+                `
+            },
+            // Page 2: Positions Overview
+            {
+                title: "Team Positions",
+                section: "basics",
+                content: `
+                    <h3><span class="emoji-icon">👥</span> Team Positions</h3>
+
+                    <h4>Offense (You Control)</h4>
+                    <table>
+                        <tr><th>Pos</th><th>Role</th><th>Key Stats</th></tr>
+                        <tr><td>🎯 QB</td><td>Throws the ball</td><td>Pass Accuracy, Intelligence</td></tr>
+                        <tr><td>🏃 WR</td><td>Catches passes</td><td>Speed, Catching, Route Running</td></tr>
+                        <tr><td>🛡️ OL</td><td>Blocks defenders</td><td>Strength, Pass Block</td></tr>
+                    </table>
+
+                    <h4>Defense (Simulated)</h4>
+                    <table>
+                        <tr><th>Pos</th><th>Role</th><th>Key Stats</th></tr>
+                        <tr><td>🔴 CB</td><td>Covers receivers</td><td>Speed, Agility, Awareness</td></tr>
+                        <tr><td>💪 DL</td><td>Rushes the QB</td><td>Strength, Speed, Pass Rush</td></tr>
+                    </table>
+
+                    <div class="diagram">
+         THE FIELD
+    ━━━━━━━━━━━━━━━━━━━━━
+       WR        WR   WR   ← Run routes
+          OL OL OL OL OL   ← Block
+              QB           ← You throw
+    ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─
+       CB        CB   CB   ← Cover WRs
+          DL DL DL DL      ← Rush QB
+    ━━━━━━━━━━━━━━━━━━━━━
+                    </div>
+                `
+            },
+            // Page 3: Player Stats Overview
+            {
+                title: "Understanding Stats",
+                section: "stats",
+                content: `
+                    <h3><span class="emoji-icon">📊</span> Understanding Player Stats</h3>
+
+                    <p>Every player has three types of stats:</p>
+
+                    <h4>1. Core Attributes (Rarely Change)</h4>
+                    <p>Natural physical and mental traits:</p>
+                    <table>
+                        <tr><td style="color:#ff6b6b">💪 STR</td><td>Strength — Power in blocks/tackles</td></tr>
+                        <tr><td style="color:#4dabf7">⚡ SPD</td><td>Speed — How fast they move</td></tr>
+                        <tr><td style="color:#69db7c">🔄 AGI</td><td>Agility — Quickness, direction changes</td></tr>
+                        <tr><td style="color:#ffd43b">🧠 INT</td><td>Intelligence — Reads, decisions</td></tr>
+                    </table>
+
+                    <h4>2. Abilities (Can Grow)</h4>
+                    <p>Learned skills that use core attributes:</p>
+                    <ul>
+                        <li>DL: Bull Rush, Swim Move, Spin Move, Block Shed</li>
+                        <li>OL: Anchor, Hand Fighting, Footwork, Drive Block</li>
+                        <li>WR: Release Move, Route Sharpness, Contested Catch</li>
+                        <li>CB: Press Coverage, Man Coverage, Zone Coverage</li>
+                    </ul>
+
+                    <h4>3. Technique Stats (Grow Most)</h4>
+                    <p>Position-specific skills like Catching, Pass Rush, Route Running.</p>
+
+                    <div class="highlight">
+                        <strong>💡 Key Insight:</strong> Abilities combine your stored skill with core attributes. A player with high Bull Rush ability maximizes their STR+SPD contribution.
+                    </div>
+                `
+            },
+            // Page 4: How Abilities Work
+            {
+                title: "How Abilities Work",
+                section: "stats",
+                content: `
+                    <h3><span class="emoji-icon">⚔️</span> How Abilities Work</h3>
+
+                    <p>Abilities are <strong>stored skills</strong> that determine how effectively a player uses their core attributes.</p>
+
+                    <h4>The Formula (Simplified)</h4>
+                    <div class="diagram">
+  Effective Ability = Stored Skill × (Core Stats ÷ 100)
+
+  Example: Bull Rush uses STR + SPD
+  ┌────────────────────────────────────────┐
+  │ Player A: 90 Bull Rush, 70 STR, 70 SPD │
+  │ → 90 × 0.70 = 63 effective             │
+  ├────────────────────────────────────────┤
+  │ Player B: 60 Bull Rush, 70 STR, 70 SPD │
+  │ → 60 × 0.70 = 42 effective             │
+  └────────────────────────────────────────┘
+                    </div>
+
+                    <h4>What This Means</h4>
+                    <ul>
+                        <li>High ability = maximize your core stat potential</li>
+                        <li>Low ability = waste your physical gifts</li>
+                        <li>Both matter — you need skill AND athleticism</li>
+                    </ul>
+
+                    <h4>DL Ability → Core Stat Mapping</h4>
+                    <table>
+                        <tr><th>Ability</th><th>Core Stats Used</th></tr>
+                        <tr><td>🐂 Bull Rush</td><td>STR + SPD</td></tr>
+                        <tr><td>🌊 Swim Move</td><td>STR + INT</td></tr>
+                        <tr><td>🔄 Spin Move</td><td>AGI + STR</td></tr>
+                        <tr><td>💥 Block Shed</td><td>STR + AGI</td></tr>
+                    </table>
+                `
+            },
+            // Page 5: The Line Battle
+            {
+                title: "The Line Battle",
+                section: "gameplay",
+                content: `
+                    <h3><span class="emoji-icon">💥</span> The Line Battle</h3>
+
+                    <p>Every play features a battle between your OL and enemy DL. This determines how much time your QB has to throw.</p>
+
+                    <div class="diagram">
+       DL ←──clash──→ OL
+       DL ←──clash──→ OL
+       DL ←──clash──→ OL
+       DL ←──clash──→ OL
+             ↓
+         Pressure on QB
+                    </div>
+
+                    <h4>How Clashes Work</h4>
+                    <ol>
+                        <li><strong>DL picks an ability</strong> (Bull Rush, Swim Move, etc.)</li>
+                        <li><strong>OL reacts</strong> with a counter ability</li>
+                        <li><strong>Both roll</strong> based on stats + some randomness</li>
+                        <li><strong>Winner</strong> gains advantage</li>
+                    </ol>
+
+                    <h4>Clash Outcomes</h4>
+                    <table>
+                        <tr><th>Result</th><th>Effect</th></tr>
+                        <tr><td style="color:#4f4">OL Wins Big</td><td>DL knocked down</td></tr>
+                        <tr><td style="color:#aa4">Neutral</td><td>DL slowed to crawl</td></tr>
+                        <tr><td style="color:#f44">DL Wins Big</td><td>OL knocked aside, DL bursts through</td></tr>
+                    </table>
+
+                    <div class="warning">
+                        <strong>Clashes repeat every 0.5 seconds</strong> while linemen are engaged. Even a great OL will eventually lose!
+                    </div>
+                `
+            },
+            // Page 6: Coverage & Catching
+            {
+                title: "Coverage & Catching",
+                section: "gameplay",
+                content: `
+                    <h3><span class="emoji-icon">🎯</span> Coverage & Catching</h3>
+
+                    <h4>Reading Coverage</h4>
+                    <p>Watch the colored glow around receivers:</p>
+                    <div class="diagram">
+  🟢 OPEN (70%+ catch)
+     CB is beaten, throw with confidence!
+
+  🟡 CONTESTED (40-70% catch)
+     Could go either way — risky throw
+
+  🔴 COVERED (<40% catch)
+     CB has position — high INT risk!
+                    </div>
+
+                    <h4>What Affects Catch Probability</h4>
+                    <ul>
+                        <li><strong>Separation</strong> — WR speed vs CB coverage</li>
+                        <li><strong>WR Catching stat</strong> — Hands and focus</li>
+                        <li><strong>Throw accuracy</strong> — Based on your aim</li>
+                        <li><strong>Pressure</strong> — Rushed throws are less accurate</li>
+                    </ul>
+
+                    <h4>WR vs CB Abilities</h4>
+                    <table>
+                        <tr><th>WR Uses</th><th>Good Against</th><th>Weak Against</th></tr>
+                        <tr><td>Release Move</td><td>Man Coverage</td><td>Press Coverage</td></tr>
+                        <tr><td>Route Sharpness</td><td>Zone Coverage</td><td>Man Coverage</td></tr>
+                    </table>
+
+                    <div class="highlight">
+                        <strong>💡 Tip:</strong> If a WR starts covered but has good Route Sharpness, they may get open on their break. Be patient!
+                    </div>
+                `
+            },
+            // Page 7: Season & Management
+            {
+                title: "Season Flow",
+                section: "management",
+                content: `
+                    <h3><span class="emoji-icon">📅</span> Season Flow</h3>
+
+                    <h4>Season Structure</h4>
+                    <div class="diagram">
+  WEEK 1-16: Regular Season
+  ┌──────────────────────────┐
+  │ Each week:               │
+  │ • Play your game         │
+  │ • Players develop        │
+  │ • Manage roster          │
+  └──────────────────────────┘
+          ↓
+  OFFSEASON
+  ┌──────────────────────────┐
+  │ • Players age (+1 year)  │
+  │ • Draft new players      │
+  │ • Sign free agents       │
+  └──────────────────────────┘
+                    </div>
+
+                    <h4>Weekly Player Development</h4>
+                    <p>After each game, players may improve:</p>
+                    <ul>
+                        <li><strong>Young players</strong> (pre-peak) — Can grow all stats</li>
+                        <li><strong>Peak players</strong> — Stats stabilize</li>
+                        <li><strong>Aging players</strong> — Stats decline, especially physical</li>
+                    </ul>
+
+                    <h4>The Potential System</h4>
+                    <table>
+                        <tr><th>Grade</th><th>Growth Rate</th></tr>
+                        <tr><td>⭐⭐⭐</td><td>High — Frequent, large improvements</td></tr>
+                        <tr><td>⭐⭐</td><td>Medium — Steady growth</td></tr>
+                        <tr><td>⭐</td><td>Low — Rare, small improvements</td></tr>
+                    </table>
+                `
+            },
+            // Page 8: The Draft
+            {
+                title: "The Draft",
+                section: "management",
+                content: `
+                    <h3><span class="emoji-icon">📋</span> The Draft</h3>
+
+                    <p>The draft is your main source of talent. You compete with AI teams for the best rookies.</p>
+
+                    <h4>Draft Order</h4>
+                    <div class="diagram">
+  Pick order based on previous season:
+
+  Worst record  → Pick 1st  (best players)
+  Best record   → Pick last (leftovers)
+
+  3 Rounds × 8 teams = 24 picks per round
+                    </div>
+
+                    <h4>Draft Point System</h4>
+                    <p>Each pick costs Fame (draft points). You can:</p>
+                    <ul>
+                        <li><strong>Use your pick</strong> — Select a player</li>
+                        <li><strong>Trade down</strong> — Skip pick, gain bonus points</li>
+                        <li><strong>Trade up</strong> — Spend points to pick earlier</li>
+                    </ul>
+
+                    <h4>Scouting Tips</h4>
+                    <div class="highlight">
+                        <strong>Look for:</strong>
+                        <ul>
+                            <li>High potential (⭐⭐⭐) on young players</li>
+                            <li>Core stats that match position needs</li>
+                            <li>Age 21-23 for maximum development time</li>
+                        </ul>
+                    </div>
+                `
+            },
+            // Page 9: Fame System
+            {
+                title: "Fame & Economy",
+                section: "management",
+                content: `
+                    <h3><span class="emoji-icon">⭐</span> Fame & Economy</h3>
+
+                    <p><strong>Fame</strong> is your currency for everything — drafting, signing free agents, and building facilities.</p>
+
+                    <h4>Earning Fame</h4>
+                    <table>
+                        <tr><th>Action</th><th>Fame Earned</th></tr>
+                        <tr><td>Win a game</td><td>Base + bonus for margin</td></tr>
+                        <tr><td>Score touchdowns</td><td>Per TD scored</td></tr>
+                        <tr><td>Big plays</td><td>Long catches, sacks, INTs</td></tr>
+                        <tr><td>Season wins</td><td>End of season bonus</td></tr>
+                    </table>
+
+                    <h4>Spending Fame</h4>
+                    <ul>
+                        <li><strong>Draft picks</strong> — Earlier picks cost more</li>
+                        <li><strong>Free agents</strong> — Better players cost more</li>
+                        <li><strong>Facilities</strong> — Training bonuses (coming soon)</li>
+                    </ul>
+
+                    <div class="warning">
+                        <strong>Budget carefully!</strong> If you spend all your fame on one star player, you won't have depth to field a full team.
+                    </div>
+                `
+            },
+            // Page 10: Advanced - Clash Calculations
+            {
+                title: "Clash Calculations",
+                section: "advanced",
+                content: `
+                    <h3><span class="emoji-icon">🔢</span> Clash Calculations</h3>
+
+                    <p>For those who want to understand the math behind clashes:</p>
+
+                    <h4>Roll Components</h4>
+                    <div class="diagram">
+  Total Roll = (Technique × 0.4) + (Core×Ability × 0.6)
+             × Variance (0.8 to 1.2)
+             × Matchup Multiplier
+                    </div>
+
+                    <h4>Technique Roll (40%)</h4>
+                    <p>Weighted average of position technique stats:</p>
+                    <ul>
+                        <li>OL: Pass Block, Balance, Awareness</li>
+                        <li>DL: Pass Rush, Tackling, Pursuit</li>
+                    </ul>
+
+                    <h4>Core×Ability Roll (60%)</h4>
+                    <div class="diagram">
+  (CoreStatAvg ÷ 100) × (EffectiveAbility ÷ 100) × 60
+
+  Example: 80 core avg, 70 effective ability
+  → (0.80) × (0.70) × 60 = 33.6 points
+                    </div>
+
+                    <h4>Matchup Multipliers</h4>
+                    <table>
+                        <tr><th>DL Move</th><th>vs Anchor</th><th>vs Footwork</th></tr>
+                        <tr><td>Bull Rush</td><td>0.85 ❌</td><td>1.15 ✓</td></tr>
+                        <tr><td>Spin Move</td><td>1.20 ✓</td><td>0.85 ❌</td></tr>
+                        <tr><td>Swim Move</td><td>1.15 ✓</td><td>0.95</td></tr>
+                    </table>
+                `
+            },
+            // Page 11: Advanced - Ability Selection
+            {
+                title: "Ability Selection AI",
+                section: "advanced",
+                content: `
+                    <h3><span class="emoji-icon">🧠</span> Ability Selection AI</h3>
+
+                    <h4>The 60/30/10 Rule</h4>
+                    <p>When a player picks an ability:</p>
+                    <div class="diagram">
+  Sort abilities by effective value:
+
+  60% chance → Use BEST ability
+  30% chance → Use 2nd best ability
+  10% chance → Use 3rd best ability
+                    </div>
+
+                    <h4>Counter Selection</h4>
+                    <p>The reacting player (OL defending vs DL) can counter:</p>
+                    <ul>
+                        <li><strong>Counter chance</strong> = (Intelligence - 20)%</li>
+                        <li>If counter triggers, picks optimal counter ability</li>
+                        <li>If not, uses 60/30/10 rule instead</li>
+                    </ul>
+
+                    <div class="highlight">
+                        <strong>Example:</strong> OL with 70 INT has 50% chance to read the DL's move and pick the perfect counter. Otherwise, they guess.
+                    </div>
+
+                    <h4>Why This Matters</h4>
+                    <p>High INT players:</p>
+                    <ul>
+                        <li>More consistently counter opponent moves</li>
+                        <li>Less likely to get caught by bad matchups</li>
+                        <li>Make better use of their ability toolkit</li>
+                    </ul>
+                `
+            },
+            // Page 12: Tips & Strategy
+            {
+                title: "Tips & Strategy",
+                section: "advanced",
+                content: `
+                    <h3><span class="emoji-icon">💡</span> Tips & Strategy</h3>
+
+                    <h4>Offensive Tips</h4>
+                    <ul>
+                        <li>🎯 <strong>Don't force throws</strong> — Take the open man</li>
+                        <li>⏱️ <strong>Quick reads</strong> — Your line won't hold forever</li>
+                        <li>🏃 <strong>Speed kills</strong> — Fast WRs create separation</li>
+                        <li>📐 <strong>Lead your receiver</strong> — Aim where they're going</li>
+                    </ul>
+
+                    <h4>Draft Strategy</h4>
+                    <ul>
+                        <li>⭐ <strong>Potential > Overall</strong> for young players</li>
+                        <li>💪 <strong>Core stats matter</strong> — They rarely improve</li>
+                        <li>🔄 <strong>Balance your roster</strong> — Stars need support</li>
+                        <li>📉 <strong>Trade down</strong> if top prospects are gone</li>
+                    </ul>
+
+                    <h4>Roster Building</h4>
+                    <div class="highlight">
+                        <strong>Priority order:</strong>
+                        <ol>
+                            <li>Elite WR or CB (game-changers)</li>
+                            <li>Solid OL (protects your QB)</li>
+                            <li>Fast DL (disrupts opponent)</li>
+                            <li>Depth at every position</li>
+                        </ol>
+                    </div>
+
+                    <h4>Long-term Thinking</h4>
+                    <p>Build for sustained success:</p>
+                    <ul>
+                        <li>Mix veterans (win now) with prospects (future)</li>
+                        <li>Watch player ages — 30+ year olds decline fast</li>
+                        <li>Don't overspend on aging stars</li>
+                    </ul>
+                `
+            }
+        ];
+
+        // Manual state
+        let manualCurrentPage = 0;
+        let manualShowingIndex = false;
+
+        function showManual() {
+            document.getElementById('manualOverlay').style.display = 'flex';
+            manualCurrentPage = 0;
+            manualShowingIndex = false;
+            renderManualPage();
+        }
+
+        function hideManual() {
+            document.getElementById('manualOverlay').style.display = 'none';
+        }
+
+        function renderManualPage() {
+            const page = MANUAL_PAGES[manualCurrentPage];
+            document.getElementById('manualTitle').textContent = page.title;
+            document.getElementById('manualContent').innerHTML = page.content;
+            document.getElementById('manualPageNum').textContent = `${manualCurrentPage + 1} / ${MANUAL_PAGES.length}`;
+
+            // Update nav buttons
+            document.getElementById('btnManualPrev').disabled = manualCurrentPage === 0;
+            document.getElementById('btnManualNext').disabled = manualCurrentPage === MANUAL_PAGES.length - 1;
+
+            // Show content, hide index
+            document.getElementById('manualContent').style.display = 'block';
+            document.getElementById('manualIndex').style.display = 'none';
+            manualShowingIndex = false;
+            document.getElementById('btnManualIndex').textContent = '📖 Index';
+        }
+
+        function renderManualIndex() {
+            const sections = {
+                basics: { title: '🎯 Basics', pages: [] },
+                stats: { title: '📊 Stats & Abilities', pages: [] },
+                gameplay: { title: '🏈 Gameplay', pages: [] },
+                management: { title: '🏟️ Management', pages: [] },
+                advanced: { title: '⚔️ Advanced', pages: [] }
+            };
+
+            MANUAL_PAGES.forEach((page, idx) => {
+                if (sections[page.section]) {
+                    sections[page.section].pages.push({ title: page.title, idx });
+                }
+            });
+
+            let html = '<h3>📖 Manual Index</h3>';
+            for (const [key, section] of Object.entries(sections)) {
+                if (section.pages.length > 0) {
+                    html += `<div class="manual-index-section">`;
+                    html += `<h4>${section.title}</h4>`;
+                    section.pages.forEach(p => {
+                        html += `<button class="manual-index-item" data-page="${p.idx}">${p.title} <span>Page ${p.idx + 1}</span></button>`;
+                    });
+                    html += `</div>`;
+                }
+            }
+
+            document.getElementById('manualIndex').innerHTML = html;
+
+            // Add click handlers
+            document.querySelectorAll('.manual-index-item').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    manualCurrentPage = parseInt(e.currentTarget.dataset.page);
+                    renderManualPage();
+                });
+            });
+        }
+
+        function toggleManualIndex() {
+            manualShowingIndex = !manualShowingIndex;
+            if (manualShowingIndex) {
+                renderManualIndex();
+                document.getElementById('manualContent').style.display = 'none';
+                document.getElementById('manualIndex').style.display = 'block';
+                document.getElementById('btnManualIndex').textContent = '← Back';
+            } else {
+                document.getElementById('manualContent').style.display = 'block';
+                document.getElementById('manualIndex').style.display = 'none';
+                document.getElementById('btnManualIndex').textContent = '📖 Index';
+            }
+        }
+
+        // Manual event listeners
+        document.getElementById('btnHowToPlay').addEventListener('click', showManual);
+        document.getElementById('btnHubManual').addEventListener('click', showManual);
+        document.getElementById('btnManualClose').addEventListener('click', hideManual);
+        document.getElementById('btnManualPrev').addEventListener('click', () => {
+            if (manualCurrentPage > 0) {
+                manualCurrentPage--;
+                renderManualPage();
+            }
+        });
+        document.getElementById('btnManualNext').addEventListener('click', () => {
+            if (manualCurrentPage < MANUAL_PAGES.length - 1) {
+                manualCurrentPage++;
+                renderManualPage();
+            }
+        });
+        document.getElementById('btnManualIndex').addEventListener('click', toggleManualIndex);
         // Training settings panel toggle
         document.getElementById('btnTrainingSettings').addEventListener('click', () => {
             const panel = document.getElementById('trainingSettingsPanel');
@@ -14730,6 +16511,82 @@
             btn.textContent = gameState.showGradePopup ? 'ON' : 'OFF';
             btn.style.background = gameState.showGradePopup ? '#4a4' : '#444';
         });
+        document.getElementById('btnToggleClashFlash').addEventListener('click', () => {
+            gameState.showClashFlash = !gameState.showClashFlash;
+            const btn = document.getElementById('btnToggleClashFlash');
+            btn.textContent = gameState.showClashFlash ? 'ON' : 'OFF';
+            btn.style.background = gameState.showClashFlash ? '#4a4' : '#444';
+        });
+        // Camera angle slider
+        document.getElementById('cameraAngleSlider').addEventListener('input', (e) => {
+            const value = parseInt(e.target.value);
+            gameState.cameraAngle = value / 100;
+            document.getElementById('cameraAngleValue').textContent = value + '%';
+            // Update camera beta: 0% = top-down (0.1), 100% = horizontal (PI/2)
+            if (scene && scene.activeCamera) {
+                scene.activeCamera.beta = 0.1 + (value / 100) * (Math.PI / 2 - 0.1);
+            }
+        });
+        // Camera offset slider (moves camera forward, reduces space behind QB)
+        document.getElementById('cameraOffsetSlider').addEventListener('input', (e) => {
+            const value = parseInt(e.target.value);
+            gameState.cameraOffset = value / 100;
+            document.getElementById('cameraOffsetValue').textContent = value + '%';
+            // Update camera target and radius immediately
+            if (scene && scene.activeCamera) {
+                const baseTargetZ = gameState.lineOfScrimmage + 2;
+                const maxForwardOffset = 12;
+                const forwardOffset = (value / 100) * maxForwardOffset;
+                const cameraTargetZ = Math.max(-60, Math.min(14, baseTargetZ + forwardOffset));
+                scene.activeCamera.target = new BABYLON.Vector3(0, 0, cameraTargetZ);
+                // Adjust radius to maintain consistent framing
+                const baseRadius = 32;
+                const radiusAdjust = (value / 100) * 8;
+                scene.activeCamera.radius = baseRadius + radiusAdjust;
+            }
+        });
+        // Player size slider
+        document.getElementById('playerSizeSlider').addEventListener('input', (e) => {
+            const value = parseInt(e.target.value);
+            const scale = value / 100;
+            gameState.playerScale = scale;
+            document.getElementById('playerSizeValue').textContent = scale.toFixed(1) + 'x';
+            // Scale all players (receivers, defenders, linemen, QB)
+            if (gameState.receivers) {
+                gameState.receivers.forEach(r => r.scaling = new BABYLON.Vector3(scale, scale, scale));
+            }
+            if (gameState.defenders) {
+                gameState.defenders.forEach(d => d.scaling = new BABYLON.Vector3(scale, scale, scale));
+            }
+            if (gameState.offensiveLine) {
+                gameState.offensiveLine.forEach(o => o.scaling = new BABYLON.Vector3(scale, scale, scale));
+            }
+            if (gameState.defensiveLine) {
+                gameState.defensiveLine.forEach(d => d.scaling = new BABYLON.Vector3(scale, scale, scale));
+            }
+            if (scene && scene.qb) {
+                scene.qb.scaling = new BABYLON.Vector3(scale, scale, scale);
+            }
+        });
+        // Ball size slider
+        document.getElementById('ballSizeSlider').addEventListener('input', (e) => {
+            const value = parseInt(e.target.value);
+            const scale = value / 100;
+            gameState.ballScale = scale;
+            document.getElementById('ballSizeValue').textContent = scale.toFixed(1) + 'x';
+            // Scale football
+            if (scene && scene.football) {
+                scene.football.scaling = new BABYLON.Vector3(scale, scale, scale);
+            }
+        });
+        // Difficulty buttons (training panel - separate from main game difficulty)
+        document.querySelectorAll('.difficulty-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                gameState.trainingDifficulty = btn.dataset.difficulty;
+                document.querySelectorAll('.difficulty-btn').forEach(b => b.style.background = '#333');
+                btn.style.background = '#4a4';
+            });
+        });
         // Receiver speed preset buttons
         document.querySelectorAll('.rcvr-speed-btn').forEach(btn => {
             btn.addEventListener('click', () => {
@@ -14748,6 +16605,26 @@
                 document.querySelectorAll('.db-speed-btn').forEach(b => b.style.background = '#333');
                 btn.style.background = '#4a4';
                 applyDbSpeedPreset();
+            });
+        });
+        // WR awareness preset buttons (controls ball reaction time)
+        document.querySelectorAll('.wr-awr-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const awareness = btn.dataset.awareness;
+                gameState.receiverAwarenessPreset = awareness === 'mixed' ? 'mixed' : parseInt(awareness);
+                document.querySelectorAll('.wr-awr-btn').forEach(b => b.style.background = '#333');
+                btn.style.background = '#4a4';
+                applyReceiverAwarenessPreset();
+            });
+        });
+        // WR agility preset buttons (controls turn rate/route correction)
+        document.querySelectorAll('.wr-agi-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const agility = btn.dataset.agility;
+                gameState.receiverAgilityPreset = agility === 'mixed' ? 'mixed' : parseInt(agility);
+                document.querySelectorAll('.wr-agi-btn').forEach(b => b.style.background = '#333');
+                btn.style.background = '#4a4';
+                applyReceiverAgilityPreset();
             });
         });
         document.getElementById('btnPlayGame').addEventListener('click', () => {
@@ -14796,6 +16673,16 @@
         document.getElementById('btnFABack').addEventListener('click', () => showScreen('hub'));
         document.getElementById('btnScheduleBack').addEventListener('click', () => showScreen('hub'));
         document.getElementById('btnFacilitiesBack').addEventListener('click', () => showScreen('hub'));
+        document.getElementById('btnHubSettings').addEventListener('click', () => showScreen('settings'));
+        document.getElementById('btnSettingsBack').addEventListener('click', () => showScreen('hub'));
+        // Game difficulty buttons (settings screen - separate from training difficulty)
+        document.querySelectorAll('.game-difficulty-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                gameState.gameDifficulty = btn.dataset.difficulty;
+                document.querySelectorAll('.game-difficulty-btn').forEach(b => b.style.background = '#333');
+                btn.style.background = '#4a4';
+            });
+        });
         document.getElementById('btnMatchContinue').addEventListener('click', () => {
             if (managementState.seasonJustEnded) {
                 managementState.seasonJustEnded = false;
@@ -14815,6 +16702,7 @@
                 btn.textContent = 'VIEW LOG';
             }
         });
+
         document.getElementById('btnCopySimLog').addEventListener('click', () => {
             const logText = getSimulationLog();
             navigator.clipboard.writeText(logText).then(() => {
@@ -14887,16 +16775,33 @@
 
         // Draft back button - return to main menu
         document.getElementById('btnDraftBack').addEventListener('click', () => {
+            document.getElementById('draftMenuDropdown').style.display = 'none';
             // Save the game state (draft will be preserved)
             if (managementState.settings.autoSave) SaveSystem.save();
             showScreen('main_menu');
         });
 
+        // Draft menu dropdown handler
+        document.getElementById('btnDraftMenu').addEventListener('click', (e) => {
+            e.stopPropagation();
+            const dropdown = document.getElementById('draftMenuDropdown');
+            dropdown.style.display = dropdown.style.display === 'none' ? 'block' : 'none';
+        });
+
+        // Close dropdown when clicking elsewhere
+        document.addEventListener('click', () => {
+            document.getElementById('draftMenuDropdown').style.display = 'none';
+        });
+
         // Draft options modal handlers
         document.getElementById('btnDraftOptions').addEventListener('click', () => {
+            document.getElementById('draftMenuDropdown').style.display = 'none';
             // Load current settings into inputs
             document.getElementById('pickTradeInPenalty').value = managementState.settings.pickTradeInPenalty || 50;
             document.getElementById('pickAcquirePremium').value = managementState.settings.pickAcquirePremium || 10;
+            // Default to true if not set
+            const showReasoning = managementState.settings.showPickReasoning !== false;
+            document.getElementById('showPickReasoning').checked = showReasoning;
             document.getElementById('draftOptionsModal').style.display = 'flex';
         });
 
@@ -14904,6 +16809,7 @@
             // Save settings
             managementState.settings.pickTradeInPenalty = parseInt(document.getElementById('pickTradeInPenalty').value) || 50;
             managementState.settings.pickAcquirePremium = parseInt(document.getElementById('pickAcquirePremium').value) || 10;
+            managementState.settings.showPickReasoning = document.getElementById('showPickReasoning').checked;
             document.getElementById('draftOptionsModal').style.display = 'none';
             // Refresh draft screen to show updated values
             if (draftState.active) {
@@ -15006,6 +16912,98 @@
         window.addEventListener('resize', () => {
             engine.resize();
         });
+
+        // Simulate rest of game from current state
+        function simulateRestOfGame() {
+            if (!managementState.matchInProgress) return;
+
+            console.log('[SIM] Simulating rest of game...');
+            console.log('[SIM] Current possession:', managementState.currentPossession, '/', SEASON.POSSESSIONS_PER_GAME);
+            console.log('[SIM] Current score:', managementState.matchScore.player, '-', managementState.matchScore.opponent);
+
+            // Hide button
+            document.getElementById('btnSimRest').style.display = 'none';
+
+            // Get game info
+            const game = managementState.season.schedule[managementState.season.week - 1];
+            const opponent = game.opponent;
+            const playerTeam = managementState.team;
+
+            // Simulate remaining possessions in regulation
+            while (managementState.currentPossession < SEASON.POSSESSIONS_PER_GAME) {
+                // Simulate player drive
+                const playerDrive = simulatePlayerDriveHighFidelity(playerTeam, opponent);
+                const playerPoints = playerDrive.type === 'touchdown' ? 7 :
+                                    playerDrive.type === 'field_goal' ? 3 : 0;
+                managementState.matchScore.player += playerPoints;
+
+                // Record stats from player drive
+                if (playerDrive.statUpdates) {
+                    playerDrive.statUpdates.forEach(update => {
+                        const pStats = gameStats.getPlayer(update.playerId, update.playerName);
+                        Object.keys(update).forEach(key => {
+                            if (key !== 'playerId' && key !== 'playerName') {
+                                pStats[key] = (pStats[key] || 0) + update[key];
+                            }
+                        });
+                    });
+                }
+
+                // Simulate enemy drive
+                const enemyResult = simulateEnemyPossession(opponent);
+                managementState.matchScore.opponent += enemyResult.points;
+
+                managementState.currentPossession++;
+                console.log('[SIM] After possession', managementState.currentPossession, ':',
+                    managementState.matchScore.player, '-', managementState.matchScore.opponent);
+            }
+
+            // Handle overtime if tied
+            const playerScore = managementState.matchScore.player;
+            const oppScore = managementState.matchScore.opponent;
+
+            if (playerScore === oppScore) {
+                console.log('[SIM] Tied game, simulating overtime...');
+                managementState.gamePhase = 'overtime';
+
+                while (managementState.matchScore.player === managementState.matchScore.opponent) {
+                    // Player OT possession
+                    const playerOT = simulatePlayerDriveHighFidelity(playerTeam, opponent);
+                    const playerOTPoints = playerOT.type === 'touchdown' ? 7 :
+                                           playerOT.type === 'field_goal' ? 3 : 0;
+                    managementState.matchScore.player += playerOTPoints;
+
+                    // Enemy OT possession
+                    const enemyOT = simulateEnemyPossession(opponent);
+                    managementState.matchScore.opponent += enemyOT.points;
+
+                    console.log('[SIM] OT score:', managementState.matchScore.player, '-', managementState.matchScore.opponent);
+                }
+            }
+
+            console.log('[SIM] Final score:', managementState.matchScore.player, '-', managementState.matchScore.opponent);
+
+            // End the match
+            const matchResult = endMatch();
+            if (matchResult) {
+                showMatchEnd(matchResult);
+            } else {
+                console.error('[SIM] endMatch returned null');
+            }
+        }
+
+        // Sim rest button click handler
+        document.getElementById('btnSimRest').addEventListener('click', simulateRestOfGame);
+
+        // Keyboard shortcut: Press 'S' during a game to simulate rest
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 's' || e.key === 'S') {
+                if (managementState.matchInProgress && managementState.currentScreen === 'game') {
+                    simulateRestOfGame();
+                }
+            }
+        });
+        console.log('[DEBUG] Press S or tap SIM REST button to simulate rest of game');
     </script>
 </body>
 </html>
