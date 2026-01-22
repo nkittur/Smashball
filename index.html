@@ -676,6 +676,7 @@
 
         <!-- Hub Screen -->
         <div id="hubScreen" class="mgmt-screen hub-screen" style="display:none;">
+            <button id="btnHubBack" class="mgmt-btn back-btn">←</button>
             <button id="btnHubManual" class="mgmt-btn back-btn" style="right: 10px; left: auto;">?</button>
             <button id="btnHubSettings" class="mgmt-btn back-btn" style="right: 50px; left: auto;">⚙</button>
             <div class="hub-status" id="hubStatus">Fame: 1,000 | Week 1</div>
@@ -17571,6 +17572,7 @@
         document.getElementById('btnFacilitiesBack').addEventListener('click', () => showScreen('hub'));
         document.getElementById('btnHubSettings').addEventListener('click', () => showScreen('settings'));
         document.getElementById('btnSettingsBack').addEventListener('click', () => showScreen('hub'));
+        document.getElementById('btnHubBack').addEventListener('click', () => showScreen('main_menu'));
         // Game difficulty buttons (settings screen - separate from training difficulty)
         document.querySelectorAll('.game-difficulty-btn').forEach(btn => {
             btn.addEventListener('click', () => {
