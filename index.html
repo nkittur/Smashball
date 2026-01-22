@@ -395,9 +395,40 @@
             </div>
 
             <!-- Show Clash Flash Toggle -->
-            <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
                 <span style="color: #888; font-size: 11px;">CLASH FLASH</span>
                 <button id="btnToggleClashFlash" style="padding: 4px 12px; background: #4a4; color: #fff; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 12px;">ON</button>
+            </div>
+
+            <!-- Camera Angle Slider -->
+            <div style="margin-bottom: 12px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                    <span style="color: #888; font-size: 11px;">CAMERA ANGLE</span>
+                    <span id="cameraAngleValue" style="color: #4f4; font-size: 11px;">50%</span>
+                </div>
+                <input type="range" id="cameraAngleSlider" min="0" max="100" value="50" style="width: 100%; cursor: pointer;">
+                <div style="display: flex; justify-content: space-between; color: #555; font-size: 9px;">
+                    <span>Top-Down</span>
+                    <span>Horizontal</span>
+                </div>
+            </div>
+
+            <!-- Player Size Slider -->
+            <div style="margin-bottom: 12px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                    <span style="color: #888; font-size: 11px;">PLAYER SIZE</span>
+                    <span id="playerSizeValue" style="color: #4f4; font-size: 11px;">1.0x</span>
+                </div>
+                <input type="range" id="playerSizeSlider" min="50" max="200" value="100" style="width: 100%; cursor: pointer;">
+            </div>
+
+            <!-- Ball Size Slider -->
+            <div>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                    <span style="color: #888; font-size: 11px;">BALL SIZE</span>
+                    <span id="ballSizeValue" style="color: #4f4; font-size: 11px;">1.0x</span>
+                </div>
+                <input type="range" id="ballSizeSlider" min="50" max="200" value="100" style="width: 100%; cursor: pointer;">
             </div>
         </div>
     </div>
@@ -1846,6 +1877,9 @@
             receiverAgilityPreset: 70,   // Receiver agility preset (controls turn rate/route correction)
             gameDifficulty: 'medium',    // Main game difficulty: 'easy', 'medium', 'hard'
             trainingDifficulty: 'easy',  // Training mode difficulty (separate from main game)
+            cameraAngle: 0.5,            // Camera angle: 0 = top-down, 1 = horizontal (default 0.5)
+            playerScale: 1.0,            // Player size multiplier (0.5 to 2.0)
+            ballScale: 1.0,              // Ball size multiplier (0.5 to 2.0)
             // Down and distance tracking
             down: 1,                // Current down (1-4)
             yardsToGo: 10,          // Yards needed for first down
@@ -16437,6 +16471,50 @@
             const btn = document.getElementById('btnToggleClashFlash');
             btn.textContent = gameState.showClashFlash ? 'ON' : 'OFF';
             btn.style.background = gameState.showClashFlash ? '#4a4' : '#444';
+        });
+        // Camera angle slider
+        document.getElementById('cameraAngleSlider').addEventListener('input', (e) => {
+            const value = parseInt(e.target.value);
+            gameState.cameraAngle = value / 100;
+            document.getElementById('cameraAngleValue').textContent = value + '%';
+            // Update camera beta: 0% = top-down (0.1), 100% = horizontal (PI/2)
+            if (scene && scene.activeCamera) {
+                scene.activeCamera.beta = 0.1 + (value / 100) * (Math.PI / 2 - 0.1);
+            }
+        });
+        // Player size slider
+        document.getElementById('playerSizeSlider').addEventListener('input', (e) => {
+            const value = parseInt(e.target.value);
+            const scale = value / 100;
+            gameState.playerScale = scale;
+            document.getElementById('playerSizeValue').textContent = scale.toFixed(1) + 'x';
+            // Scale all players (receivers, defenders, linemen, QB)
+            if (gameState.receivers) {
+                gameState.receivers.forEach(r => r.scaling = new BABYLON.Vector3(scale, scale, scale));
+            }
+            if (gameState.defenders) {
+                gameState.defenders.forEach(d => d.scaling = new BABYLON.Vector3(scale, scale, scale));
+            }
+            if (gameState.offensiveLine) {
+                gameState.offensiveLine.forEach(o => o.scaling = new BABYLON.Vector3(scale, scale, scale));
+            }
+            if (gameState.defensiveLine) {
+                gameState.defensiveLine.forEach(d => d.scaling = new BABYLON.Vector3(scale, scale, scale));
+            }
+            if (scene && scene.qb) {
+                scene.qb.scaling = new BABYLON.Vector3(scale, scale, scale);
+            }
+        });
+        // Ball size slider
+        document.getElementById('ballSizeSlider').addEventListener('input', (e) => {
+            const value = parseInt(e.target.value);
+            const scale = value / 100;
+            gameState.ballScale = scale;
+            document.getElementById('ballSizeValue').textContent = scale.toFixed(1) + 'x';
+            // Scale football
+            if (scene && scene.football) {
+                scene.football.scaling = new BABYLON.Vector3(scale, scale, scale);
+            }
         });
         // Difficulty buttons (training panel - separate from main game difficulty)
         document.querySelectorAll('.difficulty-btn').forEach(btn => {
