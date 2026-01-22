@@ -10162,16 +10162,16 @@
                 angle = lastValidAngle;  // Use last valid angle for very small drags
             }
 
-            // Get QB max throw distance for power calculation (same logic as above)
+            // Get QB max throw distance for power calculation
+            // Always use normal range for power so arcs feel consistent
             const qbForPower = gameState.scene?.qb;
             const armStrengthForPower = qbForPower?.stats?.armStrength || 70;
-            const baseMaxForPower = 12 + ((armStrengthForPower - 50) / 50) * 14;
-            const maxDistForPower = gameState.targetPracticeMode ? 40 : baseMaxForPower;
+            const maxDistForPower = 12 + ((armStrengthForPower - 50) / 50) * 14;  // Always use normal range for arc calculation
 
             return {
                 distance: throwDistance,
                 angle: angle,
-                power: throwDistance / maxDistForPower
+                power: Math.min(1.0, throwDistance / maxDistForPower)  // Cap at 1.0 for consistent arcs
             };
         };
 
@@ -15130,180 +15130,242 @@
         // ========================================
 
         // Target configurations - different sizes, speeds, and point values
+        // Uses knight meshes like receivers with different scales
         const TARGET_TYPES = {
             small: {
-                size: 0.8,
-                speedMult: 1.4,
+                scale: 0.7,
+                speedMult: 1.3,
                 points: 150,
                 color: new BABYLON.Color3(1, 0.3, 0.3),  // Red
                 name: 'Small'
             },
             medium: {
-                size: 1.2,
+                scale: 1.0,
                 speedMult: 1.0,
                 points: 100,
                 color: new BABYLON.Color3(1, 0.8, 0.2),  // Yellow/Gold
                 name: 'Medium'
             },
             large: {
-                size: 1.8,
-                speedMult: 0.7,
+                scale: 1.4,
+                speedMult: 0.75,
                 points: 50,
                 color: new BABYLON.Color3(0.3, 0.8, 0.3),  // Green
                 name: 'Large'
             }
         };
 
-        // Route patterns for targets
-        const TARGET_ROUTES = [
-            // Horizontal crossing routes (good for multi-hits)
-            { name: 'crossLeft', points: (startX, startZ) => [
-                { x: startX, z: startZ },
-                { x: startX - 12, z: startZ },
-                { x: startX - 12, z: startZ + 4 },
-                { x: startX, z: startZ + 4 }
-            ]},
-            { name: 'crossRight', points: (startX, startZ) => [
-                { x: startX, z: startZ },
-                { x: startX + 12, z: startZ },
-                { x: startX + 12, z: startZ + 4 },
-                { x: startX, z: startZ + 4 }
-            ]},
-            // Vertical routes
-            { name: 'straight', points: (startX, startZ) => [
-                { x: startX, z: startZ },
-                { x: startX, z: startZ + 20 }
-            ]},
-            // Diagonal routes
-            { name: 'slantLeft', points: (startX, startZ) => [
-                { x: startX, z: startZ },
-                { x: startX - 8, z: startZ + 15 }
-            ]},
-            { name: 'slantRight', points: (startX, startZ) => [
-                { x: startX, z: startZ },
-                { x: startX + 8, z: startZ + 15 }
-            ]},
-            // Figure-8 / crossing pattern
-            { name: 'figure8', points: (startX, startZ) => [
-                { x: startX, z: startZ },
-                { x: startX + 6, z: startZ + 5 },
-                { x: startX, z: startZ + 10 },
-                { x: startX - 6, z: startZ + 15 },
-                { x: startX, z: startZ + 20 }
-            ]},
-            // Zigzag
-            { name: 'zigzag', points: (startX, startZ) => [
-                { x: startX, z: startZ },
-                { x: startX + 4, z: startZ + 5 },
-                { x: startX - 4, z: startZ + 10 },
-                { x: startX + 4, z: startZ + 15 },
-                { x: startX, z: startZ + 20 }
-            ]},
-            // Loop pattern
-            { name: 'loop', points: (startX, startZ) => [
-                { x: startX, z: startZ },
-                { x: startX + 5, z: startZ + 3 },
-                { x: startX + 7, z: startZ + 8 },
-                { x: startX + 3, z: startZ + 12 },
-                { x: startX - 3, z: startZ + 12 },
-                { x: startX - 5, z: startZ + 8 },
-                { x: startX, z: startZ + 15 }
-            ]}
-        ];
+        // Field boundaries for targets
+        const TARGET_FIELD_BOUNDS = {
+            minX: -7,
+            maxX: 7,
+            minZ: -35,  // Will be adjusted based on line of scrimmage
+            maxZ: 12    // End zone
+        };
 
-        // Create a single target
-        function createTarget(scene, type, startX, startZ, routePattern) {
-            const targetConfig = TARGET_TYPES[type];
+        // Generate a receiver-style route for a target
+        function generateTargetRoute(startX, startZ, slotPosition) {
+            const route = [];
+            const towardMiddle = startX > 0 ? -1 : 1;
+            const towardSideline = -towardMiddle;
 
-            // Create target mesh (a disc/ring combination for visibility)
-            const targetGroup = new BABYLON.TransformNode('targetGroup', scene);
+            // Pick a route type based on position (similar to receiver routes)
+            const routeTypes = slotPosition === 'outside'
+                ? ['go', 'corner', 'out', 'comeback', 'post']
+                : ['slant', 'seam', 'dig', 'post', 'curl', 'crossing'];
 
-            // Outer ring
-            const ring = BABYLON.MeshBuilder.CreateTorus('targetRing', {
-                diameter: targetConfig.size * 2,
-                thickness: targetConfig.size * 0.15,
-                tessellation: 32
+            const routeType = routeTypes[Math.floor(Math.random() * routeTypes.length)];
+
+            // Clamp function to keep routes in bounds
+            const clampX = (x) => Math.max(TARGET_FIELD_BOUNDS.minX, Math.min(TARGET_FIELD_BOUNDS.maxX, x));
+            const clampZ = (z) => Math.max(startZ, Math.min(TARGET_FIELD_BOUNDS.maxZ, z));
+
+            switch(routeType) {
+                case 'go':
+                    // Straight vertical route
+                    route.push({ z: clampZ(startZ + 8), x: startX });
+                    route.push({ z: clampZ(startZ + 18), x: startX });
+                    break;
+
+                case 'slant':
+                    // Quick diagonal toward middle
+                    route.push({ z: clampZ(startZ + 3), x: startX });
+                    route.push({ z: clampZ(startZ + 12), x: clampX(startX + towardMiddle * 6) });
+                    break;
+
+                case 'out':
+                    // Vertical stem then cut toward sideline
+                    route.push({ z: clampZ(startZ + 8), x: startX });
+                    route.push({ z: clampZ(startZ + 10), x: clampX(startX + towardSideline * 5) });
+                    break;
+
+                case 'corner':
+                    // Vertical stem then angle to corner
+                    route.push({ z: clampZ(startZ + 8), x: startX });
+                    route.push({ z: clampZ(startZ + 16), x: clampX(startX + towardSideline * 6) });
+                    break;
+
+                case 'post':
+                    // Vertical stem then angle toward middle
+                    route.push({ z: clampZ(startZ + 8), x: startX });
+                    route.push({ z: clampZ(startZ + 18), x: clampX(startX + towardMiddle * 5) });
+                    break;
+
+                case 'curl':
+                    // Go forward then stop/curl back slightly
+                    route.push({ z: clampZ(startZ + 10), x: startX });
+                    route.push({ z: clampZ(startZ + 8), x: clampX(startX + towardMiddle * 1) });
+                    break;
+
+                case 'comeback':
+                    // Go deep then come back toward sideline
+                    route.push({ z: clampZ(startZ + 12), x: startX });
+                    route.push({ z: clampZ(startZ + 9), x: clampX(startX + towardSideline * 3) });
+                    break;
+
+                case 'dig':
+                    // Vertical stem then sharp cut across middle
+                    route.push({ z: clampZ(startZ + 10), x: startX });
+                    route.push({ z: clampZ(startZ + 11), x: clampX(startX + towardMiddle * 8) });
+                    break;
+
+                case 'seam':
+                    // Straight up the seam (between zones)
+                    route.push({ z: clampZ(startZ + 6), x: startX });
+                    route.push({ z: clampZ(startZ + 15), x: clampX(startX + towardMiddle * 2) });
+                    break;
+
+                case 'crossing':
+                    // Run across the field
+                    route.push({ z: clampZ(startZ + 5), x: startX });
+                    route.push({ z: clampZ(startZ + 6), x: clampX(startX + towardMiddle * 10) });
+                    break;
+
+                default:
+                    // Default go route
+                    route.push({ z: clampZ(startZ + 10), x: startX });
+                    route.push({ z: clampZ(startZ + 20), x: startX });
+            }
+
+            return route;
+        }
+
+        // Create a target knight mesh with the appropriate size and color
+        function createTargetKnight(scene, targetConfig, position) {
+            const scale = targetConfig.scale;
+            const knight = new BABYLON.TransformNode('targetKnight', scene);
+
+            // Create material with target color
+            const material = new BABYLON.StandardMaterial('targetMat', scene);
+            material.diffuseColor = targetConfig.color;
+            material.emissiveColor = targetConfig.color.scale(0.3);
+
+            // Body (scaled)
+            const body = BABYLON.MeshBuilder.CreateCylinder('body', {
+                height: 0.8 * scale,
+                diameterTop: 0.4 * scale,
+                diameterBottom: 0.6 * scale,
+                tessellation: 6
             }, scene);
-            ring.parent = targetGroup;
+            body.material = material;
+            body.position.y = 0.4 * scale;
+            body.parent = knight;
 
-            // Inner disc
-            const disc = BABYLON.MeshBuilder.CreateDisc('targetDisc', {
-                radius: targetConfig.size * 0.6,
-                tessellation: 32
+            // Head
+            const head = BABYLON.MeshBuilder.CreateSphere('head', {
+                diameter: 0.35 * scale,
+                segments: 8
             }, scene);
-            disc.rotation.x = Math.PI / 2;
-            disc.position.y = 0.02;
-            disc.parent = targetGroup;
+            head.material = material;
+            head.position.y = 0.95 * scale;
+            head.parent = knight;
 
-            // Center bullseye
-            const bullseye = BABYLON.MeshBuilder.CreateDisc('targetBullseye', {
-                radius: targetConfig.size * 0.25,
-                tessellation: 16
+            // Helmet plume (white for visibility)
+            const plume = BABYLON.MeshBuilder.CreateCylinder('plume', {
+                height: 0.25 * scale,
+                diameterTop: 0.05 * scale,
+                diameterBottom: 0.12 * scale,
+                tessellation: 6
             }, scene);
-            bullseye.rotation.x = Math.PI / 2;
-            bullseye.position.y = 0.04;
-            bullseye.parent = targetGroup;
+            const plumeMat = new BABYLON.StandardMaterial('plumeMat', scene);
+            plumeMat.diffuseColor = new BABYLON.Color3(1, 1, 1);
+            plumeMat.emissiveColor = new BABYLON.Color3(0.5, 0.5, 0.5);
+            plume.material = plumeMat;
+            plume.position.y = 1.2 * scale;
+            plume.parent = knight;
 
-            // Materials
+            // Base ring (shows target area)
+            const baseRing = BABYLON.MeshBuilder.CreateTorus('baseRing', {
+                diameter: 1.2 * scale,
+                thickness: 0.08 * scale,
+                tessellation: 24
+            }, scene);
             const ringMat = new BABYLON.StandardMaterial('ringMat', scene);
             ringMat.diffuseColor = targetConfig.color;
             ringMat.emissiveColor = targetConfig.color.scale(0.5);
-            ring.material = ringMat;
+            ringMat.alpha = 0.8;
+            baseRing.material = ringMat;
+            baseRing.position.y = 0.02;
+            baseRing.parent = knight;
 
-            const discMat = new BABYLON.StandardMaterial('discMat', scene);
-            discMat.diffuseColor = targetConfig.color.scale(0.3);
-            discMat.emissiveColor = targetConfig.color.scale(0.2);
-            discMat.alpha = 0.7;
-            disc.material = discMat;
+            knight.position = position.clone();
+            knight.bodyMaterial = material;
 
-            const bullseyeMat = new BABYLON.StandardMaterial('bullseyeMat', scene);
-            bullseyeMat.diffuseColor = new BABYLON.Color3(1, 1, 1);
-            bullseyeMat.emissiveColor = new BABYLON.Color3(0.8, 0.8, 0.8);
-            bullseye.material = bullseyeMat;
+            return knight;
+        }
 
-            // Position the target group
-            targetGroup.position = new BABYLON.Vector3(startX, 0.1, startZ);
+        // Create a single target (receiver-like)
+        function createTarget(scene, type, startX, startZ, slotPosition) {
+            const targetConfig = TARGET_TYPES[type];
 
-            // Get route points
-            const route = routePattern.points(startX, startZ);
+            // Create knight mesh for target
+            const position = new BABYLON.Vector3(startX, 0, startZ);
+            const mesh = createTargetKnight(scene, targetConfig, position);
+
+            // Generate route
+            const route = generateTargetRoute(startX, startZ, slotPosition);
 
             // Create route line visualization
-            const routePathPoints = route.map(p => new BABYLON.Vector3(p.x, 0.03, p.z));
-            // Close the loop by adding first point at the end
-            routePathPoints.push(routePathPoints[0].clone());
+            const routePathPoints = [new BABYLON.Vector3(startX, 0.03, startZ)];
+            route.forEach(p => routePathPoints.push(new BABYLON.Vector3(p.x, 0.03, p.z)));
 
-            const routeLine = BABYLON.MeshBuilder.CreateTube('routeLine', {
-                path: routePathPoints,
-                radius: 0.06,
-                tessellation: 8,
-                cap: BABYLON.Mesh.NO_CAP
-            }, scene);
+            let routeLine = null;
+            if (routePathPoints.length >= 2) {
+                routeLine = BABYLON.MeshBuilder.CreateTube('routeLine', {
+                    path: routePathPoints,
+                    radius: 0.05,
+                    tessellation: 8,
+                    cap: BABYLON.Mesh.NO_CAP
+                }, scene);
 
-            const routeLineMat = new BABYLON.StandardMaterial('routeLineMat', scene);
-            routeLineMat.diffuseColor = targetConfig.color.scale(0.4);
-            routeLineMat.emissiveColor = targetConfig.color.scale(0.2);
-            routeLineMat.alpha = 0.5;
-            routeLine.material = routeLineMat;
+                const routeLineMat = new BABYLON.StandardMaterial('routeLineMat', scene);
+                routeLineMat.diffuseColor = targetConfig.color.scale(0.5);
+                routeLineMat.emissiveColor = targetConfig.color.scale(0.2);
+                routeLineMat.alpha = 0.6;
+                routeLine.material = routeLineMat;
+            }
 
-            // Calculate speed based on type and game settings
+            // Calculate speed (similar to receiver speed calculation)
             const speedSettings = { slow: 0.6, normal: 1.0, fast: 1.5 };
-            const baseSpeed = 0.04 * targetConfig.speedMult * (speedSettings[gameState.targetPracticeSpeedSetting] || 1.0);
+            const baseSpeedFactor = 0.05;  // Similar to SPEED_CONSTANTS.RECEIVER_FACTOR * 80
+            const baseSpeed = baseSpeedFactor * targetConfig.speedMult * (speedSettings[gameState.targetPracticeSpeedSetting] || 1.0);
 
-            // Store target data
+            // Store target data (similar to receiver structure)
             const target = {
-                mesh: targetGroup,
-                ring: ring,
-                disc: disc,
-                bullseye: bullseye,
+                mesh: mesh,
                 routeLine: routeLine,
                 type: type,
                 config: targetConfig,
                 route: route,
                 routeIndex: 0,
-                routeProgress: 0,  // 0-1 progress between waypoints
+                position: mesh.position,
+                rotation: mesh.rotation,
+                startPos: position.clone(),
                 speed: baseSpeed,
-                baseSpeed: baseSpeed,  // Store original speed for progressive difficulty
-                hitRadius: targetConfig.size * 1.2,  // Slightly larger than visual for forgiving hits
+                baseSpeed: baseSpeed,
+                velocity: new BABYLON.Vector3(0, 0, 0),
+                runMomentum: 0,
+                hitRadius: 0.8 * targetConfig.scale,  // Hit radius based on scale
                 active: true,
                 respawnTimer: 0
             };
@@ -15322,82 +15384,138 @@
             gameState.targetPracticeSpeedBonus = 1.0;  // Reset speed bonus
 
             const targetCount = gameState.targetPracticeTargetCount;
-            const types = ['small', 'medium', 'large'];
 
-            // Create targets with varied positions and routes
+            // Starting positions spread across the field (like receiver positions)
+            const startingPositions = [
+                { x: -6, slot: 'outside' },   // Far left
+                { x: -3, slot: 'slot' },      // Left slot
+                { x: 0, slot: 'slot' },       // Middle
+                { x: 3, slot: 'slot' },       // Right slot
+                { x: 6, slot: 'outside' },    // Far right
+                { x: -4.5, slot: 'slot' },    // Extra positions
+                { x: 4.5, slot: 'slot' }
+            ];
+
+            const startZ = gameState.lineOfScrimmage + 2;  // Start near line of scrimmage
+
+            // Create targets with varied types and positions
             for (let i = 0; i < targetCount; i++) {
-                // Distribute types (more medium, some small and large)
+                // Cycle through types: small, medium, large, medium, small...
                 let type;
-                if (i % 3 === 0) type = 'small';
-                else if (i % 3 === 1) type = 'large';
+                const typeIndex = i % 5;
+                if (typeIndex === 0 || typeIndex === 4) type = 'small';
+                else if (typeIndex === 2) type = 'large';
                 else type = 'medium';
 
-                // Spread starting positions across the field
-                const xSpread = 10;
-                const startX = (Math.random() - 0.5) * xSpread * 2;
-                const startZ = gameState.lineOfScrimmage + 5 + Math.random() * 10;
+                // Get position (cycle through available positions)
+                const posConfig = startingPositions[i % startingPositions.length];
+                const startX = posConfig.x + (Math.random() - 0.5) * 1;  // Small random offset
 
-                // Pick a route pattern
-                const routePattern = TARGET_ROUTES[i % TARGET_ROUTES.length];
-
-                const target = createTarget(scene, type, startX, startZ, routePattern);
+                const target = createTarget(scene, type, startX, startZ, posConfig.slot);
                 gameState.targetPracticeTargets.push(target);
             }
         }
 
-        // Move all targets along their routes
+        // Move all targets along their routes (receiver-style movement)
         function moveTargets() {
-            const dt = 1 / 60;  // Assume 60 FPS
+            const time = performance.now() * 0.001;
 
-            gameState.targetPracticeTargets.forEach(target => {
+            gameState.targetPracticeTargets.forEach((target, i) => {
                 if (!target.active) {
                     // Handle respawn timer
-                    target.respawnTimer -= dt;
+                    target.respawnTimer -= 1/60;
                     if (target.respawnTimer <= 0) {
                         target.active = true;
                         target.mesh.setEnabled(true);
-                        if (target.routeLine) target.routeLine.visibility = 1;  // Restore route visibility
+                        if (target.routeLine) target.routeLine.visibility = 1;
                         target.routeIndex = 0;
-                        target.routeProgress = 0;
-                        // Randomize new start position slightly
-                        const newX = target.route[0].x + (Math.random() - 0.5) * 4;
-                        target.mesh.position.x = newX;
-                        target.mesh.position.z = target.route[0].z;
+                        // Reset to start position
+                        target.position.x = target.startPos.x + (Math.random() - 0.5) * 2;
+                        target.position.z = target.startPos.z;
+                        target.runMomentum = 0;
+
+                        // Generate new route on respawn for variety
+                        const slotPosition = Math.abs(target.startPos.x) > 4 ? 'outside' : 'slot';
+                        target.route = generateTargetRoute(target.position.x, target.position.z, slotPosition);
+
+                        // Update route line
+                        if (target.routeLine) {
+                            target.routeLine.dispose();
+                        }
+                        const routePathPoints = [new BABYLON.Vector3(target.position.x, 0.03, target.position.z)];
+                        target.route.forEach(p => routePathPoints.push(new BABYLON.Vector3(p.x, 0.03, p.z)));
+
+                        if (routePathPoints.length >= 2) {
+                            target.routeLine = BABYLON.MeshBuilder.CreateTube('routeLine', {
+                                path: routePathPoints,
+                                radius: 0.05,
+                                tessellation: 8,
+                                cap: BABYLON.Mesh.NO_CAP
+                            }, gameState.scene);
+
+                            const routeLineMat = new BABYLON.StandardMaterial('routeLineMat', gameState.scene);
+                            routeLineMat.diffuseColor = target.config.color.scale(0.5);
+                            routeLineMat.emissiveColor = target.config.color.scale(0.2);
+                            routeLineMat.alpha = 0.6;
+                            target.routeLine.material = routeLineMat;
+                        }
                     }
                     return;
                 }
 
-                // Move along route
-                const currentWaypoint = target.route[target.routeIndex];
-                const nextIndex = (target.routeIndex + 1) % target.route.length;
-                const nextWaypoint = target.route[nextIndex];
+                // Move along route (similar to moveReceiverAlongRoute)
+                const runSpeed = target.speed * gameState.targetPracticeSpeedBonus;
 
-                // Calculate direction and distance
-                const dx = nextWaypoint.x - currentWaypoint.x;
-                const dz = nextWaypoint.z - currentWaypoint.z;
-                const segmentLength = Math.sqrt(dx * dx + dz * dz);
-
-                if (segmentLength > 0) {
-                    // Move along segment
-                    target.routeProgress += target.speed / segmentLength;
-
-                    if (target.routeProgress >= 1) {
-                        // Move to next waypoint
-                        target.routeProgress = 0;
-                        target.routeIndex = nextIndex;
-                    }
-
-                    // Interpolate position
-                    const t = target.routeProgress;
-                    target.mesh.position.x = currentWaypoint.x + dx * t;
-                    target.mesh.position.z = currentWaypoint.z + dz * t;
+                if (!target.route || target.routeIndex >= target.route.length) {
+                    // Route complete - loop back to start
+                    target.routeIndex = 0;
+                    target.position.x = target.startPos.x + (Math.random() - 0.5) * 2;
+                    target.position.z = target.startPos.z;
+                    return;
                 }
 
-                // Gentle bobbing animation
-                target.mesh.position.y = 0.1 + Math.sin(performance.now() * 0.003) * 0.05;
+                const waypoint = target.route[target.routeIndex];
+                let dx = waypoint.x - target.position.x;
+                let dz = waypoint.z - target.position.z;
+                let dist = Math.sqrt(dx * dx + dz * dz);
 
-                // Rotate ring for visual interest
-                target.ring.rotation.y += 0.02;
+                // Check if reached waypoint
+                if (dist < 0.3) {
+                    target.routeIndex++;
+                    if (target.routeIndex >= target.route.length) {
+                        // Route complete - loop back
+                        target.routeIndex = 0;
+                        target.position.x = target.startPos.x + (Math.random() - 0.5) * 2;
+                        target.position.z = target.startPos.z;
+                        return;
+                    }
+                    const newWaypoint = target.route[target.routeIndex];
+                    dx = newWaypoint.x - target.position.x;
+                    dz = newWaypoint.z - target.position.z;
+                    dist = Math.sqrt(dx * dx + dz * dz);
+                }
+
+                if (dist > 0.1) {
+                    // Move toward waypoint
+                    const vx = (dx / dist) * runSpeed;
+                    const vz = (dz / dist) * runSpeed;
+                    target.velocity = new BABYLON.Vector3(vx, 0, vz);
+
+                    target.position.x += vx;
+                    target.position.z += vz;
+                    target.rotation.y = Math.atan2(dx, dz);
+
+                    // Running momentum for forward lean
+                    target.runMomentum = Math.min((target.runMomentum || 0) + 0.15, 1);
+                    target.rotation.x = target.runMomentum * 0.2;
+                } else {
+                    target.velocity = new BABYLON.Vector3(0, 0, 0);
+                    target.runMomentum = (target.runMomentum || 0) * 0.95;
+                    target.rotation.x = target.runMomentum * 0.1;
+                }
+
+                // Running bob animation
+                target.position.y = Math.abs(Math.sin(time * 8 + i)) * 0.08;
             });
         }
 
@@ -15544,7 +15662,7 @@
             hitTargets.forEach(target => {
                 target.active = false;
                 target.mesh.setEnabled(false);
-                target.routeLine.visibility = 0.3;  // Dim route line when target is respawning
+                if (target.routeLine) target.routeLine.visibility = 0.3;  // Dim route line when target is respawning
                 target.respawnTimer = 2.0;  // Respawn after 2 seconds
             });
 
