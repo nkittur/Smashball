@@ -450,6 +450,7 @@
         <!-- Hub Screen -->
         <div id="hubScreen" class="mgmt-screen hub-screen" style="display:none;">
             <button id="btnHubManual" class="mgmt-btn back-btn" style="right: 10px; left: auto;">?</button>
+            <button id="btnHubSettings" class="mgmt-btn back-btn" style="right: 50px; left: auto;">⚙</button>
             <div class="hub-status" id="hubStatus">Fame: 1,000 | Week 1</div>
             <h2>TEAM HUB</h2>
             <div class="hub-buttons">
@@ -463,6 +464,30 @@
             <p id="hubRecord" class="hub-record">Record: 0-0</p>
             <p id="hubNextGame" class="hub-next"></p>
             <button id="btnHubNewGame" class="mgmt-btn danger" style="margin-top: 30px;">NEW GAME</button>
+        </div>
+
+        <!-- Game Settings Screen -->
+        <div id="gameSettingsScreen" class="mgmt-screen" style="display:none;">
+            <button id="btnSettingsBack" class="mgmt-btn back-btn">←</button>
+            <h2>SETTINGS</h2>
+
+            <div style="max-width: 300px; margin: 20px auto; text-align: left;">
+                <!-- Difficulty -->
+                <div style="margin-bottom: 20px;">
+                    <div style="color: #888; font-size: 12px; margin-bottom: 8px;">GAME DIFFICULTY</div>
+                    <div style="color: #666; font-size: 11px; margin-bottom: 10px;">Affects how well receivers track and adjust to the ball</div>
+                    <div style="display: flex; gap: 6px;">
+                        <button class="game-difficulty-btn mgmt-btn" data-difficulty="easy" style="flex: 1; padding: 10px; font-size: 12px;">EASY</button>
+                        <button class="game-difficulty-btn mgmt-btn" data-difficulty="medium" style="flex: 1; padding: 10px; font-size: 12px; background: #4a4;">MEDIUM</button>
+                        <button class="game-difficulty-btn mgmt-btn" data-difficulty="hard" style="flex: 1; padding: 10px; font-size: 12px;">HARD</button>
+                    </div>
+                    <div style="color: #555; font-size: 10px; margin-top: 8px;">
+                        <div>Easy: Receivers react quickly and turn sharply</div>
+                        <div>Medium: Receivers need accurate throws</div>
+                        <div>Hard: Receivers struggle to adjust to the ball</div>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- Roster Screen -->
@@ -13814,6 +13839,10 @@
                         document.getElementById('draftScreen').style.display = 'block';
                         refreshDraftScreen();
                         break;
+                    case 'settings':
+                        document.getElementById('gameSettingsScreen').style.display = 'block';
+                        refreshSettingsScreen();
+                        break;
                 }
             }
 
@@ -13834,6 +13863,18 @@
             } else {
                 document.getElementById('hubNextGame').textContent = 'Season Complete!';
             }
+        }
+
+        // Refresh settings screen data
+        function refreshSettingsScreen() {
+            // Update difficulty button states
+            document.querySelectorAll('.game-difficulty-btn').forEach(btn => {
+                if (btn.dataset.difficulty === gameState.gameDifficulty) {
+                    btn.style.background = '#4a4';
+                } else {
+                    btn.style.background = '#333';
+                }
+            });
         }
 
         // Calculate season stat change for a player (based on primary stats/overall)
@@ -16394,12 +16435,16 @@
             btn.textContent = gameState.showClashFlash ? 'ON' : 'OFF';
             btn.style.background = gameState.showClashFlash ? '#4a4' : '#444';
         });
-        // Difficulty buttons
+        // Difficulty buttons (training panel)
         document.querySelectorAll('.difficulty-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 gameState.gameDifficulty = btn.dataset.difficulty;
                 document.querySelectorAll('.difficulty-btn').forEach(b => b.style.background = '#333');
                 btn.style.background = '#4a4';
+                // Also sync with game settings screen buttons
+                document.querySelectorAll('.game-difficulty-btn').forEach(b => {
+                    b.style.background = b.dataset.difficulty === gameState.gameDifficulty ? '#4a4' : '#333';
+                });
             });
         });
         // Receiver speed preset buttons
@@ -16488,6 +16533,20 @@
         document.getElementById('btnFABack').addEventListener('click', () => showScreen('hub'));
         document.getElementById('btnScheduleBack').addEventListener('click', () => showScreen('hub'));
         document.getElementById('btnFacilitiesBack').addEventListener('click', () => showScreen('hub'));
+        document.getElementById('btnHubSettings').addEventListener('click', () => showScreen('settings'));
+        document.getElementById('btnSettingsBack').addEventListener('click', () => showScreen('hub'));
+        // Game difficulty buttons (settings screen)
+        document.querySelectorAll('.game-difficulty-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                gameState.gameDifficulty = btn.dataset.difficulty;
+                document.querySelectorAll('.game-difficulty-btn').forEach(b => b.style.background = '#333');
+                btn.style.background = '#4a4';
+                // Also update training panel buttons if visible
+                document.querySelectorAll('.difficulty-btn').forEach(b => {
+                    b.style.background = b.dataset.difficulty === gameState.gameDifficulty ? '#4a4' : '#333';
+                });
+            });
+        });
         document.getElementById('btnMatchContinue').addEventListener('click', () => {
             if (managementState.seasonJustEnded) {
                 managementState.seasonJustEnded = false;
