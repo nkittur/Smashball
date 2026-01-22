@@ -316,10 +316,10 @@
 
             <!-- Difficulty -->
             <div style="margin-bottom: 12px;">
-                <div style="color: #888; font-size: 11px; margin-bottom: 4px;">DIFFICULTY</div>
+                <div style="color: #888; font-size: 11px; margin-bottom: 4px;">TRAINING DIFFICULTY</div>
                 <div style="display: flex; gap: 4px;">
-                    <button class="difficulty-btn" data-difficulty="easy" style="flex: 1; padding: 6px; background: #333; color: #fff; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 11px;">Easy</button>
-                    <button class="difficulty-btn" data-difficulty="medium" style="flex: 1; padding: 6px; background: #4a4; color: #fff; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 11px;">Medium</button>
+                    <button class="difficulty-btn" data-difficulty="easy" style="flex: 1; padding: 6px; background: #4a4; color: #fff; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 11px;">Easy</button>
+                    <button class="difficulty-btn" data-difficulty="medium" style="flex: 1; padding: 6px; background: #333; color: #fff; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 11px;">Medium</button>
                     <button class="difficulty-btn" data-difficulty="hard" style="flex: 1; padding: 6px; background: #333; color: #fff; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 11px;">Hard</button>
                 </div>
             </div>
@@ -1844,7 +1844,8 @@
             dbSpeedPreset: 80,        // DB speed preset (90, 80, 70, or 'mixed')
             receiverAwarenessPreset: 70, // Receiver awareness preset (controls ball reaction delay)
             receiverAgilityPreset: 70,   // Receiver agility preset (controls turn rate/route correction)
-            gameDifficulty: 'medium',    // Difficulty: 'easy', 'medium', 'hard' - affects WR reaction/turning
+            gameDifficulty: 'medium',    // Main game difficulty: 'easy', 'medium', 'hard'
+            trainingDifficulty: 'easy',  // Training mode difficulty (separate from main game)
             // Down and distance tracking
             down: 1,                // Current down (1-4)
             yardsToGo: 10,          // Yards needed for first down
@@ -12001,9 +12002,11 @@
                         const adjustmentRange = Math.max(5, receiverCatchRadius * 3);
 
                         // Apply difficulty scaling to awareness and agility
+                        // Use training difficulty in training mode, game difficulty otherwise
                         // Easy: no change, Medium: -30 effective, Hard: -50 effective
-                        const difficultyPenalty = gameState.gameDifficulty === 'easy' ? 0 :
-                                                  gameState.gameDifficulty === 'hard' ? 50 : 30;
+                        const currentDifficulty = gameState.trainingMode ? gameState.trainingDifficulty : gameState.gameDifficulty;
+                        const difficultyPenalty = currentDifficulty === 'easy' ? 0 :
+                                                  currentDifficulty === 'hard' ? 50 : 30;
 
                         // Calculate reaction delay based on receiver's intelligence (awareness/field vision)
                         // Easy 90 INT = 3 frames, Medium 90 INT = 10 frames (like Easy 60)
@@ -16435,16 +16438,12 @@
             btn.textContent = gameState.showClashFlash ? 'ON' : 'OFF';
             btn.style.background = gameState.showClashFlash ? '#4a4' : '#444';
         });
-        // Difficulty buttons (training panel)
+        // Difficulty buttons (training panel - separate from main game difficulty)
         document.querySelectorAll('.difficulty-btn').forEach(btn => {
             btn.addEventListener('click', () => {
-                gameState.gameDifficulty = btn.dataset.difficulty;
+                gameState.trainingDifficulty = btn.dataset.difficulty;
                 document.querySelectorAll('.difficulty-btn').forEach(b => b.style.background = '#333');
                 btn.style.background = '#4a4';
-                // Also sync with game settings screen buttons
-                document.querySelectorAll('.game-difficulty-btn').forEach(b => {
-                    b.style.background = b.dataset.difficulty === gameState.gameDifficulty ? '#4a4' : '#333';
-                });
             });
         });
         // Receiver speed preset buttons
@@ -16535,16 +16534,12 @@
         document.getElementById('btnFacilitiesBack').addEventListener('click', () => showScreen('hub'));
         document.getElementById('btnHubSettings').addEventListener('click', () => showScreen('settings'));
         document.getElementById('btnSettingsBack').addEventListener('click', () => showScreen('hub'));
-        // Game difficulty buttons (settings screen)
+        // Game difficulty buttons (settings screen - separate from training difficulty)
         document.querySelectorAll('.game-difficulty-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 gameState.gameDifficulty = btn.dataset.difficulty;
                 document.querySelectorAll('.game-difficulty-btn').forEach(b => b.style.background = '#333');
                 btn.style.background = '#4a4';
-                // Also update training panel buttons if visible
-                document.querySelectorAll('.difficulty-btn').forEach(b => {
-                    b.style.background = b.dataset.difficulty === gameState.gameDifficulty ? '#4a4' : '#333';
-                });
             });
         });
         document.getElementById('btnMatchContinue').addEventListener('click', () => {
