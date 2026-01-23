@@ -488,11 +488,6 @@
                     <span style="color: #888; font-size: 10px;">SCORE</span>
                     <span id="targetScoreDisplay" style="color: #ffd700; font-size: 16px; font-weight: bold;">0</span>
                 </div>
-                <div style="color: #666;">|</div>
-                <div style="display: flex; align-items: center; gap: 4px;">
-                    <span style="color: #888; font-size: 10px;">LEFT</span>
-                    <span id="targetRemaining" style="color: #ff6b6b; font-size: 16px; font-weight: bold;">5</span>
-                </div>
             </div>
             <div style="display: flex; align-items: center; gap: 16px;">
                 <div style="display: flex; align-items: center; gap: 4px;">
@@ -507,9 +502,9 @@
                     <span id="targetMultiplier" style="color: #4fc3f7; font-size: 16px; font-weight: bold;">1x</span>
                 </div>
                 <div style="color: #666;">|</div>
-                <div style="display: flex; align-items: center; gap: 4px;">
-                    <span style="color: #888; font-size: 10px;">MISSES</span>
-                    <span id="targetMisses" style="color: #ff6b6b; font-size: 16px; font-weight: bold;">5</span>
+                <div style="display: flex; align-items: center; gap: 2px;">
+                    <span id="targetMissIcons" style="font-size: 14px; letter-spacing: 1px;"></span>
+                    <span id="targetMisses" style="display: none;">5</span>
                 </div>
                 <div style="display: flex; align-items: center; gap: 4px;">
                     <span style="color: #888; font-size: 10px;">STREAK</span>
@@ -13610,9 +13605,10 @@
                 // Freeze play until player holds screen (but not in target practice)
                 if (gameState.playFrozen && !gameState.targetPracticeMode) return;
 
-                // Target Practice Mode - move targets
+                // Target Practice Mode - move targets and update distance colors
                 if (gameState.targetPracticeMode) {
                     moveTargets();
+                    updateTargetDistanceColors();
                 }
 
                 // Move bonus zones (all modes)
@@ -15294,28 +15290,28 @@
                 radius: 1.5,
                 catchBonus: 15,           // +15% catch probability
                 pointMultiplier: 2.0,     // 2x points in target practice
-                color: new BABYLON.Color3(0.1, 1, 0.2),  // Bright green
+                color: new BABYLON.Color3(1, 0.2, 0.2),  // Red - hardest to hit
                 emissiveIntensity: 0.7,
                 speedMult: 1.5,           // Moves faster
-                name: 'Small'
+                name: '2x'
             },
             medium: {
                 radius: 2.5,
                 catchBonus: 10,           // +10% catch probability
                 pointMultiplier: 1.5,     // 1.5x points
-                color: new BABYLON.Color3(0.2, 0.85, 0.3),  // Medium green
+                color: new BABYLON.Color3(1, 0.85, 0.1),  // Yellow
                 emissiveIntensity: 0.5,
                 speedMult: 1.0,
-                name: 'Medium'
+                name: '1.5x'
             },
             large: {
-                radius: 4.0,
+                radius: 3.0,              // Reduced from 4.0
                 catchBonus: 5,            // +5% catch probability
                 pointMultiplier: 1.25,    // 1.25x points
-                color: new BABYLON.Color3(0.3, 0.7, 0.35),  // Softer green
-                emissiveIntensity: 0.3,
-                speedMult: 0.7,           // Moves slower
-                name: 'Large'
+                color: new BABYLON.Color3(0.2, 0.9, 0.3),  // Green - easiest
+                emissiveIntensity: 0.4,
+                speedMult: 0.8,           // Moves slower
+                name: '1.25x'
             }
         };
 
@@ -15383,11 +15379,11 @@
             }
             gameState.bonusZones = [];
 
-            // Create one of each type spread across the field
+            // Create one of each type spread across the field - keep in front where routes are
             const zoneConfigs = [
-                { type: 'large', x: -4, z: gameState.lineOfScrimmage + 8 },
-                { type: 'medium', x: 3, z: gameState.lineOfScrimmage + 12 },
-                { type: 'small', x: 0, z: gameState.lineOfScrimmage + 18 }
+                { type: 'large', x: -4, z: gameState.lineOfScrimmage + 6 },
+                { type: 'medium', x: 3, z: gameState.lineOfScrimmage + 9 },
+                { type: 'small', x: 0, z: gameState.lineOfScrimmage + 12 }
             ];
 
             zoneConfigs.forEach(cfg => {
@@ -15402,8 +15398,9 @@
 
             const fieldMinX = -6;
             const fieldMaxX = 6;
+            // Keep zones closer to the front where routes are active
             const fieldMinZ = gameState.lineOfScrimmage + 3;
-            const fieldMaxZ = gameState.lineOfScrimmage + 25;
+            const fieldMaxZ = gameState.lineOfScrimmage + 15;  // Reduced from 25 to stay in route area
 
             gameState.bonusZones.forEach(zone => {
                 if (!zone.active) return;
@@ -15827,6 +15824,47 @@
             });
         }
 
+        // Update target route colors based on distance from QB (green=close, yellow=medium, orange=far)
+        function updateTargetDistanceColors() {
+            if (!gameState.targetPracticeMode || !gameState.scene || !gameState.scene.qb) return;
+
+            const qbPos = gameState.scene.qb.position;
+
+            gameState.targetPracticeTargets.forEach(target => {
+                if (!target.active || !target.routeLine) return;
+
+                // Calculate distance from QB to target
+                const dx = target.position.x - qbPos.x;
+                const dz = target.position.z - qbPos.z;
+                const distance = Math.sqrt(dx * dx + dz * dz);
+
+                // Determine color based on distance
+                // Close (< 10 yards): Green
+                // Medium (10-18 yards): Yellow
+                // Far (> 18 yards): Orange
+                let color;
+                if (distance < 10) {
+                    color = new BABYLON.Color3(0.3, 0.9, 0.3);  // Green - nearby
+                } else if (distance < 18) {
+                    color = new BABYLON.Color3(1, 0.85, 0.2);   // Yellow - medium
+                } else {
+                    color = new BABYLON.Color3(1, 0.5, 0.1);    // Orange - far away
+                }
+
+                // Update route line color
+                if (target.routeLine.material) {
+                    target.routeLine.material.diffuseColor = color.scale(0.6);
+                    target.routeLine.material.emissiveColor = color.scale(0.3);
+                }
+
+                // Also update the body/ring colors to match
+                if (target.mesh && target.mesh.bodyMaterial) {
+                    target.mesh.bodyMaterial.diffuseColor = color;
+                    target.mesh.bodyMaterial.emissiveColor = color.scale(0.3);
+                }
+            });
+        }
+
         // Show landing ripple effect where ball lands
         function showLandingRipple(scene, position, isHit) {
             const rippleColor = isHit
@@ -15974,28 +16012,28 @@
             // Calculate subtotal before multiplier
             const subtotal = basePoints + multiHitBonus + longThrowBonus + rapidFireBonus;
 
-            // Apply streak multiplier
+            // Stack multipliers together (streak × zone)
             const streakMultiplier = gameState.targetPracticeMultiplier;
-            let afterStreak = Math.floor(subtotal * streakMultiplier);
+            const combinedMultiplier = streakMultiplier * zoneMultiplier;
+            const total = Math.floor(subtotal * combinedMultiplier);
 
-            if (streakMultiplier > 1) {
+            // Show combined multiplier in breakdown if > 1
+            if (combinedMultiplier > 1) {
+                let multiplierLabel = '';
+                if (streakMultiplier > 1 && zoneMultiplier > 1) {
+                    multiplierLabel = `Streak ${streakMultiplier}x × ${zoneName} ${zoneMultiplier}x = ${combinedMultiplier}x`;
+                } else if (streakMultiplier > 1) {
+                    multiplierLabel = `Streak x${streakMultiplier}`;
+                } else {
+                    multiplierLabel = `${zoneName} Zone x${zoneMultiplier}`;
+                }
                 breakdown.push({
-                    label: `Streak x${streakMultiplier}`,
-                    points: afterStreak - subtotal
+                    label: multiplierLabel,
+                    points: total - subtotal
                 });
             }
 
-            // Apply bonus zone multiplier
-            let total = afterStreak;
-            if (zoneMultiplier > 1) {
-                total = Math.floor(afterStreak * zoneMultiplier);
-                breakdown.push({
-                    label: `${zoneName} Zone x${zoneMultiplier}`,
-                    points: total - afterStreak
-                });
-            }
-
-            return { total, breakdown, subtotal, zoneMultiplier };
+            return { total, breakdown, subtotal, zoneMultiplier, combinedMultiplier };
         }
 
         // Handle target hit
@@ -16162,7 +16200,12 @@
             document.getElementById('roundTotalBonus').textContent = 'Total: +' + totalBonus;
 
             // Show extra miss notification
-            document.getElementById('roundExtraMiss').textContent = '+1 Extra Miss! (' + gameState.targetPracticeMissesRemaining + ' total)';
+            // Show extra miss as football icons
+            let missIcons = '';
+            for (let i = 0; i < gameState.targetPracticeMissesRemaining; i++) {
+                missIcons += '🏈';
+            }
+            document.getElementById('roundExtraMiss').innerHTML = '+1 🏈 Extra! (' + missIcons + ')';
 
             popup.style.display = 'block';
 
@@ -16190,7 +16233,13 @@
             mainEl.style.color = '#f44';
             pointsEl.textContent = 'Streak Reset';
             pointsEl.style.color = '#888';
-            bonusesEl.textContent = gameState.targetPracticeMissesRemaining + ' misses remaining';
+
+            // Show remaining misses as football icons
+            let missIcons = '';
+            for (let i = 0; i < gameState.targetPracticeMissesRemaining; i++) {
+                missIcons += '🏈';
+            }
+            bonusesEl.innerHTML = missIcons + ' left';
 
             popup.style.display = 'block';
             setTimeout(() => {
@@ -16231,21 +16280,28 @@
 
             document.getElementById('targetRound').textContent = gameState.targetPracticeRound;
             document.getElementById('targetScoreDisplay').textContent = gameState.targetPracticeScore;
-            document.getElementById('targetRemaining').textContent = remainingTargets;
             document.getElementById('targetThrows').textContent = gameState.targetPracticeRoundThrows;
             document.getElementById('targetMultiplier').textContent = gameState.targetPracticeMultiplier + 'x';
             document.getElementById('targetMisses').textContent = gameState.targetPracticeMissesRemaining;
             document.getElementById('targetStreak').textContent = gameState.targetPracticeStreak;
 
-            // Color misses based on remaining count
-            const missesEl = document.getElementById('targetMisses');
-            if (gameState.targetPracticeMissesRemaining <= 1) {
-                missesEl.style.color = '#f44'; // Red - critical
-            } else if (gameState.targetPracticeMissesRemaining <= 2) {
-                missesEl.style.color = '#ff6b6b'; // Orange-red - warning
-            } else {
-                missesEl.style.color = '#ffd700'; // Yellow - safe
+            // Render football icons for misses remaining
+            const missIconsEl = document.getElementById('targetMissIcons');
+            const missCount = gameState.targetPracticeMissesRemaining;
+            let iconsHtml = '';
+            for (let i = 0; i < missCount; i++) {
+                // Color based on position: last few get warning colors
+                let color;
+                if (missCount <= 1) {
+                    color = '#f44';  // Red - critical
+                } else if (missCount <= 2) {
+                    color = '#ff6b6b';  // Orange-red
+                } else {
+                    color = '#8B4513';  // Brown football color
+                }
+                iconsHtml += `<span style="color: ${color};">🏈</span>`;
             }
+            missIconsEl.innerHTML = iconsHtml;
 
             // Update time display
             const elapsed = (performance.now() - gameState.targetPracticeRoundStartTime) / 1000;
