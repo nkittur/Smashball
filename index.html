@@ -499,22 +499,23 @@
         <!-- Hit Popup (shows when you hit a target) -->
         <div id="targetHitPopup" style="
             position: fixed;
-            bottom: 120px;
+            top: 70px;
             left: 50%;
             transform: translateX(-50%);
-            background: rgba(0,0,0,0.92);
-            padding: 16px 24px;
-            border-radius: 10px;
+            background: rgba(0,0,0,0.85);
+            padding: 10px 18px;
+            border-radius: 8px;
             color: white;
             font-family: 'Courier New', monospace;
             text-align: center;
             z-index: 1000;
             display: none;
-            min-width: 200px;
+            min-width: 160px;
+            pointer-events: none;
         ">
-            <div id="hitPopupMain" style="font-size: 32px; font-weight: bold; color: #4f4;">HIT!</div>
-            <div id="hitPopupPoints" style="font-size: 18px; color: #ffd700; margin-top: 4px;">+100</div>
-            <div id="hitPopupBonuses" style="font-size: 12px; color: #aaa; margin-top: 6px;"></div>
+            <div id="hitPopupMain" style="font-size: 26px; font-weight: bold; color: #4f4;">HIT!</div>
+            <div id="hitPopupPoints" style="font-size: 16px; color: #ffd700; margin-top: 2px;">+100</div>
+            <div id="hitPopupBonuses" style="font-size: 11px; color: #aaa; margin-top: 4px;"></div>
         </div>
         <!-- Round History Display -->
         <div id="targetRoundHistory" style="
