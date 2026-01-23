@@ -2805,7 +2805,8 @@
         // Feature flags
         const FEATURE_FLAGS = {
             showDefenderZones: false,  // Show defender zone rings and fills
-            showDebugInfo: false       // Show on-screen debug info for coverage/catch factors
+            showDebugInfo: false,      // Show on-screen debug info for coverage/catch factors
+            circleCatchBonuses: false  // Enable catch probability bonuses from bonus zones
         };
 
         // ========================================
@@ -7706,9 +7707,12 @@
                 catchProb -= depthPenalty;
 
                 // Bonus zone catch boost (check if receiver is in a bonus zone)
+                // Only applies catch bonus if feature flag is enabled
                 const bonusZone = checkBonusZones(receiver.position);
                 if (bonusZone) {
-                    catchProb += bonusZone.config.catchBonus;
+                    if (FEATURE_FLAGS.circleCatchBonuses) {
+                        catchProb += bonusZone.config.catchBonus;
+                    }
                     receiver.inBonusZone = bonusZone.config.name;
                 } else {
                     receiver.inBonusZone = null;
@@ -10299,11 +10303,11 @@
             const dy = dragStart.y - dragCurrent.y;
 
             // Get QB's arm strength (affects max throw distance)
-            // Scales from 12 yards at 50 armStrength to 26 yards at 100 armStrength
+            // Scales from 14 yards at 50 armStrength to 28 yards at 100 armStrength
             // Target practice mode gets extended range (40 yards max)
             const qb = gameState.scene?.qb;
             const armStrength = qb?.stats?.armStrength || 70;
-            const baseMaxThrow = 12 + ((armStrength - 50) / 50) * 14;  // 12-26 range
+            const baseMaxThrow = 14 + ((armStrength - 50) / 50) * 14;  // 14-28 range
             const qbMaxThrowDistance = gameState.targetPracticeMode ? 40 : baseMaxThrow;
 
             // Distance dragged determines throw power
