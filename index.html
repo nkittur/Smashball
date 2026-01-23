@@ -15385,7 +15385,7 @@
         // Uses knight meshes like receivers with different scales
         const TARGET_TYPES = {
             small: {
-                scale: 0.7,
+                scale: 0.85,
                 speedMult: 1.3,
                 points: 150,
                 color: new BABYLON.Color3(1, 0.3, 0.3),  // Red
@@ -15656,12 +15656,19 @@
 
             // Create targets with varied types and positions
             for (let i = 0; i < targetCount; i++) {
-                // Cycle through types: small, medium, large, medium, small...
+                // Cycle through types: medium, large, medium... (small only at round 10+)
                 let type;
+                const round = gameState.targetPracticeRound;
                 const typeIndex = i % 5;
-                if (typeIndex === 0 || typeIndex === 4) type = 'small';
-                else if (typeIndex === 2) type = 'large';
-                else type = 'medium';
+
+                if (round >= 10 && (typeIndex === 0 || typeIndex === 4)) {
+                    // Small targets only appear at round 10+
+                    type = 'small';
+                } else if (typeIndex === 2) {
+                    type = 'large';
+                } else {
+                    type = 'medium';
+                }
 
                 // Get position (cycle through available positions)
                 const posConfig = startingPositions[i % startingPositions.length];
@@ -15954,7 +15961,7 @@
 
             // Update UI
             updateTargetPracticeUI();
-            showTargetHitPopup(hitTargets.length);
+            showTargetHitPopup(hitTargets.length, scoreResult);
 
             // Check if round complete (all targets hit)
             const remainingTargets = gameState.targetPracticeTargets.filter(t => t.active).length;
@@ -16082,8 +16089,8 @@
             }
         }
 
-        // Show hit popup (simplified)
-        function showTargetHitPopup(hitCount) {
+        // Show hit popup with score breakdown
+        function showTargetHitPopup(hitCount, scoreResult) {
             const popup = document.getElementById('targetHitPopup');
             const mainEl = document.getElementById('hitPopupMain');
             const pointsEl = document.getElementById('hitPopupPoints');
@@ -16099,16 +16106,26 @@
                 mainEl.style.color = '#4f4';
             }
 
-            pointsEl.textContent = `${remaining} remaining`;
-            pointsEl.style.color = remaining === 0 ? '#4f4' : '#888';
-            bonusesEl.textContent = gameState.targetPracticeStreak > 1 ? `Streak: ${gameState.targetPracticeStreak}` : '';
+            // Show total points prominently
+            pointsEl.textContent = `+${scoreResult.total} pts`;
+            pointsEl.style.color = '#ffd700';
+
+            // Show breakdown of bonuses
+            const bonusParts = [];
+            scoreResult.breakdown.forEach(item => {
+                if (item.points > 0) {
+                    bonusParts.push(`${item.label}: +${item.points}`);
+                }
+            });
+            bonusesEl.innerHTML = bonusParts.join('<br>');
+            bonusesEl.style.fontSize = '12px';
 
             popup.style.display = 'block';
 
-            // Hide after delay
+            // Hide after delay (longer to read breakdown)
             setTimeout(() => {
                 popup.style.display = 'none';
-            }, 800);
+            }, 1200);
         }
 
         // Show miss popup
