@@ -15268,6 +15268,9 @@
             // Reset play
             if (gameState.scene) {
                 resetPlay(gameState.scene);
+                // Create distance multiplier zones
+                const qbZ = gameState.lineOfScrimmage - 3;
+                createDistanceZones(gameState.scene, qbZ);
             }
 
             updateDownDistance();
@@ -15287,6 +15290,9 @@
             document.getElementById('viewButtons').style.display = 'none';
             document.getElementById('catchDisplay').style.display = ''; // Restore catch display
             document.getElementById('managementOverlay').classList.remove('hidden');
+
+            // Clean up distance zones
+            clearDistanceZones();
 
             // Show offensive and defensive lines again
             gameState.offensiveLine.forEach(lineman => lineman.setEnabled(true));
