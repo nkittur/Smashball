@@ -16424,6 +16424,12 @@
             // Create new targets
             if (gameState.scene) {
                 createAllTargets(gameState.scene);
+
+                // Create distance multiplier zones after round 4 (starting at round 5)
+                if (gameState.targetPracticeRound > 4) {
+                    const qbZ = gameState.lineOfScrimmage - 3;
+                    createDistanceZones(gameState.scene, qbZ);
+                }
             }
 
             // Update UI
@@ -16795,9 +16801,8 @@
             // Create targets
             if (gameState.scene) {
                 createAllTargets(gameState.scene);
-                // Create distance multiplier zones
-                const qbZ = gameState.lineOfScrimmage - 3;
-                createDistanceZones(gameState.scene, qbZ);
+                // Distance multiplier zones only appear after round 4
+                // They will be created in startNextRound when round > 4
             }
 
             // Update UI
