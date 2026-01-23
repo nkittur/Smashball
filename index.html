@@ -450,13 +450,13 @@
     <div id="targetPracticeModeUI" style="display: none;">
         <button id="btnExitTargetPractice" style="
             position: fixed;
-            top: calc(46px + env(safe-area-inset-top, 0px));
+            top: calc(6px + env(safe-area-inset-top, 0px));
             left: 10px;
-            width: 36px;
-            height: 36px;
+            width: 32px;
+            height: 32px;
             padding: 0;
-            font-size: 20px;
-            line-height: 36px;
+            font-size: 18px;
+            line-height: 32px;
             text-align: center;
             border-radius: 50%;
             background: rgba(40, 40, 60, 0.8);
@@ -469,47 +469,31 @@
         <!-- Compact Score Bar at Top -->
         <div id="targetPracticeStats" style="
             position: fixed;
-            top: calc(46px + env(safe-area-inset-top, 0px));
-            left: 50px;
-            right: 50px;
+            top: calc(6px + env(safe-area-inset-top, 0px));
+            left: 46px;
+            right: 46px;
             background: rgba(0,0,0,0.75);
-            padding: 6px 12px;
-            border-radius: 6px;
+            padding: 4px 8px;
+            border-radius: 4px;
             font-family: 'Courier New', monospace;
             z-index: 1000;
             display: flex;
             align-items: center;
             justify-content: space-between;
+            flex-wrap: nowrap;
+            height: 32px;
         ">
-            <div style="display: flex; align-items: center; gap: 12px;">
-                <div style="color: #a4a; font-size: 14px; font-weight: bold;">ROUND <span id="targetRound" style="color: #fff;">1</span></div>
-                <div style="color: #666;">|</div>
-                <div style="display: flex; align-items: center; gap: 4px;">
-                    <span style="color: #888; font-size: 10px;">SCORE</span>
-                    <span id="targetScoreDisplay" style="color: #ffd700; font-size: 16px; font-weight: bold;">0</span>
-                </div>
+            <div style="display: flex; align-items: center; gap: 6px;">
+                <span style="color: #a4a; font-size: 11px;">R<span id="targetRound" style="color: #fff;">1</span></span>
+                <span style="color: #ffd700; font-size: 14px; font-weight: bold;" id="targetScoreDisplay">0</span>
             </div>
-            <div style="display: flex; align-items: center; gap: 16px;">
-                <div style="display: flex; align-items: center; gap: 4px;">
-                    <span style="color: #888; font-size: 10px;">THROWS</span>
-                    <span id="targetThrows" style="color: #4fc3f7; font-size: 16px; font-weight: bold;">0</span>
-                </div>
-                <div style="display: flex; align-items: center; gap: 4px;">
-                    <span style="color: #888; font-size: 10px;">TIME</span>
-                    <span id="targetTime" style="color: #ffd700; font-size: 16px; font-weight: bold;">0.0s</span>
-                </div>
-                <div style="display: flex; align-items: center; gap: 4px;">
-                    <span id="targetMultiplier" style="color: #4fc3f7; font-size: 16px; font-weight: bold;">1x</span>
-                </div>
-                <div style="color: #666;">|</div>
-                <div style="display: flex; align-items: center; gap: 2px;">
-                    <span id="targetMissIcons" style="font-size: 14px; letter-spacing: 1px;"></span>
-                    <span id="targetMisses" style="display: none;">5</span>
-                </div>
-                <div style="display: flex; align-items: center; gap: 4px;">
-                    <span style="color: #888; font-size: 10px;">STREAK</span>
-                    <span id="targetStreak" style="color: #4f4; font-size: 16px; font-weight: bold;">0</span>
-                </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <span id="targetMissIcons" style="font-size: 12px; letter-spacing: 1px;"></span>
+                <span id="targetMisses" style="display: none;">5</span>
+                <span id="targetThrows" style="color: #4fc3f7; font-size: 12px;"></span>
+                <span id="targetTime" style="color: #ffd700; font-size: 14px; font-weight: bold;">0.0s</span>
+                <span id="targetMultiplier" style="color: #4fc3f7; font-size: 12px;">1x</span>
+                <span id="targetStreak" style="color: #4f4; font-size: 12px;"></span>
             </div>
         </div>
         <!-- Hit Popup (shows when you hit a target) -->
@@ -12368,6 +12352,10 @@
                     // Track game time for clash system (use consistent time source)
                     gameState.gameTime = performance.now() * 0.001;
 
+                    // In target practice mode, just move targets (skip receivers/defenders/linemen)
+                    if (gameState.targetPracticeMode) {
+                        moveTargets();
+                    } else {
                     // Keep ALL receivers moving along their routes
                     gameState.receivers.forEach((receiver, i) => {
                         // Skip if knocked down
@@ -12551,6 +12539,7 @@
 
                     // Update debug display
                     updateDebugInfo();
+                    } // end else (not target practice mode)
                 }
 
                 // Check if ball has landed
@@ -16552,10 +16541,17 @@
 
             document.getElementById('targetRound').textContent = gameState.targetPracticeRound;
             document.getElementById('targetScoreDisplay').textContent = gameState.targetPracticeScore;
-            document.getElementById('targetThrows').textContent = gameState.targetPracticeRoundThrows;
+            document.getElementById('targetThrows').textContent = gameState.targetPracticeRoundThrows + 'T';
             document.getElementById('targetMultiplier').textContent = gameState.targetPracticeMultiplier + 'x';
             document.getElementById('targetMisses').textContent = gameState.targetPracticeMissesRemaining;
-            document.getElementById('targetStreak').textContent = gameState.targetPracticeStreak;
+            // Only show streak if > 0
+            const streakEl = document.getElementById('targetStreak');
+            if (gameState.targetPracticeStreak > 0) {
+                streakEl.textContent = '🔥' + gameState.targetPracticeStreak;
+                streakEl.style.display = '';
+            } else {
+                streakEl.style.display = 'none';
+            }
 
             // Handle mode-specific display
             const missIconsEl = document.getElementById('targetMissIcons');
