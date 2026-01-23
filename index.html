@@ -17855,8 +17855,10 @@
         setupInput(scene);
         setupIdleAnimations(scene);
 
-        // Create bonus zones
-        createBonusZones(scene);
+        // Create bonus zones only if feature is enabled
+        if (FEATURE_FLAGS.circleCatchBonuses) {
+            createBonusZones(scene);
+        }
 
         // Handle visibility changes (app switching) - clear stale pointer state
         document.addEventListener('visibilitychange', () => {
