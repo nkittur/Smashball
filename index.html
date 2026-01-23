@@ -750,6 +750,20 @@
             <button id="btnTrainingMode" class="mgmt-btn" style="background: #2a4a2a;">TRAINING</button>
         </div>
 
+        <!-- New Game Choice Screen -->
+        <div id="newGameChoiceScreen" class="mgmt-screen" style="display:none;">
+            <button id="btnNewGameChoiceBack" class="mgmt-btn back-btn">←</button>
+            <h2>NEW GAME</h2>
+            <p style="color: #888; font-size: 14px; margin-bottom: 30px;">How would you like to start?</p>
+            <div style="max-width: 300px; margin: 0 auto;">
+                <button id="btnStartWithDraft" class="mgmt-btn" style="background: #2a4a3a; margin-bottom: 10px; width: 100%;">START WITH DRAFT</button>
+                <p style="color: #666; font-size: 11px; margin-bottom: 25px;">Build your team by drafting players from a pool of rookies</p>
+
+                <button id="btnStartPremade" class="mgmt-btn" style="background: #3a3a4a; margin-bottom: 10px; width: 100%;">PREMADE TEAM</button>
+                <p style="color: #666; font-size: 11px; margin-bottom: 10px;">Start immediately with a ready-to-play roster</p>
+            </div>
+        </div>
+
         <!-- Hub Screen -->
         <div id="hubScreen" class="mgmt-screen hub-screen" style="display:none;">
             <button id="btnHubBack" class="mgmt-btn back-btn">←</button>
@@ -9198,14 +9212,20 @@
         }
 
         // Start new game
-        function startNewGame(teamName = 'Your Knights') {
+        function startNewGame(teamName = 'Your Knights', skipDraft = false) {
             managementState.team = createNewTeam(teamName);
             managementState.season = createNewSeason();
             refreshFreeAgents();
             managementState.initialized = true;
 
-            // Start with the draft
-            startDraft(true);
+            if (skipDraft) {
+                // Skip draft and go directly to hub with premade team
+                showScreen('hub');
+                if (managementState.settings.autoSave) SaveSystem.save();
+            } else {
+                // Start with the draft
+                startDraft(true);
+            }
         }
 
         // Constants
@@ -17867,8 +17887,9 @@
 
         // Setup HTML button handlers
         document.getElementById('btnNewGame').addEventListener('click', () => {
-            startNewGame();
-            // Draft screen is shown by startNewGame() via startDraft()
+            // Show choice screen for draft vs premade team
+            document.querySelectorAll('.mgmt-screen').forEach(s => s.style.display = 'none');
+            document.getElementById('newGameChoiceScreen').style.display = 'block';
         });
         document.getElementById('btnContinue').addEventListener('click', () => {
             if (managementState.initialized) {
@@ -18761,10 +18782,24 @@
                 managementState.team = null;
                 managementState.season = null;
                 managementState.freeAgents = [];
-                startNewGame();
-                // Draft screen is shown by startNewGame() via startDraft()
+                // Show choice screen for draft vs premade team
+                document.querySelectorAll('.mgmt-screen').forEach(s => s.style.display = 'none');
+                document.getElementById('newGameChoiceScreen').style.display = 'block';
             }
         });
+
+        // New Game Choice Screen handlers
+        document.getElementById('btnNewGameChoiceBack').addEventListener('click', () => {
+            document.querySelectorAll('.mgmt-screen').forEach(s => s.style.display = 'none');
+            document.getElementById('mainMenuScreen').style.display = 'block';
+        });
+        document.getElementById('btnStartWithDraft').addEventListener('click', () => {
+            startNewGame('Your Knights', false);
+        });
+        document.getElementById('btnStartPremade').addEventListener('click', () => {
+            startNewGame('Your Knights', true);
+        });
+
         document.getElementById('btnRosterBack').addEventListener('click', () => showScreen('hub'));
         document.getElementById('btnFABack').addEventListener('click', () => showScreen('hub'));
         document.getElementById('btnScheduleBack').addEventListener('click', () => showScreen('hub'));
