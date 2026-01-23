@@ -2108,6 +2108,8 @@
             // Training mode
             trainingMode: false,    // Training mode: no defenders, throw ratings
             lastThrowRating: null,  // Last throw rating for display
+            // Bonus zones (green catch zones)
+            bonusZones: [],         // Array of bonus zone objects
             // Target Practice mode
             targetPracticeMode: false,  // Target practice: hit moving targets
             targetPracticeScore: 0,     // Current score
@@ -7604,6 +7606,15 @@
                 const depthPenalty = Math.max(0, (receiver.currentDepth - 15) * 0.3);
                 catchProb -= depthPenalty;
 
+                // Bonus zone catch boost (check if receiver is in a bonus zone)
+                const bonusZone = checkBonusZones(receiver.position);
+                if (bonusZone) {
+                    catchProb += bonusZone.config.catchBonus;
+                    receiver.inBonusZone = bonusZone.config.name;
+                } else {
+                    receiver.inBonusZone = null;
+                }
+
                 // Clamp
                 catchProb = Math.max(5, Math.min(95, catchProb));
 
@@ -12473,7 +12484,7 @@
                 // Show landing ripple effect
                 showLandingRipple(scene, ballPosition, hitTargets.length > 0);
 
-                handleTargetHit(hitTargets, throwDistance);
+                handleTargetHit(hitTargets, throwDistance, ballPosition);
 
                 // Quick reset for target practice (ball disappears, can throw again)
                 scene.football.setEnabled(false);
@@ -13521,6 +13532,9 @@
                 if (gameState.targetPracticeMode) {
                     moveTargets();
                 }
+
+                // Move bonus zones (all modes)
+                moveBonusZones();
 
                 const time = performance.now() * 0.001;
 
@@ -15188,6 +15202,182 @@
         }
 
         // ========================================
+        // BONUS ZONES SYSTEM
+        // ========================================
+        // Green zones that move around the field
+        // Provide catch bonuses in training/gameplay, point multipliers in target practice
+
+        const BONUS_ZONE_TYPES = {
+            small: {
+                radius: 1.5,
+                catchBonus: 15,           // +15% catch probability
+                pointMultiplier: 2.0,     // 2x points in target practice
+                color: new BABYLON.Color3(0.1, 1, 0.2),  // Bright green
+                emissiveIntensity: 0.7,
+                speedMult: 1.5,           // Moves faster
+                name: 'Small'
+            },
+            medium: {
+                radius: 2.5,
+                catchBonus: 10,           // +10% catch probability
+                pointMultiplier: 1.5,     // 1.5x points
+                color: new BABYLON.Color3(0.2, 0.85, 0.3),  // Medium green
+                emissiveIntensity: 0.5,
+                speedMult: 1.0,
+                name: 'Medium'
+            },
+            large: {
+                radius: 4.0,
+                catchBonus: 5,            // +5% catch probability
+                pointMultiplier: 1.25,    // 1.25x points
+                color: new BABYLON.Color3(0.3, 0.7, 0.35),  // Softer green
+                emissiveIntensity: 0.3,
+                speedMult: 0.7,           // Moves slower
+                name: 'Large'
+            }
+        };
+
+        // Create a single bonus zone
+        function createBonusZone(scene, type, startX, startZ) {
+            const config = BONUS_ZONE_TYPES[type];
+
+            // Create the zone disc
+            const disc = BABYLON.MeshBuilder.CreateDisc('bonusZone', {
+                radius: config.radius,
+                tessellation: 32
+            }, scene);
+            disc.rotation.x = Math.PI / 2;
+            disc.position = new BABYLON.Vector3(startX, 0.02, startZ);
+
+            // Create material with transparency and glow
+            const mat = new BABYLON.StandardMaterial('zoneMat', scene);
+            mat.diffuseColor = config.color;
+            mat.emissiveColor = config.color.scale(config.emissiveIntensity);
+            mat.alpha = 0.35;
+            mat.backFaceCulling = false;
+            disc.material = mat;
+
+            // Create outer ring for visibility
+            const ring = BABYLON.MeshBuilder.CreateTorus('zoneRing', {
+                diameter: config.radius * 2,
+                thickness: 0.08,
+                tessellation: 32
+            }, scene);
+            ring.position = new BABYLON.Vector3(startX, 0.03, startZ);
+
+            const ringMat = new BABYLON.StandardMaterial('zoneRingMat', scene);
+            ringMat.diffuseColor = config.color;
+            ringMat.emissiveColor = config.color.scale(config.emissiveIntensity + 0.2);
+            ringMat.alpha = 0.6;
+            ring.material = ringMat;
+
+            // Movement target - zone moves toward this point
+            const baseSpeed = 0.015 * config.speedMult;
+
+            const zone = {
+                disc: disc,
+                ring: ring,
+                type: type,
+                config: config,
+                position: disc.position,
+                targetX: startX,
+                targetZ: startZ,
+                speed: baseSpeed,
+                moveTimer: 0,
+                active: true
+            };
+
+            return zone;
+        }
+
+        // Create all bonus zones for the field
+        function createBonusZones(scene) {
+            // Clear existing zones
+            if (gameState.bonusZones) {
+                gameState.bonusZones.forEach(z => {
+                    if (z.disc) z.disc.dispose();
+                    if (z.ring) z.ring.dispose();
+                });
+            }
+            gameState.bonusZones = [];
+
+            // Create one of each type spread across the field
+            const zoneConfigs = [
+                { type: 'large', x: -4, z: gameState.lineOfScrimmage + 8 },
+                { type: 'medium', x: 3, z: gameState.lineOfScrimmage + 12 },
+                { type: 'small', x: 0, z: gameState.lineOfScrimmage + 18 }
+            ];
+
+            zoneConfigs.forEach(cfg => {
+                const zone = createBonusZone(scene, cfg.type, cfg.x, cfg.z);
+                gameState.bonusZones.push(zone);
+            });
+        }
+
+        // Move bonus zones around the field
+        function moveBonusZones() {
+            if (!gameState.bonusZones) return;
+
+            const fieldMinX = -6;
+            const fieldMaxX = 6;
+            const fieldMinZ = gameState.lineOfScrimmage + 3;
+            const fieldMaxZ = gameState.lineOfScrimmage + 25;
+
+            gameState.bonusZones.forEach(zone => {
+                if (!zone.active) return;
+
+                // Move toward target
+                const dx = zone.targetX - zone.position.x;
+                const dz = zone.targetZ - zone.position.z;
+                const dist = Math.sqrt(dx * dx + dz * dz);
+
+                if (dist > 0.5) {
+                    // Move toward target
+                    zone.position.x += (dx / dist) * zone.speed;
+                    zone.position.z += (dz / dist) * zone.speed;
+                    zone.ring.position.x = zone.position.x;
+                    zone.ring.position.z = zone.position.z;
+                } else {
+                    // Reached target, pick new random target
+                    zone.targetX = fieldMinX + Math.random() * (fieldMaxX - fieldMinX);
+                    zone.targetZ = fieldMinZ + Math.random() * (fieldMaxZ - fieldMinZ);
+                }
+
+                // Gentle pulsing animation
+                const pulse = 1 + Math.sin(performance.now() * 0.003) * 0.05;
+                zone.disc.scaling.x = pulse;
+                zone.disc.scaling.z = pulse;
+            });
+        }
+
+        // Check if a position is inside any bonus zone
+        function checkBonusZones(position) {
+            if (!gameState.bonusZones) return null;
+
+            let bestZone = null;
+            let bestBonus = 0;
+
+            gameState.bonusZones.forEach(zone => {
+                if (!zone.active) return;
+
+                const dx = zone.position.x - position.x;
+                const dz = zone.position.z - position.z;
+                const dist = Math.sqrt(dx * dx + dz * dz);
+
+                // Check if inside zone
+                if (dist < zone.config.radius) {
+                    // Prefer higher bonus zones (smaller = better)
+                    if (zone.config.catchBonus > bestBonus) {
+                        bestBonus = zone.config.catchBonus;
+                        bestZone = zone;
+                    }
+                }
+            });
+
+            return bestZone;
+        }
+
+        // ========================================
         // TARGET PRACTICE MODE
         // ========================================
 
@@ -15634,12 +15824,23 @@
         }
 
         // Calculate score for hitting targets
-        function calculateTargetScore(hitTargets, throwDistance) {
-            if (hitTargets.length === 0) return { total: 0, breakdown: [] };
+        function calculateTargetScore(hitTargets, throwDistance, ballPosition) {
+            if (hitTargets.length === 0) return { total: 0, breakdown: [], zoneMultiplier: 1 };
 
             let basePoints = 0;
             let breakdown = [];
             const now = performance.now();
+
+            // Check if ball landed in a bonus zone
+            let zoneMultiplier = 1;
+            let zoneName = null;
+            if (ballPosition) {
+                const bonusZone = checkBonusZones(ballPosition);
+                if (bonusZone) {
+                    zoneMultiplier = bonusZone.config.pointMultiplier;
+                    zoneName = bonusZone.config.name;
+                }
+            }
 
             // Base points for each target hit
             hitTargets.forEach(target => {
@@ -15685,21 +15886,31 @@
             const subtotal = basePoints + multiHitBonus + longThrowBonus + rapidFireBonus;
 
             // Apply streak multiplier
-            const multiplier = gameState.targetPracticeMultiplier;
-            const total = Math.floor(subtotal * multiplier);
+            const streakMultiplier = gameState.targetPracticeMultiplier;
+            let afterStreak = Math.floor(subtotal * streakMultiplier);
 
-            if (multiplier > 1) {
+            if (streakMultiplier > 1) {
                 breakdown.push({
-                    label: `Multiplier x${multiplier}`,
-                    points: total - subtotal
+                    label: `Streak x${streakMultiplier}`,
+                    points: afterStreak - subtotal
                 });
             }
 
-            return { total, breakdown, subtotal };
+            // Apply bonus zone multiplier
+            let total = afterStreak;
+            if (zoneMultiplier > 1) {
+                total = Math.floor(afterStreak * zoneMultiplier);
+                breakdown.push({
+                    label: `${zoneName} Zone x${zoneMultiplier}`,
+                    points: total - afterStreak
+                });
+            }
+
+            return { total, breakdown, subtotal, zoneMultiplier };
         }
 
         // Handle target hit
-        function handleTargetHit(hitTargets, throwDistance) {
+        function handleTargetHit(hitTargets, throwDistance, ballPosition) {
             if (hitTargets.length === 0) {
                 // Miss - reset streak but continue
                 gameState.targetPracticeStreak = 0;
@@ -15708,8 +15919,8 @@
                 return;
             }
 
-            // Calculate score
-            const scoreResult = calculateTargetScore(hitTargets, throwDistance);
+            // Calculate score (pass ball position for bonus zone check)
+            const scoreResult = calculateTargetScore(hitTargets, throwDistance, ballPosition);
 
             // Update streak
             gameState.targetPracticeStreak++;
@@ -16998,6 +17209,9 @@
         }
         setupInput(scene);
         setupIdleAnimations(scene);
+
+        // Create bonus zones
+        createBonusZones(scene);
 
         // Handle visibility changes (app switching) - clear stale pointer state
         document.addEventListener('visibilitychange', () => {
