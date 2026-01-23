@@ -251,7 +251,7 @@
             font-weight: bold;
             text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
             z-index: 1001;
-        ">TRAINING MODE</div>
+        ">SCRIMMAGE</div>
         <div id="throwRating" style="
             position: fixed;
             bottom: 80px;
@@ -677,14 +677,11 @@
             overflow-y: auto;
         ">
             <div style="color: #fff; font-size: 14px; font-weight: bold; margin-bottom: 12px; border-bottom: 1px solid #444; padding-bottom: 8px;">Target Practice Settings</div>
-            <!-- Target Count -->
+            <!-- Mode Display -->
             <div style="margin-bottom: 12px;">
-                <div style="color: #888; font-size: 11px; margin-bottom: 4px;">TARGET COUNT</div>
-                <div style="display: flex; gap: 4px;">
-                    <button class="target-count-btn" data-count="3" style="flex: 1; padding: 6px; background: #333; color: #fff; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 12px;">3</button>
-                    <button class="target-count-btn" data-count="5" style="flex: 1; padding: 6px; background: #4a4; color: #fff; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 12px;">5</button>
-                    <button class="target-count-btn" data-count="7" style="flex: 1; padding: 6px; background: #333; color: #fff; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 12px;">7</button>
-                </div>
+                <div style="color: #888; font-size: 11px; margin-bottom: 4px;">MODE</div>
+                <div id="tpModeDisplay" style="color: #4fc3f7; font-size: 14px;">MISSES MODE</div>
+                <div style="color: #666; font-size: 10px; margin-top: 4px;">4 targets per round</div>
             </div>
             <!-- Target Speed -->
             <div style="margin-bottom: 12px;">
@@ -765,8 +762,7 @@
             <button id="btnNewGame" class="mgmt-btn">NEW GAME</button>
             <button id="btnContinue" class="mgmt-btn">CONTINUE</button>
             <button id="btnHowToPlay" class="mgmt-btn" style="margin-top: 30px; background: #2a3a4a; border-color: #4a9fff;">HOW TO PLAY</button>
-            <button id="btnTrainingMode" class="mgmt-btn" style="background: #2a4a2a;">TRAINING MODE</button>
-            <button id="btnTargetPractice" class="mgmt-btn" style="background: #4a2a4a;">TARGET PRACTICE</button>
+            <button id="btnTrainingMode" class="mgmt-btn" style="background: #2a4a2a;">TRAINING</button>
         </div>
 
         <!-- Hub Screen -->
@@ -787,6 +783,25 @@
             <p id="hubRecord" class="hub-record">Record: 0-0</p>
             <p id="hubNextGame" class="hub-next"></p>
             <button id="btnHubNewGame" class="mgmt-btn danger" style="margin-top: 30px;">NEW GAME</button>
+        </div>
+
+        <!-- Training Selection Screen -->
+        <div id="trainingSelectionScreen" class="mgmt-screen" style="display:none;">
+            <button id="btnTrainingSelectionBack" class="mgmt-btn back-btn">←</button>
+            <h2>TRAINING</h2>
+            <p style="color: #888; font-size: 14px; margin-bottom: 20px;">Select a training mode</p>
+            <div style="max-width: 300px; margin: 0 auto;">
+                <button id="btnSelectScrimmage" class="mgmt-btn" style="background: #2a4a2a; margin-bottom: 10px; width: 100%;">SCRIMMAGE</button>
+                <p style="color: #666; font-size: 11px; margin-bottom: 20px;">Practice with receivers vs defenders</p>
+
+                <div style="border-top: 1px solid #444; padding-top: 15px; margin-top: 5px;">
+                    <div style="color: #a4a; font-size: 12px; font-weight: bold; margin-bottom: 10px;">TARGET PRACTICE</div>
+                    <button id="btnSelectTPMisses" class="mgmt-btn" style="background: #4a2a4a; margin-bottom: 8px; width: 100%;">MISSES MODE</button>
+                    <p style="color: #666; font-size: 11px; margin-bottom: 15px;">Limited misses - survive as long as you can</p>
+                    <button id="btnSelectTPTimed" class="mgmt-btn" style="background: #4a2a4a; margin-bottom: 8px; width: 100%;">TIMED MODE</button>
+                    <p style="color: #666; font-size: 11px; margin-bottom: 10px;">Race against the clock each round</p>
+                </div>
+            </div>
         </div>
 
         <!-- Game Settings Screen -->
@@ -2186,12 +2201,15 @@
             bonusZones: [],         // Array of bonus zone objects
             // Target Practice mode
             targetPracticeMode: false,  // Target practice: hit moving targets
+            targetPracticeModeType: 'misses', // 'misses' or 'timed'
             targetPracticeScore: 0,     // Current score
             targetPracticeBestScore: 0, // Best score (persisted in localStorage)
+            targetPracticeBestScoreTimed: 0, // Best score for timed mode
             targetPracticeStreak: 0,    // Current hit streak
             targetPracticeMultiplier: 1, // Score multiplier (increases with streak)
             targetPracticeTargets: [],  // Array of target meshes
-            targetPracticeTargetCount: 5, // Number of targets on field
+            targetPracticeTargetCount: 4, // Number of targets on field (max 4 visible at a time)
+            targetPracticeMaxActiveTargets: 4, // Maximum targets active at once
             targetPracticeSpeedSetting: 'normal', // 'slow', 'normal', 'fast'
             targetPracticeLastHitTime: 0, // For rapid fire bonus
             targetPracticeSpeedBonus: 1.0, // Increases with each hit for progressive difficulty
@@ -2204,6 +2222,9 @@
             targetPracticeMissesRemaining: 5, // Misses before game over
             targetPracticeMaxMisses: 5,       // Starting misses (grows each round)
             targetPracticeBestStreak: 0,      // Best streak in current game
+            // Timed mode tracking
+            targetPracticeRoundTimeLimit: 30, // Seconds per round in timed mode
+            targetPracticeTimeRemaining: 30,  // Time remaining in current round (timed mode)
             // Debug visualization
             showThrowHeatMap: false,
             heatMapMeshes: []
@@ -15483,6 +15504,15 @@
                 points: 50,
                 color: new BABYLON.Color3(0.3, 0.8, 0.3),  // Green
                 name: 'Large'
+            },
+            bonus: {
+                scale: 0.7,
+                speedMult: 1.8,
+                points: 300,
+                color: new BABYLON.Color3(0.8, 0.2, 1.0),  // Purple/Magenta
+                name: 'BONUS',
+                isBonus: true,
+                glowIntensity: 2.0
             }
         };
 
@@ -15585,11 +15615,12 @@
         function createTargetKnight(scene, targetConfig, position) {
             const scale = targetConfig.scale;
             const knight = new BABYLON.TransformNode('targetKnight', scene);
+            const isBonus = targetConfig.isBonus;
 
             // Create material with target color
             const material = new BABYLON.StandardMaterial('targetMat', scene);
             material.diffuseColor = targetConfig.color;
-            material.emissiveColor = targetConfig.color.scale(0.3);
+            material.emissiveColor = targetConfig.color.scale(isBonus ? 0.7 : 0.3);
 
             // Body (scaled)
             const body = BABYLON.MeshBuilder.CreateCylinder('body', {
@@ -15611,7 +15642,7 @@
             head.position.y = 0.95 * scale;
             head.parent = knight;
 
-            // Helmet plume (white for visibility)
+            // Helmet plume - special color for bonus targets
             const plume = BABYLON.MeshBuilder.CreateCylinder('plume', {
                 height: 0.25 * scale,
                 diameterTop: 0.05 * scale,
@@ -15619,8 +15650,14 @@
                 tessellation: 6
             }, scene);
             const plumeMat = new BABYLON.StandardMaterial('plumeMat', scene);
-            plumeMat.diffuseColor = new BABYLON.Color3(1, 1, 1);
-            plumeMat.emissiveColor = new BABYLON.Color3(0.5, 0.5, 0.5);
+            if (isBonus) {
+                // Gold/yellow plume for bonus targets
+                plumeMat.diffuseColor = new BABYLON.Color3(1, 0.85, 0);
+                plumeMat.emissiveColor = new BABYLON.Color3(1, 0.7, 0);
+            } else {
+                plumeMat.diffuseColor = new BABYLON.Color3(1, 1, 1);
+                plumeMat.emissiveColor = new BABYLON.Color3(0.5, 0.5, 0.5);
+            }
             plume.material = plumeMat;
             plume.position.y = 1.2 * scale;
             plume.parent = knight;
@@ -15628,16 +15665,32 @@
             // Base ring (shows target area)
             const baseRing = BABYLON.MeshBuilder.CreateTorus('baseRing', {
                 diameter: 1.2 * scale,
-                thickness: 0.08 * scale,
+                thickness: isBonus ? 0.12 * scale : 0.08 * scale,
                 tessellation: 24
             }, scene);
             const ringMat = new BABYLON.StandardMaterial('ringMat', scene);
             ringMat.diffuseColor = targetConfig.color;
-            ringMat.emissiveColor = targetConfig.color.scale(0.5);
+            ringMat.emissiveColor = targetConfig.color.scale(isBonus ? 0.8 : 0.5);
             ringMat.alpha = 0.8;
             baseRing.material = ringMat;
             baseRing.position.y = 0.02;
             baseRing.parent = knight;
+
+            // Add outer glow ring for bonus targets
+            if (isBonus) {
+                const outerRing = BABYLON.MeshBuilder.CreateTorus('outerRing', {
+                    diameter: 1.6 * scale,
+                    thickness: 0.06 * scale,
+                    tessellation: 32
+                }, scene);
+                const outerMat = new BABYLON.StandardMaterial('outerRingMat', scene);
+                outerMat.diffuseColor = new BABYLON.Color3(1, 0.85, 0);
+                outerMat.emissiveColor = new BABYLON.Color3(1, 0.6, 0);
+                outerMat.alpha = 0.6;
+                outerRing.material = outerMat;
+                outerRing.position.y = 0.02;
+                outerRing.parent = knight;
+            }
 
             knight.position = position.clone();
             knight.bodyMaterial = material;
@@ -15718,42 +15771,63 @@
             gameState.targetPracticeTargets = [];
             // Note: Don't reset speed bonus here - it increases with rounds
 
-            const targetCount = gameState.targetPracticeTargetCount;
+            // Always create exactly 4 targets per round (maximum active at once)
+            const targetCount = 4;
+            gameState.targetPracticeTargetCount = 4;
 
             // Starting positions spread across the field (like receiver positions)
             const startingPositions = [
-                { x: -6, slot: 'outside' },   // Far left
-                { x: -3, slot: 'slot' },      // Left slot
-                { x: 0, slot: 'slot' },       // Middle
-                { x: 3, slot: 'slot' },       // Right slot
-                { x: 6, slot: 'outside' },    // Far right
-                { x: -4.5, slot: 'slot' },    // Extra positions
-                { x: 4.5, slot: 'slot' }
+                { x: -5, slot: 'outside' },   // Far left
+                { x: -2, slot: 'slot' },      // Left slot
+                { x: 2, slot: 'slot' },       // Right slot
+                { x: 5, slot: 'outside' },    // Far right
             ];
 
             const startZ = gameState.lineOfScrimmage + 2;  // Start near line of scrimmage
 
-            // Create targets with varied types and positions
-            for (let i = 0; i < targetCount; i++) {
-                // Cycle through types: medium, large, medium... (small only at round 10+)
-                let type;
-                const round = gameState.targetPracticeRound;
-                const typeIndex = i % 5;
+            // Determine if this round has a bonus target (30% chance after round 2)
+            const round = gameState.targetPracticeRound;
+            const hasBonusTarget = round >= 2 && Math.random() < 0.3;
+            const bonusTargetIndex = hasBonusTarget ? Math.floor(Math.random() * targetCount) : -1;
 
-                if (round >= 10 && (typeIndex === 0 || typeIndex === 4)) {
+            // Create targets with varied types, staggered spawns, and positions
+            for (let i = 0; i < targetCount; i++) {
+                let type;
+                const typeIndex = i % 4;
+
+                // Check if this is the bonus target
+                if (i === bonusTargetIndex) {
+                    type = 'bonus';
+                } else if (round >= 10 && (typeIndex === 0 || typeIndex === 3)) {
                     // Small targets only appear at round 10+
                     type = 'small';
-                } else if (typeIndex === 2) {
+                } else if (round >= 5 && typeIndex === 0) {
+                    // Some small targets start appearing at round 5
+                    type = 'small';
+                } else if (typeIndex === 1) {
                     type = 'large';
                 } else {
                     type = 'medium';
                 }
 
-                // Get position (cycle through available positions)
-                const posConfig = startingPositions[i % startingPositions.length];
-                const startX = posConfig.x + (Math.random() - 0.5) * 1;  // Small random offset
+                // Get position with small random offset
+                const posConfig = startingPositions[i];
+                const startX = posConfig.x + (Math.random() - 0.5) * 1;
 
                 const target = createTarget(scene, type, startX, startZ, posConfig.slot);
+
+                // Add staggered spawn delay - each target spawns 0.4s after the previous
+                target.spawnDelay = i * 0.4;
+                target.spawnTime = performance.now() + (target.spawnDelay * 1000);
+                target.spawned = i === 0; // First target spawns immediately
+                target.isBonus = type === 'bonus';
+
+                // Initially hide non-first targets
+                if (!target.spawned) {
+                    target.mesh.setEnabled(false);
+                    if (target.routeLine) target.routeLine.setEnabled(false);
+                }
+
                 gameState.targetPracticeTargets.push(target);
             }
         }
@@ -15761,10 +15835,28 @@
         // Move all targets along their routes (receiver-style movement)
         function moveTargets() {
             const time = performance.now() * 0.001;
+            const currentTime = performance.now();
 
             gameState.targetPracticeTargets.forEach((target, i) => {
                 // Skip inactive (hit) targets - they don't respawn
                 if (!target.active) return;
+
+                // Check if target should spawn (staggered spawning)
+                if (!target.spawned && currentTime >= target.spawnTime) {
+                    target.spawned = true;
+                    target.mesh.setEnabled(true);
+                    if (target.routeLine) target.routeLine.setEnabled(true);
+                }
+
+                // Skip targets that haven't spawned yet
+                if (!target.spawned) return;
+
+                // Bonus target pulsing glow effect
+                if (target.isBonus && target.mesh && target.mesh.bodyMaterial) {
+                    const pulse = 0.5 + Math.sin(time * 6) * 0.5;
+                    const baseColor = TARGET_TYPES.bonus.color;
+                    target.mesh.bodyMaterial.emissiveColor = baseColor.scale(0.3 + pulse * 0.7);
+                }
 
                 // Move along route (similar to moveReceiverAlongRoute)
                 const runSpeed = target.speed * gameState.targetPracticeSpeedBonus;
@@ -16118,35 +16210,47 @@
                 gameState.targetPracticeBestStreak = gameState.targetPracticeStreak;
             }
 
-            // Calculate time bonus: faster completion = more points
-            // Base time expectation: 3 seconds per target
-            const expectedTime = targetCount * 3;
             let timeBonus = 0;
-            if (roundTime < expectedTime) {
-                // Bonus for being faster: up to 500 points for very fast rounds
-                const timeRatio = 1 - (roundTime / expectedTime);
-                timeBonus = Math.floor(timeRatio * 500 * gameState.targetPracticeRound);
-            }
-
-            // Calculate accuracy bonus: fewer throws = more points
-            // Perfect accuracy: same number of throws as targets
             let accuracyBonus = 0;
-            if (roundThrows <= targetCount) {
-                // Perfect round! Big bonus
-                accuracyBonus = 300 * gameState.targetPracticeRound;
+
+            if (gameState.targetPracticeModeType === 'timed') {
+                // Timed mode: bonus for remaining time
+                const timeRemaining = gameState.targetPracticeTimeRemaining;
+                const timeLimit = gameState.targetPracticeRoundTimeLimit;
+                if (timeRemaining > 0) {
+                    // Bonus based on percentage of time remaining
+                    const timeRatio = timeRemaining / timeLimit;
+                    timeBonus = Math.floor(timeRatio * 400 * gameState.targetPracticeRound);
+                }
+                // Accuracy bonus in timed mode
+                if (roundThrows <= targetCount) {
+                    accuracyBonus = 200 * gameState.targetPracticeRound;
+                } else {
+                    const accuracy = targetCount / roundThrows;
+                    accuracyBonus = Math.floor(accuracy * 100 * gameState.targetPracticeRound);
+                }
             } else {
-                // Partial bonus based on accuracy
-                const accuracy = targetCount / roundThrows;
-                accuracyBonus = Math.floor(accuracy * 150 * gameState.targetPracticeRound);
+                // Misses mode: bonus for fast completion
+                const expectedTime = targetCount * 3;
+                if (roundTime < expectedTime) {
+                    const timeRatio = 1 - (roundTime / expectedTime);
+                    timeBonus = Math.floor(timeRatio * 500 * gameState.targetPracticeRound);
+                }
+                // Accuracy bonus in misses mode
+                if (roundThrows <= targetCount) {
+                    accuracyBonus = 300 * gameState.targetPracticeRound;
+                } else {
+                    const accuracy = targetCount / roundThrows;
+                    accuracyBonus = Math.floor(accuracy * 150 * gameState.targetPracticeRound);
+                }
+                // Give extra miss for completing the round (misses mode only)
+                gameState.targetPracticeMissesRemaining++;
+                gameState.targetPracticeMaxMisses++;
             }
 
             // Total round bonus
             const roundBonus = timeBonus + accuracyBonus;
             gameState.targetPracticeScore += roundBonus;
-
-            // Give extra miss for completing the round
-            gameState.targetPracticeMissesRemaining++;
-            gameState.targetPracticeMaxMisses++;
 
             // Save round history
             gameState.targetPracticeRoundHistory.push({
@@ -16166,15 +16270,22 @@
         function startNextRound() {
             gameState.targetPracticeRound++;
 
-            // Increase difficulty: more targets and faster
-            gameState.targetPracticeTargetCount = Math.min(3 + gameState.targetPracticeRound, 7);  // Start at 4, max 7
-            gameState.targetPracticeSpeedBonus += 0.15;  // 15% faster each round
+            // Always 4 targets, but increase speed each round
+            gameState.targetPracticeTargetCount = 4;
+            gameState.targetPracticeSpeedBonus += 0.12;  // 12% faster each round
 
             // Reset round stats
             gameState.targetPracticeRoundThrows = 0;
             gameState.targetPracticeRoundStartTime = performance.now();
             gameState.targetPracticeStreak = 0;
             gameState.targetPracticeMultiplier = 1;
+
+            // Reset timer for timed mode (reduce time limit each round for difficulty)
+            if (gameState.targetPracticeModeType === 'timed') {
+                // Reduce time limit slightly each round (minimum 15 seconds)
+                gameState.targetPracticeRoundTimeLimit = Math.max(15, 30 - (gameState.targetPracticeRound - 1) * 2);
+                gameState.targetPracticeTimeRemaining = gameState.targetPracticeRoundTimeLimit;
+            }
 
             // Create new targets
             if (gameState.scene) {
@@ -16192,20 +16303,33 @@
             document.getElementById('roundCompleteThrows').textContent = throws;
             document.getElementById('roundCompleteTime').textContent = time.toFixed(1) + 's';
             document.getElementById('nextRoundNum').textContent = gameState.targetPracticeRound + 1;
-            document.getElementById('nextRoundTargets').textContent = Math.min(3 + gameState.targetPracticeRound + 1, 7);
+            document.getElementById('nextRoundTargets').textContent = '4';  // Always 4 targets
 
             // Show score breakdown
-            document.getElementById('roundTimeBonus').textContent = 'Time Bonus: +' + timeBonus;
+            if (gameState.targetPracticeModeType === 'timed') {
+                document.getElementById('roundTimeBonus').textContent = 'Time Left Bonus: +' + timeBonus;
+            } else {
+                document.getElementById('roundTimeBonus').textContent = 'Speed Bonus: +' + timeBonus;
+            }
             document.getElementById('roundAccuracyBonus').textContent = 'Accuracy Bonus: +' + accuracyBonus;
             document.getElementById('roundTotalBonus').textContent = 'Total: +' + totalBonus;
 
-            // Show extra miss notification
-            // Show extra miss as football icons
-            let missIcons = '';
-            for (let i = 0; i < gameState.targetPracticeMissesRemaining; i++) {
-                missIcons += '🏈';
+            // Show mode-specific info
+            const extraMissEl = document.getElementById('roundExtraMiss');
+            if (gameState.targetPracticeModeType === 'timed') {
+                // Timed mode: show next round time limit
+                const nextTimeLimit = Math.max(15, 30 - gameState.targetPracticeRound * 2);
+                extraMissEl.innerHTML = `Next Round: ${nextTimeLimit}s`;
+                extraMissEl.style.color = '#4fc3f7';
+            } else {
+                // Misses mode: show extra miss earned
+                let missIcons = '';
+                for (let i = 0; i < gameState.targetPracticeMissesRemaining; i++) {
+                    missIcons += '🏈';
+                }
+                extraMissEl.innerHTML = '+1 🏈 Extra! (' + missIcons + ')';
+                extraMissEl.style.color = '#ff6b6b';
             }
-            document.getElementById('roundExtraMiss').innerHTML = '+1 🏈 Extra! (' + missIcons + ')';
 
             popup.style.display = 'block';
 
@@ -16234,12 +16358,18 @@
             pointsEl.textContent = 'Streak Reset';
             pointsEl.style.color = '#888';
 
-            // Show remaining misses as football icons
-            let missIcons = '';
-            for (let i = 0; i < gameState.targetPracticeMissesRemaining; i++) {
-                missIcons += '🏈';
+            if (gameState.targetPracticeModeType === 'timed') {
+                // Timed mode: show time remaining
+                const timeLeft = Math.max(0, gameState.targetPracticeTimeRemaining).toFixed(1);
+                bonusesEl.innerHTML = `${timeLeft}s remaining`;
+            } else {
+                // Misses mode: show remaining misses as football icons
+                let missIcons = '';
+                for (let i = 0; i < gameState.targetPracticeMissesRemaining; i++) {
+                    missIcons += '🏈';
+                }
+                bonusesEl.innerHTML = missIcons + ' left';
             }
-            bonusesEl.innerHTML = missIcons + ' left';
 
             popup.style.display = 'block';
             setTimeout(() => {
@@ -16247,7 +16377,7 @@
                 // Reset color for next hit
                 mainEl.style.color = '#4f4';
                 pointsEl.style.color = '#ffd700';
-            }, 1200);
+            }, 800);  // Shorter for timed mode
         }
 
         // Show game over popup
@@ -16261,11 +16391,25 @@
             document.getElementById('gameOverRound').textContent = gameState.targetPracticeRound;
             document.getElementById('gameOverBestStreak').textContent = gameState.targetPracticeBestStreak || 0;
 
-            // Check for new best score
+            // Update title based on mode
+            const titleEl = popup.querySelector('div[style*="font-size: 28px"]');
+            if (titleEl) {
+                if (gameState.targetPracticeModeType === 'timed' && gameState.targetPracticeTimeRemaining <= 0) {
+                    titleEl.textContent = "TIME'S UP!";
+                } else {
+                    titleEl.textContent = 'GAME OVER';
+                }
+            }
+
+            // Check for new best score (separate tracking for each mode)
             const newBestEl = document.getElementById('gameOverNewBest');
-            if (gameState.targetPracticeScore > gameState.targetPracticeBestScore) {
-                gameState.targetPracticeBestScore = gameState.targetPracticeScore;
-                localStorage.setItem('targetPracticeBestScore', gameState.targetPracticeBestScore);
+            const bestScoreKey = gameState.targetPracticeModeType === 'timed'
+                ? 'targetPracticeBestScoreTimed'
+                : 'targetPracticeBestScore';
+            const currentBest = parseInt(localStorage.getItem(bestScoreKey) || '0', 10);
+
+            if (gameState.targetPracticeScore > currentBest) {
+                localStorage.setItem(bestScoreKey, gameState.targetPracticeScore);
                 newBestEl.style.display = 'block';
             } else {
                 newBestEl.style.display = 'none';
@@ -16285,27 +16429,40 @@
             document.getElementById('targetMisses').textContent = gameState.targetPracticeMissesRemaining;
             document.getElementById('targetStreak').textContent = gameState.targetPracticeStreak;
 
-            // Render football icons for misses remaining
+            // Handle mode-specific display
             const missIconsEl = document.getElementById('targetMissIcons');
-            const missCount = gameState.targetPracticeMissesRemaining;
-            let iconsHtml = '';
-            for (let i = 0; i < missCount; i++) {
-                // Color based on position: last few get warning colors
-                let color;
-                if (missCount <= 1) {
-                    color = '#f44';  // Red - critical
-                } else if (missCount <= 2) {
-                    color = '#ff6b6b';  // Orange-red
-                } else {
-                    color = '#8B4513';  // Brown football color
+            if (gameState.targetPracticeModeType === 'timed') {
+                // Timed mode: hide misses, show remaining targets
+                missIconsEl.innerHTML = `<span style="color: #4fc3f7;">${remainingTargets}</span> left`;
+            } else {
+                // Misses mode: show football icons for misses remaining
+                const missCount = gameState.targetPracticeMissesRemaining;
+                let iconsHtml = '';
+                for (let i = 0; i < missCount; i++) {
+                    // Color based on position: last few get warning colors
+                    let color;
+                    if (missCount <= 1) {
+                        color = '#f44';  // Red - critical
+                    } else if (missCount <= 2) {
+                        color = '#ff6b6b';  // Orange-red
+                    } else {
+                        color = '#8B4513';  // Brown football color
+                    }
+                    iconsHtml += `<span style="color: ${color};">🏈</span>`;
                 }
-                iconsHtml += `<span style="color: ${color};">🏈</span>`;
+                missIconsEl.innerHTML = iconsHtml;
             }
-            missIconsEl.innerHTML = iconsHtml;
 
-            // Update time display
+            // Update time display based on mode
             const elapsed = (performance.now() - gameState.targetPracticeRoundStartTime) / 1000;
-            document.getElementById('targetTime').textContent = elapsed.toFixed(1) + 's';
+            if (gameState.targetPracticeModeType === 'timed') {
+                const remaining = Math.max(0, gameState.targetPracticeRoundTimeLimit - elapsed);
+                document.getElementById('targetTime').textContent = remaining.toFixed(1) + 's';
+                document.getElementById('targetTime').style.color = remaining <= 5 ? '#f44' : '#ffd700';
+            } else {
+                document.getElementById('targetTime').textContent = elapsed.toFixed(1) + 's';
+                document.getElementById('targetTime').style.color = '#ffd700';
+            }
         }
 
         // Update round history UI
@@ -16336,7 +16493,28 @@
             targetPracticeTimerInterval = setInterval(() => {
                 if (gameState.targetPracticeMode && gameState.targetPracticeRoundStartTime > 0) {
                     const elapsed = (performance.now() - gameState.targetPracticeRoundStartTime) / 1000;
-                    document.getElementById('targetTime').textContent = elapsed.toFixed(1) + 's';
+
+                    if (gameState.targetPracticeModeType === 'timed') {
+                        // Timed mode: count down
+                        const remaining = Math.max(0, gameState.targetPracticeRoundTimeLimit - elapsed);
+                        gameState.targetPracticeTimeRemaining = remaining;
+                        document.getElementById('targetTime').textContent = remaining.toFixed(1) + 's';
+                        document.getElementById('targetTime').style.color = remaining <= 5 ? '#f44' : '#ffd700';
+
+                        // Check for time up
+                        if (remaining <= 0) {
+                            // Time's up - check if any targets remain
+                            const remainingTargets = gameState.targetPracticeTargets.filter(t => t.active).length;
+                            if (remainingTargets > 0) {
+                                // Didn't complete round in time - game over
+                                showGameOverPopup();
+                            }
+                        }
+                    } else {
+                        // Misses mode: count up
+                        document.getElementById('targetTime').textContent = elapsed.toFixed(1) + 's';
+                        document.getElementById('targetTime').style.color = '#ffd700';
+                    }
                 }
             }, 100);
         }
@@ -16357,7 +16535,13 @@
 
             const remaining = gameState.targetPracticeTargets.filter(t => t.active).length;
 
-            if (hitCount > 1) {
+            // Check if a bonus target was hit
+            const hitBonus = scoreResult.breakdown.some(item => item.label === 'BONUS Target');
+
+            if (hitBonus) {
+                mainEl.textContent = 'BONUS HIT!';
+                mainEl.style.color = '#e040fb';  // Purple/magenta for bonus
+            } else if (hitCount > 1) {
                 mainEl.textContent = `MULTI-HIT x${hitCount}!`;
                 mainEl.style.color = '#ffd700';
             } else {
@@ -16367,13 +16551,15 @@
 
             // Show total points prominently
             pointsEl.textContent = `+${scoreResult.total} pts`;
-            pointsEl.style.color = '#ffd700';
+            pointsEl.style.color = hitBonus ? '#e040fb' : '#ffd700';
 
             // Show breakdown of bonuses
             const bonusParts = [];
             scoreResult.breakdown.forEach(item => {
                 if (item.points > 0) {
-                    bonusParts.push(`${item.label}: +${item.points}`);
+                    const isBonus = item.label === 'BONUS Target';
+                    const color = isBonus ? '#e040fb' : '#fff';
+                    bonusParts.push(`<span style="color:${color}">${item.label}: +${item.points}</span>`);
                 }
             });
             bonusesEl.innerHTML = bonusParts.join('<br>');
@@ -16388,8 +16574,9 @@
         }
 
         // Start target practice mode
-        function startTargetPracticeMode() {
+        function startTargetPracticeMode(modeType = 'misses') {
             gameState.targetPracticeMode = true;
+            gameState.targetPracticeModeType = modeType; // 'misses' or 'timed'
             gameState.trainingMode = false;
 
             // Reset all state
@@ -16405,11 +16592,22 @@
             gameState.targetPracticeRoundStartTime = performance.now();
             gameState.targetPracticeRoundHistory = [];
             gameState.targetPracticeTotalThrows = 0;
-            gameState.targetPracticeTargetCount = 3;  // Start with 3 targets
+            gameState.targetPracticeTargetCount = 4;  // Always 4 targets
 
-            // Reset misses - player starts with 5 misses
-            gameState.targetPracticeMissesRemaining = 5;
-            gameState.targetPracticeMaxMisses = 5;
+            // Reset mode-specific state
+            if (modeType === 'timed') {
+                // Timed mode: 30 seconds per round, unlimited misses
+                gameState.targetPracticeRoundTimeLimit = 30;
+                gameState.targetPracticeTimeRemaining = 30;
+                gameState.targetPracticeMissesRemaining = 999; // Unlimited
+                gameState.targetPracticeMaxMisses = 999;
+            } else {
+                // Misses mode: 5 misses, unlimited time
+                gameState.targetPracticeMissesRemaining = 5;
+                gameState.targetPracticeMaxMisses = 5;
+                gameState.targetPracticeRoundTimeLimit = 0; // No limit
+                gameState.targetPracticeTimeRemaining = 0;
+            }
             gameState.targetPracticeBestStreak = 0;
 
             // Hide game over popup if showing
@@ -16471,6 +16669,12 @@
             document.getElementById('tpCameraAngleValue').textContent = Math.round((gameState.cameraAngle || 0.5) * 100) + '%';
             document.getElementById('tpCameraOffsetSlider').value = (gameState.cameraOffset || 0.35) * 100;
             document.getElementById('tpCameraOffsetValue').textContent = Math.round((gameState.cameraOffset || 0.35) * 100) + '%';
+            // Update mode display
+            const modeDisplay = document.getElementById('tpModeDisplay');
+            if (modeDisplay) {
+                modeDisplay.textContent = modeType === 'timed' ? 'TIMED MODE' : 'MISSES MODE';
+                modeDisplay.style.color = modeType === 'timed' ? '#ffd700' : '#4fc3f7';
+            }
 
             // Update camera
             updateTargetPracticeCamera();
@@ -17525,15 +17729,31 @@
             }
         });
         document.getElementById('btnTrainingMode').addEventListener('click', () => {
-            startTrainingMode();
+            // Show training selection screen
+            document.querySelectorAll('.mgmt-screen').forEach(s => s.style.display = 'none');
+            document.getElementById('trainingSelectionScreen').style.display = 'block';
         });
         document.getElementById('btnExitTraining').addEventListener('click', () => {
             exitTrainingMode();
         });
 
-        // Target Practice Mode button handlers
-        document.getElementById('btnTargetPractice').addEventListener('click', () => {
-            startTargetPracticeMode();
+        // Training Selection Screen handlers
+        document.getElementById('btnTrainingSelectionBack').addEventListener('click', () => {
+            document.querySelectorAll('.mgmt-screen').forEach(s => s.style.display = 'none');
+            if (managementState.initialized) {
+                document.getElementById('hubScreen').style.display = 'block';
+            } else {
+                document.getElementById('mainMenuScreen').style.display = 'block';
+            }
+        });
+        document.getElementById('btnSelectScrimmage').addEventListener('click', () => {
+            startTrainingMode();
+        });
+        document.getElementById('btnSelectTPMisses').addEventListener('click', () => {
+            startTargetPracticeMode('misses');
+        });
+        document.getElementById('btnSelectTPTimed').addEventListener('click', () => {
+            startTargetPracticeMode('timed');
         });
         document.getElementById('btnExitTargetPractice').addEventListener('click', () => {
             exitTargetPracticeMode();
@@ -17542,7 +17762,8 @@
         // Game Over popup button handlers
         document.getElementById('btnPlayAgain').addEventListener('click', () => {
             document.getElementById('gameOverPopup').style.display = 'none';
-            startTargetPracticeMode();
+            // Preserve the current mode type when replaying
+            startTargetPracticeMode(gameState.targetPracticeModeType || 'misses');
         });
         document.getElementById('btnExitGameOver').addEventListener('click', () => {
             document.getElementById('gameOverPopup').style.display = 'none';
@@ -18376,7 +18597,11 @@
         document.getElementById('btnFreeAgency').addEventListener('click', () => showScreen('free_agency'));
         document.getElementById('btnSchedule').addEventListener('click', () => showScreen('schedule'));
         document.getElementById('btnFacilities').addEventListener('click', () => showScreen('facilities'));
-        document.getElementById('btnHubTraining').addEventListener('click', () => startTrainingMode());
+        document.getElementById('btnHubTraining').addEventListener('click', () => {
+            // Show training selection screen
+            document.querySelectorAll('.mgmt-screen').forEach(s => s.style.display = 'none');
+            document.getElementById('trainingSelectionScreen').style.display = 'block';
+        });
         document.getElementById('btnHubNewGame').addEventListener('click', () => {
             if (confirm("Start a new game? All progress will be lost!")) {
                 SaveSystem.clear();
