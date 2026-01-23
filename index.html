@@ -15408,6 +15408,11 @@
             const baseSpeedFactor = 0.05;  // Similar to SPEED_CONSTANTS.RECEIVER_FACTOR * 80
             const baseSpeed = baseSpeedFactor * targetConfig.speedMult * (speedSettings[gameState.targetPracticeSpeedSetting] || 1.0);
 
+            // Hit radius should be generous enough to feel fair
+            // Scale with playerScale for consistency with receiver catch radius
+            // Minimum 1.0 ensures small targets are still hittable
+            const baseHitRadius = Math.max(1.0, 0.9 * targetConfig.scale) * (gameState.playerScale || 1.3);
+
             // Store target data (similar to receiver structure)
             const target = {
                 mesh: mesh,
@@ -15423,9 +15428,8 @@
                 baseSpeed: baseSpeed,
                 velocity: new BABYLON.Vector3(0, 0, 0),
                 runMomentum: 0,
-                hitRadius: 0.8 * targetConfig.scale,  // Hit radius based on scale
-                active: true,
-                respawnTimer: 0
+                hitRadius: baseHitRadius,
+                active: true
             };
 
             return target;
@@ -15486,8 +15490,11 @@
                 const runSpeed = target.speed * gameState.targetPracticeSpeedBonus;
 
                 if (!target.route || target.routeIndex >= target.route.length) {
-                    // Route complete - loop back to start of route
+                    // Route complete - teleport back to start and restart
                     target.routeIndex = 0;
+                    target.position.x = target.startPos.x;
+                    target.position.z = target.startPos.z;
+                    target.runMomentum = 0;
                     return;
                 }
 
@@ -15500,8 +15507,11 @@
                 if (dist < 0.3) {
                     target.routeIndex++;
                     if (target.routeIndex >= target.route.length) {
-                        // Route complete - loop back to start
+                        // Route complete - teleport back to start
                         target.routeIndex = 0;
+                        target.position.x = target.startPos.x;
+                        target.position.z = target.startPos.z;
+                        target.runMomentum = 0;
                         return;
                     }
                     const newWaypoint = target.route[target.routeIndex];
