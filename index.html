@@ -10780,6 +10780,9 @@
 
         // Process line clashes between O-line and D-line
         const processLineClashes = () => {
+            // Skip line clashes in training mode (no linemen)
+            if (gameState.trainingMode) return;
+
             const currentTime = gameState.gameTime;
 
             // Skip clash processing during snap delay
@@ -10790,7 +10793,8 @@
             }
 
             gameState.defensiveLine.forEach(dLineman => {
-                // Skip if knocked down
+                // Skip if disabled or knocked down
+                if (!dLineman.isEnabled()) return;
                 if (dLineman.knockdownUntil > currentTime) {
                     dLineman.currentSpeedMultiplier = 0;
                     return;
@@ -10806,6 +10810,7 @@
                 let closestDist = LINE_CLASH_CONSTANTS.CLASH_RANGE;
 
                 gameState.offensiveLine.forEach(oLineman => {
+                    if (!oLineman.isEnabled()) return;
                     if (oLineman.knockdownUntil > currentTime) return;
 
                     const dist = BABYLON.Vector3.Distance(dLineman.position, oLineman.position);
@@ -12508,28 +12513,30 @@
                         defender.position.y = Math.abs(Math.sin(time.value * 8 + i + 0.5)) * 0.08;
                     });
 
-                    // Move linemen during ball flight (battle continues!)
-                    gameState.offensiveLine.forEach((oLineman, i) => {
-                        if (oLineman.knockdownUntil > gameState.gameTime) {
-                            oLineman.position.y = 0;
-                            return;
-                        }
-                        moveOLineman(oLineman);
-                        oLineman.position.y = Math.abs(Math.sin(time.value * 4 + i * 0.5)) * 0.03;
-                    });
+                    // Move linemen during ball flight (battle continues!) - only in full game mode
+                    if (!gameState.trainingMode) {
+                        gameState.offensiveLine.forEach((oLineman, i) => {
+                            if (oLineman.knockdownUntil > gameState.gameTime) {
+                                oLineman.position.y = 0;
+                                return;
+                            }
+                            moveOLineman(oLineman);
+                            oLineman.position.y = Math.abs(Math.sin(time.value * 4 + i * 0.5)) * 0.03;
+                        });
 
-                    gameState.defensiveLine.forEach((dLineman, i) => {
-                        if (dLineman.knockdownUntil > gameState.gameTime) {
-                            dLineman.position.y = 0;
-                            return;
-                        }
-                        moveDLineman(dLineman);
-                        const isRushing = dLineman.currentSpeedMultiplier > 0.3;
-                        dLineman.position.y = Math.abs(Math.sin(time.value * (isRushing ? 8 : 4) + i * 0.5)) * (isRushing ? 0.08 : 0.03);
-                    });
+                        gameState.defensiveLine.forEach((dLineman, i) => {
+                            if (dLineman.knockdownUntil > gameState.gameTime) {
+                                dLineman.position.y = 0;
+                                return;
+                            }
+                            moveDLineman(dLineman);
+                            const isRushing = dLineman.currentSpeedMultiplier > 0.3;
+                            dLineman.position.y = Math.abs(Math.sin(time.value * (isRushing ? 8 : 4) + i * 0.5)) * (isRushing ? 0.08 : 0.03);
+                        });
 
-                    // Process line clashes during ball flight
-                    processLineClashes();
+                        // Process line clashes during ball flight
+                        processLineClashes();
+                    }
 
                     // Process clashes during ball flight
                     processClashes();
@@ -13725,40 +13732,43 @@
 
                     // Route completion no longer triggers reset - play continues normally
 
-                    // Move offensive linemen
-                    gameState.offensiveLine.forEach((oLineman, i) => {
-                        if (oLineman.knockdownUntil > gameState.gameTime) {
-                            oLineman.position.y = 0;
-                            oLineman.rotation.x = Math.PI / 4;  // Lean when down
-                            return;
-                        }
-                        oLineman.rotation.x = 0;
+                    // Move linemen only in full game mode (not training/scrimmage)
+                    if (!gameState.trainingMode) {
+                        // Move offensive linemen
+                        gameState.offensiveLine.forEach((oLineman, i) => {
+                            if (oLineman.knockdownUntil > gameState.gameTime) {
+                                oLineman.position.y = 0;
+                                oLineman.rotation.x = Math.PI / 4;  // Lean when down
+                                return;
+                            }
+                            oLineman.rotation.x = 0;
 
-                        moveOLineman(oLineman);
+                            moveOLineman(oLineman);
 
-                        // Subtle stance animation
-                        oLineman.position.y = Math.abs(Math.sin(time * 4 + i * 0.5)) * 0.03;
-                    });
+                            // Subtle stance animation
+                            oLineman.position.y = Math.abs(Math.sin(time * 4 + i * 0.5)) * 0.03;
+                        });
 
-                    // Move defensive linemen
-                    gameState.defensiveLine.forEach((dLineman, i) => {
-                        if (dLineman.knockdownUntil > gameState.gameTime) {
-                            dLineman.position.y = 0;
-                            dLineman.rotation.x = Math.PI / 4;  // Lean when down
-                            return;
-                        }
-                        dLineman.rotation.x = 0;
+                        // Move defensive linemen
+                        gameState.defensiveLine.forEach((dLineman, i) => {
+                            if (dLineman.knockdownUntil > gameState.gameTime) {
+                                dLineman.position.y = 0;
+                                dLineman.rotation.x = Math.PI / 4;  // Lean when down
+                                return;
+                            }
+                            dLineman.rotation.x = 0;
 
-                        moveDLineman(dLineman);
+                            moveDLineman(dLineman);
 
-                        // Running animation when moving fast
-                        const isRushing = dLineman.currentSpeedMultiplier > 0.3;
-                        const bobSpeed = isRushing ? 8 : 4;
-                        dLineman.position.y = Math.abs(Math.sin(time * bobSpeed + i * 0.5)) * (isRushing ? 0.08 : 0.03);
-                    });
+                            // Running animation when moving fast
+                            const isRushing = dLineman.currentSpeedMultiplier > 0.3;
+                            const bobSpeed = isRushing ? 8 : 4;
+                            dLineman.position.y = Math.abs(Math.sin(time * bobSpeed + i * 0.5)) * (isRushing ? 0.08 : 0.03);
+                        });
 
-                    // Process line clashes
-                    processLineClashes();
+                        // Process line clashes
+                        processLineClashes();
+                    }
 
                     // Move QB (pocket behavior and evasion)
                     moveQB(scene);
@@ -14002,6 +14012,11 @@
 
         // Check if clash should trigger
         const shouldTriggerClash = (receiver, defender) => {
+            // Skip if either player is disabled
+            if (!receiver.isEnabled() || !defender.isEnabled()) {
+                return { trigger: false, reason: 'disabled' };
+            }
+
             const currentTime = gameState.gameTime;
 
             // Calculate distance between receiver and defender
