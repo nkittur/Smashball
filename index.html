@@ -2225,6 +2225,8 @@
             // Timed mode tracking
             targetPracticeRoundTimeLimit: 30, // Seconds per round in timed mode
             targetPracticeTimeRemaining: 30,  // Time remaining in current round (timed mode)
+            // Distance multiplier zone visualization
+            distanceZoneMeshes: [],  // Array of meshes for distance zones
             // Debug visualization
             showThrowHeatMap: false,
             heatMapMeshes: []
@@ -15477,6 +15479,139 @@
             return bestZone;
         }
 
+        // Distance multiplier zone configurations
+        const DISTANCE_ZONE_CONFIGS = [
+            {
+                name: '2x ZONE',
+                minDistance: 18,
+                maxDistance: 35,
+                multiplier: 2.0,
+                color: new BABYLON.Color3(1, 0.2, 0.2),  // Red
+                alpha: 0.15
+            },
+            {
+                name: '1.5x ZONE',
+                minDistance: 10,
+                maxDistance: 18,
+                multiplier: 1.5,
+                color: new BABYLON.Color3(1, 0.85, 0.1),  // Yellow
+                alpha: 0.12
+            },
+            {
+                name: '1.25x ZONE',
+                minDistance: 0,
+                maxDistance: 10,
+                multiplier: 1.25,
+                color: new BABYLON.Color3(0.2, 0.9, 0.3),  // Green
+                alpha: 0.1
+            }
+        ];
+
+        // Create distance multiplier zone visualization on the field
+        function createDistanceZones(scene, qbZ) {
+            // Clear existing distance zones
+            if (gameState.distanceZoneMeshes) {
+                gameState.distanceZoneMeshes.forEach(m => {
+                    if (m.mesh) m.mesh.dispose();
+                    if (m.label) m.label.dispose();
+                });
+            }
+            gameState.distanceZoneMeshes = [];
+
+            const fieldWidth = 14;  // Width of the visible field
+            const fieldHalfWidth = fieldWidth / 2;
+
+            DISTANCE_ZONE_CONFIGS.forEach((config, index) => {
+                // Create a rectangular zone for each distance band
+                const zoneDepth = config.maxDistance - config.minDistance;
+                const zoneStartZ = qbZ + config.minDistance;
+
+                // Create ground plane for the zone
+                const zoneMesh = BABYLON.MeshBuilder.CreateGround('distanceZone' + index, {
+                    width: fieldWidth,
+                    height: zoneDepth
+                }, scene);
+                zoneMesh.position.x = 0;
+                zoneMesh.position.z = zoneStartZ + zoneDepth / 2;
+                zoneMesh.position.y = 0.01;  // Slightly above ground
+
+                const mat = new BABYLON.StandardMaterial('distanceZoneMat' + index, scene);
+                mat.diffuseColor = config.color;
+                mat.emissiveColor = config.color.scale(0.3);
+                mat.alpha = config.alpha;
+                mat.backFaceCulling = false;
+                zoneMesh.material = mat;
+
+                // Create label for the zone
+                const labelPlane = BABYLON.MeshBuilder.CreatePlane('zoneLabel' + index, {
+                    width: 3,
+                    height: 0.8
+                }, scene);
+                labelPlane.position.x = -fieldHalfWidth + 2;
+                labelPlane.position.z = zoneStartZ + zoneDepth / 2;
+                labelPlane.position.y = 0.1;
+                labelPlane.rotation.x = Math.PI / 2;
+
+                // Create dynamic texture for label
+                const labelTexture = new BABYLON.DynamicTexture('zoneLabelTex' + index, {
+                    width: 256,
+                    height: 64
+                }, scene, false);
+                labelTexture.hasAlpha = true;
+                const ctx = labelTexture.getContext();
+                ctx.clearRect(0, 0, 256, 64);
+                ctx.font = 'bold 32px Courier New';
+                ctx.fillStyle = `rgb(${Math.floor(config.color.r * 255)}, ${Math.floor(config.color.g * 255)}, ${Math.floor(config.color.b * 255)})`;
+                ctx.textAlign = 'center';
+                ctx.fillText(config.name, 128, 44);
+                labelTexture.update();
+
+                const labelMat = new BABYLON.StandardMaterial('zoneLabelMat' + index, scene);
+                labelMat.diffuseTexture = labelTexture;
+                labelMat.emissiveColor = config.color.scale(0.5);
+                labelMat.useAlphaFromDiffuseTexture = true;
+                labelMat.backFaceCulling = false;
+                labelPlane.material = labelMat;
+
+                gameState.distanceZoneMeshes.push({
+                    mesh: zoneMesh,
+                    label: labelPlane,
+                    config: config
+                });
+            });
+        }
+
+        // Show/hide distance zones
+        function setDistanceZonesVisible(visible) {
+            if (!gameState.distanceZoneMeshes) return;
+            gameState.distanceZoneMeshes.forEach(z => {
+                if (z.mesh) z.mesh.setEnabled(visible);
+                if (z.label) z.label.setEnabled(visible);
+            });
+        }
+
+        // Clean up distance zones
+        function clearDistanceZones() {
+            if (gameState.distanceZoneMeshes) {
+                gameState.distanceZoneMeshes.forEach(m => {
+                    if (m.mesh) m.mesh.dispose();
+                    if (m.label) m.label.dispose();
+                });
+            }
+            gameState.distanceZoneMeshes = [];
+        }
+
+        // Get distance multiplier for a given throw distance
+        function getDistanceMultiplier(distance) {
+            for (const config of DISTANCE_ZONE_CONFIGS) {
+                if (distance >= config.minDistance && distance < config.maxDistance) {
+                    return { multiplier: config.multiplier, name: config.name };
+                }
+            }
+            // Default for very long throws
+            return { multiplier: 2.0, name: '2x ZONE' };
+        }
+
         // ========================================
         // TARGET PRACTICE MODE
         // ========================================
@@ -15731,7 +15866,7 @@
 
             // Calculate speed (similar to receiver speed calculation)
             const speedSettings = { slow: 0.6, normal: 1.0, fast: 1.5 };
-            const baseSpeedFactor = 0.05;  // Similar to SPEED_CONSTANTS.RECEIVER_FACTOR * 80
+            const baseSpeedFactor = 0.07;  // Faster base speed for more challenge
             const baseSpeed = baseSpeedFactor * targetConfig.speedMult * (speedSettings[gameState.targetPracticeSpeedSetting] || 1.0);
 
             // Hit radius should be generous enough to feel fair
@@ -16050,16 +16185,10 @@
             let breakdown = [];
             const now = performance.now();
 
-            // Check if ball landed in a bonus zone
-            let zoneMultiplier = 1;
-            let zoneName = null;
-            if (ballPosition) {
-                const bonusZone = checkBonusZones(ballPosition);
-                if (bonusZone) {
-                    zoneMultiplier = bonusZone.config.pointMultiplier;
-                    zoneName = bonusZone.config.name;
-                }
-            }
+            // Get distance-based multiplier (based on throw distance from QB)
+            const distanceZone = getDistanceMultiplier(throwDistance);
+            const zoneMultiplier = distanceZone.multiplier;
+            const zoneName = distanceZone.name;
 
             // Base points for each target hit
             hitTargets.forEach(target => {
@@ -16077,16 +16206,6 @@
                 breakdown.push({
                     label: `Multi-Hit x${hitTargets.length}`,
                     points: multiHitBonus
-                });
-            }
-
-            // Long throw bonus (distance > 15 yards)
-            let longThrowBonus = 0;
-            if (throwDistance > 15) {
-                longThrowBonus = Math.floor((throwDistance - 15) * 10);
-                breakdown.push({
-                    label: `Long Throw (${Math.floor(throwDistance)}yd)`,
-                    points: longThrowBonus
                 });
             }
 
@@ -16584,7 +16703,7 @@
             gameState.targetPracticeStreak = 0;
             gameState.targetPracticeMultiplier = 1;
             gameState.targetPracticeLastHitTime = 0;
-            gameState.targetPracticeSpeedBonus = 1.0;
+            gameState.targetPracticeSpeedBonus = 1.15;  // Start faster for more challenge
 
             // Reset round state
             gameState.targetPracticeRound = 1;
@@ -16654,6 +16773,9 @@
             // Create targets
             if (gameState.scene) {
                 createAllTargets(gameState.scene);
+                // Create distance multiplier zones
+                const qbZ = gameState.lineOfScrimmage - 3;
+                createDistanceZones(gameState.scene, qbZ);
             }
 
             // Update UI
@@ -16702,6 +16824,9 @@
                 if (t.mesh) t.mesh.dispose();
             });
             gameState.targetPracticeTargets = [];
+
+            // Clean up distance zones
+            clearDistanceZones();
 
             // Hide UI
             document.getElementById('targetPracticeModeUI').style.display = 'none';
