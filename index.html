@@ -13625,7 +13625,8 @@
                 if (gameState.playFrozen && !gameState.targetPracticeMode) return;
 
                 // Target Practice Mode - move targets and update distance colors
-                if (gameState.targetPracticeMode) {
+                // Only move here when ball is NOT in flight (ball animation handles movement during flight)
+                if (gameState.targetPracticeMode && !gameState.ballInFlight) {
                     moveTargets();
                     updateTargetDistanceColors();
                 }
