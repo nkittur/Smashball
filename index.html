@@ -2195,7 +2195,7 @@
             firstDownMarker: -19,   // Z position where first down is achieved (10 yards ahead)
             startingLineOfScrimmage: -29,  // Where drive started - opponent 40 yard line
             // Training mode
-            trainingMode: false,    // Training mode: no defenders, throw ratings
+            trainingMode: false,    // Training/scrimmage mode: receivers vs defenders
             lastThrowRating: null,  // Last throw rating for display
             // Bonus zones (green catch zones)
             bonusZones: [],         // Array of bonus zone objects
@@ -15239,7 +15239,7 @@
             }, 50);
         }
 
-        // Start training mode (no defenders, throw ratings)
+        // Start training/scrimmage mode (receivers vs defenders, throw ratings)
         function startTrainingMode() {
             gameState.trainingMode = true;
             gameState.lastThrowRating = null;
@@ -15264,6 +15264,9 @@
             // Hide offensive and defensive lines
             gameState.offensiveLine.forEach(lineman => lineman.setEnabled(false));
             gameState.defensiveLine.forEach(lineman => lineman.setEnabled(false));
+
+            // Show defenders (scrimmage mode has receivers vs defenders)
+            gameState.defenders.forEach(defender => defender.setEnabled(true));
 
             // Reset play
             if (gameState.scene) {
