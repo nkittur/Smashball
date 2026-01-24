@@ -2806,7 +2806,8 @@
         const FEATURE_FLAGS = {
             showDefenderZones: false,  // Show defender zone rings and fills
             showDebugInfo: false,      // Show on-screen debug info for coverage/catch factors
-            circleCatchBonuses: false  // Enable catch probability bonuses from bonus zones
+            circleCatchBonuses: false,  // Enable catch probability bonuses from bonus zones
+            targetPracticeBonusTargets: false  // Enable super fast bonus targets that do 2 laps then disappear
         };
 
         // ========================================
@@ -15959,9 +15960,9 @@
 
             const startZ = gameState.lineOfScrimmage + 2;  // Start near line of scrimmage
 
-            // Determine if this round has a bonus target (30% chance after round 2)
+            // Determine if this round has a bonus target (30% chance after round 2, only if feature enabled)
             const round = gameState.targetPracticeRound;
-            const hasBonusTarget = round >= 2 && Math.random() < 0.3;
+            const hasBonusTarget = FEATURE_FLAGS.targetPracticeBonusTargets && round >= 2 && Math.random() < 0.3;
             const bonusTargetIndex = hasBonusTarget ? Math.floor(Math.random() * targetCount) : -1;
 
             // Create targets with varied types, staggered spawns, and positions
@@ -15995,6 +15996,7 @@
                 target.spawnTime = performance.now() + (target.spawnDelay * 1000);
                 target.spawned = i === 0; // First target spawns immediately
                 target.isBonus = type === 'bonus';
+                target.lapCount = 0;  // Track laps for bonus targets (disappear after 2)
 
                 // Initially hide non-first targets
                 if (!target.spawned) {
@@ -16036,7 +16038,18 @@
                 const runSpeed = target.speed * gameState.targetPracticeSpeedBonus;
 
                 if (!target.route || target.routeIndex >= target.route.length) {
-                    // Route complete - teleport back to start and restart
+                    // Route complete - increment lap count
+                    target.lapCount = (target.lapCount || 0) + 1;
+
+                    // Bonus targets disappear after 2 laps
+                    if (target.isBonus && target.lapCount >= 2) {
+                        target.active = false;
+                        target.mesh.setEnabled(false);
+                        if (target.routeLine) target.routeLine.setEnabled(false);
+                        return;
+                    }
+
+                    // Teleport back to start and restart
                     target.routeIndex = 0;
                     target.position.x = target.startPos.x;
                     target.position.z = target.startPos.z;
@@ -16053,7 +16066,18 @@
                 if (dist < 0.3) {
                     target.routeIndex++;
                     if (target.routeIndex >= target.route.length) {
-                        // Route complete - teleport back to start
+                        // Route complete - increment lap count
+                        target.lapCount = (target.lapCount || 0) + 1;
+
+                        // Bonus targets disappear after 2 laps
+                        if (target.isBonus && target.lapCount >= 2) {
+                            target.active = false;
+                            target.mesh.setEnabled(false);
+                            if (target.routeLine) target.routeLine.setEnabled(false);
+                            return;
+                        }
+
+                        // Teleport back to start
                         target.routeIndex = 0;
                         target.position.x = target.startPos.x;
                         target.position.z = target.startPos.z;
