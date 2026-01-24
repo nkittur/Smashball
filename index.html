@@ -31,30 +31,39 @@
             top: 0;
             left: 0;
             right: 0;
-            height: calc(36px + env(safe-area-inset-top, 0px));
+            height: calc(40px + env(safe-area-inset-top, 0px));
             padding-top: env(safe-area-inset-top, 0px);
-            background: rgba(0, 0, 0, 0.8);
+            background: rgba(0, 0, 0, 0.85);
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding-left: 15px;
-            padding-right: 15px;
+            padding-left: 12px;
+            padding-right: 12px;
             font-family: 'Courier New', monospace;
             z-index: 100;
-            border-bottom: 1px solid #333;
+            border-bottom: 1px solid #444;
             box-sizing: border-box;
+            gap: 10px;
         }
 
         #score {
             color: #ffd700;
             font-size: 14px;
             display: flex;
-            gap: 20px;
+            gap: 16px;
+            white-space: nowrap;
+            align-items: center;
         }
 
-        #score .catches { color: #8cf; }
-        #score .touchdowns { color: #4f4; }
-        #score .label { color: #888; }
+        #score > span {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        #score .catches { color: #8cf; font-weight: bold; }
+        #score .touchdowns { color: #4f4; font-weight: bold; }
+        #score .label { color: #999; font-size: 12px; }
 
         #downDistance {
             color: #fff;
@@ -64,9 +73,19 @@
             padding: 4px 12px;
             border-radius: 4px;
             border: 1px solid #555;
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+            gap: 4px;
         }
         #downDistance .down { color: #ffa; }
         #downDistance .distance { color: #aef; }
+        #downDistance .field-pos {
+            color: #8cf;
+            margin-left: 8px;
+            padding-left: 8px;
+            border-left: 1px solid #555;
+        }
 
         #viewButtons {
             position: absolute;
@@ -100,7 +119,7 @@
 
         #debugInfo {
             position: absolute;
-            top: calc(80px + env(safe-area-inset-top, 0px));
+            top: calc(84px + env(safe-area-inset-top, 0px));
             right: 10px;
             color: #0f0;
             font-family: 'Courier New', monospace;
@@ -182,8 +201,8 @@
     <canvas id="renderCanvas"></canvas>
     <div id="topBar">
         <div id="downDistance">
-            <span class="down">1st</span> & <span class="distance">10</span>
-            <span class="field-pos" style="margin-left: 12px; color: #8cf;"></span>
+            <span class="down">1st</span> &amp; <span class="distance">10</span>
+            <span class="field-pos"></span>
         </div>
         <div id="score">
             <span><span class="label">Catches</span> <span class="catches">0/0</span></span>
@@ -206,7 +225,7 @@
     <button id="btnSimRest" style="
         display: none;
         position: fixed;
-        top: calc(46px + env(safe-area-inset-top, 0px));
+        top: calc(50px + env(safe-area-inset-top, 0px));
         right: 10px;
         padding: 8px 12px;
         font-size: 12px;
@@ -224,7 +243,7 @@
     <div id="trainingModeUI" style="display: none;">
         <button id="btnExitTraining" style="
             position: fixed;
-            top: calc(46px + env(safe-area-inset-top, 0px));
+            top: calc(50px + env(safe-area-inset-top, 0px));
             left: 10px;
             width: 36px;
             height: 36px;
@@ -242,7 +261,7 @@
         ">←</button>
         <div id="trainingTitle" style="
             position: fixed;
-            top: calc(50px + env(safe-area-inset-top, 0px));
+            top: calc(54px + env(safe-area-inset-top, 0px));
             left: 50%;
             transform: translateX(-50%);
             color: #4a4;
