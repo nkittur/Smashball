@@ -4164,7 +4164,7 @@
             const targetOveralls = {
                 'easy': 72,    // Low 70s team
                 'medium': 77,  // High 70s team
-                'hard': 83,    // Low 80s team
+                'hard': 87,    // High 80s team (stronger opponents)
                 'elite': 91    // Elite team
             };
             const target = targetOveralls[difficulty] || 77;
@@ -13736,12 +13736,15 @@
                         }
 
                         // Show green while speed boosted, red while speed penalized (if enabled)
-                        if (gameState.showClashFlash && receiver.clashSpeedBoostUntil > gameState.gameTime) {
+                        // Clash flash is disabled on hard difficulty (no visual indicators)
+                        const currentDiff = gameState.trainingMode ? gameState.trainingDifficulty : gameState.gameDifficulty;
+                        const showClash = gameState.showClashFlash && currentDiff !== 'hard';
+                        if (showClash && receiver.clashSpeedBoostUntil > gameState.gameTime) {
                             const flashRate = Math.sin(time * 10) * 0.3 + 0.7;  // Gentle pulse 0.4-1.0
                             const green = new BABYLON.Color3(0.2, 1.0, 0.3);
                             receiver.bodyMaterial.diffuseColor = BABYLON.Color3.Lerp(receiver.originalColor, green, flashRate * 0.7);
                             receiver.bodyMaterial.emissiveColor = green.scale(flashRate * 0.3);
-                        } else if (gameState.showClashFlash && receiver.clashSpeedPenaltyUntil > gameState.gameTime) {
+                        } else if (showClash && receiver.clashSpeedPenaltyUntil > gameState.gameTime) {
                             const flashRate = Math.sin(time * 10) * 0.3 + 0.7;  // Gentle pulse 0.4-1.0
                             const red = new BABYLON.Color3(1.0, 0.2, 0.2);
                             receiver.bodyMaterial.diffuseColor = BABYLON.Color3.Lerp(receiver.originalColor, red, flashRate * 0.7);
