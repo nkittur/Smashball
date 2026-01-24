@@ -2807,7 +2807,7 @@
             showDefenderZones: false,  // Show defender zone rings and fills
             showDebugInfo: false,      // Show on-screen debug info for coverage/catch factors
             circleCatchBonuses: false,  // Enable catch probability bonuses from bonus zones
-            targetPracticeBonusTargets: false  // Enable super fast bonus targets that do 2 laps then disappear
+            targetPracticeBonusTargets: true  // Enable super fast bonus targets that do 3 laps then disappear
         };
 
         // ========================================
@@ -16041,8 +16041,8 @@
                     // Route complete - increment lap count
                     target.lapCount = (target.lapCount || 0) + 1;
 
-                    // Bonus targets disappear after 2 laps
-                    if (target.isBonus && target.lapCount >= 2) {
+                    // Bonus targets disappear after 3 laps
+                    if (target.isBonus && target.lapCount >= 3) {
                         target.active = false;
                         target.mesh.setEnabled(false);
                         if (target.routeLine) target.routeLine.setEnabled(false);
@@ -16069,8 +16069,8 @@
                         // Route complete - increment lap count
                         target.lapCount = (target.lapCount || 0) + 1;
 
-                        // Bonus targets disappear after 2 laps
-                        if (target.isBonus && target.lapCount >= 2) {
+                        // Bonus targets disappear after 3 laps
+                        if (target.isBonus && target.lapCount >= 3) {
                             target.active = false;
                             target.mesh.setEnabled(false);
                             if (target.routeLine) target.routeLine.setEnabled(false);
@@ -16373,8 +16373,8 @@
             updateTargetPracticeUI();
             showTargetHitPopup(hitTargets.length, scoreResult);
 
-            // Check if round complete (all targets hit)
-            const remainingTargets = gameState.targetPracticeTargets.filter(t => t.active).length;
+            // Check if round complete (all non-bonus targets hit)
+            const remainingTargets = gameState.targetPracticeTargets.filter(t => t.active && !t.isBonus).length;
             if (remainingTargets === 0) {
                 // Round complete!
                 completeRound();
