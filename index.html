@@ -515,6 +515,27 @@
                 <span id="targetStreak" style="color: #4f4; font-size: 12px;"></span>
             </div>
         </div>
+        <!-- Score Comparison Bar (shows last and best scores) -->
+        <div id="targetScoreComparison" style="
+            position: fixed;
+            top: calc(42px + env(safe-area-inset-top, 0px));
+            left: 46px;
+            right: 46px;
+            background: rgba(0,0,0,0.6);
+            padding: 3px 8px;
+            border-radius: 0 0 4px 4px;
+            font-family: 'Courier New', monospace;
+            z-index: 999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            height: 18px;
+            font-size: 10px;
+        ">
+            <span style="color: #888;">LAST: <span id="targetLastScore" style="color: #aaa;">0</span> <span id="targetLastScoreDiff" style="font-size: 9px;"></span></span>
+            <span style="color: #888;">BEST: <span id="targetBestScore" style="color: #ffd700;">0</span> <span id="targetBestScoreDiff" style="font-size: 9px;"></span></span>
+        </div>
         <!-- Hit Popup (shows when you hit a target) -->
         <div id="targetHitPopup" style="
             position: fixed;
@@ -2223,6 +2244,8 @@
             targetPracticeScore: 0,     // Current score
             targetPracticeBestScore: 0, // Best score (persisted in localStorage)
             targetPracticeBestScoreTimed: 0, // Best score for timed mode
+            targetPracticeLastScore: 0,      // Last score (misses mode)
+            targetPracticeLastScoreTimed: 0, // Last score (timed mode)
             targetPracticeStreak: 0,    // Current hit streak
             targetPracticeMultiplier: 1, // Score multiplier (increases with streak)
             targetPracticeTargets: [],  // Array of target meshes
@@ -16625,6 +16648,12 @@
                 newBestEl.style.display = 'none';
             }
 
+            // Save last score (always saved regardless of whether it's a new best)
+            const lastScoreKey = gameState.targetPracticeModeType === 'timed'
+                ? 'targetPracticeLastScoreTimed'
+                : 'targetPracticeLastScore';
+            localStorage.setItem(lastScoreKey, gameState.targetPracticeScore);
+
             popup.style.display = 'block';
         }
 
@@ -16679,6 +16708,49 @@
             } else {
                 document.getElementById('targetTime').textContent = elapsed.toFixed(1) + 's';
                 document.getElementById('targetTime').style.color = '#ffd700';
+            }
+
+            // Update score comparison display
+            const currentScore = gameState.targetPracticeScore;
+            const lastScore = gameState.targetPracticeModeType === 'timed'
+                ? gameState.targetPracticeLastScoreTimed
+                : gameState.targetPracticeLastScore;
+            const bestScore = gameState.targetPracticeModeType === 'timed'
+                ? gameState.targetPracticeBestScoreTimed
+                : gameState.targetPracticeBestScore;
+
+            // Display last score and difference
+            document.getElementById('targetLastScore').textContent = lastScore;
+            const lastDiff = currentScore - lastScore;
+            const lastDiffEl = document.getElementById('targetLastScoreDiff');
+            if (lastScore === 0) {
+                lastDiffEl.textContent = '';
+            } else if (lastDiff > 0) {
+                lastDiffEl.textContent = '(+' + lastDiff + ')';
+                lastDiffEl.style.color = '#4f4';
+            } else if (lastDiff < 0) {
+                lastDiffEl.textContent = '(' + lastDiff + ')';
+                lastDiffEl.style.color = '#f66';
+            } else {
+                lastDiffEl.textContent = '(=)';
+                lastDiffEl.style.color = '#888';
+            }
+
+            // Display best score and difference
+            document.getElementById('targetBestScore').textContent = bestScore;
+            const bestDiff = currentScore - bestScore;
+            const bestDiffEl = document.getElementById('targetBestScoreDiff');
+            if (bestScore === 0) {
+                bestDiffEl.textContent = '';
+            } else if (bestDiff > 0) {
+                bestDiffEl.textContent = '(+' + bestDiff + ')';
+                bestDiffEl.style.color = '#4f4';
+            } else if (bestDiff < 0) {
+                bestDiffEl.textContent = '(' + bestDiff + ')';
+                bestDiffEl.style.color = '#f66';
+            } else {
+                bestDiffEl.textContent = '(=)';
+                bestDiffEl.style.color = '#888';
             }
         }
 
@@ -16802,6 +16874,15 @@
             gameState.targetPracticeMultiplier = 1;
             gameState.targetPracticeLastHitTime = 0;
             gameState.targetPracticeSpeedBonus = 1.15;  // Start faster for more challenge
+
+            // Load last and best scores from localStorage
+            if (modeType === 'timed') {
+                gameState.targetPracticeLastScoreTimed = parseInt(localStorage.getItem('targetPracticeLastScoreTimed') || '0', 10);
+                gameState.targetPracticeBestScoreTimed = parseInt(localStorage.getItem('targetPracticeBestScoreTimed') || '0', 10);
+            } else {
+                gameState.targetPracticeLastScore = parseInt(localStorage.getItem('targetPracticeLastScore') || '0', 10);
+                gameState.targetPracticeBestScore = parseInt(localStorage.getItem('targetPracticeBestScore') || '0', 10);
+            }
 
             // Reset round state
             gameState.targetPracticeRound = 1;
