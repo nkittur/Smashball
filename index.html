@@ -10113,20 +10113,29 @@
                 line.position.set(0, 0.012, i);
             }
 
-            // End zone (30% deeper)
+            // End zone (10 yards deep, from Z=10 to Z=20)
             const endZone = BABYLON.MeshBuilder.CreateGround('endzone', {
                 width: FIELD_WIDTH + 2,
-                height: 4
+                height: 10
             }, scene);
             const endZoneMat = new BABYLON.StandardMaterial('endzoneMat', scene);
             endZoneMat.diffuseColor = new BABYLON.Color3(0.4, 0.15, 0.15);
             endZone.material = endZoneMat;
-            endZone.position.set(0, 0.001, 13);
+            endZone.position.set(0, 0.001, 15);
+
+            // Back of end zone line (at Z=20)
+            const endLine = BABYLON.MeshBuilder.CreateBox('endLine', {
+                width: FIELD_WIDTH + 2,
+                height: 0.02,
+                depth: 0.15
+            }, scene);
+            endLine.material = materials.lineMaterial;
+            endLine.position.set(0, 0.012, 20);
 
             // Sideline boundaries (football-style white lines)
             const sidelinePositions = [
-                { x: -FIELD_WIDTH/2 - 0.15, z: -25 },
-                { x: FIELD_WIDTH/2 + 0.15, z: -25 }
+                { x: -FIELD_WIDTH/2 - 0.15, z: -22 },
+                { x: FIELD_WIDTH/2 + 0.15, z: -22 }
             ];
 
             const sidelineMat = new BABYLON.StandardMaterial('sidelineMat', scene);
@@ -10134,11 +10143,11 @@
             sidelineMat.emissiveColor = new BABYLON.Color3(0.1, 0.1, 0.1);
 
             sidelinePositions.forEach((sp, i) => {
-                // Main sideline stripe
+                // Main sideline stripe (extended to cover deeper end zone)
                 const sideline = BABYLON.MeshBuilder.CreateBox(`sideline_${i}`, {
                     width: 0.3,
                     height: 0.02,
-                    depth: FIELD_LENGTH + 12
+                    depth: FIELD_LENGTH + 18
                 }, scene);
                 sideline.material = sidelineMat;
                 sideline.position.set(sp.x, 0.015, sp.z);
@@ -10570,7 +10579,7 @@
         // Zone coverage AI - Safety plays deep, picks a side, backpedals until ball thrown
         const moveDefenderZoneCoverage = (defender, speed) => {
             const timeSincePlayStart = gameState.gameTime - (gameState.playStartTime || 0);
-            const END_ZONE_BACK = 15;
+            const END_ZONE_BACK = 20;
 
             // Initialize safety's chosen side if not set (pick at play start)
             if (defender.chosenSide === undefined) {
@@ -11271,7 +11280,7 @@
             }
 
             // Calculate and show field position
-            const END_ZONE_Z = 11;
+            const END_ZONE_Z = 10;
             const yardsFromGoal = Math.round(END_ZONE_Z - gameState.lineOfScrimmage);
             let fieldPosText = '';
             if (yardsFromGoal <= 0) {
@@ -11542,7 +11551,7 @@
 
         // Advance the ball to a new position and handle down logic
         const advanceBall = (newPositionZ) => {
-            const END_ZONE_Z = 11;  // Touchdown threshold (matches visual end zone start)
+            const END_ZONE_Z = 10;  // Touchdown threshold (matches visual end zone start)
             const oldLOS = gameState.lineOfScrimmage;
             const yardsGained = newPositionZ - oldLOS;
 
@@ -11768,8 +11777,8 @@
         // Reset defenders to starting positions
         const resetDefenders = () => {
             const lineZ = gameState.lineOfScrimmage;
-            const END_ZONE_Z = 11;
-            const END_ZONE_BACK = 15;  // Back of end zone - max Z position
+            const END_ZONE_Z = 10;
+            const END_ZONE_BACK = 20;  // Back of end zone - max Z position
             const SIDELINE = 8;  // Field boundary
             const distToGoal = END_ZONE_Z - lineZ;  // How far from goal line
 
@@ -11926,8 +11935,8 @@
         const generateRandomRoute = (receiver, forceCrossing = false) => {
             const startX = receiver.startPos.x;
             const startZ = receiver.startPos.z;
-            const END_ZONE_Z = 11;  // End zone starts here
-            const END_ZONE_BACK = 15;  // Back of end zone
+            const END_ZONE_Z = 10;  // End zone starts here
+            const END_ZONE_BACK = 20;  // Back of end zone
             const SIDELINE = 8;  // Field boundary
 
             // Calculate available depth to end zone
@@ -13497,7 +13506,7 @@
             // Calculate field position (yards from end zone)
             // lineOfScrimmage goes from about -8 (own goal line) to 11 (opponent end zone)
             // Convert to standard field position (own 1-50, then opponent 49-1)
-            const END_ZONE_Z = 11;
+            const END_ZONE_Z = 10;
             const yardsFromGoal = Math.round(END_ZONE_Z - gameState.lineOfScrimmage);
             let fieldPosText = '';
             if (yardsFromGoal <= 0) {
