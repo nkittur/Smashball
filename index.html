@@ -5010,7 +5010,7 @@
             selectedDraftPlayer: null,
             scoutLevels: {},  // Track scouting level per player: { playerId: 0-5 }
             revealedStats: {},  // Track which stats are revealed per player: { playerId: ['stat1', 'stat2', ...] }
-            scoutAttempts: SCOUTING.ATTEMPTS_PER_DRAFT  // Remaining scout attempts for this draft
+            scoutAttempts: 20  // Remaining scout attempts for this draft (initialized here, reset uses SCOUTING.ATTEMPTS_PER_DRAFT)
         };
 
         // Scouting constants - progressive stat reveal system
