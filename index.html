@@ -6086,8 +6086,16 @@
                 draftClass.push(player);
             }
 
-            // Sort by overall rating descending
-            const sorted = draftClass.sort((a, b) => b.overall - a.overall);
+            // Sort by shown/scouted rating descending (what the user sees in the list)
+            const sorted = draftClass.sort((a, b) => {
+                const gradeA = getScoutedListGrade(a).grade;
+                const gradeB = getScoutedListGrade(b).grade;
+                const indexA = GRADE_STEPS.indexOf(gradeA);
+                const indexB = GRADE_STEPS.indexOf(gradeB);
+                // If same grade, use actual overall as tiebreaker (but users won't see this)
+                if (indexA === indexB) return b.overall - a.overall;
+                return indexB - indexA;
+            });
 
             // Mark 1-2 rough gems in the later half of the draft
             // These are good players (75+ overall) who will show lower grades
@@ -6490,9 +6498,10 @@
 
             draftState.selectedDraftPlayer = player;
 
-            // Get scouting info
-            const scoutLevel = getPlayerScoutLevel(playerId);
-            console.log('showDraftPlayerDetail using scoutLevel:', scoutLevel, 'for player:', playerId);
+            // Get scouting info - show actual stats for drafted players
+            const isDrafted = draftState.draftedPlayers.includes(playerId);
+            const scoutLevel = isDrafted ? SCOUTING.MAX_LEVEL : getPlayerScoutLevel(playerId);
+            console.log('showDraftPlayerDetail using scoutLevel:', scoutLevel, 'for player:', playerId, 'isDrafted:', isDrafted);
             const gradeInfo = getOverallGrade(player.overall, scoutLevel);
             const growthInfo = getGrowthEstimate(player.potentialGrade, scoutLevel, playerId);
             const scoutCost = calculateScoutingCost(draftState.currentPickNumber);
