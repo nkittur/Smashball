@@ -7337,14 +7337,23 @@
                 const emptyDots = '○'.repeat(SCOUTING.MAX_LEVEL - scoutLevel);
                 const scoutIndicator = `<span style="color:#4CAF50;font-size:8px;margin-left:4px;">${filledDots}</span><span style="color:#666;font-size:8px;">${emptyDots}</span>`;
 
-                // Show interest indicator if player has interest marked
+                // Show interest indicator and background color
+                const interestLevel = draftState.playerInterest[player.id] || 0;
                 const interest = getInterestDisplay(player.id);
-                const interestIndicator = draftState.playerInterest[player.id]
+                const interestIndicator = interestLevel
                     ? `<span style="color:${interest.color};font-size:10px;margin-left:4px;">${interest.icon}</span>`
                     : '';
 
+                // Background colors for interest levels
+                let bgColor = 'transparent';
+                if (interestLevel === -1) bgColor = 'rgba(244, 67, 54, 0.15)';  // Red tint for not interested
+                else if (interestLevel === 1) bgColor = 'rgba(76, 175, 80, 0.1)';  // Light green
+                else if (interestLevel === 2) bgColor = 'rgba(76, 175, 80, 0.18)';  // Medium green
+                else if (interestLevel === 3) bgColor = 'rgba(76, 175, 80, 0.28)';  // Stronger green
+
                 const item = document.createElement('div');
                 item.className = 'roster-item';
+                item.style.backgroundColor = bgColor;
                 item.innerHTML = `
                     <div style="flex:1;">
                         <div class="name">${player.firstName} ${player.lastName}${interestIndicator}${scoutIndicator}</div>
