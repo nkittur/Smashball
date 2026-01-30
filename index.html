@@ -6092,8 +6092,8 @@
                 const gradeB = getScoutedListGrade(b).grade;
                 const indexA = GRADE_STEPS.indexOf(gradeA);
                 const indexB = GRADE_STEPS.indexOf(gradeB);
-                // If same grade, use actual overall as tiebreaker (but users won't see this)
-                if (indexA === indexB) return b.overall - a.overall;
+                // If same grade, use random tiebreaker
+                if (indexA === indexB) return Math.random() - 0.5;
                 return indexB - indexA;
             });
 
