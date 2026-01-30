@@ -5839,6 +5839,9 @@
                     console.log('Not refreshing modal - selectedDraftPlayer mismatch or null');
                 }
 
+                // Auto-save to persist scouting changes
+                if (managementState.settings.autoSave) SaveSystem.save();
+
                 return true;
             } catch (error) {
                 console.error('Error in scoutPlayer:', error);
@@ -5868,6 +5871,9 @@
             if (draftState.selectedDraftPlayer && draftState.selectedDraftPlayer.id === playerId) {
                 showDraftPlayerDetail(playerId);
             }
+
+            // Auto-save to persist interest changes
+            if (managementState.settings.autoSave) SaveSystem.save();
         }
 
         // Get interest display for a player (icon and color)
