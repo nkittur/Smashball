@@ -31,30 +31,39 @@
             top: 0;
             left: 0;
             right: 0;
-            height: calc(36px + env(safe-area-inset-top, 0px));
+            height: calc(40px + env(safe-area-inset-top, 0px));
             padding-top: env(safe-area-inset-top, 0px);
-            background: rgba(0, 0, 0, 0.8);
+            background: rgba(0, 0, 0, 0.85);
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding-left: 15px;
-            padding-right: 15px;
+            padding-left: 12px;
+            padding-right: 12px;
             font-family: 'Courier New', monospace;
             z-index: 100;
-            border-bottom: 1px solid #333;
+            border-bottom: 1px solid #444;
             box-sizing: border-box;
+            gap: 10px;
         }
 
         #score {
             color: #ffd700;
             font-size: 14px;
             display: flex;
-            gap: 20px;
+            gap: 16px;
+            white-space: nowrap;
+            align-items: center;
         }
 
-        #score .catches { color: #8cf; }
-        #score .touchdowns { color: #4f4; }
-        #score .label { color: #888; }
+        #score > span {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        #score .catches { color: #8cf; font-weight: bold; }
+        #score .touchdowns { color: #4f4; font-weight: bold; }
+        #score .label { color: #999; font-size: 12px; }
 
         #downDistance {
             color: #fff;
@@ -64,9 +73,19 @@
             padding: 4px 12px;
             border-radius: 4px;
             border: 1px solid #555;
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+            gap: 4px;
         }
         #downDistance .down { color: #ffa; }
         #downDistance .distance { color: #aef; }
+        #downDistance .field-pos {
+            color: #8cf;
+            margin-left: 8px;
+            padding-left: 8px;
+            border-left: 1px solid #555;
+        }
 
         #viewButtons {
             position: absolute;
@@ -100,7 +119,7 @@
 
         #debugInfo {
             position: absolute;
-            top: calc(80px + env(safe-area-inset-top, 0px));
+            top: calc(84px + env(safe-area-inset-top, 0px));
             right: 10px;
             color: #0f0;
             font-family: 'Courier New', monospace;
@@ -182,8 +201,8 @@
     <canvas id="renderCanvas"></canvas>
     <div id="topBar">
         <div id="downDistance">
-            <span class="down">1st</span> & <span class="distance">10</span>
-            <span class="field-pos" style="margin-left: 12px; color: #8cf;"></span>
+            <span class="down">1st</span> &amp; <span class="distance">10</span>
+            <span class="field-pos"></span>
         </div>
         <div id="score">
             <span><span class="label">Catches</span> <span class="catches">0/0</span></span>
@@ -206,7 +225,7 @@
     <button id="btnSimRest" style="
         display: none;
         position: fixed;
-        top: calc(46px + env(safe-area-inset-top, 0px));
+        top: calc(50px + env(safe-area-inset-top, 0px));
         right: 10px;
         padding: 8px 12px;
         font-size: 12px;
@@ -224,7 +243,7 @@
     <div id="trainingModeUI" style="display: none;">
         <button id="btnExitTraining" style="
             position: fixed;
-            top: calc(46px + env(safe-area-inset-top, 0px));
+            top: calc(50px + env(safe-area-inset-top, 0px));
             left: 10px;
             width: 36px;
             height: 36px;
@@ -242,7 +261,7 @@
         ">←</button>
         <div id="trainingTitle" style="
             position: fixed;
-            top: calc(50px + env(safe-area-inset-top, 0px));
+            top: calc(54px + env(safe-area-inset-top, 0px));
             left: 50%;
             transform: translateX(-50%);
             color: #4a4;
@@ -251,7 +270,7 @@
             font-weight: bold;
             text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
             z-index: 1001;
-        ">TRAINING MODE</div>
+        ">SCRIMMAGE</div>
         <div id="throwRating" style="
             position: fixed;
             bottom: 80px;
@@ -446,6 +465,286 @@
         </div>
     </div>
 
+    <!-- Target Practice Mode UI -->
+    <div id="targetPracticeModeUI" style="display: none;">
+        <button id="btnExitTargetPractice" style="
+            position: fixed;
+            top: calc(6px + env(safe-area-inset-top, 0px));
+            left: 10px;
+            width: 32px;
+            height: 32px;
+            padding: 0;
+            font-size: 18px;
+            line-height: 32px;
+            text-align: center;
+            border-radius: 50%;
+            background: rgba(40, 40, 60, 0.8);
+            color: #ccc;
+            border: 1px solid #444;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+            z-index: 1001;
+        ">&#8592;</button>
+        <!-- Compact Score Bar at Top -->
+        <div id="targetPracticeStats" style="
+            position: fixed;
+            top: calc(6px + env(safe-area-inset-top, 0px));
+            left: 46px;
+            right: 46px;
+            background: rgba(0,0,0,0.75);
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: nowrap;
+            height: 32px;
+        ">
+            <div style="display: flex; align-items: center; gap: 6px;">
+                <span style="color: #a4a; font-size: 11px;">R<span id="targetRound" style="color: #fff;">1</span></span>
+                <span style="color: #ffd700; font-size: 14px; font-weight: bold;" id="targetScoreDisplay">0</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <span id="targetMissIcons" style="font-size: 12px; letter-spacing: 1px;"></span>
+                <span id="targetMisses" style="display: none;">5</span>
+                <span id="targetThrows" style="color: #4fc3f7; font-size: 12px;"></span>
+                <span id="targetTime" style="color: #ffd700; font-size: 14px; font-weight: bold;">0.0s</span>
+                <span id="targetMultiplier" style="color: #4fc3f7; font-size: 12px;">1x</span>
+                <span id="targetStreak" style="color: #4f4; font-size: 12px;"></span>
+            </div>
+        </div>
+        <!-- Score Comparison Bar (shows last and best scores) -->
+        <div id="targetScoreComparison" style="
+            position: fixed;
+            top: calc(42px + env(safe-area-inset-top, 0px));
+            left: 46px;
+            right: 46px;
+            background: rgba(0,0,0,0.6);
+            padding: 3px 8px;
+            border-radius: 0 0 4px 4px;
+            font-family: 'Courier New', monospace;
+            z-index: 999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            height: 18px;
+            font-size: 10px;
+        ">
+            <span style="color: #888;">LAST: <span id="targetLastScore" style="color: #aaa;">0</span> <span id="targetLastScoreDiff" style="font-size: 9px;"></span></span>
+            <span style="color: #888;">BEST: <span id="targetBestScore" style="color: #ffd700;">0</span> <span id="targetBestScoreDiff" style="font-size: 9px;"></span></span>
+        </div>
+        <!-- Hit Popup (shows when you hit a target) -->
+        <div id="targetHitPopup" style="
+            position: fixed;
+            top: 70px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.85);
+            padding: 10px 18px;
+            border-radius: 8px;
+            color: white;
+            font-family: 'Courier New', monospace;
+            text-align: center;
+            z-index: 1000;
+            display: none;
+            min-width: 160px;
+            pointer-events: none;
+        ">
+            <div id="hitPopupMain" style="font-size: 26px; font-weight: bold; color: #4f4;">HIT!</div>
+            <div id="hitPopupPoints" style="font-size: 16px; color: #ffd700; margin-top: 2px;">+100</div>
+            <div id="hitPopupBonuses" style="font-size: 11px; color: #aaa; margin-top: 4px;"></div>
+        </div>
+        <!-- Round History Display -->
+        <div id="targetRoundHistory" style="
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(0,0,0,0.7);
+            padding: 8px 14px;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 11px;
+            color: #888;
+            z-index: 1001;
+            max-width: 200px;
+        ">
+            <div style="color: #aaa; margin-bottom: 4px;">ROUND HISTORY</div>
+            <div id="roundHistoryList" style="color: #666;"></div>
+        </div>
+        <!-- Round Complete Popup -->
+        <div id="roundCompletePopup" style="
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.95);
+            padding: 24px 36px;
+            border-radius: 12px;
+            border: 2px solid #4f4;
+            color: white;
+            font-family: 'Courier New', monospace;
+            text-align: center;
+            z-index: 1002;
+            display: none;
+            min-width: 250px;
+        ">
+            <div id="roundCompleteTitle" style="font-size: 24px; font-weight: bold; color: #4f4;">ROUND COMPLETE!</div>
+            <div style="margin-top: 16px; display: flex; justify-content: space-around;">
+                <div>
+                    <div style="color: #888; font-size: 10px;">THROWS</div>
+                    <div id="roundCompleteThrows" style="color: #4fc3f7; font-size: 28px; font-weight: bold;">0</div>
+                </div>
+                <div>
+                    <div style="color: #888; font-size: 10px;">TIME</div>
+                    <div id="roundCompleteTime" style="color: #ffd700; font-size: 28px; font-weight: bold;">0.0s</div>
+                </div>
+            </div>
+            <div id="roundScoreBreakdown" style="margin-top: 16px; padding: 12px; background: rgba(50,50,50,0.5); border-radius: 8px;">
+                <div style="color: #888; font-size: 10px; margin-bottom: 6px;">ROUND SCORE</div>
+                <div id="roundTimeBonus" style="color: #ffd700; font-size: 14px;">Time Bonus: +0</div>
+                <div id="roundAccuracyBonus" style="color: #4fc3f7; font-size: 14px;">Accuracy Bonus: +0</div>
+                <div id="roundTotalBonus" style="color: #4f4; font-size: 18px; font-weight: bold; margin-top: 6px;">Total: +0</div>
+            </div>
+            <div id="roundExtraMiss" style="margin-top: 10px; color: #ff6b6b; font-size: 14px; font-weight: bold;">+1 Extra Miss!</div>
+            <div id="roundCompleteNext" style="margin-top: 12px; color: #aaa; font-size: 12px;">Next: Round <span id="nextRoundNum">2</span> - <span id="nextRoundTargets">6</span> targets</div>
+            <div style="margin-top: 12px; color: #666; font-size: 11px;">Tap to continue</div>
+        </div>
+        <!-- Game Over Popup -->
+        <div id="gameOverPopup" style="
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.95);
+            padding: 24px 36px;
+            border-radius: 12px;
+            border: 2px solid #f44;
+            color: white;
+            font-family: 'Courier New', monospace;
+            text-align: center;
+            z-index: 1002;
+            display: none;
+            min-width: 280px;
+        ">
+            <div style="font-size: 28px; font-weight: bold; color: #f44;">GAME OVER</div>
+            <div style="margin-top: 8px; color: #888; font-size: 12px;">Out of misses!</div>
+            <div style="margin-top: 20px; display: flex; justify-content: space-around;">
+                <div>
+                    <div style="color: #888; font-size: 10px;">FINAL SCORE</div>
+                    <div id="gameOverScore" style="color: #ffd700; font-size: 32px; font-weight: bold;">0</div>
+                </div>
+                <div>
+                    <div style="color: #888; font-size: 10px;">ROUND</div>
+                    <div id="gameOverRound" style="color: #a4a; font-size: 32px; font-weight: bold;">1</div>
+                </div>
+            </div>
+            <div style="margin-top: 16px;">
+                <div style="color: #888; font-size: 10px;">BEST STREAK</div>
+                <div id="gameOverBestStreak" style="color: #4f4; font-size: 24px; font-weight: bold;">0</div>
+            </div>
+            <div id="gameOverNewBest" style="margin-top: 12px; color: #ffd700; font-size: 16px; font-weight: bold; display: none;">NEW BEST SCORE!</div>
+            <div style="margin-top: 20px; display: flex; gap: 12px; justify-content: center;">
+                <button id="btnPlayAgain" style="
+                    padding: 12px 24px;
+                    font-size: 14px;
+                    background: #4f4;
+                    color: #000;
+                    border: none;
+                    border-radius: 6px;
+                    cursor: pointer;
+                    font-family: 'Courier New', monospace;
+                    font-weight: bold;
+                ">PLAY AGAIN</button>
+                <button id="btnExitGameOver" style="
+                    padding: 12px 24px;
+                    font-size: 14px;
+                    background: #444;
+                    color: #ccc;
+                    border: none;
+                    border-radius: 6px;
+                    cursor: pointer;
+                    font-family: 'Courier New', monospace;
+                ">EXIT</button>
+            </div>
+        </div>
+        <!-- Settings Button -->
+        <button id="btnTargetPracticeSettings" style="
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 44px;
+            height: 44px;
+            font-size: 22px;
+            background: rgba(0,0,0,0.7);
+            color: #888;
+            border: 1px solid #555;
+            border-radius: 8px;
+            cursor: pointer;
+            z-index: 1001;
+        ">&#9881;</button>
+        <!-- Settings Panel -->
+        <div id="targetPracticeSettingsPanel" style="
+            display: none;
+            position: fixed;
+            bottom: 80px;
+            right: 20px;
+            background: rgba(0,0,0,0.92);
+            padding: 16px;
+            border-radius: 10px;
+            border: 1px solid #444;
+            z-index: 1002;
+            font-family: 'Courier New', monospace;
+            min-width: 220px;
+            max-height: 60vh;
+            overflow-y: auto;
+        ">
+            <div style="color: #fff; font-size: 14px; font-weight: bold; margin-bottom: 12px; border-bottom: 1px solid #444; padding-bottom: 8px;">Target Practice Settings</div>
+            <!-- Mode Display -->
+            <div style="margin-bottom: 12px;">
+                <div style="color: #888; font-size: 11px; margin-bottom: 4px;">MODE</div>
+                <div id="tpModeDisplay" style="color: #4fc3f7; font-size: 14px;">MISSES MODE</div>
+                <div style="color: #666; font-size: 10px; margin-top: 4px;">4 targets per round</div>
+            </div>
+            <!-- Target Speed -->
+            <div style="margin-bottom: 12px;">
+                <div style="color: #888; font-size: 11px; margin-bottom: 4px;">TARGET SPEED</div>
+                <div style="display: flex; gap: 4px;">
+                    <button class="target-speed-btn" data-speed="slow" style="flex: 1; padding: 6px; background: #333; color: #fff; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 11px;">Slow</button>
+                    <button class="target-speed-btn" data-speed="normal" style="flex: 1; padding: 6px; background: #4a4; color: #fff; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 11px;">Normal</button>
+                    <button class="target-speed-btn" data-speed="fast" style="flex: 1; padding: 6px; background: #333; color: #fff; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 11px;">Fast</button>
+                </div>
+            </div>
+            <!-- Ball Speed -->
+            <div style="margin-bottom: 12px;">
+                <div style="color: #888; font-size: 11px; margin-bottom: 4px;">BALL SPEED</div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <button id="btnTPBallSpeedDown" style="width: 28px; height: 28px; background: #333; color: #fff; border: 1px solid #555; border-radius: 4px; cursor: pointer;">-</button>
+                    <span id="tpBallSpeedDisplay" style="color: #4f4; font-size: 14px; min-width: 45px; text-align: center;">1.2x</span>
+                    <button id="btnTPBallSpeedUp" style="width: 28px; height: 28px; background: #333; color: #fff; border: 1px solid #555; border-radius: 4px; cursor: pointer;">+</button>
+                </div>
+            </div>
+            <!-- Camera Angle Slider -->
+            <div style="margin-bottom: 12px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                    <span style="color: #888; font-size: 11px;">CAMERA ANGLE</span>
+                    <span id="tpCameraAngleValue" style="color: #4f4; font-size: 11px;">50%</span>
+                </div>
+                <input type="range" id="tpCameraAngleSlider" min="0" max="100" value="50" style="width: 100%; cursor: pointer;">
+            </div>
+            <!-- Camera Offset Slider -->
+            <div style="margin-bottom: 12px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                    <span style="color: #888; font-size: 11px;">CAMERA OFFSET</span>
+                    <span id="tpCameraOffsetValue" style="color: #4f4; font-size: 11px;">35%</span>
+                </div>
+                <input type="range" id="tpCameraOffsetSlider" min="0" max="100" value="35" style="width: 100%; cursor: pointer;">
+            </div>
+        </div>
+    </div>
+
     <!-- Game Mode Play Result Popup (outside trainingModeUI so it's visible in games) -->
     <div id="playResultPopup" style="
         position: fixed;
@@ -488,11 +787,26 @@
             <button id="btnNewGame" class="mgmt-btn">NEW GAME</button>
             <button id="btnContinue" class="mgmt-btn">CONTINUE</button>
             <button id="btnHowToPlay" class="mgmt-btn" style="margin-top: 30px; background: #2a3a4a; border-color: #4a9fff;">HOW TO PLAY</button>
-            <button id="btnTrainingMode" class="mgmt-btn" style="background: #2a4a2a;">TRAINING MODE</button>
+            <button id="btnTrainingMode" class="mgmt-btn" style="background: #2a4a2a;">TRAINING</button>
+        </div>
+
+        <!-- New Game Choice Screen -->
+        <div id="newGameChoiceScreen" class="mgmt-screen" style="display:none;">
+            <button id="btnNewGameChoiceBack" class="mgmt-btn back-btn">←</button>
+            <h2>NEW GAME</h2>
+            <p style="color: #888; font-size: 14px; margin-bottom: 30px;">How would you like to start?</p>
+            <div style="max-width: 300px; margin: 0 auto;">
+                <button id="btnStartWithDraft" class="mgmt-btn" style="background: #2a4a3a; margin-bottom: 10px; width: 100%;">START WITH DRAFT</button>
+                <p style="color: #666; font-size: 11px; margin-bottom: 25px;">Build your team by drafting players from a pool of rookies</p>
+
+                <button id="btnStartPremade" class="mgmt-btn" style="background: #3a3a4a; margin-bottom: 10px; width: 100%;">PREMADE TEAM</button>
+                <p style="color: #666; font-size: 11px; margin-bottom: 10px;">Start immediately with a ready-to-play roster</p>
+            </div>
         </div>
 
         <!-- Hub Screen -->
         <div id="hubScreen" class="mgmt-screen hub-screen" style="display:none;">
+            <button id="btnHubBack" class="mgmt-btn back-btn">←</button>
             <button id="btnHubManual" class="mgmt-btn back-btn" style="right: 10px; left: auto;">?</button>
             <button id="btnHubSettings" class="mgmt-btn back-btn" style="right: 50px; left: auto;">⚙</button>
             <div class="hub-status" id="hubStatus">Fame: 1,000 | Week 1</div>
@@ -508,6 +822,25 @@
             <p id="hubRecord" class="hub-record">Record: 0-0</p>
             <p id="hubNextGame" class="hub-next"></p>
             <button id="btnHubNewGame" class="mgmt-btn danger" style="margin-top: 30px;">NEW GAME</button>
+        </div>
+
+        <!-- Training Selection Screen -->
+        <div id="trainingSelectionScreen" class="mgmt-screen" style="display:none;">
+            <button id="btnTrainingSelectionBack" class="mgmt-btn back-btn">←</button>
+            <h2>TRAINING</h2>
+            <p style="color: #888; font-size: 14px; margin-bottom: 20px;">Select a training mode</p>
+            <div style="max-width: 300px; margin: 0 auto;">
+                <button id="btnSelectScrimmage" class="mgmt-btn" style="background: #2a4a2a; margin-bottom: 10px; width: 100%;">SCRIMMAGE</button>
+                <p style="color: #666; font-size: 11px; margin-bottom: 20px;">Practice with receivers vs defenders</p>
+
+                <div style="border-top: 1px solid #444; padding-top: 15px; margin-top: 5px;">
+                    <div style="color: #a4a; font-size: 12px; font-weight: bold; margin-bottom: 10px;">TARGET PRACTICE</div>
+                    <button id="btnSelectTPMisses" class="mgmt-btn" style="background: #4a2a4a; margin-bottom: 8px; width: 100%;">MISSES MODE</button>
+                    <p style="color: #666; font-size: 11px; margin-bottom: 15px;">Limited misses - survive as long as you can</p>
+                    <button id="btnSelectTPTimed" class="mgmt-btn" style="background: #4a2a4a; margin-bottom: 8px; width: 100%;">TIMED MODE</button>
+                    <p style="color: #666; font-size: 11px; margin-bottom: 10px;">Race against the clock each round</p>
+                </div>
+            </div>
         </div>
 
         <!-- Game Settings Screen -->
@@ -1901,8 +2234,40 @@
             firstDownMarker: -19,   // Z position where first down is achieved (10 yards ahead)
             startingLineOfScrimmage: -29,  // Where drive started - opponent 40 yard line
             // Training mode
-            trainingMode: false,    // Training mode: no defenders, throw ratings
+            trainingMode: false,    // Training/scrimmage mode: receivers vs defenders
             lastThrowRating: null,  // Last throw rating for display
+            // Bonus zones (green catch zones)
+            bonusZones: [],         // Array of bonus zone objects
+            // Target Practice mode
+            targetPracticeMode: false,  // Target practice: hit moving targets
+            targetPracticeModeType: 'misses', // 'misses' or 'timed'
+            targetPracticeScore: 0,     // Current score
+            targetPracticeBestScore: 0, // Best score (persisted in localStorage)
+            targetPracticeBestScoreTimed: 0, // Best score for timed mode
+            targetPracticeLastScore: 0,      // Last score (misses mode)
+            targetPracticeLastScoreTimed: 0, // Last score (timed mode)
+            targetPracticeStreak: 0,    // Current hit streak
+            targetPracticeMultiplier: 1, // Score multiplier (increases with streak)
+            targetPracticeTargets: [],  // Array of target meshes
+            targetPracticeTargetCount: 4, // Number of targets on field (max 4 visible at a time)
+            targetPracticeMaxActiveTargets: 4, // Maximum targets active at once
+            targetPracticeSpeedSetting: 'normal', // 'slow', 'normal', 'fast'
+            targetPracticeLastHitTime: 0, // For rapid fire bonus
+            targetPracticeSpeedBonus: 1.0, // Increases with each hit for progressive difficulty
+            // Round tracking
+            targetPracticeRound: 1,           // Current round number
+            targetPracticeRoundThrows: 0,     // Throws used this round
+            targetPracticeRoundStartTime: 0,  // When round started (ms)
+            targetPracticeRoundHistory: [],   // Array of {round, throws, time} for completed rounds
+            targetPracticeTotalThrows: 0,     // Total throws across all rounds
+            targetPracticeMissesRemaining: 5, // Misses before game over
+            targetPracticeMaxMisses: 5,       // Starting misses (grows each round)
+            targetPracticeBestStreak: 0,      // Best streak in current game
+            // Timed mode tracking
+            targetPracticeRoundTimeLimit: 30, // Seconds per round in timed mode
+            targetPracticeTimeRemaining: 30,  // Time remaining in current round (timed mode)
+            // Distance multiplier zone visualization
+            distanceZoneMeshes: [],  // Array of meshes for distance zones
             // Debug visualization
             showThrowHeatMap: false,
             heatMapMeshes: []
@@ -2482,7 +2847,9 @@
         // Feature flags
         const FEATURE_FLAGS = {
             showDefenderZones: false,  // Show defender zone rings and fills
-            showDebugInfo: false       // Show on-screen debug info for coverage/catch factors
+            showDebugInfo: false,      // Show on-screen debug info for coverage/catch factors
+            circleCatchBonuses: false,  // Enable catch probability bonuses from bonus zones
+            targetPracticeBonusTargets: true  // Enable super fast bonus targets that do 3 laps then disappear
         };
 
         // ========================================
@@ -3839,7 +4206,7 @@
             const targetOveralls = {
                 'easy': 72,    // Low 70s team
                 'medium': 77,  // High 70s team
-                'hard': 83,    // Low 80s team
+                'hard': 87,    // High 80s team (stronger opponents)
                 'elite': 91    // Elite team
             };
             const target = targetOveralls[difficulty] || 77;
@@ -5719,8 +6086,16 @@
                 draftClass.push(player);
             }
 
-            // Sort by overall rating descending
-            const sorted = draftClass.sort((a, b) => b.overall - a.overall);
+            // Sort by shown/scouted rating descending (what the user sees in the list)
+            const sorted = draftClass.sort((a, b) => {
+                const gradeA = getScoutedListGrade(a).grade;
+                const gradeB = getScoutedListGrade(b).grade;
+                const indexA = GRADE_STEPS.indexOf(gradeA);
+                const indexB = GRADE_STEPS.indexOf(gradeB);
+                // If same grade, use random tiebreaker
+                if (indexA === indexB) return Math.random() - 0.5;
+                return indexB - indexA;
+            });
 
             // Mark 1-2 rough gems in the later half of the draft
             // These are good players (75+ overall) who will show lower grades
@@ -6123,9 +6498,10 @@
 
             draftState.selectedDraftPlayer = player;
 
-            // Get scouting info
-            const scoutLevel = getPlayerScoutLevel(playerId);
-            console.log('showDraftPlayerDetail using scoutLevel:', scoutLevel, 'for player:', playerId);
+            // Get scouting info - show actual stats for drafted players
+            const isDrafted = draftState.draftedPlayers.includes(playerId);
+            const scoutLevel = isDrafted ? SCOUTING.MAX_LEVEL : getPlayerScoutLevel(playerId);
+            console.log('showDraftPlayerDetail using scoutLevel:', scoutLevel, 'for player:', playerId, 'isDrafted:', isDrafted);
             const gradeInfo = getOverallGrade(player.overall, scoutLevel);
             const growthInfo = getGrowthEstimate(player.potentialGrade, scoutLevel, playerId);
             const scoutCost = calculateScoutingCost(draftState.currentPickNumber);
@@ -7381,6 +7757,18 @@
                 // Depth penalty for longer throws (reduced by good long pass accuracy)
                 const depthPenalty = Math.max(0, (receiver.currentDepth - 15) * 0.3);
                 catchProb -= depthPenalty;
+
+                // Bonus zone catch boost (check if receiver is in a bonus zone)
+                // Only applies catch bonus if feature flag is enabled
+                const bonusZone = checkBonusZones(receiver.position);
+                if (bonusZone) {
+                    if (FEATURE_FLAGS.circleCatchBonuses) {
+                        catchProb += bonusZone.config.catchBonus;
+                    }
+                    receiver.inBonusZone = bonusZone.config.name;
+                } else {
+                    receiver.inBonusZone = null;
+                }
 
                 // Clamp
                 catchProb = Math.max(5, Math.min(95, catchProb));
@@ -8880,14 +9268,20 @@
         }
 
         // Start new game
-        function startNewGame(teamName = 'Your Knights') {
+        function startNewGame(teamName = 'Your Knights', skipDraft = false) {
             managementState.team = createNewTeam(teamName);
             managementState.season = createNewSeason();
             refreshFreeAgents();
             managementState.initialized = true;
 
-            // Start with the draft
-            startDraft(true);
+            if (skipDraft) {
+                // Skip draft and go directly to hub with premade team
+                showScreen('hub');
+                if (managementState.settings.autoSave) SaveSystem.save();
+            } else {
+                // Start with the draft
+                startDraft(true);
+            }
         }
 
         // Constants
@@ -9728,20 +10122,29 @@
                 line.position.set(0, 0.012, i);
             }
 
-            // End zone (30% deeper)
+            // End zone (10 yards deep, from Z=10 to Z=20)
             const endZone = BABYLON.MeshBuilder.CreateGround('endzone', {
                 width: FIELD_WIDTH + 2,
-                height: 4
+                height: 10
             }, scene);
             const endZoneMat = new BABYLON.StandardMaterial('endzoneMat', scene);
             endZoneMat.diffuseColor = new BABYLON.Color3(0.4, 0.15, 0.15);
             endZone.material = endZoneMat;
-            endZone.position.set(0, 0.001, 13);
+            endZone.position.set(0, 0.001, 15);
+
+            // Back of end zone line (at Z=20)
+            const endLine = BABYLON.MeshBuilder.CreateBox('endLine', {
+                width: FIELD_WIDTH + 2,
+                height: 0.02,
+                depth: 0.15
+            }, scene);
+            endLine.material = materials.lineMaterial;
+            endLine.position.set(0, 0.012, 20);
 
             // Sideline boundaries (football-style white lines)
             const sidelinePositions = [
-                { x: -FIELD_WIDTH/2 - 0.15, z: -25 },
-                { x: FIELD_WIDTH/2 + 0.15, z: -25 }
+                { x: -FIELD_WIDTH/2 - 0.15, z: -22 },
+                { x: FIELD_WIDTH/2 + 0.15, z: -22 }
             ];
 
             const sidelineMat = new BABYLON.StandardMaterial('sidelineMat', scene);
@@ -9749,11 +10152,11 @@
             sidelineMat.emissiveColor = new BABYLON.Color3(0.1, 0.1, 0.1);
 
             sidelinePositions.forEach((sp, i) => {
-                // Main sideline stripe
+                // Main sideline stripe (extended to cover deeper end zone)
                 const sideline = BABYLON.MeshBuilder.CreateBox(`sideline_${i}`, {
                     width: 0.3,
                     height: 0.02,
-                    depth: FIELD_LENGTH + 12
+                    depth: FIELD_LENGTH + 18
                 }, scene);
                 sideline.material = sidelineMat;
                 sideline.position.set(sp.x, 0.015, sp.z);
@@ -9961,10 +10364,12 @@
             const dy = dragStart.y - dragCurrent.y;
 
             // Get QB's arm strength (affects max throw distance)
-            // Scales from 12 yards at 50 armStrength to 26 yards at 100 armStrength
+            // Scales from 14 yards at 50 armStrength to 28 yards at 100 armStrength
+            // Target practice mode gets extended range (40 yards max)
             const qb = gameState.scene?.qb;
             const armStrength = qb?.stats?.armStrength || 70;
-            const qbMaxThrowDistance = 12 + ((armStrength - 50) / 50) * 14;  // 12-26 range
+            const baseMaxThrow = 14 + ((armStrength - 50) / 50) * 14;  // 14-28 range
+            const qbMaxThrowDistance = gameState.targetPracticeMode ? 40 : baseMaxThrow;
 
             // Distance dragged determines throw power
             // Apply sensitivity boost based on camera offset (more offset = less space to drag = higher sensitivity)
@@ -9986,14 +10391,15 @@
             }
 
             // Get QB max throw distance for power calculation
+            // Always use normal range for power so arcs feel consistent
             const qbForPower = gameState.scene?.qb;
             const armStrengthForPower = qbForPower?.stats?.armStrength || 70;
-            const maxDistForPower = 12 + ((armStrengthForPower - 50) / 50) * 14;
+            const maxDistForPower = 12 + ((armStrengthForPower - 50) / 50) * 14;  // Always use normal range for arc calculation
 
             return {
                 distance: throwDistance,
                 angle: angle,
-                power: throwDistance / maxDistForPower
+                power: Math.min(1.0, throwDistance / maxDistForPower)  // Cap at 1.0 for consistent arcs
             };
         };
 
@@ -10182,7 +10588,7 @@
         // Zone coverage AI - Safety plays deep, picks a side, backpedals until ball thrown
         const moveDefenderZoneCoverage = (defender, speed) => {
             const timeSincePlayStart = gameState.gameTime - (gameState.playStartTime || 0);
-            const END_ZONE_BACK = 15;
+            const END_ZONE_BACK = 20;
 
             // Initialize safety's chosen side if not set (pick at play start)
             if (defender.chosenSide === undefined) {
@@ -10460,6 +10866,9 @@
 
         // Process line clashes between O-line and D-line
         const processLineClashes = () => {
+            // Skip line clashes in training mode (no linemen)
+            if (gameState.trainingMode) return;
+
             const currentTime = gameState.gameTime;
 
             // Skip clash processing during snap delay
@@ -10470,7 +10879,8 @@
             }
 
             gameState.defensiveLine.forEach(dLineman => {
-                // Skip if knocked down
+                // Skip if disabled or knocked down
+                if (!dLineman.isEnabled()) return;
                 if (dLineman.knockdownUntil > currentTime) {
                     dLineman.currentSpeedMultiplier = 0;
                     return;
@@ -10486,6 +10896,7 @@
                 let closestDist = LINE_CLASH_CONSTANTS.CLASH_RANGE;
 
                 gameState.offensiveLine.forEach(oLineman => {
+                    if (!oLineman.isEnabled()) return;
                     if (oLineman.knockdownUntil > currentTime) return;
 
                     const dist = BABYLON.Vector3.Distance(dLineman.position, oLineman.position);
@@ -10878,7 +11289,7 @@
             }
 
             // Calculate and show field position
-            const END_ZONE_Z = 11;
+            const END_ZONE_Z = 10;
             const yardsFromGoal = Math.round(END_ZONE_Z - gameState.lineOfScrimmage);
             let fieldPosText = '';
             if (yardsFromGoal <= 0) {
@@ -11149,7 +11560,7 @@
 
         // Advance the ball to a new position and handle down logic
         const advanceBall = (newPositionZ) => {
-            const END_ZONE_Z = 11;  // Touchdown threshold (matches visual end zone start)
+            const END_ZONE_Z = 10;  // Touchdown threshold (matches visual end zone start)
             const oldLOS = gameState.lineOfScrimmage;
             const yardsGained = newPositionZ - oldLOS;
 
@@ -11375,8 +11786,8 @@
         // Reset defenders to starting positions
         const resetDefenders = () => {
             const lineZ = gameState.lineOfScrimmage;
-            const END_ZONE_Z = 11;
-            const END_ZONE_BACK = 15;  // Back of end zone - max Z position
+            const END_ZONE_Z = 10;
+            const END_ZONE_BACK = 20;  // Back of end zone - max Z position
             const SIDELINE = 8;  // Field boundary
             const distToGoal = END_ZONE_Z - lineZ;  // How far from goal line
 
@@ -11533,8 +11944,8 @@
         const generateRandomRoute = (receiver, forceCrossing = false) => {
             const startX = receiver.startPos.x;
             const startZ = receiver.startPos.z;
-            const END_ZONE_Z = 11;  // End zone starts here
-            const END_ZONE_BACK = 15;  // Back of end zone
+            const END_ZONE_Z = 10;  // End zone starts here
+            const END_ZONE_BACK = 20;  // Back of end zone
             const SIDELINE = 8;  // Field boundary
 
             // Calculate available depth to end zone
@@ -11831,6 +12242,13 @@
 
             if (throwParams.distance < MIN_THROW_DISTANCE) return;
 
+            // Track throws in target practice mode
+            if (gameState.targetPracticeMode) {
+                gameState.targetPracticeRoundThrows++;
+                gameState.targetPracticeTotalThrows++;
+                updateTargetPracticeUI();
+            }
+
             gameState.ballInFlight = true;
             gameState.canThrow = false;
             updateMessage('');
@@ -12025,6 +12443,10 @@
                     // Track game time for clash system (use consistent time source)
                     gameState.gameTime = performance.now() * 0.001;
 
+                    // In target practice mode, just move targets (skip receivers/defenders/linemen)
+                    if (gameState.targetPracticeMode) {
+                        moveTargets();
+                    } else {
                     // Keep ALL receivers moving along their routes
                     gameState.receivers.forEach((receiver, i) => {
                         // Skip if knocked down
@@ -12177,28 +12599,30 @@
                         defender.position.y = Math.abs(Math.sin(time.value * 8 + i + 0.5)) * 0.08;
                     });
 
-                    // Move linemen during ball flight (battle continues!)
-                    gameState.offensiveLine.forEach((oLineman, i) => {
-                        if (oLineman.knockdownUntil > gameState.gameTime) {
-                            oLineman.position.y = 0;
-                            return;
-                        }
-                        moveOLineman(oLineman);
-                        oLineman.position.y = Math.abs(Math.sin(time.value * 4 + i * 0.5)) * 0.03;
-                    });
+                    // Move linemen during ball flight (battle continues!) - only in full game mode
+                    if (!gameState.trainingMode) {
+                        gameState.offensiveLine.forEach((oLineman, i) => {
+                            if (oLineman.knockdownUntil > gameState.gameTime) {
+                                oLineman.position.y = 0;
+                                return;
+                            }
+                            moveOLineman(oLineman);
+                            oLineman.position.y = Math.abs(Math.sin(time.value * 4 + i * 0.5)) * 0.03;
+                        });
 
-                    gameState.defensiveLine.forEach((dLineman, i) => {
-                        if (dLineman.knockdownUntil > gameState.gameTime) {
-                            dLineman.position.y = 0;
-                            return;
-                        }
-                        moveDLineman(dLineman);
-                        const isRushing = dLineman.currentSpeedMultiplier > 0.3;
-                        dLineman.position.y = Math.abs(Math.sin(time.value * (isRushing ? 8 : 4) + i * 0.5)) * (isRushing ? 0.08 : 0.03);
-                    });
+                        gameState.defensiveLine.forEach((dLineman, i) => {
+                            if (dLineman.knockdownUntil > gameState.gameTime) {
+                                dLineman.position.y = 0;
+                                return;
+                            }
+                            moveDLineman(dLineman);
+                            const isRushing = dLineman.currentSpeedMultiplier > 0.3;
+                            dLineman.position.y = Math.abs(Math.sin(time.value * (isRushing ? 8 : 4) + i * 0.5)) * (isRushing ? 0.08 : 0.03);
+                        });
 
-                    // Process line clashes during ball flight
-                    processLineClashes();
+                        // Process line clashes during ball flight
+                        processLineClashes();
+                    }
 
                     // Process clashes during ball flight
                     processClashes();
@@ -12208,6 +12632,7 @@
 
                     // Update debug display
                     updateDebugInfo();
+                    } // end else (not target practice mode)
                 }
 
                 // Check if ball has landed
@@ -12230,6 +12655,25 @@
 
         // Check for Catch
         const checkCatch = (scene, ballPosition, targetReceiver) => {
+            // Target Practice Mode - check for target hits instead
+            if (gameState.targetPracticeMode) {
+                const hitTargets = checkTargetHits(ballPosition);
+                const throwDistance = scene.qb ? BABYLON.Vector3.Distance(
+                    new BABYLON.Vector3(scene.qb.position.x, 0, scene.qb.position.z),
+                    new BABYLON.Vector3(ballPosition.x, 0, ballPosition.z)
+                ) : 10;
+
+                // Show landing ripple effect
+                showLandingRipple(scene, ballPosition, hitTargets.length > 0);
+
+                handleTargetHit(hitTargets, throwDistance, ballPosition);
+
+                // Quick reset for target practice (ball disappears, can throw again)
+                scene.football.setEnabled(false);
+                resetTargetPracticePlay();
+                return;
+            }
+
             let potentialCatcher = null;
             let closestDistance = Infinity;
             let catcherRadius = 1.2;  // Default
@@ -12824,6 +13268,14 @@
         // Ball bounce and roll animation for incomplete passes
         const bounceBall = (scene, startPos) => {
             const football = scene.football;
+
+            // In target practice mode, immediately reset (no bounce animation)
+            if (gameState.targetPracticeMode) {
+                football.setEnabled(false);
+                resetTargetPracticePlay();
+                return;
+            }
+
             let velocity = {
                 x: (Math.random() - 0.5) * 0.1,
                 y: 0.15,  // Initial bounce up
@@ -13063,7 +13515,7 @@
             // Calculate field position (yards from end zone)
             // lineOfScrimmage goes from about -8 (own goal line) to 11 (opponent end zone)
             // Convert to standard field position (own 1-50, then opponent 49-1)
-            const END_ZONE_Z = 11;
+            const END_ZONE_Z = 10;
             const yardsFromGoal = Math.round(END_ZONE_Z - gameState.lineOfScrimmage);
             let fieldPosText = '';
             if (yardsFromGoal <= 0) {
@@ -13255,8 +13707,18 @@
                 // Pause game during possession overlay
                 if (gameState.waitingForPossession) return;
 
-                // Freeze play until player holds screen
-                if (gameState.playFrozen) return;
+                // Freeze play until player holds screen (but not in target practice)
+                if (gameState.playFrozen && !gameState.targetPracticeMode) return;
+
+                // Target Practice Mode - move targets and update distance colors
+                // Only move here when ball is NOT in flight (ball animation handles movement during flight)
+                if (gameState.targetPracticeMode && !gameState.ballInFlight) {
+                    moveTargets();
+                    updateTargetDistanceColors();
+                }
+
+                // Move bonus zones (all modes)
+                moveBonusZones();
 
                 const time = performance.now() * 0.001;
 
@@ -13278,6 +13740,11 @@
 
                 // Track game time for clash system
                 gameState.gameTime = time;
+
+                // Skip receiver/defender processing in target practice mode
+                if (gameState.targetPracticeMode) {
+                    return;
+                }
 
                 // Receivers running their routes
                 if (!gameState.ballInFlight && gameState.canThrow) {
@@ -13329,12 +13796,15 @@
                         }
 
                         // Show green while speed boosted, red while speed penalized (if enabled)
-                        if (gameState.showClashFlash && receiver.clashSpeedBoostUntil > gameState.gameTime) {
+                        // Clash flash is disabled on hard difficulty (no visual indicators)
+                        const currentDiff = gameState.trainingMode ? gameState.trainingDifficulty : gameState.gameDifficulty;
+                        const showClash = gameState.showClashFlash && currentDiff !== 'hard';
+                        if (showClash && receiver.clashSpeedBoostUntil > gameState.gameTime) {
                             const flashRate = Math.sin(time * 10) * 0.3 + 0.7;  // Gentle pulse 0.4-1.0
                             const green = new BABYLON.Color3(0.2, 1.0, 0.3);
                             receiver.bodyMaterial.diffuseColor = BABYLON.Color3.Lerp(receiver.originalColor, green, flashRate * 0.7);
                             receiver.bodyMaterial.emissiveColor = green.scale(flashRate * 0.3);
-                        } else if (gameState.showClashFlash && receiver.clashSpeedPenaltyUntil > gameState.gameTime) {
+                        } else if (showClash && receiver.clashSpeedPenaltyUntil > gameState.gameTime) {
                             const flashRate = Math.sin(time * 10) * 0.3 + 0.7;  // Gentle pulse 0.4-1.0
                             const red = new BABYLON.Color3(1.0, 0.2, 0.2);
                             receiver.bodyMaterial.diffuseColor = BABYLON.Color3.Lerp(receiver.originalColor, red, flashRate * 0.7);
@@ -13352,40 +13822,43 @@
 
                     // Route completion no longer triggers reset - play continues normally
 
-                    // Move offensive linemen
-                    gameState.offensiveLine.forEach((oLineman, i) => {
-                        if (oLineman.knockdownUntil > gameState.gameTime) {
-                            oLineman.position.y = 0;
-                            oLineman.rotation.x = Math.PI / 4;  // Lean when down
-                            return;
-                        }
-                        oLineman.rotation.x = 0;
+                    // Move linemen only in full game mode (not training/scrimmage)
+                    if (!gameState.trainingMode) {
+                        // Move offensive linemen
+                        gameState.offensiveLine.forEach((oLineman, i) => {
+                            if (oLineman.knockdownUntil > gameState.gameTime) {
+                                oLineman.position.y = 0;
+                                oLineman.rotation.x = Math.PI / 4;  // Lean when down
+                                return;
+                            }
+                            oLineman.rotation.x = 0;
 
-                        moveOLineman(oLineman);
+                            moveOLineman(oLineman);
 
-                        // Subtle stance animation
-                        oLineman.position.y = Math.abs(Math.sin(time * 4 + i * 0.5)) * 0.03;
-                    });
+                            // Subtle stance animation
+                            oLineman.position.y = Math.abs(Math.sin(time * 4 + i * 0.5)) * 0.03;
+                        });
 
-                    // Move defensive linemen
-                    gameState.defensiveLine.forEach((dLineman, i) => {
-                        if (dLineman.knockdownUntil > gameState.gameTime) {
-                            dLineman.position.y = 0;
-                            dLineman.rotation.x = Math.PI / 4;  // Lean when down
-                            return;
-                        }
-                        dLineman.rotation.x = 0;
+                        // Move defensive linemen
+                        gameState.defensiveLine.forEach((dLineman, i) => {
+                            if (dLineman.knockdownUntil > gameState.gameTime) {
+                                dLineman.position.y = 0;
+                                dLineman.rotation.x = Math.PI / 4;  // Lean when down
+                                return;
+                            }
+                            dLineman.rotation.x = 0;
 
-                        moveDLineman(dLineman);
+                            moveDLineman(dLineman);
 
-                        // Running animation when moving fast
-                        const isRushing = dLineman.currentSpeedMultiplier > 0.3;
-                        const bobSpeed = isRushing ? 8 : 4;
-                        dLineman.position.y = Math.abs(Math.sin(time * bobSpeed + i * 0.5)) * (isRushing ? 0.08 : 0.03);
-                    });
+                            // Running animation when moving fast
+                            const isRushing = dLineman.currentSpeedMultiplier > 0.3;
+                            const bobSpeed = isRushing ? 8 : 4;
+                            dLineman.position.y = Math.abs(Math.sin(time * bobSpeed + i * 0.5)) * (isRushing ? 0.08 : 0.03);
+                        });
 
-                    // Process line clashes
-                    processLineClashes();
+                        // Process line clashes
+                        processLineClashes();
+                    }
 
                     // Move QB (pocket behavior and evasion)
                     moveQB(scene);
@@ -13629,6 +14102,11 @@
 
         // Check if clash should trigger
         const shouldTriggerClash = (receiver, defender) => {
+            // Skip if either player is disabled
+            if (!receiver.isEnabled() || !defender.isEnabled()) {
+                return { trigger: false, reason: 'disabled' };
+            }
+
             const currentTime = gameState.gameTime;
 
             // Calculate distance between receiver and defender
@@ -14855,7 +15333,7 @@
             }, 50);
         }
 
-        // Start training mode (no defenders, throw ratings)
+        // Start training/scrimmage mode (receivers vs defenders, throw ratings)
         function startTrainingMode() {
             gameState.trainingMode = true;
             gameState.lastThrowRating = null;
@@ -14881,9 +15359,15 @@
             gameState.offensiveLine.forEach(lineman => lineman.setEnabled(false));
             gameState.defensiveLine.forEach(lineman => lineman.setEnabled(false));
 
+            // Show defenders (scrimmage mode has receivers vs defenders)
+            gameState.defenders.forEach(defender => defender.setEnabled(true));
+
             // Reset play
             if (gameState.scene) {
                 resetPlay(gameState.scene);
+                // Create distance multiplier zones
+                const qbZ = gameState.lineOfScrimmage - 3;
+                createDistanceZones(gameState.scene, qbZ);
             }
 
             updateDownDistance();
@@ -14904,6 +15388,9 @@
             document.getElementById('catchDisplay').style.display = ''; // Restore catch display
             document.getElementById('managementOverlay').classList.remove('hidden');
 
+            // Clean up distance zones
+            clearDistanceZones();
+
             // Show offensive and defensive lines again
             gameState.offensiveLine.forEach(lineman => lineman.setEnabled(true));
             gameState.defensiveLine.forEach(lineman => lineman.setEnabled(true));
@@ -14915,6 +15402,1687 @@
                 refreshHubScreen();
             } else {
                 document.getElementById('mainMenuScreen').style.display = 'block';
+            }
+        }
+
+        // ========================================
+        // BONUS ZONES SYSTEM
+        // ========================================
+        // Green zones that move around the field
+        // Provide catch bonuses in training/gameplay, point multipliers in target practice
+
+        const BONUS_ZONE_TYPES = {
+            small: {
+                radius: 1.5,
+                catchBonus: 15,           // +15% catch probability
+                pointMultiplier: 2.0,     // 2x points in target practice
+                color: new BABYLON.Color3(1, 0.2, 0.2),  // Red - hardest to hit
+                emissiveIntensity: 0.7,
+                speedMult: 1.5,           // Moves faster
+                name: '2x'
+            },
+            medium: {
+                radius: 2.5,
+                catchBonus: 10,           // +10% catch probability
+                pointMultiplier: 1.5,     // 1.5x points
+                color: new BABYLON.Color3(1, 0.85, 0.1),  // Yellow
+                emissiveIntensity: 0.5,
+                speedMult: 1.0,
+                name: '1.5x'
+            },
+            large: {
+                radius: 3.0,              // Reduced from 4.0
+                catchBonus: 5,            // +5% catch probability
+                pointMultiplier: 1.25,    // 1.25x points
+                color: new BABYLON.Color3(0.2, 0.9, 0.3),  // Green - easiest
+                emissiveIntensity: 0.4,
+                speedMult: 0.8,           // Moves slower
+                name: '1.25x'
+            }
+        };
+
+        // Create a single bonus zone
+        function createBonusZone(scene, type, startX, startZ) {
+            const config = BONUS_ZONE_TYPES[type];
+
+            // Create the zone disc
+            const disc = BABYLON.MeshBuilder.CreateDisc('bonusZone', {
+                radius: config.radius,
+                tessellation: 32
+            }, scene);
+            disc.rotation.x = Math.PI / 2;
+            disc.position = new BABYLON.Vector3(startX, 0.02, startZ);
+
+            // Create material with transparency and glow
+            const mat = new BABYLON.StandardMaterial('zoneMat', scene);
+            mat.diffuseColor = config.color;
+            mat.emissiveColor = config.color.scale(config.emissiveIntensity);
+            mat.alpha = 0.35;
+            mat.backFaceCulling = false;
+            disc.material = mat;
+
+            // Create outer ring for visibility
+            const ring = BABYLON.MeshBuilder.CreateTorus('zoneRing', {
+                diameter: config.radius * 2,
+                thickness: 0.08,
+                tessellation: 32
+            }, scene);
+            ring.position = new BABYLON.Vector3(startX, 0.03, startZ);
+
+            const ringMat = new BABYLON.StandardMaterial('zoneRingMat', scene);
+            ringMat.diffuseColor = config.color;
+            ringMat.emissiveColor = config.color.scale(config.emissiveIntensity + 0.2);
+            ringMat.alpha = 0.6;
+            ring.material = ringMat;
+
+            // Movement target - zone moves toward this point
+            const baseSpeed = 0.015 * config.speedMult;
+
+            const zone = {
+                disc: disc,
+                ring: ring,
+                type: type,
+                config: config,
+                position: disc.position,
+                targetX: startX,
+                targetZ: startZ,
+                speed: baseSpeed,
+                moveTimer: 0,
+                active: true
+            };
+
+            return zone;
+        }
+
+        // Create all bonus zones for the field
+        function createBonusZones(scene) {
+            // Clear existing zones
+            if (gameState.bonusZones) {
+                gameState.bonusZones.forEach(z => {
+                    if (z.disc) z.disc.dispose();
+                    if (z.ring) z.ring.dispose();
+                });
+            }
+            gameState.bonusZones = [];
+
+            // Create one of each type spread across the field - keep in front where routes are
+            const zoneConfigs = [
+                { type: 'large', x: -4, z: gameState.lineOfScrimmage + 6 },
+                { type: 'medium', x: 3, z: gameState.lineOfScrimmage + 9 },
+                { type: 'small', x: 0, z: gameState.lineOfScrimmage + 12 }
+            ];
+
+            zoneConfigs.forEach(cfg => {
+                const zone = createBonusZone(scene, cfg.type, cfg.x, cfg.z);
+                gameState.bonusZones.push(zone);
+            });
+        }
+
+        // Move bonus zones around the field
+        function moveBonusZones() {
+            if (!gameState.bonusZones) return;
+
+            const fieldMinX = -6;
+            const fieldMaxX = 6;
+            // Keep zones closer to the front where routes are active
+            const fieldMinZ = gameState.lineOfScrimmage + 3;
+            const fieldMaxZ = gameState.lineOfScrimmage + 15;  // Reduced from 25 to stay in route area
+
+            gameState.bonusZones.forEach(zone => {
+                if (!zone.active) return;
+
+                // Move toward target
+                const dx = zone.targetX - zone.position.x;
+                const dz = zone.targetZ - zone.position.z;
+                const dist = Math.sqrt(dx * dx + dz * dz);
+
+                if (dist > 0.5) {
+                    // Move toward target
+                    zone.position.x += (dx / dist) * zone.speed;
+                    zone.position.z += (dz / dist) * zone.speed;
+                    zone.ring.position.x = zone.position.x;
+                    zone.ring.position.z = zone.position.z;
+                } else {
+                    // Reached target, pick new random target
+                    zone.targetX = fieldMinX + Math.random() * (fieldMaxX - fieldMinX);
+                    zone.targetZ = fieldMinZ + Math.random() * (fieldMaxZ - fieldMinZ);
+                }
+
+                // Gentle pulsing animation
+                const pulse = 1 + Math.sin(performance.now() * 0.003) * 0.05;
+                zone.disc.scaling.x = pulse;
+                zone.disc.scaling.z = pulse;
+            });
+        }
+
+        // Check if a position is inside any bonus zone
+        function checkBonusZones(position) {
+            if (!gameState.bonusZones) return null;
+
+            let bestZone = null;
+            let bestBonus = 0;
+
+            gameState.bonusZones.forEach(zone => {
+                if (!zone.active) return;
+
+                const dx = zone.position.x - position.x;
+                const dz = zone.position.z - position.z;
+                const dist = Math.sqrt(dx * dx + dz * dz);
+
+                // Check if inside zone
+                if (dist < zone.config.radius) {
+                    // Prefer higher bonus zones (smaller = better)
+                    if (zone.config.catchBonus > bestBonus) {
+                        bestBonus = zone.config.catchBonus;
+                        bestZone = zone;
+                    }
+                }
+            });
+
+            return bestZone;
+        }
+
+        // Distance multiplier zone configurations
+        const DISTANCE_ZONE_CONFIGS = [
+            {
+                name: '2x ZONE',
+                minDistance: 18,
+                maxDistance: 35,
+                multiplier: 2.0,
+                color: new BABYLON.Color3(1, 0.2, 0.2),  // Red
+                alpha: 0.15
+            },
+            {
+                name: '1.5x ZONE',
+                minDistance: 10,
+                maxDistance: 18,
+                multiplier: 1.5,
+                color: new BABYLON.Color3(1, 0.85, 0.1),  // Yellow
+                alpha: 0.12
+            },
+            {
+                name: '1.25x ZONE',
+                minDistance: 0,
+                maxDistance: 10,
+                multiplier: 1.25,
+                color: new BABYLON.Color3(0.2, 0.9, 0.3),  // Green
+                alpha: 0.1
+            }
+        ];
+
+        // Create distance multiplier zone visualization on the field
+        function createDistanceZones(scene, qbZ) {
+            // Clear existing distance zones
+            if (gameState.distanceZoneMeshes) {
+                gameState.distanceZoneMeshes.forEach(m => {
+                    if (m.mesh) m.mesh.dispose();
+                    if (m.label) m.label.dispose();
+                });
+            }
+            gameState.distanceZoneMeshes = [];
+
+            const fieldWidth = 14;  // Width of the visible field
+            const fieldHalfWidth = fieldWidth / 2;
+
+            DISTANCE_ZONE_CONFIGS.forEach((config, index) => {
+                // Create a rectangular zone for each distance band
+                const zoneDepth = config.maxDistance - config.minDistance;
+                const zoneStartZ = qbZ + config.minDistance;
+
+                // Create ground plane for the zone
+                const zoneMesh = BABYLON.MeshBuilder.CreateGround('distanceZone' + index, {
+                    width: fieldWidth,
+                    height: zoneDepth
+                }, scene);
+                zoneMesh.position.x = 0;
+                zoneMesh.position.z = zoneStartZ + zoneDepth / 2;
+                zoneMesh.position.y = 0.01;  // Slightly above ground
+
+                const mat = new BABYLON.StandardMaterial('distanceZoneMat' + index, scene);
+                mat.diffuseColor = config.color;
+                mat.emissiveColor = config.color.scale(0.3);
+                mat.alpha = config.alpha;
+                mat.backFaceCulling = false;
+                zoneMesh.material = mat;
+
+                // Create label for the zone
+                const labelPlane = BABYLON.MeshBuilder.CreatePlane('zoneLabel' + index, {
+                    width: 3,
+                    height: 0.8
+                }, scene);
+                labelPlane.position.x = -fieldHalfWidth + 2;
+                labelPlane.position.z = zoneStartZ + zoneDepth / 2;
+                labelPlane.position.y = 0.1;
+                labelPlane.rotation.x = Math.PI / 2;
+
+                // Create dynamic texture for label
+                const labelTexture = new BABYLON.DynamicTexture('zoneLabelTex' + index, {
+                    width: 256,
+                    height: 64
+                }, scene, false);
+                labelTexture.hasAlpha = true;
+                const ctx = labelTexture.getContext();
+                ctx.clearRect(0, 0, 256, 64);
+                ctx.font = 'bold 32px Courier New';
+                ctx.fillStyle = `rgb(${Math.floor(config.color.r * 255)}, ${Math.floor(config.color.g * 255)}, ${Math.floor(config.color.b * 255)})`;
+                ctx.textAlign = 'center';
+                ctx.fillText(config.name, 128, 44);
+                labelTexture.update();
+
+                const labelMat = new BABYLON.StandardMaterial('zoneLabelMat' + index, scene);
+                labelMat.diffuseTexture = labelTexture;
+                labelMat.emissiveColor = config.color.scale(0.5);
+                labelMat.useAlphaFromDiffuseTexture = true;
+                labelMat.backFaceCulling = false;
+                labelPlane.material = labelMat;
+
+                gameState.distanceZoneMeshes.push({
+                    mesh: zoneMesh,
+                    label: labelPlane,
+                    config: config
+                });
+            });
+        }
+
+        // Show/hide distance zones
+        function setDistanceZonesVisible(visible) {
+            if (!gameState.distanceZoneMeshes) return;
+            gameState.distanceZoneMeshes.forEach(z => {
+                if (z.mesh) z.mesh.setEnabled(visible);
+                if (z.label) z.label.setEnabled(visible);
+            });
+        }
+
+        // Clean up distance zones
+        function clearDistanceZones() {
+            if (gameState.distanceZoneMeshes) {
+                gameState.distanceZoneMeshes.forEach(m => {
+                    if (m.mesh) m.mesh.dispose();
+                    if (m.label) m.label.dispose();
+                });
+            }
+            gameState.distanceZoneMeshes = [];
+        }
+
+        // Get distance multiplier for a given throw distance
+        function getDistanceMultiplier(distance) {
+            for (const config of DISTANCE_ZONE_CONFIGS) {
+                if (distance >= config.minDistance && distance < config.maxDistance) {
+                    return { multiplier: config.multiplier, name: config.name };
+                }
+            }
+            // Default for very long throws
+            return { multiplier: 2.0, name: '2x ZONE' };
+        }
+
+        // ========================================
+        // TARGET PRACTICE MODE
+        // ========================================
+
+        // Target configurations - different sizes, speeds, and point values
+        // Uses knight meshes like receivers with different scales
+        const TARGET_TYPES = {
+            small: {
+                scale: 0.85,
+                speedMult: 1.3,
+                points: 150,
+                color: new BABYLON.Color3(1, 0.3, 0.3),  // Red
+                name: 'Small'
+            },
+            medium: {
+                scale: 1.0,
+                speedMult: 1.0,
+                points: 100,
+                color: new BABYLON.Color3(1, 0.8, 0.2),  // Yellow/Gold
+                name: 'Medium'
+            },
+            large: {
+                scale: 1.4,
+                speedMult: 0.75,
+                points: 50,
+                color: new BABYLON.Color3(0.3, 0.8, 0.3),  // Green
+                name: 'Large'
+            },
+            bonus: {
+                scale: 0.7,
+                speedMult: 1.8,
+                points: 300,
+                color: new BABYLON.Color3(0.8, 0.2, 1.0),  // Purple/Magenta
+                name: 'BONUS',
+                isBonus: true,
+                glowIntensity: 2.0
+            }
+        };
+
+        // Field boundaries for targets
+        const TARGET_FIELD_BOUNDS = {
+            minX: -7,
+            maxX: 7,
+            minZ: -35,  // Will be adjusted based on line of scrimmage
+            maxZ: 12    // End zone
+        };
+
+        // Generate a receiver-style route for a target
+        function generateTargetRoute(startX, startZ, slotPosition) {
+            const route = [];
+            const towardMiddle = startX > 0 ? -1 : 1;
+            const towardSideline = -towardMiddle;
+
+            // Pick a route type based on position (similar to receiver routes)
+            const routeTypes = slotPosition === 'outside'
+                ? ['go', 'corner', 'out', 'comeback', 'post']
+                : ['slant', 'seam', 'dig', 'post', 'curl', 'crossing'];
+
+            const routeType = routeTypes[Math.floor(Math.random() * routeTypes.length)];
+
+            // Clamp function to keep routes in bounds
+            const clampX = (x) => Math.max(TARGET_FIELD_BOUNDS.minX, Math.min(TARGET_FIELD_BOUNDS.maxX, x));
+            const clampZ = (z) => Math.max(startZ, Math.min(TARGET_FIELD_BOUNDS.maxZ, z));
+
+            switch(routeType) {
+                case 'go':
+                    // Straight vertical route
+                    route.push({ z: clampZ(startZ + 8), x: startX });
+                    route.push({ z: clampZ(startZ + 18), x: startX });
+                    break;
+
+                case 'slant':
+                    // Quick diagonal toward middle
+                    route.push({ z: clampZ(startZ + 3), x: startX });
+                    route.push({ z: clampZ(startZ + 12), x: clampX(startX + towardMiddle * 6) });
+                    break;
+
+                case 'out':
+                    // Vertical stem then cut toward sideline
+                    route.push({ z: clampZ(startZ + 8), x: startX });
+                    route.push({ z: clampZ(startZ + 10), x: clampX(startX + towardSideline * 5) });
+                    break;
+
+                case 'corner':
+                    // Vertical stem then angle to corner
+                    route.push({ z: clampZ(startZ + 8), x: startX });
+                    route.push({ z: clampZ(startZ + 16), x: clampX(startX + towardSideline * 6) });
+                    break;
+
+                case 'post':
+                    // Vertical stem then angle toward middle
+                    route.push({ z: clampZ(startZ + 8), x: startX });
+                    route.push({ z: clampZ(startZ + 18), x: clampX(startX + towardMiddle * 5) });
+                    break;
+
+                case 'curl':
+                    // Go forward then stop/curl back slightly
+                    route.push({ z: clampZ(startZ + 10), x: startX });
+                    route.push({ z: clampZ(startZ + 8), x: clampX(startX + towardMiddle * 1) });
+                    break;
+
+                case 'comeback':
+                    // Go deep then come back toward sideline
+                    route.push({ z: clampZ(startZ + 12), x: startX });
+                    route.push({ z: clampZ(startZ + 9), x: clampX(startX + towardSideline * 3) });
+                    break;
+
+                case 'dig':
+                    // Vertical stem then sharp cut across middle
+                    route.push({ z: clampZ(startZ + 10), x: startX });
+                    route.push({ z: clampZ(startZ + 11), x: clampX(startX + towardMiddle * 8) });
+                    break;
+
+                case 'seam':
+                    // Straight up the seam (between zones)
+                    route.push({ z: clampZ(startZ + 6), x: startX });
+                    route.push({ z: clampZ(startZ + 15), x: clampX(startX + towardMiddle * 2) });
+                    break;
+
+                case 'crossing':
+                    // Run across the field
+                    route.push({ z: clampZ(startZ + 5), x: startX });
+                    route.push({ z: clampZ(startZ + 6), x: clampX(startX + towardMiddle * 10) });
+                    break;
+
+                default:
+                    // Default go route
+                    route.push({ z: clampZ(startZ + 10), x: startX });
+                    route.push({ z: clampZ(startZ + 20), x: startX });
+            }
+
+            return route;
+        }
+
+        // Create a target knight mesh with the appropriate size and color
+        function createTargetKnight(scene, targetConfig, position) {
+            const scale = targetConfig.scale;
+            const knight = new BABYLON.TransformNode('targetKnight', scene);
+            const isBonus = targetConfig.isBonus;
+
+            // Create material with target color
+            const material = new BABYLON.StandardMaterial('targetMat', scene);
+            material.diffuseColor = targetConfig.color;
+            material.emissiveColor = targetConfig.color.scale(isBonus ? 0.7 : 0.3);
+
+            // Body (scaled)
+            const body = BABYLON.MeshBuilder.CreateCylinder('body', {
+                height: 0.8 * scale,
+                diameterTop: 0.4 * scale,
+                diameterBottom: 0.6 * scale,
+                tessellation: 6
+            }, scene);
+            body.material = material;
+            body.position.y = 0.4 * scale;
+            body.parent = knight;
+
+            // Head
+            const head = BABYLON.MeshBuilder.CreateSphere('head', {
+                diameter: 0.35 * scale,
+                segments: 8
+            }, scene);
+            head.material = material;
+            head.position.y = 0.95 * scale;
+            head.parent = knight;
+
+            // Helmet plume - special color for bonus targets
+            const plume = BABYLON.MeshBuilder.CreateCylinder('plume', {
+                height: 0.25 * scale,
+                diameterTop: 0.05 * scale,
+                diameterBottom: 0.12 * scale,
+                tessellation: 6
+            }, scene);
+            const plumeMat = new BABYLON.StandardMaterial('plumeMat', scene);
+            if (isBonus) {
+                // Gold/yellow plume for bonus targets
+                plumeMat.diffuseColor = new BABYLON.Color3(1, 0.85, 0);
+                plumeMat.emissiveColor = new BABYLON.Color3(1, 0.7, 0);
+            } else {
+                plumeMat.diffuseColor = new BABYLON.Color3(1, 1, 1);
+                plumeMat.emissiveColor = new BABYLON.Color3(0.5, 0.5, 0.5);
+            }
+            plume.material = plumeMat;
+            plume.position.y = 1.2 * scale;
+            plume.parent = knight;
+
+            // Base ring (shows target area)
+            const baseRing = BABYLON.MeshBuilder.CreateTorus('baseRing', {
+                diameter: 1.2 * scale,
+                thickness: isBonus ? 0.12 * scale : 0.08 * scale,
+                tessellation: 24
+            }, scene);
+            const ringMat = new BABYLON.StandardMaterial('ringMat', scene);
+            ringMat.diffuseColor = targetConfig.color;
+            ringMat.emissiveColor = targetConfig.color.scale(isBonus ? 0.8 : 0.5);
+            ringMat.alpha = 0.8;
+            baseRing.material = ringMat;
+            baseRing.position.y = 0.02;
+            baseRing.parent = knight;
+
+            // Add outer glow ring for bonus targets
+            if (isBonus) {
+                const outerRing = BABYLON.MeshBuilder.CreateTorus('outerRing', {
+                    diameter: 1.6 * scale,
+                    thickness: 0.06 * scale,
+                    tessellation: 32
+                }, scene);
+                const outerMat = new BABYLON.StandardMaterial('outerRingMat', scene);
+                outerMat.diffuseColor = new BABYLON.Color3(1, 0.85, 0);
+                outerMat.emissiveColor = new BABYLON.Color3(1, 0.6, 0);
+                outerMat.alpha = 0.6;
+                outerRing.material = outerMat;
+                outerRing.position.y = 0.02;
+                outerRing.parent = knight;
+            }
+
+            knight.position = position.clone();
+            knight.bodyMaterial = material;
+
+            return knight;
+        }
+
+        // Create a single target (receiver-like)
+        function createTarget(scene, type, startX, startZ, slotPosition) {
+            const targetConfig = TARGET_TYPES[type];
+
+            // Create knight mesh for target
+            const position = new BABYLON.Vector3(startX, 0, startZ);
+            const mesh = createTargetKnight(scene, targetConfig, position);
+
+            // Generate route
+            const route = generateTargetRoute(startX, startZ, slotPosition);
+
+            // Create route line visualization
+            const routePathPoints = [new BABYLON.Vector3(startX, 0.03, startZ)];
+            route.forEach(p => routePathPoints.push(new BABYLON.Vector3(p.x, 0.03, p.z)));
+
+            let routeLine = null;
+            if (routePathPoints.length >= 2) {
+                routeLine = BABYLON.MeshBuilder.CreateTube('routeLine', {
+                    path: routePathPoints,
+                    radius: 0.05,
+                    tessellation: 8,
+                    cap: BABYLON.Mesh.NO_CAP
+                }, scene);
+
+                const routeLineMat = new BABYLON.StandardMaterial('routeLineMat', scene);
+                routeLineMat.diffuseColor = targetConfig.color.scale(0.5);
+                routeLineMat.emissiveColor = targetConfig.color.scale(0.2);
+                routeLineMat.alpha = 0.6;
+                routeLine.material = routeLineMat;
+            }
+
+            // Calculate speed (similar to receiver speed calculation)
+            const speedSettings = { slow: 0.6, normal: 1.0, fast: 1.5 };
+            const baseSpeedFactor = 0.07;  // Faster base speed for more challenge
+            const baseSpeed = baseSpeedFactor * targetConfig.speedMult * (speedSettings[gameState.targetPracticeSpeedSetting] || 1.0);
+
+            // Hit radius should be generous enough to feel fair
+            // Scale with playerScale for consistency with receiver catch radius
+            // Minimum 1.0 ensures small targets are still hittable
+            const baseHitRadius = Math.max(1.0, 0.9 * targetConfig.scale) * (gameState.playerScale || 1.3);
+
+            // Store target data (similar to receiver structure)
+            const target = {
+                mesh: mesh,
+                routeLine: routeLine,
+                type: type,
+                config: targetConfig,
+                route: route,
+                routeIndex: 0,
+                position: mesh.position,
+                rotation: mesh.rotation,
+                startPos: position.clone(),
+                speed: baseSpeed,
+                baseSpeed: baseSpeed,
+                velocity: new BABYLON.Vector3(0, 0, 0),
+                runMomentum: 0,
+                hitRadius: baseHitRadius,
+                active: true
+            };
+
+            return target;
+        }
+
+        // Create all targets for target practice mode
+        function createAllTargets(scene) {
+            // Clear existing targets (including route lines)
+            gameState.targetPracticeTargets.forEach(t => {
+                if (t.routeLine) t.routeLine.dispose();
+                if (t.mesh) t.mesh.dispose();
+            });
+            gameState.targetPracticeTargets = [];
+            // Note: Don't reset speed bonus here - it increases with rounds
+
+            // Always create exactly 4 targets per round (maximum active at once)
+            const targetCount = 4;
+            gameState.targetPracticeTargetCount = 4;
+
+            // Starting positions spread across the field (like receiver positions)
+            const startingPositions = [
+                { x: -5, slot: 'outside' },   // Far left
+                { x: -2, slot: 'slot' },      // Left slot
+                { x: 2, slot: 'slot' },       // Right slot
+                { x: 5, slot: 'outside' },    // Far right
+            ];
+
+            const startZ = gameState.lineOfScrimmage + 2;  // Start near line of scrimmage
+
+            // Determine if this round has a bonus target (30% chance after round 2, only if feature enabled)
+            const round = gameState.targetPracticeRound;
+            const hasBonusTarget = FEATURE_FLAGS.targetPracticeBonusTargets && round >= 2 && Math.random() < 0.3;
+            const bonusTargetIndex = hasBonusTarget ? Math.floor(Math.random() * targetCount) : -1;
+
+            // Create targets with varied types, staggered spawns, and positions
+            for (let i = 0; i < targetCount; i++) {
+                let type;
+                const typeIndex = i % 4;
+
+                // Check if this is the bonus target
+                if (i === bonusTargetIndex) {
+                    type = 'bonus';
+                } else if (round >= 10 && (typeIndex === 0 || typeIndex === 3)) {
+                    // Small targets only appear at round 10+
+                    type = 'small';
+                } else if (round >= 5 && typeIndex === 0) {
+                    // Some small targets start appearing at round 5
+                    type = 'small';
+                } else if (typeIndex === 1) {
+                    type = 'large';
+                } else {
+                    type = 'medium';
+                }
+
+                // Get position with small random offset
+                const posConfig = startingPositions[i];
+                const startX = posConfig.x + (Math.random() - 0.5) * 1;
+
+                const target = createTarget(scene, type, startX, startZ, posConfig.slot);
+
+                // Add staggered spawn delay - each target spawns 0.4s after the previous
+                target.spawnDelay = i * 0.4;
+                target.spawnTime = performance.now() + (target.spawnDelay * 1000);
+                target.spawned = i === 0; // First target spawns immediately
+                target.isBonus = type === 'bonus';
+                target.lapCount = 0;  // Track laps for bonus targets (disappear after 2)
+
+                // Initially hide non-first targets
+                if (!target.spawned) {
+                    target.mesh.setEnabled(false);
+                    if (target.routeLine) target.routeLine.setEnabled(false);
+                }
+
+                gameState.targetPracticeTargets.push(target);
+            }
+        }
+
+        // Move all targets along their routes (receiver-style movement)
+        function moveTargets() {
+            const time = performance.now() * 0.001;
+            const currentTime = performance.now();
+
+            gameState.targetPracticeTargets.forEach((target, i) => {
+                // Skip inactive (hit) targets - they don't respawn
+                if (!target.active) return;
+
+                // Check if target should spawn (staggered spawning)
+                if (!target.spawned && currentTime >= target.spawnTime) {
+                    target.spawned = true;
+                    target.mesh.setEnabled(true);
+                    if (target.routeLine) target.routeLine.setEnabled(true);
+                }
+
+                // Skip targets that haven't spawned yet
+                if (!target.spawned) return;
+
+                // Bonus target pulsing glow effect
+                if (target.isBonus && target.mesh && target.mesh.bodyMaterial) {
+                    const pulse = 0.5 + Math.sin(time * 6) * 0.5;
+                    const baseColor = TARGET_TYPES.bonus.color;
+                    target.mesh.bodyMaterial.emissiveColor = baseColor.scale(0.3 + pulse * 0.7);
+                }
+
+                // Move along route (similar to moveReceiverAlongRoute)
+                const runSpeed = target.speed * gameState.targetPracticeSpeedBonus;
+
+                if (!target.route || target.routeIndex >= target.route.length) {
+                    // Route complete - increment lap count
+                    target.lapCount = (target.lapCount || 0) + 1;
+
+                    // Bonus targets disappear after 3 laps
+                    if (target.isBonus && target.lapCount >= 3) {
+                        target.active = false;
+                        target.mesh.setEnabled(false);
+                        if (target.routeLine) target.routeLine.setEnabled(false);
+                        return;
+                    }
+
+                    // Teleport back to start and restart
+                    target.routeIndex = 0;
+                    target.position.x = target.startPos.x;
+                    target.position.z = target.startPos.z;
+                    target.runMomentum = 0;
+                    return;
+                }
+
+                const waypoint = target.route[target.routeIndex];
+                let dx = waypoint.x - target.position.x;
+                let dz = waypoint.z - target.position.z;
+                let dist = Math.sqrt(dx * dx + dz * dz);
+
+                // Check if reached waypoint
+                if (dist < 0.3) {
+                    target.routeIndex++;
+                    if (target.routeIndex >= target.route.length) {
+                        // Route complete - increment lap count
+                        target.lapCount = (target.lapCount || 0) + 1;
+
+                        // Bonus targets disappear after 3 laps
+                        if (target.isBonus && target.lapCount >= 3) {
+                            target.active = false;
+                            target.mesh.setEnabled(false);
+                            if (target.routeLine) target.routeLine.setEnabled(false);
+                            return;
+                        }
+
+                        // Teleport back to start
+                        target.routeIndex = 0;
+                        target.position.x = target.startPos.x;
+                        target.position.z = target.startPos.z;
+                        target.runMomentum = 0;
+                        return;
+                    }
+                    const newWaypoint = target.route[target.routeIndex];
+                    dx = newWaypoint.x - target.position.x;
+                    dz = newWaypoint.z - target.position.z;
+                    dist = Math.sqrt(dx * dx + dz * dz);
+                }
+
+                if (dist > 0.1) {
+                    // Move toward waypoint
+                    const vx = (dx / dist) * runSpeed;
+                    const vz = (dz / dist) * runSpeed;
+                    target.velocity = new BABYLON.Vector3(vx, 0, vz);
+
+                    target.position.x += vx;
+                    target.position.z += vz;
+                    target.rotation.y = Math.atan2(dx, dz);
+
+                    // Running momentum for forward lean
+                    target.runMomentum = Math.min((target.runMomentum || 0) + 0.15, 1);
+                    target.rotation.x = target.runMomentum * 0.2;
+                } else {
+                    target.velocity = new BABYLON.Vector3(0, 0, 0);
+                    target.runMomentum = (target.runMomentum || 0) * 0.95;
+                    target.rotation.x = target.runMomentum * 0.1;
+                }
+
+                // Running bob animation
+                target.position.y = Math.abs(Math.sin(time * 8 + i)) * 0.08;
+            });
+        }
+
+        // Update target route colors based on distance from QB (green=close, yellow=medium, orange=far)
+        function updateTargetDistanceColors() {
+            if (!gameState.targetPracticeMode || !gameState.scene || !gameState.scene.qb) return;
+
+            const qbPos = gameState.scene.qb.position;
+
+            gameState.targetPracticeTargets.forEach(target => {
+                if (!target.active || !target.routeLine) return;
+
+                // Calculate distance from QB to target
+                const dx = target.position.x - qbPos.x;
+                const dz = target.position.z - qbPos.z;
+                const distance = Math.sqrt(dx * dx + dz * dz);
+
+                // Determine color based on distance
+                // Close (< 10 yards): Green
+                // Medium (10-18 yards): Yellow
+                // Far (> 18 yards): Orange
+                let color;
+                if (distance < 10) {
+                    color = new BABYLON.Color3(0.3, 0.9, 0.3);  // Green - nearby
+                } else if (distance < 18) {
+                    color = new BABYLON.Color3(1, 0.85, 0.2);   // Yellow - medium
+                } else {
+                    color = new BABYLON.Color3(1, 0.5, 0.1);    // Orange - far away
+                }
+
+                // Update route line color
+                if (target.routeLine.material) {
+                    target.routeLine.material.diffuseColor = color.scale(0.6);
+                    target.routeLine.material.emissiveColor = color.scale(0.3);
+                }
+
+                // Also update the body/ring colors to match
+                if (target.mesh && target.mesh.bodyMaterial) {
+                    target.mesh.bodyMaterial.diffuseColor = color;
+                    target.mesh.bodyMaterial.emissiveColor = color.scale(0.3);
+                }
+            });
+        }
+
+        // Show landing ripple effect where ball lands
+        function showLandingRipple(scene, position, isHit) {
+            const rippleColor = isHit
+                ? new BABYLON.Color3(0.3, 1, 0.3)   // Green for hit
+                : new BABYLON.Color3(1, 0.3, 0.3); // Red for miss
+
+            // Create expanding ring
+            const ring = BABYLON.MeshBuilder.CreateTorus('landingRipple', {
+                diameter: 0.5,
+                thickness: 0.08,
+                tessellation: 32
+            }, scene);
+            ring.position = new BABYLON.Vector3(position.x, 0.05, position.z);
+
+            const ringMat = new BABYLON.StandardMaterial('rippleMat', scene);
+            ringMat.diffuseColor = rippleColor;
+            ringMat.emissiveColor = rippleColor.scale(0.8);
+            ringMat.alpha = 1;
+            ring.material = ringMat;
+
+            // Create center impact disc
+            const disc = BABYLON.MeshBuilder.CreateDisc('impactDisc', {
+                radius: 0.3,
+                tessellation: 16
+            }, scene);
+            disc.rotation.x = Math.PI / 2;
+            disc.position = new BABYLON.Vector3(position.x, 0.03, position.z);
+
+            const discMat = new BABYLON.StandardMaterial('impactMat', scene);
+            discMat.diffuseColor = rippleColor;
+            discMat.emissiveColor = rippleColor.scale(0.5);
+            discMat.alpha = 0.8;
+            disc.material = discMat;
+
+            // Animate the ripple expanding and fading
+            let frame = 0;
+            const maxFrames = 30;
+            const rippleAnimation = scene.onBeforeRenderObservable.add(() => {
+                frame++;
+                const progress = frame / maxFrames;
+
+                // Expand ring
+                const scale = 1 + progress * 4;
+                ring.scaling = new BABYLON.Vector3(scale, 1, scale);
+                ringMat.alpha = 1 - progress;
+
+                // Shrink and fade disc
+                const discScale = 1 - progress * 0.5;
+                disc.scaling = new BABYLON.Vector3(discScale, discScale, discScale);
+                discMat.alpha = 0.8 * (1 - progress);
+
+                if (frame >= maxFrames) {
+                    scene.onBeforeRenderObservable.remove(rippleAnimation);
+                    ring.dispose();
+                    disc.dispose();
+                }
+            });
+        }
+
+        // Check if a throw hits any targets
+        // Hit if ball lands within the visible ring around the target
+        function checkTargetHits(ballPosition) {
+            const hitTargets = [];
+
+            gameState.targetPracticeTargets.forEach(target => {
+                if (!target.active) return;
+
+                // Calculate distance from ball to target center
+                const dx = target.position.x - ballPosition.x;
+                const dz = target.position.z - ballPosition.z;
+                const distance = Math.sqrt(dx * dx + dz * dz);
+
+                // The base ring visual diameter is 1.2 * scale
+                // Hit radius should match or be slightly larger than the visual ring
+                const ringRadius = (1.2 * target.config.scale) / 2;  // Convert diameter to radius
+                const hitRadius = ringRadius * 1.3 * (gameState.playerScale || 1.3);  // 30% larger than visual for forgiveness
+
+                if (distance < hitRadius) {
+                    hitTargets.push(target);
+                }
+            });
+
+            return hitTargets;
+        }
+
+        // Calculate score for hitting targets
+        function calculateTargetScore(hitTargets, throwDistance, ballPosition) {
+            if (hitTargets.length === 0) return { total: 0, breakdown: [], zoneMultiplier: 1 };
+
+            let basePoints = 0;
+            let breakdown = [];
+            const now = performance.now();
+
+            // Get distance-based multiplier (based on throw distance from QB)
+            const distanceZone = getDistanceMultiplier(throwDistance);
+            const zoneMultiplier = distanceZone.multiplier;
+            const zoneName = distanceZone.name;
+
+            // Base points for each target hit
+            hitTargets.forEach(target => {
+                basePoints += target.config.points;
+                breakdown.push({
+                    label: `${target.config.name} Target`,
+                    points: target.config.points
+                });
+            });
+
+            // Multi-hit bonus (hitting multiple targets at once)
+            let multiHitBonus = 0;
+            if (hitTargets.length > 1) {
+                multiHitBonus = hitTargets.length * 50;
+                breakdown.push({
+                    label: `Multi-Hit x${hitTargets.length}`,
+                    points: multiHitBonus
+                });
+            }
+
+            // Rapid fire bonus (hit within 3 seconds of last hit)
+            let rapidFireBonus = 0;
+            if (gameState.targetPracticeLastHitTime > 0 &&
+                (now - gameState.targetPracticeLastHitTime) < 3000) {
+                rapidFireBonus = 25;
+                breakdown.push({
+                    label: 'Rapid Fire',
+                    points: rapidFireBonus
+                });
+            }
+
+            // Calculate subtotal before multiplier
+            const subtotal = basePoints + multiHitBonus + rapidFireBonus;
+
+            // Stack multipliers together (streak × zone)
+            const streakMultiplier = gameState.targetPracticeMultiplier;
+            const combinedMultiplier = streakMultiplier * zoneMultiplier;
+            const total = Math.floor(subtotal * combinedMultiplier);
+
+            // Show combined multiplier in breakdown if > 1
+            if (combinedMultiplier > 1) {
+                let multiplierLabel = '';
+                if (streakMultiplier > 1 && zoneMultiplier > 1) {
+                    multiplierLabel = `Streak ${streakMultiplier}x × ${zoneName} ${zoneMultiplier}x = ${combinedMultiplier}x`;
+                } else if (streakMultiplier > 1) {
+                    multiplierLabel = `Streak x${streakMultiplier}`;
+                } else {
+                    multiplierLabel = `${zoneName} Zone x${zoneMultiplier}`;
+                }
+                breakdown.push({
+                    label: multiplierLabel,
+                    points: total - subtotal
+                });
+            }
+
+            return { total, breakdown, subtotal, zoneMultiplier, combinedMultiplier };
+        }
+
+        // Handle target hit
+        function handleTargetHit(hitTargets, throwDistance, ballPosition) {
+            if (hitTargets.length === 0) {
+                // Miss - decrement misses remaining
+                gameState.targetPracticeMissesRemaining--;
+
+                // Track best streak before resetting
+                if (gameState.targetPracticeStreak > (gameState.targetPracticeBestStreak || 0)) {
+                    gameState.targetPracticeBestStreak = gameState.targetPracticeStreak;
+                }
+
+                // Reset streak
+                gameState.targetPracticeStreak = 0;
+                gameState.targetPracticeMultiplier = 1;
+                updateTargetPracticeUI();
+
+                // Show miss feedback
+                showMissPopup();
+
+                // Check for game over
+                if (gameState.targetPracticeMissesRemaining <= 0) {
+                    showGameOverPopup();
+                }
+                return;
+            }
+
+            // Calculate score (pass ball position for bonus zone check)
+            const scoreResult = calculateTargetScore(hitTargets, throwDistance, ballPosition);
+
+            // Update streak
+            gameState.targetPracticeStreak++;
+            gameState.targetPracticeLastHitTime = performance.now();
+
+            // Update multiplier based on streak (max 5x)
+            if (gameState.targetPracticeStreak >= 10) {
+                gameState.targetPracticeMultiplier = 5;
+            } else if (gameState.targetPracticeStreak >= 7) {
+                gameState.targetPracticeMultiplier = 4;
+            } else if (gameState.targetPracticeStreak >= 5) {
+                gameState.targetPracticeMultiplier = 3;
+            } else if (gameState.targetPracticeStreak >= 3) {
+                gameState.targetPracticeMultiplier = 2;
+            } else {
+                gameState.targetPracticeMultiplier = 1;
+            }
+
+            // Add score
+            gameState.targetPracticeScore += scoreResult.total;
+
+            // Deactivate hit targets (NO respawn - round based)
+            hitTargets.forEach(target => {
+                target.active = false;
+                target.mesh.setEnabled(false);
+                if (target.routeLine) {
+                    target.routeLine.dispose();
+                    target.routeLine = null;
+                }
+            });
+
+            // Update UI
+            updateTargetPracticeUI();
+            showTargetHitPopup(hitTargets.length, scoreResult);
+
+            // Check if round complete (all non-bonus targets hit)
+            const remainingTargets = gameState.targetPracticeTargets.filter(t => t.active && !t.isBonus).length;
+            if (remainingTargets === 0) {
+                // Round complete!
+                completeRound();
+            }
+        }
+
+        // Complete the current round
+        function completeRound() {
+            const roundTime = (performance.now() - gameState.targetPracticeRoundStartTime) / 1000;
+            const roundThrows = gameState.targetPracticeRoundThrows;
+            const targetCount = gameState.targetPracticeTargetCount;
+
+            // Track best streak before any resets
+            if (gameState.targetPracticeStreak > (gameState.targetPracticeBestStreak || 0)) {
+                gameState.targetPracticeBestStreak = gameState.targetPracticeStreak;
+            }
+
+            let timeBonus = 0;
+            let accuracyBonus = 0;
+
+            if (gameState.targetPracticeModeType === 'timed') {
+                // Timed mode: bonus for remaining time
+                const timeRemaining = gameState.targetPracticeTimeRemaining;
+                const timeLimit = gameState.targetPracticeRoundTimeLimit;
+                if (timeRemaining > 0) {
+                    // Bonus based on percentage of time remaining
+                    const timeRatio = timeRemaining / timeLimit;
+                    timeBonus = Math.floor(timeRatio * 400 * gameState.targetPracticeRound);
+                }
+                // Accuracy bonus in timed mode
+                if (roundThrows <= targetCount) {
+                    accuracyBonus = 200 * gameState.targetPracticeRound;
+                } else {
+                    const accuracy = targetCount / roundThrows;
+                    accuracyBonus = Math.floor(accuracy * 100 * gameState.targetPracticeRound);
+                }
+            } else {
+                // Misses mode: bonus for fast completion
+                const expectedTime = targetCount * 3;
+                if (roundTime < expectedTime) {
+                    const timeRatio = 1 - (roundTime / expectedTime);
+                    timeBonus = Math.floor(timeRatio * 500 * gameState.targetPracticeRound);
+                }
+                // Accuracy bonus in misses mode
+                if (roundThrows <= targetCount) {
+                    accuracyBonus = 300 * gameState.targetPracticeRound;
+                } else {
+                    const accuracy = targetCount / roundThrows;
+                    accuracyBonus = Math.floor(accuracy * 150 * gameState.targetPracticeRound);
+                }
+                // Give extra miss for completing the round (misses mode only)
+                gameState.targetPracticeMissesRemaining++;
+                gameState.targetPracticeMaxMisses++;
+            }
+
+            // Total round bonus
+            const roundBonus = timeBonus + accuracyBonus;
+            gameState.targetPracticeScore += roundBonus;
+
+            // Save round history
+            gameState.targetPracticeRoundHistory.push({
+                round: gameState.targetPracticeRound,
+                throws: roundThrows,
+                time: roundTime,
+                targets: targetCount,
+                timeBonus: timeBonus,
+                accuracyBonus: accuracyBonus
+            });
+
+            // Show round complete popup with bonuses
+            showRoundCompletePopup(roundThrows, roundTime, timeBonus, accuracyBonus, roundBonus);
+        }
+
+        // Start the next round
+        function startNextRound() {
+            gameState.targetPracticeRound++;
+
+            // Always 4 targets, but increase speed each round
+            gameState.targetPracticeTargetCount = 4;
+            gameState.targetPracticeSpeedBonus += 0.12;  // 12% faster each round
+
+            // Reset round stats
+            gameState.targetPracticeRoundThrows = 0;
+            gameState.targetPracticeRoundStartTime = performance.now();
+            gameState.targetPracticeStreak = 0;
+            gameState.targetPracticeMultiplier = 1;
+
+            // Reset timer for timed mode (reduce time limit each round for difficulty)
+            if (gameState.targetPracticeModeType === 'timed') {
+                // Reduce time limit slightly each round (minimum 15 seconds)
+                gameState.targetPracticeRoundTimeLimit = Math.max(15, 30 - (gameState.targetPracticeRound - 1) * 2);
+                gameState.targetPracticeTimeRemaining = gameState.targetPracticeRoundTimeLimit;
+            }
+
+            // Create new targets
+            if (gameState.scene) {
+                createAllTargets(gameState.scene);
+
+                // Create distance multiplier zones after round 4 (starting at round 5)
+                if (gameState.targetPracticeRound > 4) {
+                    const qbZ = gameState.lineOfScrimmage - 3;
+                    createDistanceZones(gameState.scene, qbZ);
+                }
+            }
+
+            // Update UI
+            updateTargetPracticeUI();
+            updateRoundHistoryUI();
+        }
+
+        // Show round complete popup
+        function showRoundCompletePopup(throws, time, timeBonus, accuracyBonus, totalBonus) {
+            const popup = document.getElementById('roundCompletePopup');
+            document.getElementById('roundCompleteThrows').textContent = throws;
+            document.getElementById('roundCompleteTime').textContent = time.toFixed(1) + 's';
+            document.getElementById('nextRoundNum').textContent = gameState.targetPracticeRound + 1;
+            document.getElementById('nextRoundTargets').textContent = '4';  // Always 4 targets
+
+            // Show score breakdown
+            if (gameState.targetPracticeModeType === 'timed') {
+                document.getElementById('roundTimeBonus').textContent = 'Time Left Bonus: +' + timeBonus;
+            } else {
+                document.getElementById('roundTimeBonus').textContent = 'Speed Bonus: +' + timeBonus;
+            }
+            document.getElementById('roundAccuracyBonus').textContent = 'Accuracy Bonus: +' + accuracyBonus;
+            document.getElementById('roundTotalBonus').textContent = 'Total: +' + totalBonus;
+
+            // Show mode-specific info
+            const extraMissEl = document.getElementById('roundExtraMiss');
+            if (gameState.targetPracticeModeType === 'timed') {
+                // Timed mode: show next round time limit
+                const nextTimeLimit = Math.max(15, 30 - gameState.targetPracticeRound * 2);
+                extraMissEl.innerHTML = `Next Round: ${nextTimeLimit}s`;
+                extraMissEl.style.color = '#4fc3f7';
+            } else {
+                // Misses mode: show extra miss earned
+                let missIcons = '';
+                for (let i = 0; i < gameState.targetPracticeMissesRemaining; i++) {
+                    missIcons += '🏈';
+                }
+                extraMissEl.innerHTML = '+1 🏈 Extra! (' + missIcons + ')';
+                extraMissEl.style.color = '#ff6b6b';
+            }
+
+            popup.style.display = 'block';
+
+            // Wait for tap to continue
+            const continueHandler = () => {
+                popup.style.display = 'none';
+                document.removeEventListener('pointerdown', continueHandler);
+                startNextRound();
+            };
+
+            // Delay before allowing continue (prevent accidental tap)
+            setTimeout(() => {
+                document.addEventListener('pointerdown', continueHandler);
+            }, 500);
+        }
+
+        // Show miss popup
+        function showMissPopup() {
+            const popup = document.getElementById('targetHitPopup');
+            const mainEl = document.getElementById('hitPopupMain');
+            const pointsEl = document.getElementById('hitPopupPoints');
+            const bonusesEl = document.getElementById('hitPopupBonuses');
+
+            mainEl.textContent = 'MISS!';
+            mainEl.style.color = '#f44';
+            pointsEl.textContent = 'Streak Reset';
+            pointsEl.style.color = '#888';
+
+            if (gameState.targetPracticeModeType === 'timed') {
+                // Timed mode: show time remaining
+                const timeLeft = Math.max(0, gameState.targetPracticeTimeRemaining).toFixed(1);
+                bonusesEl.innerHTML = `${timeLeft}s remaining`;
+            } else {
+                // Misses mode: show remaining misses as football icons
+                let missIcons = '';
+                for (let i = 0; i < gameState.targetPracticeMissesRemaining; i++) {
+                    missIcons += '🏈';
+                }
+                bonusesEl.innerHTML = missIcons + ' left';
+            }
+
+            popup.style.display = 'block';
+            setTimeout(() => {
+                popup.style.display = 'none';
+                // Reset color for next hit
+                mainEl.style.color = '#4f4';
+                pointsEl.style.color = '#ffd700';
+            }, 800);  // Shorter for timed mode
+        }
+
+        // Show game over popup
+        function showGameOverPopup() {
+            // Stop the game
+            stopTargetPracticeTimer();
+            gameState.canThrow = false;
+
+            const popup = document.getElementById('gameOverPopup');
+            document.getElementById('gameOverScore').textContent = gameState.targetPracticeScore;
+            document.getElementById('gameOverRound').textContent = gameState.targetPracticeRound;
+            document.getElementById('gameOverBestStreak').textContent = gameState.targetPracticeBestStreak || 0;
+
+            // Update title based on mode
+            const titleEl = popup.querySelector('div[style*="font-size: 28px"]');
+            if (titleEl) {
+                if (gameState.targetPracticeModeType === 'timed' && gameState.targetPracticeTimeRemaining <= 0) {
+                    titleEl.textContent = "TIME'S UP!";
+                } else {
+                    titleEl.textContent = 'GAME OVER';
+                }
+            }
+
+            // Check for new best score (separate tracking for each mode)
+            const newBestEl = document.getElementById('gameOverNewBest');
+            const bestScoreKey = gameState.targetPracticeModeType === 'timed'
+                ? 'targetPracticeBestScoreTimed'
+                : 'targetPracticeBestScore';
+            const currentBest = parseInt(localStorage.getItem(bestScoreKey) || '0', 10);
+
+            if (gameState.targetPracticeScore > currentBest) {
+                localStorage.setItem(bestScoreKey, gameState.targetPracticeScore);
+                newBestEl.style.display = 'block';
+            } else {
+                newBestEl.style.display = 'none';
+            }
+
+            // Save last score (always saved regardless of whether it's a new best)
+            const lastScoreKey = gameState.targetPracticeModeType === 'timed'
+                ? 'targetPracticeLastScoreTimed'
+                : 'targetPracticeLastScore';
+            localStorage.setItem(lastScoreKey, gameState.targetPracticeScore);
+
+            popup.style.display = 'block';
+        }
+
+        // Update target practice UI
+        function updateTargetPracticeUI() {
+            const remainingTargets = gameState.targetPracticeTargets.filter(t => t.active).length;
+
+            document.getElementById('targetRound').textContent = gameState.targetPracticeRound;
+            document.getElementById('targetScoreDisplay').textContent = gameState.targetPracticeScore;
+            document.getElementById('targetThrows').textContent = gameState.targetPracticeRoundThrows + 'T';
+            document.getElementById('targetMultiplier').textContent = gameState.targetPracticeMultiplier + 'x';
+            document.getElementById('targetMisses').textContent = gameState.targetPracticeMissesRemaining;
+            // Only show streak if > 0
+            const streakEl = document.getElementById('targetStreak');
+            if (gameState.targetPracticeStreak > 0) {
+                streakEl.textContent = '🔥' + gameState.targetPracticeStreak;
+                streakEl.style.display = '';
+            } else {
+                streakEl.style.display = 'none';
+            }
+
+            // Handle mode-specific display
+            const missIconsEl = document.getElementById('targetMissIcons');
+            if (gameState.targetPracticeModeType === 'timed') {
+                // Timed mode: hide misses, show remaining targets
+                missIconsEl.innerHTML = `<span style="color: #4fc3f7;">${remainingTargets}</span> left`;
+            } else {
+                // Misses mode: show football icons for misses remaining
+                const missCount = gameState.targetPracticeMissesRemaining;
+                let iconsHtml = '';
+                for (let i = 0; i < missCount; i++) {
+                    // Color based on position: last few get warning colors
+                    let color;
+                    if (missCount <= 1) {
+                        color = '#f44';  // Red - critical
+                    } else if (missCount <= 2) {
+                        color = '#ff6b6b';  // Orange-red
+                    } else {
+                        color = '#8B4513';  // Brown football color
+                    }
+                    iconsHtml += `<span style="color: ${color};">🏈</span>`;
+                }
+                missIconsEl.innerHTML = iconsHtml;
+            }
+
+            // Update time display based on mode
+            const elapsed = (performance.now() - gameState.targetPracticeRoundStartTime) / 1000;
+            if (gameState.targetPracticeModeType === 'timed') {
+                const remaining = Math.max(0, gameState.targetPracticeRoundTimeLimit - elapsed);
+                document.getElementById('targetTime').textContent = remaining.toFixed(1) + 's';
+                document.getElementById('targetTime').style.color = remaining <= 5 ? '#f44' : '#ffd700';
+            } else {
+                document.getElementById('targetTime').textContent = elapsed.toFixed(1) + 's';
+                document.getElementById('targetTime').style.color = '#ffd700';
+            }
+
+            // Update score comparison display
+            const currentScore = gameState.targetPracticeScore;
+            const lastScore = gameState.targetPracticeModeType === 'timed'
+                ? gameState.targetPracticeLastScoreTimed
+                : gameState.targetPracticeLastScore;
+            const bestScore = gameState.targetPracticeModeType === 'timed'
+                ? gameState.targetPracticeBestScoreTimed
+                : gameState.targetPracticeBestScore;
+
+            // Display last score and difference
+            document.getElementById('targetLastScore').textContent = lastScore;
+            const lastDiff = currentScore - lastScore;
+            const lastDiffEl = document.getElementById('targetLastScoreDiff');
+            if (lastScore === 0) {
+                lastDiffEl.textContent = '';
+            } else if (lastDiff > 0) {
+                lastDiffEl.textContent = '(+' + lastDiff + ')';
+                lastDiffEl.style.color = '#4f4';
+            } else if (lastDiff < 0) {
+                lastDiffEl.textContent = '(' + lastDiff + ')';
+                lastDiffEl.style.color = '#f66';
+            } else {
+                lastDiffEl.textContent = '(=)';
+                lastDiffEl.style.color = '#888';
+            }
+
+            // Display best score and difference
+            document.getElementById('targetBestScore').textContent = bestScore;
+            const bestDiff = currentScore - bestScore;
+            const bestDiffEl = document.getElementById('targetBestScoreDiff');
+            if (bestScore === 0) {
+                bestDiffEl.textContent = '';
+            } else if (bestDiff > 0) {
+                bestDiffEl.textContent = '(+' + bestDiff + ')';
+                bestDiffEl.style.color = '#4f4';
+            } else if (bestDiff < 0) {
+                bestDiffEl.textContent = '(' + bestDiff + ')';
+                bestDiffEl.style.color = '#f66';
+            } else {
+                bestDiffEl.textContent = '(=)';
+                bestDiffEl.style.color = '#888';
+            }
+        }
+
+        // Update round history UI
+        function updateRoundHistoryUI() {
+            const historyList = document.getElementById('roundHistoryList');
+            if (gameState.targetPracticeRoundHistory.length === 0) {
+                historyList.innerHTML = '<div style="color: #555;">No rounds completed</div>';
+                return;
+            }
+
+            const historyHtml = gameState.targetPracticeRoundHistory.map(r =>
+                `<div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
+                    <span>R${r.round}</span>
+                    <span style="color: #4fc3f7;">${r.throws} throws</span>
+                    <span style="color: #ffd700;">${r.time.toFixed(1)}s</span>
+                </div>`
+            ).join('');
+            historyList.innerHTML = historyHtml;
+        }
+
+        // Timer update for target practice
+        let targetPracticeTimerInterval = null;
+
+        function startTargetPracticeTimer() {
+            if (targetPracticeTimerInterval) {
+                clearInterval(targetPracticeTimerInterval);
+            }
+            targetPracticeTimerInterval = setInterval(() => {
+                if (gameState.targetPracticeMode && gameState.targetPracticeRoundStartTime > 0) {
+                    const elapsed = (performance.now() - gameState.targetPracticeRoundStartTime) / 1000;
+
+                    if (gameState.targetPracticeModeType === 'timed') {
+                        // Timed mode: count down
+                        const remaining = Math.max(0, gameState.targetPracticeRoundTimeLimit - elapsed);
+                        gameState.targetPracticeTimeRemaining = remaining;
+                        document.getElementById('targetTime').textContent = remaining.toFixed(1) + 's';
+                        document.getElementById('targetTime').style.color = remaining <= 5 ? '#f44' : '#ffd700';
+
+                        // Check for time up
+                        if (remaining <= 0) {
+                            // Time's up - check if any targets remain
+                            const remainingTargets = gameState.targetPracticeTargets.filter(t => t.active).length;
+                            if (remainingTargets > 0) {
+                                // Didn't complete round in time - game over
+                                showGameOverPopup();
+                            }
+                        }
+                    } else {
+                        // Misses mode: count up
+                        document.getElementById('targetTime').textContent = elapsed.toFixed(1) + 's';
+                        document.getElementById('targetTime').style.color = '#ffd700';
+                    }
+                }
+            }, 100);
+        }
+
+        function stopTargetPracticeTimer() {
+            if (targetPracticeTimerInterval) {
+                clearInterval(targetPracticeTimerInterval);
+                targetPracticeTimerInterval = null;
+            }
+        }
+
+        // Show hit popup with score breakdown
+        function showTargetHitPopup(hitCount, scoreResult) {
+            const popup = document.getElementById('targetHitPopup');
+            const mainEl = document.getElementById('hitPopupMain');
+            const pointsEl = document.getElementById('hitPopupPoints');
+            const bonusesEl = document.getElementById('hitPopupBonuses');
+
+            const remaining = gameState.targetPracticeTargets.filter(t => t.active).length;
+
+            // Check if a bonus target was hit
+            const hitBonus = scoreResult.breakdown.some(item => item.label === 'BONUS Target');
+
+            if (hitBonus) {
+                mainEl.textContent = 'BONUS HIT!';
+                mainEl.style.color = '#e040fb';  // Purple/magenta for bonus
+            } else if (hitCount > 1) {
+                mainEl.textContent = `MULTI-HIT x${hitCount}!`;
+                mainEl.style.color = '#ffd700';
+            } else {
+                mainEl.textContent = 'HIT!';
+                mainEl.style.color = '#4f4';
+            }
+
+            // Show total points prominently
+            pointsEl.textContent = `+${scoreResult.total} pts`;
+            pointsEl.style.color = hitBonus ? '#e040fb' : '#ffd700';
+
+            // Show breakdown of bonuses
+            const bonusParts = [];
+            scoreResult.breakdown.forEach(item => {
+                if (item.points > 0) {
+                    const isBonus = item.label === 'BONUS Target';
+                    const color = isBonus ? '#e040fb' : '#fff';
+                    bonusParts.push(`<span style="color:${color}">${item.label}: +${item.points}</span>`);
+                }
+            });
+            bonusesEl.innerHTML = bonusParts.join('<br>');
+            bonusesEl.style.fontSize = '12px';
+
+            popup.style.display = 'block';
+
+            // Hide after delay (longer to read breakdown)
+            setTimeout(() => {
+                popup.style.display = 'none';
+            }, 1200);
+        }
+
+        // Start target practice mode
+        function startTargetPracticeMode(modeType = 'misses') {
+            gameState.targetPracticeMode = true;
+            gameState.targetPracticeModeType = modeType; // 'misses' or 'timed'
+            gameState.trainingMode = false;
+
+            // Reset all state
+            gameState.targetPracticeScore = 0;
+            gameState.targetPracticeStreak = 0;
+            gameState.targetPracticeMultiplier = 1;
+            gameState.targetPracticeLastHitTime = 0;
+            gameState.targetPracticeSpeedBonus = 1.15;  // Start faster for more challenge
+
+            // Load last and best scores from localStorage
+            if (modeType === 'timed') {
+                gameState.targetPracticeLastScoreTimed = parseInt(localStorage.getItem('targetPracticeLastScoreTimed') || '0', 10);
+                gameState.targetPracticeBestScoreTimed = parseInt(localStorage.getItem('targetPracticeBestScoreTimed') || '0', 10);
+            } else {
+                gameState.targetPracticeLastScore = parseInt(localStorage.getItem('targetPracticeLastScore') || '0', 10);
+                gameState.targetPracticeBestScore = parseInt(localStorage.getItem('targetPracticeBestScore') || '0', 10);
+            }
+
+            // Reset round state
+            gameState.targetPracticeRound = 1;
+            gameState.targetPracticeRoundThrows = 0;
+            gameState.targetPracticeRoundStartTime = performance.now();
+            gameState.targetPracticeRoundHistory = [];
+            gameState.targetPracticeTotalThrows = 0;
+            gameState.targetPracticeTargetCount = 4;  // Always 4 targets
+
+            // Reset mode-specific state
+            if (modeType === 'timed') {
+                // Timed mode: 30 seconds per round, unlimited misses
+                gameState.targetPracticeRoundTimeLimit = 30;
+                gameState.targetPracticeTimeRemaining = 30;
+                gameState.targetPracticeMissesRemaining = 999; // Unlimited
+                gameState.targetPracticeMaxMisses = 999;
+            } else {
+                // Misses mode: 5 misses, unlimited time
+                gameState.targetPracticeMissesRemaining = 5;
+                gameState.targetPracticeMaxMisses = 5;
+                gameState.targetPracticeRoundTimeLimit = 0; // No limit
+                gameState.targetPracticeTimeRemaining = 0;
+            }
+            gameState.targetPracticeBestStreak = 0;
+
+            // Hide game over popup if showing
+            document.getElementById('gameOverPopup').style.display = 'none';
+
+            // Hide management overlay and show game elements
+            document.getElementById('managementOverlay').classList.add('hidden');
+            document.getElementById('topBar').style.display = 'none';
+            document.getElementById('viewButtons').style.display = 'none';
+            document.getElementById('trainingModeUI').style.display = 'none';
+            document.getElementById('targetPracticeModeUI').style.display = 'block';
+            document.getElementById('catchDisplay').style.display = 'none';
+            gameSceneActive = true;
+
+            // Hide players - we only want targets
+            gameState.receivers.forEach(r => r.setEnabled(false));
+            gameState.defenders.forEach(d => d.setEnabled(false));
+            gameState.offensiveLine.forEach(l => l.setEnabled(false));
+            gameState.defensiveLine.forEach(l => l.setEnabled(false));
+
+            // Hide ALL name labels (QB, receivers, defenders)
+            if (gameState.scene && gameState.scene.qb && gameState.scene.qb.nameLabel) {
+                gameState.scene.qb.nameLabel.alpha = 0;
+            }
+            gameState.receivers.forEach(r => {
+                if (r.nameLabel) r.nameLabel.alpha = 0;
+            });
+            gameState.defenders.forEach(d => {
+                if (d.nameLabel) d.nameLabel.alpha = 0;
+            });
+
+            // Position QB
+            if (gameState.scene && gameState.scene.qb) {
+                gameState.scene.qb.position = new BABYLON.Vector3(0, 0, gameState.lineOfScrimmage - 3);
+                gameState.scene.qb.setEnabled(true);
+            }
+
+            // Reset game state for throwing
+            gameState.ballInFlight = false;
+            gameState.canThrow = true;
+            gameState.playFrozen = false;  // No freeze in target practice
+            gameState.isDragging = false;
+
+            // Create targets
+            if (gameState.scene) {
+                createAllTargets(gameState.scene);
+                // Distance multiplier zones only appear after round 4
+                // They will be created in startNextRound when round > 4
+            }
+
+            // Update UI
+            updateTargetPracticeUI();
+            updateRoundHistoryUI();
+
+            // Start timer
+            startTargetPracticeTimer();
+
+            // Update settings UI
+            document.getElementById('tpBallSpeedDisplay').textContent = gameState.ballSpeedMultiplier.toFixed(1) + 'x';
+            document.getElementById('tpCameraAngleSlider').value = (gameState.cameraAngle || 0.5) * 100;
+            document.getElementById('tpCameraAngleValue').textContent = Math.round((gameState.cameraAngle || 0.5) * 100) + '%';
+            document.getElementById('tpCameraOffsetSlider').value = (gameState.cameraOffset || 0.35) * 100;
+            document.getElementById('tpCameraOffsetValue').textContent = Math.round((gameState.cameraOffset || 0.35) * 100) + '%';
+            // Update mode display
+            const modeDisplay = document.getElementById('tpModeDisplay');
+            if (modeDisplay) {
+                modeDisplay.textContent = modeType === 'timed' ? 'TIMED MODE' : 'MISSES MODE';
+                modeDisplay.style.color = modeType === 'timed' ? '#ffd700' : '#4fc3f7';
+            }
+
+            // Update camera
+            updateTargetPracticeCamera();
+
+            // Force engine resize
+            engine.resize();
+        }
+
+        // Exit target practice mode
+        function exitTargetPracticeMode() {
+            gameState.targetPracticeMode = false;
+            gameSceneActive = false;
+
+            // Stop timer
+            stopTargetPracticeTimer();
+
+            // Hide round complete popup if showing
+            document.getElementById('roundCompletePopup').style.display = 'none';
+            // Hide game over popup if showing
+            document.getElementById('gameOverPopup').style.display = 'none';
+
+            // Clean up targets (including route lines)
+            gameState.targetPracticeTargets.forEach(t => {
+                if (t.routeLine) t.routeLine.dispose();
+                if (t.mesh) t.mesh.dispose();
+            });
+            gameState.targetPracticeTargets = [];
+
+            // Clean up distance zones
+            clearDistanceZones();
+
+            // Hide UI
+            document.getElementById('targetPracticeModeUI').style.display = 'none';
+            document.getElementById('topBar').style.display = 'none';
+            document.getElementById('viewButtons').style.display = 'none';
+            document.getElementById('managementOverlay').classList.remove('hidden');
+
+            // Show players again
+            gameState.receivers.forEach(r => r.setEnabled(true));
+            gameState.offensiveLine.forEach(l => l.setEnabled(true));
+            gameState.defensiveLine.forEach(l => l.setEnabled(true));
+            // Defenders will be shown based on game mode
+
+            // Return to main menu
+            document.querySelectorAll('.mgmt-screen').forEach(s => s.style.display = 'none');
+            if (managementState.initialized) {
+                document.getElementById('hubScreen').style.display = 'block';
+                refreshHubScreen();
+            } else {
+                document.getElementById('mainMenuScreen').style.display = 'block';
+            }
+        }
+
+        // Update camera for target practice
+        function updateTargetPracticeCamera() {
+            if (!gameState.scene || !gameState.scene.activeCamera) return;
+
+            const camera = gameState.scene.activeCamera;
+            const baseTargetZ = gameState.lineOfScrimmage + 5;
+            const maxForwardOffset = 12;
+            const forwardOffset = (gameState.cameraOffset || 0) * maxForwardOffset;
+
+            camera.target = new BABYLON.Vector3(0, 0, baseTargetZ + forwardOffset);
+            camera.alpha = -Math.PI / 2;
+            camera.beta = 0.1 + (gameState.cameraAngle || 0.5) * (Math.PI / 2 - 0.1);
+
+            const baseRadius = 32;
+            const radiusAdjust = (gameState.cameraOffset || 0) * 8;
+            camera.radius = baseRadius + radiusAdjust;
+        }
+
+        // Reset play for target practice (simpler than regular reset)
+        function resetTargetPracticePlay() {
+            // Reset throwing state
+            gameState.ballInFlight = false;
+            gameState.canThrow = true;
+            gameState.isDragging = false;
+            gameState.dragStart = null;
+            gameState.dragCurrent = null;
+
+            // Hide football
+            if (gameState.scene && gameState.scene.football) {
+                gameState.scene.football.setEnabled(false);
+                gameState.scene.football.parent = null;
+            }
+
+            // Clear trajectory
+            if (gameState.scene && gameState.scene.trajectoryDots) {
+                gameState.scene.trajectoryDots.forEach(dot => dot.dispose());
+                gameState.scene.trajectoryDots = null;
             }
         }
 
@@ -15832,6 +18000,11 @@
         setupInput(scene);
         setupIdleAnimations(scene);
 
+        // Create bonus zones only if feature is enabled
+        if (FEATURE_FLAGS.circleCatchBonuses) {
+            createBonusZones(scene);
+        }
+
         // Handle visibility changes (app switching) - clear stale pointer state
         document.addEventListener('visibilitychange', () => {
             if (document.hidden) {
@@ -15865,8 +18038,9 @@
 
         // Setup HTML button handlers
         document.getElementById('btnNewGame').addEventListener('click', () => {
-            startNewGame();
-            // Draft screen is shown by startNewGame() via startDraft()
+            // Show choice screen for draft vs premade team
+            document.querySelectorAll('.mgmt-screen').forEach(s => s.style.display = 'none');
+            document.getElementById('newGameChoiceScreen').style.display = 'block';
         });
         document.getElementById('btnContinue').addEventListener('click', () => {
             if (managementState.initialized) {
@@ -15879,10 +18053,100 @@
             }
         });
         document.getElementById('btnTrainingMode').addEventListener('click', () => {
-            startTrainingMode();
+            // Show training selection screen
+            document.querySelectorAll('.mgmt-screen').forEach(s => s.style.display = 'none');
+            document.getElementById('trainingSelectionScreen').style.display = 'block';
         });
         document.getElementById('btnExitTraining').addEventListener('click', () => {
             exitTrainingMode();
+        });
+
+        // Training Selection Screen handlers
+        document.getElementById('btnTrainingSelectionBack').addEventListener('click', () => {
+            document.querySelectorAll('.mgmt-screen').forEach(s => s.style.display = 'none');
+            if (managementState.initialized) {
+                document.getElementById('hubScreen').style.display = 'block';
+            } else {
+                document.getElementById('mainMenuScreen').style.display = 'block';
+            }
+        });
+        document.getElementById('btnSelectScrimmage').addEventListener('click', () => {
+            startTrainingMode();
+        });
+        document.getElementById('btnSelectTPMisses').addEventListener('click', () => {
+            startTargetPracticeMode('misses');
+        });
+        document.getElementById('btnSelectTPTimed').addEventListener('click', () => {
+            startTargetPracticeMode('timed');
+        });
+        document.getElementById('btnExitTargetPractice').addEventListener('click', () => {
+            exitTargetPracticeMode();
+        });
+
+        // Game Over popup button handlers
+        document.getElementById('btnPlayAgain').addEventListener('click', () => {
+            document.getElementById('gameOverPopup').style.display = 'none';
+            // Preserve the current mode type when replaying
+            startTargetPracticeMode(gameState.targetPracticeModeType || 'misses');
+        });
+        document.getElementById('btnExitGameOver').addEventListener('click', () => {
+            document.getElementById('gameOverPopup').style.display = 'none';
+            exitTargetPracticeMode();
+        });
+
+        // Target Practice Settings handlers
+        document.getElementById('btnTargetPracticeSettings').addEventListener('click', () => {
+            const panel = document.getElementById('targetPracticeSettingsPanel');
+            panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+        });
+
+        // Target count buttons
+        document.querySelectorAll('.target-count-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.target-count-btn').forEach(b => b.style.background = '#333');
+                btn.style.background = '#4a4';
+                gameState.targetPracticeTargetCount = parseInt(btn.dataset.count, 10);
+                if (gameState.targetPracticeMode && gameState.scene) {
+                    createAllTargets(gameState.scene);
+                }
+            });
+        });
+
+        // Target speed buttons
+        document.querySelectorAll('.target-speed-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.target-speed-btn').forEach(b => b.style.background = '#333');
+                btn.style.background = '#4a4';
+                gameState.targetPracticeSpeedSetting = btn.dataset.speed;
+                // Update existing target speeds
+                const speedSettings = { slow: 0.6, normal: 1.0, fast: 1.5 };
+                gameState.targetPracticeTargets.forEach(target => {
+                    const baseSpeed = 0.04 * target.config.speedMult * speedSettings[gameState.targetPracticeSpeedSetting];
+                    target.speed = baseSpeed;
+                });
+            });
+        });
+
+        // Ball speed controls for target practice
+        document.getElementById('btnTPBallSpeedDown').addEventListener('click', () => {
+            gameState.ballSpeedMultiplier = Math.max(0.5, gameState.ballSpeedMultiplier - 0.1);
+            document.getElementById('tpBallSpeedDisplay').textContent = gameState.ballSpeedMultiplier.toFixed(1) + 'x';
+        });
+        document.getElementById('btnTPBallSpeedUp').addEventListener('click', () => {
+            gameState.ballSpeedMultiplier = Math.min(2.0, gameState.ballSpeedMultiplier + 0.1);
+            document.getElementById('tpBallSpeedDisplay').textContent = gameState.ballSpeedMultiplier.toFixed(1) + 'x';
+        });
+
+        // Camera sliders for target practice
+        document.getElementById('tpCameraAngleSlider').addEventListener('input', (e) => {
+            gameState.cameraAngle = e.target.value / 100;
+            document.getElementById('tpCameraAngleValue').textContent = e.target.value + '%';
+            updateTargetPracticeCamera();
+        });
+        document.getElementById('tpCameraOffsetSlider').addEventListener('input', (e) => {
+            gameState.cameraOffset = e.target.value / 100;
+            document.getElementById('tpCameraOffsetValue').textContent = e.target.value + '%';
+            updateTargetPracticeCamera();
         });
 
         // ========================================
@@ -16657,7 +18921,11 @@
         document.getElementById('btnFreeAgency').addEventListener('click', () => showScreen('free_agency'));
         document.getElementById('btnSchedule').addEventListener('click', () => showScreen('schedule'));
         document.getElementById('btnFacilities').addEventListener('click', () => showScreen('facilities'));
-        document.getElementById('btnHubTraining').addEventListener('click', () => startTrainingMode());
+        document.getElementById('btnHubTraining').addEventListener('click', () => {
+            // Show training selection screen
+            document.querySelectorAll('.mgmt-screen').forEach(s => s.style.display = 'none');
+            document.getElementById('trainingSelectionScreen').style.display = 'block';
+        });
         document.getElementById('btnHubNewGame').addEventListener('click', () => {
             if (confirm("Start a new game? All progress will be lost!")) {
                 SaveSystem.clear();
@@ -16665,16 +18933,31 @@
                 managementState.team = null;
                 managementState.season = null;
                 managementState.freeAgents = [];
-                startNewGame();
-                // Draft screen is shown by startNewGame() via startDraft()
+                // Show choice screen for draft vs premade team
+                document.querySelectorAll('.mgmt-screen').forEach(s => s.style.display = 'none');
+                document.getElementById('newGameChoiceScreen').style.display = 'block';
             }
         });
+
+        // New Game Choice Screen handlers
+        document.getElementById('btnNewGameChoiceBack').addEventListener('click', () => {
+            document.querySelectorAll('.mgmt-screen').forEach(s => s.style.display = 'none');
+            document.getElementById('mainMenuScreen').style.display = 'block';
+        });
+        document.getElementById('btnStartWithDraft').addEventListener('click', () => {
+            startNewGame('Your Knights', false);
+        });
+        document.getElementById('btnStartPremade').addEventListener('click', () => {
+            startNewGame('Your Knights', true);
+        });
+
         document.getElementById('btnRosterBack').addEventListener('click', () => showScreen('hub'));
         document.getElementById('btnFABack').addEventListener('click', () => showScreen('hub'));
         document.getElementById('btnScheduleBack').addEventListener('click', () => showScreen('hub'));
         document.getElementById('btnFacilitiesBack').addEventListener('click', () => showScreen('hub'));
         document.getElementById('btnHubSettings').addEventListener('click', () => showScreen('settings'));
         document.getElementById('btnSettingsBack').addEventListener('click', () => showScreen('hub'));
+        document.getElementById('btnHubBack').addEventListener('click', () => showScreen('main_menu'));
         // Game difficulty buttons (settings screen - separate from training difficulty)
         document.querySelectorAll('.game-difficulty-btn').forEach(btn => {
             btn.addEventListener('click', () => {
