@@ -6912,9 +6912,11 @@
 
             // Build pick info HTML for drafted players
             let pickInfoHtml = '';
+            console.log('Pick info debug:', { isDrafted, playerId, pickInfo: draftState.pickInfo[playerId] });
             if (isDrafted && draftState.pickInfo[playerId]) {
                 const info = draftState.pickInfo[playerId];
                 const tendencies = info.tendencies;
+                console.log('Tendencies for picked player:', tendencies);
 
                 // Build tendencies display
                 let tendenciesHtml = '';
@@ -7500,6 +7502,7 @@
                 navButtonsEl.style.display = 'none';
                 if (tendenciesEl) tendenciesEl.style.display = 'none';
             } else {
+                console.log('Computer turn - showing team tendencies');
                 onClockEl.className = 'draft-on-clock computer';
                 // Show actual team name on the clock with strategy icon
                 const teamIndex = (draftState.currentPickNumber - 1) % (DRAFT.NUM_TEAMS - 1);
@@ -7512,6 +7515,7 @@
                 navButtonsEl.style.display = 'flex';
 
                 // Show team tendencies
+                console.log('Team tendencies debug:', { tendenciesEl: !!tendenciesEl, teamTendencies, teamIndex });
                 if (tendenciesEl && teamTendencies) {
                     const tendencyParts = [];
 
@@ -7523,24 +7527,30 @@
 
                     // Position bias
                     const posBias = SCOUTING_TENDENCIES.positionBias[teamTendencies.positionBias];
+                    console.log('Position bias:', { bias: teamTendencies.positionBias, posBias });
                     if (posBias && posBias.name) {
                         tendencyParts.push(`<span class="tendency bias">${posBias.icon} ${posBias.name}</span>`);
                     }
 
                     // Stat preference
                     const statPref = SCOUTING_TENDENCIES.statPreference[teamTendencies.statPreference];
+                    console.log('Stat pref:', { pref: teamTendencies.statPreference, statPref });
                     if (statPref && statPref.name) {
                         tendencyParts.push(`<span class="tendency stat">${statPref.icon} ${statPref.name}</span>`);
                     }
 
                     // Scouting accuracy
                     const scoutAcc = SCOUTING_TENDENCIES.scoutingAccuracy[teamTendencies.scoutingAccuracy];
+                    console.log('Scout acc:', { acc: teamTendencies.scoutingAccuracy, scoutAcc });
                     if (scoutAcc) {
                         tendencyParts.push(`<span class="tendency scout">${scoutAcc.icon} ${scoutAcc.name}</span>`);
                     }
 
+                    console.log('Tendency parts:', tendencyParts);
                     tendenciesEl.innerHTML = tendencyParts.join('');
                     tendenciesEl.style.display = tendencyParts.length > 0 ? 'flex' : 'none';
+                } else {
+                    console.log('Tendencies NOT shown - missing element or teamTendencies');
                 }
             }
 
