@@ -3439,7 +3439,10 @@
                         scoutLevels: draftState.scoutLevels,
                         revealedStats: draftState.revealedStats,
                         scoutAttempts: draftState.scoutAttempts,
-                        playerInterest: draftState.playerInterest
+                        playerInterest: draftState.playerInterest,
+                        computerTeamStrategies: draftState.computerTeamStrategies,
+                        computerTeamRosters: draftState.computerTeamRosters,
+                        pickInfo: draftState.pickInfo
                     } : null
                 };
 
@@ -3507,6 +3510,13 @@
                     draftState.revealedStats = saveData.draftState.revealedStats || {};
                     draftState.scoutAttempts = saveData.draftState.scoutAttempts !== undefined ? saveData.draftState.scoutAttempts : SCOUTING.ATTEMPTS_PER_DRAFT;
                     draftState.playerInterest = saveData.draftState.playerInterest || {};
+                    // Load or regenerate team strategies (for saves before this feature)
+                    draftState.computerTeamStrategies = saveData.draftState.computerTeamStrategies;
+                    if (!draftState.computerTeamStrategies || Object.keys(draftState.computerTeamStrategies).length === 0) {
+                        draftState.computerTeamStrategies = assignTeamStrategies();
+                    }
+                    draftState.computerTeamRosters = saveData.draftState.computerTeamRosters || {};
+                    draftState.pickInfo = saveData.draftState.pickInfo || {};
                     draftState.usingExtraPick = false;
                     draftState.simulatingPicks = false;
                     draftState.lastComputerPick = null;
