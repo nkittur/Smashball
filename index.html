@@ -812,6 +812,7 @@
             <div class="hub-status" id="hubStatus">Fame: 1,000 | Week 1</div>
             <h2>TEAM HUB</h2>
             <div class="hub-buttons">
+                <button id="btnReturnToDraft" class="mgmt-btn" style="display:none; background: #4a3a00; border: 1px solid #ffd700;">↩ RETURN TO DRAFT</button>
                 <button id="btnPlayGame" class="mgmt-btn primary">PLAY GAME</button>
                 <button id="btnRoster" class="mgmt-btn">ROSTER</button>
                 <button id="btnFreeAgency" class="mgmt-btn">FREE AGENCY</button>
@@ -981,8 +982,9 @@
                 <div class="draft-menu-container">
                     <button id="btnDraftMenu" class="draft-menu-btn">⋮</button>
                     <div id="draftMenuDropdown" class="draft-menu-dropdown" style="display:none;">
+                        <button id="btnDraftToHub" class="draft-menu-item">🏠 Team Management</button>
                         <button id="btnDraftOptions" class="draft-menu-item">⚙ Settings</button>
-                        <button id="btnDraftBack" class="draft-menu-item">← Exit Draft</button>
+                        <button id="btnDraftBack" class="draft-menu-item">← Exit to Menu</button>
                     </div>
                 </div>
             </div>
@@ -994,6 +996,7 @@
             <div id="draftOnClock" class="draft-on-clock computer">
                 <div class="clock-row">
                     <span id="draftRoundPick">Round 1 • Pick 1</span>
+                    <span id="draftScoutAttempts">20 scouts</span>
                     <span id="draftPoints">1500 pts</span>
                 </div>
                 <div class="clock-row clock-main">
@@ -1358,6 +1361,7 @@
             margin-top: 4px;
         }
         #draftRoundPick { color: #888; font-size: 11px; }
+        #draftScoutAttempts { color: #2196F3; font-size: 11px; font-weight: bold; margin-left: 10px; }
         #draftPoints { color: #ffd700; font-size: 11px; font-weight: bold; }
         #draftTeamName {
             font-size: 16px;
@@ -3400,7 +3404,10 @@
                         draftedPlayers: draftState.draftedPlayers,
                         playerPicks: draftState.playerPicks,
                         isNewGame: draftState.isNewGame,
-                        scoutLevels: draftState.scoutLevels
+                        scoutLevels: draftState.scoutLevels,
+                        revealedStats: draftState.revealedStats,
+                        scoutAttempts: draftState.scoutAttempts,
+                        playerInterest: draftState.playerInterest
                     } : null
                 };
 
@@ -3465,6 +3472,9 @@
                     draftState.playerPicks = saveData.draftState.playerPicks;
                     draftState.isNewGame = saveData.draftState.isNewGame;
                     draftState.scoutLevels = saveData.draftState.scoutLevels || {};
+                    draftState.revealedStats = saveData.draftState.revealedStats || {};
+                    draftState.scoutAttempts = saveData.draftState.scoutAttempts !== undefined ? saveData.draftState.scoutAttempts : SCOUTING.ATTEMPTS_PER_DRAFT;
+                    draftState.playerInterest = saveData.draftState.playerInterest || {};
                     draftState.usingExtraPick = false;
                     draftState.simulatingPicks = false;
                     draftState.lastComputerPick = null;
@@ -5002,18 +5012,141 @@
             isNewGame: false,
             viewingRoster: false,
             selectedDraftPlayer: null,
-            scoutLevels: {}  // Track scouting level per player: { playerId: 0-3 }
+            scoutLevels: {},  // Track scouting level per player: { playerId: 0-5 }
+            revealedStats: {},  // Track which stats are revealed per player: { playerId: ['stat1', 'stat2', ...] }
+            scoutAttempts: 20,  // Remaining scout attempts for this draft (initialized here, reset uses SCOUTING.ATTEMPTS_PER_DRAFT)
+            playerInterest: {}  // Track interest in players: { playerId: -1 (not interested) | 1-3 (interested levels) }
         };
 
-        // Scouting constants
+        // Scouting constants - progressive stat reveal system
         const SCOUTING = {
-            MAX_LEVEL: 3,           // Maximum times a player can be scouted
-            MIN_COST: 5,            // Minimum scouting cost
-            MAX_COST: 50,           // Maximum scouting cost
-            RANGE_UNSCOUTED: 22,    // Rating range for unscouted players (±22, was ±50)
-            RANGE_PER_LEVEL: 5,     // Range reduction per scout level (22 -> 17 -> 12 -> 7)
-            MAX_OFFSET: 10          // Maximum offset from center at level 0
+            MAX_LEVEL: 5,           // Maximum times a player can be scouted (all stats revealed at level 5)
+            INITIAL_STATS: 5,       // Number of stats shown when unscouted (level 0)
+            STATS_PER_SCOUT: 4,     // Additional stats revealed per scout level
+            ATTEMPTS_PER_DRAFT: 20  // Total scout attempts available per draft
         };
+
+        // Get all scourable stats for a player based on their position
+        // Returns array of stat identifiers organized by category
+        function getAllPlayerStats(player) {
+            const position = player.position;
+            const stats = [];
+
+            // Core stats (always 4)
+            stats.push(
+                { id: 'core_strength', category: 'core', name: 'STR' },
+                { id: 'core_speed', category: 'core', name: 'SPD' },
+                { id: 'core_agility', category: 'core', name: 'AGI' },
+                { id: 'core_intelligence', category: 'core', name: 'INT' }
+            );
+
+            // Abilities (4 per position)
+            const abilityMap = {
+                DL: ['bullRush', 'blockShed', 'spinMove', 'swimMove'],
+                OL: ['anchor', 'handFighting', 'footwork', 'driveBlock'],
+                CB: ['pressCoverage', 'manCoverage', 'zoneCoverage', 'ballHawk'],
+                WR: ['releaseMove', 'routeSharpness', 'contestedCatch', 'yacAbility'],
+                QB: ['armStrength', 'quickRelease', 'fieldVision', 'pocketPresence']
+            };
+            const abilities = abilityMap[position] || [];
+            abilities.forEach(a => stats.push({ id: `ability_${a}`, category: 'ability', name: a }));
+
+            // Technique stats (3 per position)
+            const techniqueMap = {
+                WR: ['catching', 'routeRunning', 'evasion'],
+                CB: ['awareness', 'tackling', 'pursuit'],
+                OL: ['passBlock', 'balance', 'awareness'],
+                DL: ['passRush', 'tackling', 'pursuit'],
+                QB: ['shortPassAcc', 'longPassAcc', 'awareness']
+            };
+            const techniques = techniqueMap[position] || [];
+            techniques.forEach(t => stats.push({ id: `technique_${t}`, category: 'technique', name: t }));
+
+            // Combine Athletic Testing (6 stats)
+            stats.push(
+                { id: 'combine_fortyYard', category: 'combine_athletic', name: '40-Yard' },
+                { id: 'combine_verticalJump', category: 'combine_athletic', name: 'Vertical' },
+                { id: 'combine_threeCone', category: 'combine_athletic', name: '3-Cone' },
+                { id: 'combine_shuttle', category: 'combine_athletic', name: 'Shuttle' },
+                { id: 'combine_benchPress', category: 'combine_athletic', name: 'Bench' },
+                { id: 'combine_broadJump', category: 'combine_athletic', name: 'Broad' }
+            );
+
+            // Combine Mental/Interview (3 stats)
+            stats.push(
+                { id: 'combine_wonderlic', category: 'combine_mental', name: 'Wonderlic' },
+                { id: 'combine_filmGrade', category: 'combine_mental', name: 'Film Study' },
+                { id: 'combine_drillGrade', category: 'combine_mental', name: 'Pos. Drills' }
+            );
+
+            // College stats (4-5 per position)
+            const collegeMap = {
+                QB: ['completionPct', 'tdIntRatio', 'yardsPerAttempt', 'sackPct'],
+                WR: ['yardsPerCatch', 'catchRate', 'contestedCatchPct', 'yardsAfterCatch', 'dropRate'],
+                CB: ['interceptions', 'passBreakups', 'passerRatingAllowed', 'completionPctAllowed', 'tackles'],
+                OL: ['sacksAllowed', 'pressuresAllowed', 'pancakeBlocks', 'penalties', 'runBlockGrade'],
+                DL: ['sacks', 'tacklesForLoss', 'qbHurries', 'runStops', 'forcedFumbles']
+            };
+            const college = collegeMap[position] || [];
+            college.forEach(c => stats.push({ id: `college_${c}`, category: 'college', name: c }));
+
+            return stats;
+        }
+
+        // Get revealed stats for a player based on their scout level
+        // Uses deterministic shuffle based on player ID for consistency
+        // overrideScoutLevel can be passed for drafted players (to show all stats)
+        function getRevealedStats(player, overrideScoutLevel = null) {
+            const playerId = player.id;
+            const scoutLevel = overrideScoutLevel !== null ? overrideScoutLevel : (draftState.scoutLevels[playerId] || 0);
+
+            // Check if we've already computed revealed stats for this player at this level
+            if (draftState.revealedStats[playerId] && draftState.revealedStats[playerId].level === scoutLevel) {
+                return draftState.revealedStats[playerId].stats;
+            }
+
+            const allStats = getAllPlayerStats(player);
+
+            // At max level, reveal all stats
+            if (scoutLevel >= SCOUTING.MAX_LEVEL) {
+                const revealed = new Set(allStats.map(s => s.id));
+                draftState.revealedStats[playerId] = { level: scoutLevel, stats: revealed };
+                return revealed;
+            }
+
+            // Calculate how many stats to reveal
+            const numToReveal = Math.min(
+                SCOUTING.INITIAL_STATS + (scoutLevel * SCOUTING.STATS_PER_SCOUT),
+                allStats.length
+            );
+
+            // Deterministic shuffle using player ID as seed
+            let hash = 0;
+            for (let i = 0; i < playerId.length; i++) {
+                hash = ((hash << 5) - hash) + playerId.charCodeAt(i);
+                hash = hash & hash;
+            }
+
+            // Fisher-Yates shuffle with seeded random
+            const shuffled = [...allStats];
+            for (let i = shuffled.length - 1; i > 0; i--) {
+                hash = ((hash << 5) - hash) + i;
+                hash = hash & hash;
+                const j = Math.abs(hash) % (i + 1);
+                [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+            }
+
+            // Take first N stats as revealed
+            const revealed = new Set(shuffled.slice(0, numToReveal).map(s => s.id));
+            draftState.revealedStats[playerId] = { level: scoutLevel, stats: revealed };
+            return revealed;
+        }
+
+        // Check if a specific stat is revealed for a player
+        function isStatRevealed(player, statId) {
+            const revealed = getRevealedStats(player);
+            return revealed.has(statId);
+        }
 
         // Generate combine stats for a draft player based on their core attributes
         // Stats are correlated but not perfectly deterministic - significant variance
@@ -5598,22 +5731,12 @@
                 }
             }
 
-            // Determine potential error based on scout level
-            // Even fully scouted players have small chance of being wrong
-            let maxError, errorChance;
-            if (scoutLevel === 0) {
-                maxError = 1;
-                errorChance = 0.25;  // 25% chance of being wrong (was 70%)
-            } else if (scoutLevel === 1) {
-                maxError = 1;
-                errorChance = 0.20;  // 20% chance of being wrong
-            } else if (scoutLevel === 2) {
-                maxError = 1;
-                errorChance = 0.17; // 17% chance of being wrong
-            } else {
-                maxError = 1;
-                errorChance = 0.15; // 15% chance of surprise even fully scouted
-            }
+            // Determine potential error based on scout level (0-5)
+            // Higher scout levels have lower error chance
+            // Error chances: 0=30%, 1=25%, 2=20%, 3=17%, 4=15%, 5+=12%
+            const errorChances = [0.30, 0.25, 0.20, 0.17, 0.15, 0.12];
+            const errorChance = scoutLevel >= errorChances.length ? errorChances[errorChances.length - 1] : errorChances[scoutLevel];
+            const maxError = 1;
 
             // Use hash to deterministically decide if there's an error and which direction
             const hashNorm = Math.abs(hash % 100) / 100;
@@ -5628,7 +5751,7 @@
                 displayGrade = Math.max(0, Math.min(3, displayGrade));
             }
 
-            return { display: labels[displayGrade], isExact: false };
+            return { display: labels[displayGrade], isExact: scoutLevel >= SCOUTING.MAX_LEVEL };
         }
 
         // Simple toast notification for scouting feedback
@@ -5669,7 +5792,7 @@
             setTimeout(() => toast.remove(), 2000);
         }
 
-        // Scout a player (spend points to reduce uncertainty)
+        // Scout a player (use an attempt to reveal more stats)
         // Exposed globally for onclick handlers
         window.scoutPlayer = function(playerId) {
             try {
@@ -5683,25 +5806,30 @@
                     return false;
                 }
 
-                const cost = calculateScoutingCost(draftState.currentPickNumber);
-                console.log('Scout cost:', cost, 'Available points:', managementState.team.draftPoints);
-
-                if (managementState.team.draftPoints < cost) {
-                    console.log('Not enough draft points');
-                    showNotification(`Need ${cost} draft points to scout!`, 'error');
+                if (draftState.scoutAttempts <= 0) {
+                    console.log('No scout attempts remaining');
+                    showNotification('No scout attempts remaining!', 'error');
                     return false;
                 }
 
-                // Deduct points and increase scout level
-                managementState.team.draftPoints -= cost;
+                // Use an attempt and increase scout level
+                draftState.scoutAttempts--;
                 draftState.scoutLevels[playerId] = currentLevel + 1;
-                console.log('Scouted! New level:', draftState.scoutLevels[playerId], 'Remaining points:', managementState.team.draftPoints);
+                // Clear cached revealed stats to force recalculation
+                delete draftState.revealedStats[playerId];
+                console.log('Scouted! New level:', draftState.scoutLevels[playerId], 'Remaining attempts:', draftState.scoutAttempts);
 
-                showNotification(`Scouted player! (Level ${currentLevel + 1}/${SCOUTING.MAX_LEVEL})`, 'success');
+                // Calculate stats revealed
+                const player = draftState.draftPool.find(p => p.id === playerId);
+                const newLevel = currentLevel + 1;
+                const statsRevealed = newLevel >= SCOUTING.MAX_LEVEL
+                    ? 'all stats'
+                    : `${SCOUTING.INITIAL_STATS + (newLevel * SCOUTING.STATS_PER_SCOUT)} stats`;
+
+                showNotification(`Scouted! Now showing ${statsRevealed} (${draftState.scoutAttempts} attempts left)`, 'success');
 
                 // Refresh the views
                 console.log('About to refresh. selectedDraftPlayer:', draftState.selectedDraftPlayer ? draftState.selectedDraftPlayer.id : 'null');
-                window._rangeIndicatorLogCount = 0; // Reset so we see new range indicator values
                 refreshDraftScreen();
                 console.log('refreshDraftScreen completed');
 
@@ -5713,11 +5841,51 @@
                     console.log('Not refreshing modal - selectedDraftPlayer mismatch or null');
                 }
 
+                // Auto-save to persist scouting changes
+                if (managementState.settings.autoSave) SaveSystem.save();
+
                 return true;
             } catch (error) {
                 console.error('Error in scoutPlayer:', error);
                 return false;
             }
+        }
+
+        // Toggle player interest level
+        // Cycles: 0 (neutral) -> 1 -> 2 -> 3 (max interested) -> -1 (not interested) -> 0
+        window.togglePlayerInterest = function(playerId) {
+            const current = draftState.playerInterest[playerId] || 0;
+            let next;
+            if (current === 0) next = 1;
+            else if (current === 1) next = 2;
+            else if (current === 2) next = 3;
+            else if (current === 3) next = -1;
+            else next = 0;  // from -1 back to neutral
+
+            if (next === 0) {
+                delete draftState.playerInterest[playerId];
+            } else {
+                draftState.playerInterest[playerId] = next;
+            }
+
+            // Refresh views
+            refreshDraftScreen();
+            if (draftState.selectedDraftPlayer && draftState.selectedDraftPlayer.id === playerId) {
+                showDraftPlayerDetail(playerId);
+            }
+
+            // Auto-save to persist interest changes
+            if (managementState.settings.autoSave) SaveSystem.save();
+        }
+
+        // Get interest display for a player (icon and color)
+        function getInterestDisplay(playerId) {
+            const level = draftState.playerInterest[playerId] || 0;
+            if (level === -1) return { icon: '✗', color: '#f44336', title: 'Not interested' };
+            if (level === 1) return { icon: '★', color: '#4CAF50', title: 'Interested' };
+            if (level === 2) return { icon: '★★', color: '#8BC34A', title: 'Very interested' };
+            if (level === 3) return { icon: '★★★', color: '#CDDC39', title: 'Top target' };
+            return { icon: '☆', color: '#666', title: 'Mark interest' };
         }
 
         // Ideal roster composition per position
@@ -6146,6 +6314,9 @@
             draftState.viewingRoster = false;
             draftState.selectedDraftPlayer = null;
             draftState.scoutLevels = {};  // Reset scouting data for new draft
+            draftState.revealedStats = {};  // Reset revealed stats for new draft
+            draftState.scoutAttempts = SCOUTING.ATTEMPTS_PER_DRAFT;  // Reset scout attempts
+            draftState.playerInterest = {};  // Reset player interest for new draft
 
             // Calculate and set draft budget based on season ranking
             if (isNewGame && managementState.team) {
@@ -6502,10 +6673,14 @@
             const isDrafted = draftState.draftedPlayers.includes(playerId);
             const scoutLevel = isDrafted ? SCOUTING.MAX_LEVEL : getPlayerScoutLevel(playerId);
             console.log('showDraftPlayerDetail using scoutLevel:', scoutLevel, 'for player:', playerId, 'isDrafted:', isDrafted);
-            const gradeInfo = getOverallGrade(player.overall, scoutLevel);
             const growthInfo = getGrowthEstimate(player.potentialGrade, scoutLevel, playerId);
-            const scoutCost = calculateScoutingCost(draftState.currentPickNumber);
-            const canScout = scoutLevel < SCOUTING.MAX_LEVEL && managementState.team.draftPoints >= scoutCost;
+            const canScout = scoutLevel < SCOUTING.MAX_LEVEL && draftState.scoutAttempts > 0;
+
+            // Calculate how many stats are revealed (pass scoutLevel for drafted players)
+            const revealedStats = getRevealedStats(player, scoutLevel);
+            const allStats = getAllPlayerStats(player);
+            const statsShown = scoutLevel >= SCOUTING.MAX_LEVEL ? allStats.length : revealedStats.size;
+            const statsTotal = allStats.length;
 
             // Set player name
             document.getElementById('playerName').textContent = `${player.firstName} ${player.lastName}`;
@@ -6516,26 +6691,32 @@
             // Scout button HTML - use id and attach event listener after
             const scoutBtnId = `scoutBtn_${playerId.replace(/-/g, '')}`;
             const scoutBtnHtml = scoutLevel >= SCOUTING.MAX_LEVEL
-                ? `<span style="color:#4CAF50;font-size:12px;">Fully Scouted ${'●'.repeat(SCOUTING.MAX_LEVEL)}</span>`
+                ? `<span style="color:#4CAF50;font-size:12px;">Fully Scouted (${statsTotal}/${statsTotal} stats)</span>`
                 : `<button id="${scoutBtnId}" style="background:${canScout ? '#2196F3' : '#666'};color:white;border:none;padding:6px 12px;border-radius:4px;cursor:${canScout ? 'pointer' : 'not-allowed'};font-size:12px;" ${canScout ? '' : 'disabled'}>
-                    SCOUT (${scoutCost} pts) ${'●'.repeat(scoutLevel)}${'○'.repeat(SCOUTING.MAX_LEVEL - scoutLevel)}
+                    SCOUT (${statsShown}/${statsTotal} stats) ${'●'.repeat(scoutLevel)}${'○'.repeat(SCOUTING.MAX_LEVEL - scoutLevel)}
                    </button>`;
 
-            // Create large overall range indicator
-            const ovrRangeIndicator = createRangeIndicator(player.overall, scoutLevel, playerId, 'overall', 120);
+            // Interest button HTML
+            const interestBtnId = `interestBtn_${playerId.replace(/-/g, '')}`;
+            const interest = getInterestDisplay(playerId);
+            const interestBtnHtml = `<button id="${interestBtnId}" style="background:transparent;border:1px solid ${interest.color};color:${interest.color};padding:6px 10px;border-radius:4px;cursor:pointer;font-size:14px;margin-left:8px;" title="${interest.title}">${interest.icon}</button>`;
 
-            // Player info - draft version showing rookie contract salary with visual range
+            // Show actual grade only when fully scouted
+            const actualGrade = ratingToGrade(player.overall);
+            const gradeDisplay = scoutLevel >= SCOUTING.MAX_LEVEL ? actualGrade : '?';
+            const overallDisplay = scoutLevel >= SCOUTING.MAX_LEVEL ? `${actualGrade} (${player.overall})` : '?';
+
+            // Player info - draft version showing rookie contract salary
             const infoHtml = `
                 <div style="display:flex;align-items:center;justify-content:center;gap:12px;">
-                    <span class="ovr-big" style="font-size:${gradeInfo.isExact ? '48px' : '32px'};">${gradeInfo.display}</span>
-                    ${ovrRangeIndicator}
+                    <span class="ovr-big" style="font-size:48px;">${gradeDisplay}</span>
                 </div>
                 <div style="margin-top:10px;">
                     ${POSITIONS[player.position].name} | Age ${player.age}<br>
                     Rookie Contract: $${rookieSalary}M/yr | Growth: <span style="color:#ffd700;">${growthInfo.display}</span>
                 </div>
-                <div style="margin-top:10px;">
-                    ${scoutBtnHtml}
+                <div style="margin-top:10px;display:flex;align-items:center;justify-content:center;">
+                    ${scoutBtnHtml}${interestBtnHtml}
                 </div>
             `;
             document.getElementById('playerInfo').innerHTML = infoHtml;
@@ -6551,6 +6732,15 @@
                         window.scoutPlayer(playerId);
                     });
                 }
+            }
+
+            // Attach interest button event listener
+            const interestBtn = document.getElementById(interestBtnId);
+            if (interestBtn) {
+                interestBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    window.togglePlayerInterest(playerId);
+                });
             }
 
             // Hide cut button, show draft button
@@ -6574,9 +6764,17 @@
             }
             cutBtn.style.display = 'none';
 
-            // Helper to get color class based on the middle of the range
+            // Helper to get color class based on value
             const getColorClass = (val) => val >= 90 ? 'stat-elite' : val >= 80 ? 'stat-good' : val >= 70 ? 'stat-average' : val >= 60 ? 'stat-below' : 'stat-poor';
-            const getColorClassFromRange = (info) => getColorClass(Math.floor((info.min + info.max) / 2));
+
+            // Helper to create stat display - shows actual value if revealed, "?" if not
+            const createStatDisplay = (value, statId) => {
+                if (revealedStats.has(statId)) {
+                    const colorClass = getColorClass(value);
+                    return `<span class="${colorClass}">${value}</span>`;
+                }
+                return `<span style="color:#666;">?</span>`;
+            };
 
             // Build unified stats panel
             const core = player.coreAttributes;
@@ -6586,22 +6784,25 @@
 
             let statsHtml = '<div class="stats-panel">';
 
-            // Core Attributes section with visual range indicators
+            // Core Attributes section - show revealed stats
             if (core) {
+                const coreStats = [
+                    { id: 'core_strength', name: 'STR', value: core.strength, rowClass: 'str-row' },
+                    { id: 'core_speed', name: 'SPD', value: core.speed, rowClass: 'spd-row' },
+                    { id: 'core_agility', name: 'AGI', value: core.agility, rowClass: 'agi-row' },
+                    { id: 'core_intelligence', name: 'INT', value: core.intelligence, rowClass: 'int-row' }
+                ];
                 statsHtml += `
                     <div class="stats-section">
                         <div class="stats-section-title">Core</div>
                         <div class="stats-grid">
-                            <div class="stat-row str-row"><span class="stat-row-name">STR</span><span class="stat-row-value">${createRangeIndicator(core.strength, scoutLevel, playerId, 'strength')}</span></div>
-                            <div class="stat-row spd-row"><span class="stat-row-name">SPD</span><span class="stat-row-value">${createRangeIndicator(core.speed, scoutLevel, playerId, 'speed')}</span></div>
-                            <div class="stat-row agi-row"><span class="stat-row-name">AGI</span><span class="stat-row-value">${createRangeIndicator(core.agility, scoutLevel, playerId, 'agility')}</span></div>
-                            <div class="stat-row int-row"><span class="stat-row-name">INT</span><span class="stat-row-value">${createRangeIndicator(core.intelligence, scoutLevel, playerId, 'intelligence')}</span></div>
+                            ${coreStats.map(stat => `<div class="stat-row ${stat.rowClass}"><span class="stat-row-name">${stat.name}</span><span class="stat-row-value">${createStatDisplay(stat.value, stat.id)}</span></div>`).join('')}
                         </div>
                     </div>
                 `;
             }
 
-            // Abilities section with visual range indicators
+            // Abilities section - show revealed stats
             if (abilities) {
                 statsHtml += `
                     <div class="stats-section">
@@ -6611,14 +6812,15 @@
                                 const isBest = bestAbility && bestAbility.name === key;
                                 const dots = getAbilityDots(key);
                                 const name = getAbilityDisplayName(key);
-                                return `<div class="stat-row ${isBest ? 'best-ability' : ''}"><span class="stat-row-name">${dots}${name}</span><span class="stat-row-value">${createRangeIndicator(value, scoutLevel, playerId, key)}</span></div>`;
+                                const statId = `ability_${key}`;
+                                return `<div class="stat-row ${isBest ? 'best-ability' : ''}"><span class="stat-row-name">${dots}${name}</span><span class="stat-row-value">${createStatDisplay(value, statId)}</span></div>`;
                             }).join('')}
                         </div>
                     </div>
                 `;
             }
 
-            // Technique section with visual range indicators
+            // Technique section - show revealed stats
             if (techniqueStats.length > 0) {
                 statsHtml += `
                     <div class="stats-section">
@@ -6627,104 +6829,115 @@
                             ${techniqueStats.map(stat => {
                                 const current = Math.floor(player.stats[stat] || 0);
                                 const displayName = stat.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase());
-                                return `<div class="stat-row"><span class="stat-row-name">${displayName}</span><span class="stat-row-value">${createRangeIndicator(current, scoutLevel, playerId, stat)}</span></div>`;
+                                const statId = `technique_${stat}`;
+                                return `<div class="stat-row"><span class="stat-row-name">${displayName}</span><span class="stat-row-value">${createStatDisplay(current, statId)}</span></div>`;
                             }).join('')}
                         </div>
                     </div>
                 `;
             }
 
-            // Combine Stats section - Athletic Testing
+            // Combine Stats section - Athletic Testing (show revealed stats)
             if (player.combineStats) {
                 const cs = player.combineStats;
                 // Helper to format stat with percentile coloring (dark green for elite)
                 const pctColor = (pct) => pct >= 85 ? '#1B5E20' : pct >= 70 ? '#4CAF50' : pct >= 50 ? '#8BC34A' : pct >= 30 ? '#FFC107' : '#f44336';
                 const formatWithPct = (val, pct, suffix = '') => `<span style="color:${pctColor(pct)}">${val}${suffix}</span> <span style="opacity:0.6;font-size:10px;">(${pct}%)</span>`;
+                const hiddenStat = '<span style="color:#666;">?</span>';
+
+                const athleticStats = [
+                    { id: 'combine_fortyYard', name: '40-Yard', display: formatWithPct(cs.fortyYard, cs.fortyPct, 's') },
+                    { id: 'combine_verticalJump', name: 'Vertical', display: formatWithPct(cs.verticalJump, cs.vertPct, '"') },
+                    { id: 'combine_threeCone', name: '3-Cone', display: formatWithPct(cs.threeCone, cs.threePct, 's') },
+                    { id: 'combine_shuttle', name: 'Shuttle', display: formatWithPct(cs.shuttle, cs.shuttlePct, 's') },
+                    { id: 'combine_benchPress', name: 'Bench', display: formatWithPct(cs.benchPress, cs.benchPct, ' reps') },
+                    { id: 'combine_broadJump', name: 'Broad', display: formatWithPct(cs.broadFeetInches, cs.broadPct, '') }
+                ];
+
+                const mentalStats = [
+                    { id: 'combine_wonderlic', name: 'Wonderlic', display: formatWithPct(cs.wonderlic, cs.wonderPct, '/50') },
+                    { id: 'combine_filmGrade', name: 'Film Study', display: `<span style="color:#ffd700;">${cs.filmGrade}</span>` },
+                    { id: 'combine_drillGrade', name: 'Pos. Drills', display: `<span style="color:#ffd700;">${cs.drillGrade}</span>` }
+                ];
 
                 statsHtml += `
                     <div class="stats-section">
                         <div class="stats-section-title">Athletic Testing</div>
                         <div class="stats-grid" style="font-size:12px;">
-                            <div class="stat-row"><span class="stat-row-name">40-Yard</span><span class="stat-row-value">${formatWithPct(cs.fortyYard, cs.fortyPct, 's')}</span></div>
-                            <div class="stat-row"><span class="stat-row-name">Vertical</span><span class="stat-row-value">${formatWithPct(cs.verticalJump, cs.vertPct, '"')}</span></div>
-                            <div class="stat-row"><span class="stat-row-name">3-Cone</span><span class="stat-row-value">${formatWithPct(cs.threeCone, cs.threePct, 's')}</span></div>
-                            <div class="stat-row"><span class="stat-row-name">Shuttle</span><span class="stat-row-value">${formatWithPct(cs.shuttle, cs.shuttlePct, 's')}</span></div>
-                            <div class="stat-row"><span class="stat-row-name">Bench</span><span class="stat-row-value">${formatWithPct(cs.benchPress, cs.benchPct, ' reps')}</span></div>
-                            <div class="stat-row"><span class="stat-row-name">Broad</span><span class="stat-row-value">${formatWithPct(cs.broadFeetInches, cs.broadPct, '')}</span></div>
+                            ${athleticStats.map(stat => `<div class="stat-row"><span class="stat-row-name">${stat.name}</span><span class="stat-row-value">${revealedStats.has(stat.id) ? stat.display : hiddenStat}</span></div>`).join('')}
                         </div>
                     </div>
                     <div class="stats-section">
                         <div class="stats-section-title">Mental/Interview</div>
                         <div class="stats-grid" style="font-size:12px;">
-                            <div class="stat-row"><span class="stat-row-name">Wonderlic</span><span class="stat-row-value">${formatWithPct(cs.wonderlic, cs.wonderPct, '/50')}</span></div>
-                            <div class="stat-row"><span class="stat-row-name">Film Study</span><span class="stat-row-value" style="color:#ffd700;">${cs.filmGrade}</span></div>
-                            <div class="stat-row"><span class="stat-row-name">Pos. Drills</span><span class="stat-row-value" style="color:#ffd700;">${cs.drillGrade}</span></div>
+                            ${mentalStats.map(stat => `<div class="stat-row"><span class="stat-row-name">${stat.name}</span><span class="stat-row-value">${revealedStats.has(stat.id) ? stat.display : hiddenStat}</span></div>`).join('')}
                         </div>
                     </div>
                 `;
             }
 
-            // College Stats section (position-specific)
+            // College Stats section (position-specific) - show revealed stats
             if (player.collegeStats) {
                 const cs = player.collegeStats;
-                let collegeHtml = '';
                 // Use same pctColor and formatWithPct helper as combine stats (dark green for elite)
                 const collegePctColor = (pct) => pct >= 85 ? '#1B5E20' : pct >= 70 ? '#4CAF50' : pct >= 50 ? '#8BC34A' : pct >= 30 ? '#FFC107' : '#f44336';
                 const collegeFormatWithPct = (val, pct, suffix = '') => `<span style="color:${collegePctColor(pct)}">${val}${suffix}</span> <span style="opacity:0.6;font-size:10px;">(${pct}%)</span>`;
+                const hiddenCollegeStat = '<span style="color:#666;">?</span>';
 
+                let collegeStats = [];
                 switch (player.position) {
                     case 'QB':
-                        collegeHtml = `
-                            <div class="stat-row"><span class="stat-row-name">Comp %</span><span class="stat-row-value">${collegeFormatWithPct(cs.completionPct, cs.compPctPct, '%')}</span></div>
-                            <div class="stat-row"><span class="stat-row-name">TD:INT</span><span class="stat-row-value">${collegeFormatWithPct(cs.tdIntRatio, cs.tdIntPct, '')}</span></div>
-                            <div class="stat-row"><span class="stat-row-name">Y/A</span><span class="stat-row-value">${collegeFormatWithPct(cs.yardsPerAttempt, cs.ypaPct, '')}</span></div>
-                            <div class="stat-row"><span class="stat-row-name">Sack %</span><span class="stat-row-value">${collegeFormatWithPct(cs.sackPct, cs.sackPctPct, '%')}</span></div>
-                        `;
+                        collegeStats = [
+                            { id: 'college_completionPct', name: 'Comp %', display: collegeFormatWithPct(cs.completionPct, cs.compPctPct, '%') },
+                            { id: 'college_tdIntRatio', name: 'TD:INT', display: collegeFormatWithPct(cs.tdIntRatio, cs.tdIntPct, '') },
+                            { id: 'college_yardsPerAttempt', name: 'Y/A', display: collegeFormatWithPct(cs.yardsPerAttempt, cs.ypaPct, '') },
+                            { id: 'college_sackPct', name: 'Sack %', display: collegeFormatWithPct(cs.sackPct, cs.sackPctPct, '%') }
+                        ];
                         break;
                     case 'WR':
-                        collegeHtml = `
-                            <div class="stat-row"><span class="stat-row-name">Y/Rec</span><span class="stat-row-value">${collegeFormatWithPct(cs.yardsPerCatch, cs.ypcPct, '')}</span></div>
-                            <div class="stat-row"><span class="stat-row-name">Catch %</span><span class="stat-row-value">${collegeFormatWithPct(cs.catchRate, cs.catchRatePct, '%')}</span></div>
-                            <div class="stat-row"><span class="stat-row-name">Contested</span><span class="stat-row-value">${collegeFormatWithPct(cs.contestedCatchPct, cs.contestedPct, '%')}</span></div>
-                            <div class="stat-row"><span class="stat-row-name">YAC</span><span class="stat-row-value">${collegeFormatWithPct(cs.yardsAfterCatch, cs.yacPct, '')}</span></div>
-                            <div class="stat-row"><span class="stat-row-name">Drop %</span><span class="stat-row-value">${collegeFormatWithPct(cs.dropRate, cs.dropRatePct, '%')}</span></div>
-                        `;
+                        collegeStats = [
+                            { id: 'college_yardsPerCatch', name: 'Y/Rec', display: collegeFormatWithPct(cs.yardsPerCatch, cs.ypcPct, '') },
+                            { id: 'college_catchRate', name: 'Catch %', display: collegeFormatWithPct(cs.catchRate, cs.catchRatePct, '%') },
+                            { id: 'college_contestedCatchPct', name: 'Contested', display: collegeFormatWithPct(cs.contestedCatchPct, cs.contestedPct, '%') },
+                            { id: 'college_yardsAfterCatch', name: 'YAC', display: collegeFormatWithPct(cs.yardsAfterCatch, cs.yacPct, '') },
+                            { id: 'college_dropRate', name: 'Drop %', display: collegeFormatWithPct(cs.dropRate, cs.dropRatePct, '%') }
+                        ];
                         break;
                     case 'CB':
-                        collegeHtml = `
-                            <div class="stat-row"><span class="stat-row-name">INTs</span><span class="stat-row-value">${collegeFormatWithPct(cs.interceptions, cs.intsPct, '')}</span></div>
-                            <div class="stat-row"><span class="stat-row-name">PBUs</span><span class="stat-row-value">${collegeFormatWithPct(cs.passBreakups, cs.pbuPct, '')}</span></div>
-                            <div class="stat-row"><span class="stat-row-name">PR Allowed</span><span class="stat-row-value">${collegeFormatWithPct(cs.passerRatingAllowed, cs.prAllowPct, '')}</span></div>
-                            <div class="stat-row"><span class="stat-row-name">Comp% Alw</span><span class="stat-row-value">${collegeFormatWithPct(cs.completionPctAllowed, cs.compAllowPct, '%')}</span></div>
-                            <div class="stat-row"><span class="stat-row-name">Tackles</span><span class="stat-row-value">${collegeFormatWithPct(cs.tackles, cs.tacklesPct, '')}</span></div>
-                        `;
+                        collegeStats = [
+                            { id: 'college_interceptions', name: 'INTs', display: collegeFormatWithPct(cs.interceptions, cs.intsPct, '') },
+                            { id: 'college_passBreakups', name: 'PBUs', display: collegeFormatWithPct(cs.passBreakups, cs.pbuPct, '') },
+                            { id: 'college_passerRatingAllowed', name: 'PR Allowed', display: collegeFormatWithPct(cs.passerRatingAllowed, cs.prAllowPct, '') },
+                            { id: 'college_completionPctAllowed', name: 'Comp% Alw', display: collegeFormatWithPct(cs.completionPctAllowed, cs.compAllowPct, '%') },
+                            { id: 'college_tackles', name: 'Tackles', display: collegeFormatWithPct(cs.tackles, cs.tacklesPct, '') }
+                        ];
                         break;
                     case 'OL':
-                        collegeHtml = `
-                            <div class="stat-row"><span class="stat-row-name">Sacks Alw</span><span class="stat-row-value">${collegeFormatWithPct(cs.sacksAllowed, cs.sacksAllowPct, '')}</span></div>
-                            <div class="stat-row"><span class="stat-row-name">Press Alw</span><span class="stat-row-value">${collegeFormatWithPct(cs.pressuresAllowed, cs.pressAllowPct, '')}</span></div>
-                            <div class="stat-row"><span class="stat-row-name">Pancakes</span><span class="stat-row-value">${collegeFormatWithPct(cs.pancakeBlocks, cs.pancakesPct, '')}</span></div>
-                            <div class="stat-row"><span class="stat-row-name">Penalties</span><span class="stat-row-value">${collegeFormatWithPct(cs.penalties, cs.penaltiesPct, '')}</span></div>
-                            <div class="stat-row"><span class="stat-row-name">Run Block</span><span class="stat-row-value" style="color:#ffd700;">${cs.runBlockGrade}</span></div>
-                        `;
+                        collegeStats = [
+                            { id: 'college_sacksAllowed', name: 'Sacks Alw', display: collegeFormatWithPct(cs.sacksAllowed, cs.sacksAllowPct, '') },
+                            { id: 'college_pressuresAllowed', name: 'Press Alw', display: collegeFormatWithPct(cs.pressuresAllowed, cs.pressAllowPct, '') },
+                            { id: 'college_pancakeBlocks', name: 'Pancakes', display: collegeFormatWithPct(cs.pancakeBlocks, cs.pancakesPct, '') },
+                            { id: 'college_penalties', name: 'Penalties', display: collegeFormatWithPct(cs.penalties, cs.penaltiesPct, '') },
+                            { id: 'college_runBlockGrade', name: 'Run Block', display: `<span style="color:#ffd700;">${cs.runBlockGrade}</span>` }
+                        ];
                         break;
                     case 'DL':
-                        collegeHtml = `
-                            <div class="stat-row"><span class="stat-row-name">Sacks</span><span class="stat-row-value">${collegeFormatWithPct(cs.sacks, cs.sacksPct, '')}</span></div>
-                            <div class="stat-row"><span class="stat-row-name">TFLs</span><span class="stat-row-value">${collegeFormatWithPct(cs.tacklesForLoss, cs.tflPct, '')}</span></div>
-                            <div class="stat-row"><span class="stat-row-name">Hurries</span><span class="stat-row-value">${collegeFormatWithPct(cs.qbHurries, cs.hurriesPct, '')}</span></div>
-                            <div class="stat-row"><span class="stat-row-name">Run Stops</span><span class="stat-row-value">${collegeFormatWithPct(cs.runStops, cs.runStopsPct, '')}</span></div>
-                            <div class="stat-row"><span class="stat-row-name">FF</span><span class="stat-row-value">${collegeFormatWithPct(cs.forcedFumbles, cs.ffPct, '')}</span></div>
-                        `;
+                        collegeStats = [
+                            { id: 'college_sacks', name: 'Sacks', display: collegeFormatWithPct(cs.sacks, cs.sacksPct, '') },
+                            { id: 'college_tacklesForLoss', name: 'TFLs', display: collegeFormatWithPct(cs.tacklesForLoss, cs.tflPct, '') },
+                            { id: 'college_qbHurries', name: 'Hurries', display: collegeFormatWithPct(cs.qbHurries, cs.hurriesPct, '') },
+                            { id: 'college_runStops', name: 'Run Stops', display: collegeFormatWithPct(cs.runStops, cs.runStopsPct, '') },
+                            { id: 'college_forcedFumbles', name: 'FF', display: collegeFormatWithPct(cs.forcedFumbles, cs.ffPct, '') }
+                        ];
                         break;
                 }
 
-                if (collegeHtml) {
+                if (collegeStats.length > 0) {
                     statsHtml += `
                         <div class="stats-section">
                             <div class="stats-section-title">College Stats</div>
                             <div class="stats-grid" style="font-size:12px;">
-                                ${collegeHtml}
+                                ${collegeStats.map(stat => `<div class="stat-row"><span class="stat-row-name">${stat.name}</span><span class="stat-row-value">${revealedStats.has(stat.id) ? stat.display : hiddenCollegeStat}</span></div>`).join('')}
                             </div>
                         </div>
                     `;
@@ -6733,7 +6946,6 @@
 
             // Debug section - shows actual stats (toggle with button)
             const debugId = `debug_${playerId.replace(/-/g, '')}`;
-            const actualGrade = ratingToGrade(player.overall);
             const scoutedGradeInfo = getScoutedListGrade(player);
 
             // Build debug stats HTML
@@ -6927,6 +7139,7 @@
             const onClockEl = document.getElementById('draftOnClock');
             const roundPickEl = document.getElementById('draftRoundPick');
             const pointsEl = document.getElementById('draftPoints');
+            const scoutAttemptsEl = document.getElementById('draftScoutAttempts');
             const teamNameEl = document.getElementById('draftTeamName');
             const statusEl = document.getElementById('draftStatus');
             const poolListEl = document.getElementById('draftPlayerList');
@@ -7026,6 +7239,9 @@
 
             // Update round/pick info
             roundPickEl.textContent = `Round ${draftState.round} • Pick ${draftState.currentPickNumber}`;
+            if (scoutAttemptsEl) {
+                scoutAttemptsEl.textContent = `${draftState.scoutAttempts} scouts`;
+            }
             pointsEl.textContent = `${draftPoints} pts`;
 
             // Update on-the-clock section
@@ -7113,7 +7329,7 @@
 
                 // Get scouted grade (may be inaccurate) or exact grade if fully scouted
                 let displayGrade, gradeColor;
-                if (scoutLevel >= 3) {
+                if (scoutLevel >= SCOUTING.MAX_LEVEL) {
                     // Fully scouted - show actual grade
                     displayGrade = ratingToGrade(player.overall);
                     gradeColor = getGradeColor(displayGrade);
@@ -7124,14 +7340,31 @@
                     gradeColor = getGradeColor(displayGrade);
                 }
 
-                // Show scout indicator if player has been scouted
-                const scoutIndicator = scoutLevel > 0 ? `<span style="color:#4CAF50;font-size:10px;margin-left:4px;">` + '●'.repeat(scoutLevel) + `</span>` : '';
+                // Show scout indicator: filled dots for scout level, empty for remaining
+                const filledDots = '●'.repeat(scoutLevel);
+                const emptyDots = '○'.repeat(SCOUTING.MAX_LEVEL - scoutLevel);
+                const scoutIndicator = `<span style="color:#4CAF50;font-size:8px;margin-left:4px;">${filledDots}</span><span style="color:#666;font-size:8px;">${emptyDots}</span>`;
+
+                // Show interest indicator and background color
+                const interestLevel = draftState.playerInterest[player.id] || 0;
+                const interest = getInterestDisplay(player.id);
+                const interestIndicator = interestLevel
+                    ? `<span style="color:${interest.color};font-size:10px;margin-left:4px;">${interest.icon}</span>`
+                    : '';
+
+                // Background colors for interest levels
+                let bgColor = 'transparent';
+                if (interestLevel === -1) bgColor = 'rgba(244, 67, 54, 0.15)';  // Red tint for not interested
+                else if (interestLevel === 1) bgColor = 'rgba(76, 175, 80, 0.1)';  // Light green
+                else if (interestLevel === 2) bgColor = 'rgba(76, 175, 80, 0.18)';  // Medium green
+                else if (interestLevel === 3) bgColor = 'rgba(76, 175, 80, 0.28)';  // Stronger green
 
                 const item = document.createElement('div');
                 item.className = 'roster-item';
+                item.style.backgroundColor = bgColor;
                 item.innerHTML = `
                     <div style="flex:1;">
-                        <div class="name">${player.firstName} ${player.lastName}${scoutIndicator}</div>
+                        <div class="name">${player.firstName} ${player.lastName}${interestIndicator}${scoutIndicator}</div>
                         <div class="stats">${POSITIONS[player.position].name}</div>
                     </div>
                     <div style="display:flex;align-items:center;gap:8px;">
@@ -14371,6 +14604,8 @@
                         break;
                     case 'hub':
                         document.getElementById('hubScreen').style.display = 'block';
+                        // Show/hide Return to Draft button based on active draft
+                        document.getElementById('btnReturnToDraft').style.display = draftState.active ? 'block' : 'none';
                         refreshHubScreen();
                         break;
                     case 'roster':
@@ -18891,6 +19126,12 @@
                 applyReceiverAgilityPreset();
             });
         });
+        document.getElementById('btnReturnToDraft').addEventListener('click', () => {
+            if (draftState.active) {
+                showScreen('draft');
+                refreshDraftScreen();
+            }
+        });
         document.getElementById('btnPlayGame').addEventListener('click', () => {
             if (!managementState.season || managementState.season.week > SEASON.WEEKS) return;
             const game = managementState.season.schedule[managementState.season.week - 1];
@@ -19054,6 +19295,14 @@
                     refreshDraftScreen();
                 }, 1000);
             }
+        });
+
+        // Draft to hub button - go to team management while keeping draft active
+        document.getElementById('btnDraftToHub').addEventListener('click', () => {
+            document.getElementById('draftMenuDropdown').style.display = 'none';
+            // Save the game state (draft will be preserved)
+            if (managementState.settings.autoSave) SaveSystem.save();
+            showScreen('hub');
         });
 
         // Draft back button - return to main menu
