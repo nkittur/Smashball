@@ -812,6 +812,7 @@
             <div class="hub-status" id="hubStatus">Fame: 1,000 | Week 1</div>
             <h2>TEAM HUB</h2>
             <div class="hub-buttons">
+                <button id="btnReturnToDraft" class="mgmt-btn" style="display:none; background: #4a3a00; border: 1px solid #ffd700;">↩ RETURN TO DRAFT</button>
                 <button id="btnPlayGame" class="mgmt-btn primary">PLAY GAME</button>
                 <button id="btnRoster" class="mgmt-btn">ROSTER</button>
                 <button id="btnFreeAgency" class="mgmt-btn">FREE AGENCY</button>
@@ -981,8 +982,9 @@
                 <div class="draft-menu-container">
                     <button id="btnDraftMenu" class="draft-menu-btn">⋮</button>
                     <div id="draftMenuDropdown" class="draft-menu-dropdown" style="display:none;">
+                        <button id="btnDraftToHub" class="draft-menu-item">🏠 Team Management</button>
                         <button id="btnDraftOptions" class="draft-menu-item">⚙ Settings</button>
-                        <button id="btnDraftBack" class="draft-menu-item">← Exit Draft</button>
+                        <button id="btnDraftBack" class="draft-menu-item">← Exit to Menu</button>
                     </div>
                 </div>
             </div>
@@ -14602,6 +14604,8 @@
                         break;
                     case 'hub':
                         document.getElementById('hubScreen').style.display = 'block';
+                        // Show/hide Return to Draft button based on active draft
+                        document.getElementById('btnReturnToDraft').style.display = draftState.active ? 'block' : 'none';
                         refreshHubScreen();
                         break;
                     case 'roster':
@@ -19122,6 +19126,12 @@
                 applyReceiverAgilityPreset();
             });
         });
+        document.getElementById('btnReturnToDraft').addEventListener('click', () => {
+            if (draftState.active) {
+                showScreen('draft');
+                refreshDraftScreen();
+            }
+        });
         document.getElementById('btnPlayGame').addEventListener('click', () => {
             if (!managementState.season || managementState.season.week > SEASON.WEEKS) return;
             const game = managementState.season.schedule[managementState.season.week - 1];
@@ -19285,6 +19295,14 @@
                     refreshDraftScreen();
                 }, 1000);
             }
+        });
+
+        // Draft to hub button - go to team management while keeping draft active
+        document.getElementById('btnDraftToHub').addEventListener('click', () => {
+            document.getElementById('draftMenuDropdown').style.display = 'none';
+            // Save the game state (draft will be preserved)
+            if (managementState.settings.autoSave) SaveSystem.save();
+            showScreen('hub');
         });
 
         // Draft back button - return to main menu
