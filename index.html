@@ -989,9 +989,6 @@
                 </div>
             </div>
 
-            <!-- Computer Pick Reasoning -->
-            <div id="draftPickReasoning" class="draft-pick-reasoning" style="display:none;"></div>
-
             <!-- On The Clock Section -->
             <div id="draftOnClock" class="draft-on-clock computer">
                 <div class="clock-row">
@@ -1004,6 +1001,7 @@
                     <button id="btnAcquirePick" class="trade-for-btn" style="display:none;">TRADE <span class="trade-cost">0/0</span></button>
                     <button id="btnTradeInPick" class="trade-in-btn" style="display:none;">TRADE PICK <span class="trade-value">+0 pts</span></button>
                 </div>
+                <div id="draftTeamTendencies" class="team-tendencies" style="display:none;"></div>
             </div>
 
             <!-- Toggle Buttons -->
@@ -1369,6 +1367,40 @@
         }
         .draft-on-clock.computer #draftTeamName { color: #aaa; }
         .draft-on-clock.player #draftTeamName { color: #4f4; }
+        .team-tendencies {
+            margin-top: 6px;
+            padding-top: 6px;
+            border-top: 1px solid #333;
+            font-size: 10px;
+            color: #888;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .team-tendencies .tendency {
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            background: rgba(255,255,255,0.05);
+            padding: 2px 6px;
+            border-radius: 3px;
+        }
+        .team-tendencies .tendency.need {
+            background: rgba(255,200,0,0.15);
+            color: #ffd700;
+        }
+        .team-tendencies .tendency.bias {
+            background: rgba(100,150,255,0.15);
+            color: #8af;
+        }
+        .team-tendencies .tendency.stat {
+            background: rgba(100,255,150,0.15);
+            color: #8fa;
+        }
+        .team-tendencies .tendency.scout {
+            background: rgba(255,100,100,0.1);
+            color: #f88;
+        }
         .trade-for-btn, .trade-in-btn {
             padding: 6px 12px;
             border-radius: 4px;
@@ -5015,7 +5047,8 @@
             scoutLevels: {},  // Track scouting level per player: { playerId: 0-5 }
             revealedStats: {},  // Track which stats are revealed per player: { playerId: ['stat1', 'stat2', ...] }
             scoutAttempts: 20,  // Remaining scout attempts for this draft (initialized here, reset uses SCOUTING.ATTEMPTS_PER_DRAFT)
-            playerInterest: {}  // Track interest in players: { playerId: -1 (not interested) | 1-3 (interested levels) }
+            playerInterest: {},  // Track interest in players: { playerId: -1 (not interested) | 1-3 (interested levels) }
+            pickInfo: {}  // Store pick info for each drafted player: { playerId: { teamName, teamIndex, pickNumber, reasoning } }
         };
 
         // Scouting constants - progressive stat reveal system
@@ -6013,30 +6046,171 @@
             }
         };
 
-        // Assign random strategies to computer teams at draft start
+        // Team scouting tendencies - affects how they evaluate players
+        const SCOUTING_TENDENCIES = {
+            // Position biases - teams that overvalue certain positions
+            positionBias: {
+                qbHungry: { position: 'QB', multiplier: 1.35, icon: '🎯', name: 'QB-hungry' },
+                wantsPlaymakers: { position: 'WR', multiplier: 1.25, icon: '⚡', name: 'Wants playmakers' },
+                lockdownD: { position: 'CB', multiplier: 1.25, icon: '🔒', name: 'Lockdown D' },
+                trenchWarfare: { position: 'OL', multiplier: 1.3, icon: '🏔️', name: 'Trench warfare' },
+                passRushFocus: { position: 'DL', multiplier: 1.3, icon: '💨', name: 'Pass rush focus' },
+                none: { position: null, multiplier: 1.0, icon: '', name: '' }
+            },
+            // Stat preferences - what attributes they value most
+            statPreference: {
+                athleticism: { stats: ['speed', 'agility'], multiplier: 1.2, icon: '🏃', name: 'Values athleticism' },
+                power: { stats: ['strength'], multiplier: 1.2, icon: '💪', name: 'Values power' },
+                smarts: { stats: ['intelligence'], multiplier: 1.25, icon: '🧠', name: 'Values smarts' },
+                combineWarrior: { stats: ['speed', 'strength', 'agility'], multiplier: 1.15, icon: '📊', name: 'Combine warrior' },
+                none: { stats: [], multiplier: 1.0, icon: '', name: '' }
+            },
+            // Scouting accuracy - how well they evaluate true talent
+            scoutingAccuracy: {
+                elite: { errorRange: 3, icon: '🔬', name: 'Elite scouts' },
+                good: { errorRange: 6, icon: '👁️', name: 'Good scouts' },
+                average: { errorRange: 10, icon: '📋', name: 'Average scouts' },
+                poor: { errorRange: 15, icon: '🎲', name: 'Poor scouts' }
+            }
+        };
+
+        // Assign random strategies AND tendencies to computer teams at draft start
         function assignTeamStrategies() {
             const strategies = {};
-            const strategyTypes = ['contender', 'balanced', 'rebuilder'];
 
             for (let i = 0; i < DRAFT.NUM_TEAMS - 1; i++) {
                 // Weighted distribution: 30% contender, 40% balanced, 30% rebuilder
                 const roll = Math.random();
+                let strategy;
                 if (roll < 0.3) {
-                    strategies[i] = 'contender';
+                    strategy = 'contender';
                 } else if (roll < 0.7) {
-                    strategies[i] = 'balanced';
+                    strategy = 'balanced';
                 } else {
-                    strategies[i] = 'rebuilder';
+                    strategy = 'rebuilder';
                 }
+
+                // Assign position bias (60% have one, 40% don't)
+                const positionBiases = ['qbHungry', 'wantsPlaymakers', 'lockdownD', 'trenchWarfare', 'passRushFocus'];
+                const positionBias = Math.random() < 0.6
+                    ? positionBiases[Math.floor(Math.random() * positionBiases.length)]
+                    : 'none';
+
+                // Assign stat preference (50% have one, 50% don't)
+                const statPrefs = ['athleticism', 'power', 'smarts', 'combineWarrior'];
+                const statPreference = Math.random() < 0.5
+                    ? statPrefs[Math.floor(Math.random() * statPrefs.length)]
+                    : 'none';
+
+                // Assign scouting accuracy (weighted: 15% elite, 35% good, 35% average, 15% poor)
+                const accRoll = Math.random();
+                let scoutingAccuracy;
+                if (accRoll < 0.15) scoutingAccuracy = 'elite';
+                else if (accRoll < 0.50) scoutingAccuracy = 'good';
+                else if (accRoll < 0.85) scoutingAccuracy = 'average';
+                else scoutingAccuracy = 'poor';
+
+                strategies[i] = {
+                    strategy,
+                    positionBias,
+                    statPreference,
+                    scoutingAccuracy
+                };
             }
 
             return strategies;
         }
 
-        // Calculate player value for draft selection
-        // Weighs overall rating, growth potential, and positional need
-        // Strategy affects the balance between overall and growth
-        function calculateDraftValue(player, teamRoster, strategy = 'balanced') {
+        // Get perceived player rating for a team based on their scouting accuracy
+        // Uses player ID + team index for deterministic but varied perception
+        function getPerceivedRating(player, teamIndex, statName = 'overall') {
+            const tendencies = draftState.computerTeamStrategies[teamIndex];
+            if (!tendencies) return player.overall;
+
+            const accuracy = SCOUTING_TENDENCIES.scoutingAccuracy[tendencies.scoutingAccuracy];
+            const errorRange = accuracy.errorRange;
+
+            // Deterministic "error" based on player ID + team index + stat name
+            let hash = 0;
+            const seed = player.id + teamIndex + statName;
+            for (let i = 0; i < seed.length; i++) {
+                hash = ((hash << 5) - hash) + seed.charCodeAt(i);
+                hash = hash & hash;
+            }
+
+            // Convert hash to error in range [-errorRange, +errorRange]
+            const normalizedHash = (Math.abs(hash) % 200) / 100 - 1; // -1 to 1
+            const error = Math.round(normalizedHash * errorRange);
+
+            // Get base value
+            let baseValue;
+            if (statName === 'overall') {
+                baseValue = player.overall;
+            } else if (player.coreAttributes && player.coreAttributes[statName] !== undefined) {
+                baseValue = player.coreAttributes[statName];
+            } else if (player.stats && player.stats[statName] !== undefined) {
+                baseValue = player.stats[statName];
+            } else {
+                baseValue = player.overall;
+            }
+
+            return Math.max(30, Math.min(99, baseValue + error));
+        }
+
+        // Calculate player value for draft selection with team tendencies
+        function calculateDraftValue(player, teamRoster, teamIndex) {
+            const tendencies = draftState.computerTeamStrategies[teamIndex];
+            if (!tendencies) {
+                // Fallback for player or missing tendencies
+                return calculateBasicDraftValue(player, teamRoster, 'balanced');
+            }
+
+            const strat = DRAFT_STRATEGIES[tendencies.strategy] || DRAFT_STRATEGIES.balanced;
+            const posBias = SCOUTING_TENDENCIES.positionBias[tendencies.positionBias];
+            const statPref = SCOUTING_TENDENCIES.statPreference[tendencies.statPreference];
+
+            // Use perceived overall rating (with scouting error)
+            const perceivedOverall = getPerceivedRating(player, teamIndex, 'overall');
+            let value = perceivedOverall * strat.overallWeight;
+
+            // Growth potential bonus
+            const ageBonus = Math.max(0, (24 - player.age) * 2);
+            const potentialBonus = player.potentialGrade * 4;
+            value += (ageBonus + potentialBonus) * strat.growthWeight;
+
+            // Position bias multiplier
+            if (posBias.position === player.position) {
+                value *= posBias.multiplier;
+            }
+
+            // Stat preference bonus
+            if (statPref.stats.length > 0 && player.coreAttributes) {
+                let statBonus = 0;
+                statPref.stats.forEach(stat => {
+                    const perceivedStat = getPerceivedRating(player, teamIndex, stat);
+                    if (perceivedStat >= 75) {
+                        statBonus += (perceivedStat - 70) * 0.15; // Bonus for high stats they value
+                    }
+                });
+                value += statBonus * statPref.multiplier;
+            }
+
+            // Positional need multiplier
+            const needs = calculatePositionalNeeds(teamRoster);
+            const posNeed = needs.find(n => n.position === player.position);
+
+            if (posNeed) {
+                const needMultiplier = 1 + (posNeed.urgency * 0.1);
+                value *= Math.min(1.5, needMultiplier);
+            } else {
+                value *= 0.5;
+            }
+
+            return value;
+        }
+
+        // Basic draft value calculation (for player or fallback)
+        function calculateBasicDraftValue(player, teamRoster, strategy = 'balanced') {
             const strat = DRAFT_STRATEGIES[strategy] || DRAFT_STRATEGIES.balanced;
 
             // Base value from overall (0-100 scale), weighted by strategy
@@ -6065,25 +6239,30 @@
         }
 
         // Smart computer team selection - returns { player, reasoning }
-        function selectBestPlayerForTeam(available, teamRoster, strategy = 'balanced') {
+        function selectBestPlayerForTeam(available, teamRoster, teamIndex) {
             if (available.length === 0) return { player: null, reasoning: '' };
 
+            const tendencies = draftState.computerTeamStrategies[teamIndex];
+            const strategy = tendencies ? tendencies.strategy : 'balanced';
             const strat = DRAFT_STRATEGIES[strategy] || DRAFT_STRATEGIES.balanced;
             const needs = calculatePositionalNeeds(teamRoster);
 
             // Score all available players with detailed breakdown
             const scored = available.map(player => {
                 const posNeed = needs.find(n => n.position === player.position);
+                const perceivedOverall = tendencies ? getPerceivedRating(player, teamIndex, 'overall') : player.overall;
                 const ageBonus = Math.max(0, (24 - player.age) * 2);
                 const potentialBonus = player.potentialGrade * 4;
                 const growthValue = (ageBonus + potentialBonus) * strat.growthWeight;
-                const baseValue = player.overall * strat.overallWeight;
+                const baseValue = perceivedOverall * strat.overallWeight;
                 const needMultiplier = posNeed ? Math.min(1.5, 1 + (posNeed.urgency * 0.1)) : 0.5;
                 const fillsNeed = posNeed && posNeed.urgency >= 3;
 
                 return {
                     player,
-                    value: calculateDraftValue(player, teamRoster, strategy),
+                    value: calculateDraftValue(player, teamRoster, teamIndex),
+                    perceivedOverall,
+                    actualOverall: player.overall,
                     fillsNeed,
                     needUrgency: posNeed ? posNeed.urgency : 0,
                     baseValue: Math.round(baseValue),
@@ -6127,6 +6306,13 @@
                 parts.push('BPA');
             } else {
                 parts.push(`#${rank} on board`);
+            }
+
+            // Perceived vs actual (if different)
+            if (sc.perceivedOverall !== sc.actualOverall) {
+                const diff = sc.perceivedOverall - sc.actualOverall;
+                const sign = diff > 0 ? '+' : '';
+                parts.push(`Saw as ${sc.perceivedOverall} (${sign}${diff})`);
             }
 
             // Value breakdown
@@ -6363,13 +6549,12 @@
                 return;
             }
 
-            // Get the current team's roster and strategy for smart selection
+            // Get the current team's roster for smart selection
             const teamIndex = (draftState.currentPickNumber - 1) % (DRAFT.NUM_TEAMS - 1);
             const teamRoster = draftState.computerTeamRosters[teamIndex] || [];
-            const teamStrategy = draftState.computerTeamStrategies[teamIndex] || 'balanced';
 
-            // Smart selection based on overall, growth potential, positional need, and team strategy
-            const { player: picked, reasoning } = selectBestPlayerForTeam(available, teamRoster, teamStrategy);
+            // Smart selection based on overall, growth potential, positional need, and team tendencies
+            const { player: picked, reasoning } = selectBestPlayerForTeam(available, teamRoster, teamIndex);
 
             if (picked) {
                 draftState.draftedPlayers.push(picked.id);
@@ -6379,6 +6564,16 @@
                     draftState.computerTeamRosters[teamIndex] = [];
                 }
                 draftState.computerTeamRosters[teamIndex].push(picked);
+
+                // Store pick info for this player (for player detail view)
+                const tendencies = draftState.computerTeamStrategies[teamIndex];
+                draftState.pickInfo[picked.id] = {
+                    teamName: COMPUTER_TEAM_NAMES[teamIndex],
+                    teamIndex: teamIndex,
+                    pickNumber: draftState.currentPickNumber,
+                    reasoning: reasoning,
+                    tendencies: tendencies
+                };
 
                 // Store the pick for display
                 draftState.lastComputerPick = {
@@ -6401,13 +6596,12 @@
             let available = getAvailableDraftPlayers();
 
             while (!isPlayersTurnNow() && available.length > 0) {
-                // Get the current team's roster and strategy for smart selection
+                // Get the current team's roster for smart selection
                 const teamIndex = (draftState.currentPickNumber - 1) % (DRAFT.NUM_TEAMS - 1);
                 const teamRoster = draftState.computerTeamRosters[teamIndex] || [];
-                const teamStrategy = draftState.computerTeamStrategies[teamIndex] || 'balanced';
 
-                // Smart selection based on overall, growth potential, positional need, and team strategy
-                const { player: picked } = selectBestPlayerForTeam(available, teamRoster, teamStrategy);
+                // Smart selection based on tendencies
+                const { player: picked, reasoning } = selectBestPlayerForTeam(available, teamRoster, teamIndex);
 
                 if (picked) {
                     draftState.draftedPlayers.push(picked.id);
@@ -6417,6 +6611,16 @@
                         draftState.computerTeamRosters[teamIndex] = [];
                     }
                     draftState.computerTeamRosters[teamIndex].push(picked);
+
+                    // Store pick info for this player
+                    const tendencies = draftState.computerTeamStrategies[teamIndex];
+                    draftState.pickInfo[picked.id] = {
+                        teamName: COMPUTER_TEAM_NAMES[teamIndex],
+                        teamIndex: teamIndex,
+                        pickNumber: draftState.currentPickNumber,
+                        reasoning: reasoning,
+                        tendencies: tendencies
+                    };
 
                     draftState.currentPickNumber++;
 
@@ -6706,6 +6910,53 @@
             const gradeDisplay = scoutLevel >= SCOUTING.MAX_LEVEL ? actualGrade : '?';
             const overallDisplay = scoutLevel >= SCOUTING.MAX_LEVEL ? `${actualGrade} (${player.overall})` : '?';
 
+            // Build pick info HTML for drafted players
+            let pickInfoHtml = '';
+            if (isDrafted && draftState.pickInfo[playerId]) {
+                const info = draftState.pickInfo[playerId];
+                const tendencies = info.tendencies;
+
+                // Build tendencies display
+                let tendenciesHtml = '';
+                if (tendencies) {
+                    const parts = [];
+
+                    // Position bias
+                    if (tendencies.positionBias && tendencies.positionBias !== 'none') {
+                        const bias = SCOUTING_TENDENCIES.positionBias[tendencies.positionBias];
+                        if (bias && bias.icon) parts.push(`<span style="color:#8af;">${bias.icon} ${bias.name}</span>`);
+                    }
+
+                    // Stat preference
+                    if (tendencies.statPreference && tendencies.statPreference !== 'none') {
+                        const pref = SCOUTING_TENDENCIES.statPreference[tendencies.statPreference];
+                        if (pref && pref.icon) parts.push(`<span style="color:#8fa;">${pref.icon} ${pref.name}</span>`);
+                    }
+
+                    // Scouting accuracy
+                    if (tendencies.scoutingAccuracy) {
+                        const acc = SCOUTING_TENDENCIES.scoutingAccuracy[tendencies.scoutingAccuracy];
+                        if (acc && acc.icon) parts.push(`<span style="color:#f88;">${acc.icon} ${acc.name}</span>`);
+                    }
+
+                    if (parts.length > 0) {
+                        tendenciesHtml = `<div style="margin-top:6px;font-size:10px;display:flex;flex-wrap:wrap;gap:8px;justify-content:center;">${parts.join('')}</div>`;
+                    }
+                }
+
+                pickInfoHtml = `
+                    <div style="margin-top:12px;padding:10px;background:rgba(100,150,255,0.1);border-radius:6px;border:1px solid rgba(100,150,255,0.3);">
+                        <div style="font-size:12px;color:#8af;font-weight:bold;">
+                            Pick #${info.pickNumber} by ${info.teamName}
+                        </div>
+                        ${tendenciesHtml}
+                        <div style="margin-top:8px;font-size:11px;color:#aaa;font-style:italic;">
+                            "${info.reasoning}"
+                        </div>
+                    </div>
+                `;
+            }
+
             // Player info - draft version showing rookie contract salary
             const infoHtml = `
                 <div style="display:flex;align-items:center;justify-content:center;gap:12px;">
@@ -6715,9 +6966,10 @@
                     ${POSITIONS[player.position].name} | Age ${player.age}<br>
                     Rookie Contract: $${rookieSalary}M/yr | Growth: <span style="color:#ffd700;">${growthInfo.display}</span>
                 </div>
-                <div style="margin-top:10px;display:flex;align-items:center;justify-content:center;">
+                ${isDrafted ? '' : `<div style="margin-top:10px;display:flex;align-items:center;justify-content:center;">
                     ${scoutBtnHtml}${interestBtnHtml}
-                </div>
+                </div>`}
+                ${pickInfoHtml}
             `;
             document.getElementById('playerInfo').innerHTML = infoHtml;
 
@@ -7220,21 +7472,11 @@
                 lastPickEl.onclick = () => showDraftPlayerDetail(player.id);
                 lastPickEl.style.cursor = 'pointer';
 
-                // Show reasoning if enabled
-                const reasoningEl = document.getElementById('draftPickReasoning');
-                const showReasoning = managementState.settings.showPickReasoning !== false;
-                if (showReasoning && pick.reasoning) {
-                    reasoningEl.innerHTML = `<span class="reason-label">Why:</span> ${pick.reasoning}`;
-                    reasoningEl.style.display = 'block';
-                } else {
-                    reasoningEl.style.display = 'none';
-                }
             } else {
                 lastPickLine1El.textContent = 'Draft in progress...';
                 lastPickLine2El.textContent = '';
                 lastPickEl.onclick = null;
                 lastPickEl.style.cursor = 'default';
-                document.getElementById('draftPickReasoning').style.display = 'none';
             }
 
             // Update round/pick info
@@ -7245,27 +7487,61 @@
             pointsEl.textContent = `${draftPoints} pts`;
 
             // Update on-the-clock section
+            const tendenciesEl = document.getElementById('draftTeamTendencies');
             if (draftState.usingExtraPick) {
                 onClockEl.className = 'draft-on-clock player';
                 teamNameEl.innerHTML = 'YOUR PICK';
                 navButtonsEl.style.display = 'none';
+                if (tendenciesEl) tendenciesEl.style.display = 'none';
             } else if (draftState.isPlayersTurn || !isComputerTurn) {
                 if (!draftState.isPlayersTurn) draftState.isPlayersTurn = true;
                 onClockEl.className = 'draft-on-clock player';
                 teamNameEl.innerHTML = 'YOUR TURN';
                 navButtonsEl.style.display = 'none';
+                if (tendenciesEl) tendenciesEl.style.display = 'none';
             } else {
                 onClockEl.className = 'draft-on-clock computer';
-                // Show actual team name on the clock with strategy icon and positional needs
+                // Show actual team name on the clock with strategy icon
                 const teamIndex = (draftState.currentPickNumber - 1) % (DRAFT.NUM_TEAMS - 1);
                 const teamRoster = draftState.computerTeamRosters[teamIndex] || [];
-                const teamStrategy = draftState.computerTeamStrategies[teamIndex] || 'balanced';
-                const strategyIcon = DRAFT_STRATEGIES[teamStrategy]?.icon || '';
-                const needsDisplay = getPositionalNeedsDisplay(teamRoster, 2);
+                const teamTendencies = draftState.computerTeamStrategies[teamIndex];
+                const strategy = teamTendencies?.strategy || 'balanced';
+                const strategyIcon = DRAFT_STRATEGIES[strategy]?.icon || '';
                 const teamName = COMPUTER_TEAM_NAMES[teamIndex] || 'Team';
-                teamNameEl.innerHTML = `${strategyIcon} ${teamName}` +
-                    (needsDisplay ? ` <span style="font-size:12px;font-style:italic;opacity:0.8;">(${needsDisplay})</span>` : '');
+                teamNameEl.innerHTML = `${strategyIcon} ${teamName}`;
                 navButtonsEl.style.display = 'flex';
+
+                // Show team tendencies
+                if (tendenciesEl && teamTendencies) {
+                    const tendencyParts = [];
+
+                    // Positional needs
+                    const needsDisplay = getPositionalNeedsDisplay(teamRoster, 3);
+                    if (needsDisplay) {
+                        tendencyParts.push(`<span class="tendency need">📋 Needs: ${needsDisplay}</span>`);
+                    }
+
+                    // Position bias
+                    const posBias = SCOUTING_TENDENCIES.positionBias[teamTendencies.positionBias];
+                    if (posBias && posBias.name) {
+                        tendencyParts.push(`<span class="tendency bias">${posBias.icon} ${posBias.name}</span>`);
+                    }
+
+                    // Stat preference
+                    const statPref = SCOUTING_TENDENCIES.statPreference[teamTendencies.statPreference];
+                    if (statPref && statPref.name) {
+                        tendencyParts.push(`<span class="tendency stat">${statPref.icon} ${statPref.name}</span>`);
+                    }
+
+                    // Scouting accuracy
+                    const scoutAcc = SCOUTING_TENDENCIES.scoutingAccuracy[teamTendencies.scoutingAccuracy];
+                    if (scoutAcc) {
+                        tendencyParts.push(`<span class="tendency scout">${scoutAcc.icon} ${scoutAcc.name}</span>`);
+                    }
+
+                    tendenciesEl.innerHTML = tendencyParts.join('');
+                    tendenciesEl.style.display = tendencyParts.length > 0 ? 'flex' : 'none';
+                }
             }
 
             // Update trade buttons
